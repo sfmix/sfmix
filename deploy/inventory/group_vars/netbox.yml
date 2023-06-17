@@ -1,0 +1,25 @@
+---
+netbox_stable: true
+netbox_stable_version: 3.4.10
+netbox_database_socket: "{{ postgresql_unix_socket_directories[0] }}"
+netbox_database_conn_age: 300
+netbox_superuser_enabled: true
+netbox_superuser_username: admin
+netbox_superuser_password: "{{ ixp_netbox_superuser_password }}"
+netbox_socket: "127.0.0.1:8000"
+netbox_config:
+  ALLOWED_HOSTS:
+    - "{{ ixp_netbox_domain }}"
+    - 127.0.0.1
+    - localhost
+  MEDIA_ROOT: "{{ netbox_shared_path }}/media"
+  REPORTS_ROOT: "{{ netbox_shared_path }}/reports"
+  SCRIPTS_ROOT: "{{ netbox_shared_path }}/scripts"
+netbox_database_user: netbox
+postgresql_users:
+  - name: "{{ netbox_database_user }}"
+    role_attr_flags: CREATEDB,NOSUPERUSER
+postgres_users_no_log: false
+redis_bind: 127.0.0.1
+redis_version: 6.0.9
+redis_checksum: sha256:dc2bdcf81c620e9f09cfd12e85d3bc631c897b2db7a55218fd8a65eaa37f86dd

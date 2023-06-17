@@ -1,0 +1,26 @@
+---
+- hosts: peering_switch
+  gather_facts: false
+  vars:
+    config_parts_dir: "{{ (playbook_dir ~ '/../configs/' ~ inventory_hostname) | realpath }}"
+  tasks:
+    - name: "Push: General"
+      arista.eos.eos_config:
+        src: "{{ config_parts_dir }}/general.eos_config.txt"
+    - name: "Push: Interfaces"
+      arista.eos.eos_config:
+        before: "default interface {{ item.name }}"
+        # What's going on here!?
+        # This reads the locally-built config file for each interface
+        # (in `item`), splits it into newlines, and removes any empty lines
+        lines: "{{ lookup('file', (config_parts_dir ~ '/interface_' ~ item.name ~ '.eos_config.txt')) | split('\n') | select('string') | list }}"
+        replace: block
+      tags:
+        - interfaces
+      with_items: "{{ interfaces }}"
+
+      # connection: local
+      # template:
+      #   src: eos/interface.j2
+      #   dest: "{{ config_parts_dir }}/interface_{{ item.name }}.eos_config.txt"
+      # with_items: "{{ interfaces }}"

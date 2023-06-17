@@ -1,0 +1,14 @@
+---
+- name: "SFMIX Admin users: Ensure Github SSH keys directory"
+  connection: local
+  ansible.builtin.file:
+    dest: "{{ (playbook_dir ~ '/.github_ssh_keys/') }}"
+    state: directory
+
+- name: "SFMIX Admin users: Download keys from Github"
+  connection: local
+  ansible.builtin.get_url:
+    url: "https://github.com/{{ item.github_username }}.keys"
+    dest: "{{ (playbook_dir ~ '/.github_ssh_keys/' ~ item.github_username ~ '.keys') }}"
+  with_items: "{{ sfmix_admin_users }}"
+

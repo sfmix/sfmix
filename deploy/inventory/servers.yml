@@ -1,0 +1,26 @@
+---
+all:
+  hosts:
+  children:
+    servers:
+      children:
+        netbox:
+        metrics:
+        teleport:
+        portal:
+        sentry:
+    netbox:
+      hosts:
+        netbox.sfo02.sfmix.org:
+    metrics:
+      hosts:
+        metrics.sfo02.sfmix.org:
+    teleport:
+      hosts:
+        teleport.sfmix.org:
+    portal:
+      hosts:
+        portal.sfmix.org:
+    sentry:
+      hosts:
+        sentry.sfmix.org:

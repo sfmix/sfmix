@@ -1,0 +1,55 @@
+---
+- name: "Update apt cache"
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: "Create a dhparams file"
+  become: true
+  community.crypto.openssl_dhparam:
+    path: /etc/ssl/certs/dhparam.pem
+    size: 2048
+
+- name: "Install HTTPS/Nginx Reverse Proxy into Netbox"
+  become: true
+  block:
+    - include_role:
+        name: "{{ item }}"
+      loop:
+        - geerlingguy.certbot
+        - geerlingguy.nginx
+      vars:
+        certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+        certbot_create_if_missing: true
+        certbot_create_standalone_stop_services: ["netbox.socket", "netbox.service"]
+        certbot_certs:
+          - domains:
+              - "{{ ixp_netbox_domain }}"
+        nginx_remove_default_vhost: true
+        nginx_vhosts:
+          - listen: "80"
+            server_name: "_"
+            return: "301 https://$host$request_uri"
+          - listen: "443 ssl http2"
+            server_name: "{{ ixp_netbox_domain }}"
+            extra_parameters: |
+              ssl_certificate /etc/letsencrypt/live/{{ ixp_netbox_domain }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ ixp_netbox_domain }}/privkey.pem;
+              ssl_dhparam /etc/ssl/certs/dhparam.pem;
+              location / {
+                proxy_pass http://127.0.0.1:8000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+
+- name: "Firewall: Allow HTTP(S)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+  loop:
+    - http
+    - https

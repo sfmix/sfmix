@@ -1,0 +1,56 @@
+---
+- name: "ufw: accept sFlow on OOB"
+  become: true
+  community.general.ufw:
+    rule: allow
+    interface_in: oob
+    proto: udp
+    to_port: 6343
+
+- name: "sflow-rt: Ensure directories"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+  with_items:
+    - "{{ sflow_rt_store_dir }}"
+
+- name: "sflow-rt: run {{ sflow_rt_docker_container }} container"
+  community.docker.docker_container:
+    name: sflow-rt
+    image: "{{ sflow_rt_docker_container }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    user: nobody
+    volumes:
+      - "{{ sflow_rt_store_dir }}:/sflow-rt/store"
+
+- name: "Install ~/sfmix/topology.py requirements"
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python3-pyeapi
+    - python3-requests
+    - systemd-cron
+
+- name: "Place ~sfmix/topology.py"
+  become: true
+  ansible.builtin.copy:
+    src: topology.py
+    dest: /home/sfmix/topology.py
+    owner: sfmix
+    group: sfmix
+    mode: u=rwx,go=
+
+- name: "Run ~sfmix/topology.py every 12 hours"
+  become: true
+  cron:
+    name: "SFMIX topology.py"
+    user: sfmix
+    job: "/home/sfmix/topology.py"
+    minute: "0"
+    hour: "*/12"

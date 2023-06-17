@@ -1,0 +1,102 @@
+---
+- name: Locally clone dorkmatt/sfmix
+  local_action:
+    module: ansible.builtin.git
+    repo: "git@github.com:dorkmatt/sfmix.git"
+    dest: /tmp/dorkmatt__sfmix
+    depth: 1
+    version: master
+
+- name: Install rsync
+  become: true
+  apt:
+    pkg: rsync
+    state: present
+
+- name: Install pipenv
+  become: true
+  ansible.builtin.pip:
+    name: pipenv
+
+- name: Copy dorkmatt/sfmix to /opt/sfmix
+  become: true
+  ansible.posix.synchronize:
+    src: /tmp/dorkmatt__sfmix/
+    dest: /opt/sfmix/
+    delete: true
+    rsync_opts:
+      - "--exclude=.git"
+  register: copied_sfmix_repo
+
+- name: Set IS_PRODUCTION=True in settings.py
+  become: true
+  ansible.builtin.lineinfile:
+    path: /opt/sfmix/ixp_web/ixp_web/settings.py
+    regexp: '^IS_PRODUCTION\s*=.*$'
+    line: "IS_PRODUCTION = True"
+
+- name: Set DB Host
+  become: true
+  ansible.builtin.replace:
+    path: /opt/sfmix/ixp_web/ixp_web/settings.py
+    regexp: "{{ item.regex }}"
+    replace: "{{ item.replace }}"
+  no_log: true
+  with_items:
+    - {
+        "regex": "CHANGEME_PRODUCTION_DB_PASSWORD",
+        "replace": "{{ postgresql_sfmix_password }}",
+      }
+    - { "regex": "CHANGEME_PRODUCTION_DB_PORT", "replace": "5432" }
+    - { "regex": "CHANGEME_PRODUCTION_DB_HOST", "replace": "127.0.0.1" }
+
+- name: Build virtualenv for ixp_web
+  become: true
+  # when: copied_sfmix_repo.changed
+  command:
+    cmd: pipenv --python=/usr/bin/python3 sync
+    chdir: /opt/sfmix/ixp_web
+  environment:
+    PIPENV_VENV_IN_PROJECT: "true"
+
+- name: Template .env file
+  template:
+    src: dotenv.j2
+    dest: /opt/sfmix/ixp_web/.env
+  no_log: true
+
+- name: Run DB Migrations
+  ansible.builtin.command:
+    argv:
+      - /opt/sfmix/ixp_web/.venv/bin/python
+      - /opt/sfmix/ixp_web/manage.py
+      - migrate
+
+- name: Build Django static files
+  become: true
+  ansible.builtin.command:
+    argv:
+      - /opt/sfmix/ixp_web/.venv/bin/python
+      - /opt/sfmix/ixp_web/manage.py
+      - collectstatic
+
+- name: systemd socket for LibreIXP Portal
+  become: true
+  ansible.builtin.template:
+    src: libreixp_portal.socket.j2
+    dest: /etc/systemd/system/libreixp_portal.socket
+
+- name: systemd service for LibreIXP Portal
+  become: true
+  ansible.builtin.template:
+    src: libreixp_portal.service.j2
+    dest: /etc/systemd/system/libreixp_portal.service
+
+- name: Enable systemd units for libreixp_portal
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+  with_items:
+    - libreixp_portal.socket
+    - libreixp_portal.service

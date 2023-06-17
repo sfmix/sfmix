@@ -1,0 +1,11 @@
+---
+- ansible.builtin.import_tasks:
+    file: libreixp_portal.yml
+  tags:
+    - portal_libreixp_portal
+
+- ansible.builtin.import_tasks:
+    file: nginx.yml
+  tags:
+    - portal_nginx
+

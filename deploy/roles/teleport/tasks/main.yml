@@ -1,0 +1,84 @@
+---
+- name: "Firewall: Allow HTTP(S)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+  loop:
+    - http
+    - https
+
+- name: "Dynamic DNS: Install RFC2136 Credentials file"
+  become: true
+  template:
+    src: certbot_rfc2136.ini
+    dest: /etc/certbot_rfc2136.ini
+    owner: root
+    group: root
+    mode: u=rw,go=
+
+- name: Install certbot
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - certbot
+    - python3-certbot-dns-rfc2136
+
+- name: Start certbot with special parameters for wildcard
+  become: true
+  command:
+    argv:
+      - certbot
+      - certonly
+      - --dns-rfc2136
+      - --agree-tos
+      - --noninteractive
+      - --email
+      - tech-c@sfmix.org
+      - -d
+      - 'teleport.sfmix.org,*.teleport.sfmix.org'
+      - --dns-rfc2136-credentials
+      - /etc/certbot_rfc2136.ini
+    creates: /etc/letsencrypt/renewal/teleport.sfmix.org.conf
+
+- name: Generate dhparams file
+  become: true
+  openssl_dhparam:
+    path: /etc/ssl/certs/dhparam.pem
+    size: 2048
+
+- name: "Install HTTPS/Nginx Reverse Proxy into Netbox"
+  become: true
+  block:
+    - include_role:
+        name: "{{ item }}"
+      loop:
+        - geerlingguy.certbot
+        - geerlingguy.nginx
+      vars:
+        certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+        certbot_certs:
+          - domains:
+              - "teleport.sfmix.org"
+              - "*.teleport.sfmix.org"
+        nginx_remove_default_vhost: true
+        nginx_vhosts:
+          - listen: "80"
+            server_name: "_"
+            return: "301 https://$host$request_uri"
+          - listen: "443 ssl http2"
+            server_name: teleport.sfmix.org
+            extra_parameters: |
+              ssl_certificate /etc/letsencrypt/live/teleport.sfmix.org/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/teleport.sfmix.org/privkey.pem;
+              ssl_dhparam /etc/ssl/certs/dhparam.pem;
+              location / {
+                proxy_pass http://127.0.0.1:8000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+

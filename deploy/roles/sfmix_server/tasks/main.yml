@@ -1,0 +1,17 @@
+---
+- ansible.builtin.import_tasks:
+    file: motd.yml
+
+- ansible.builtin.import_tasks:
+    file: users.yml
+
+
+- ansible.builtin.import_tasks:
+    file: docker.yml
+
+- ansible.builtin.import_tasks:
+    file: ufw.yml
+  tags: ufw
+
+- ansible.builtin.import_tasks:
+    file: sfmix_user.yml

@@ -1,0 +1,24 @@
+---
+- hosts: peering_switch
+  gather_facts: false
+  vars:
+    config_parts_dir: "{{ (playbook_dir ~ '/../configs/' ~ inventory_hostname) | realpath }}"
+  tasks:
+    - name: Ensure output configuration directories
+      connection: local
+      file:
+        dest: "{{ config_parts_dir }}"
+        state: directory
+    - name: "Template: General"
+      connection: local
+      template:
+        src: eos/general.j2
+        dest: "{{ config_parts_dir }}/general.eos_config.txt"
+    - name: "Template: Interfaces"
+      connection: local
+      template:
+        src: eos/interface.j2
+        dest: "{{ config_parts_dir }}/interface_{{ item.name }}.eos_config.txt"
+      tags:
+        - interfaces
+      with_items: "{{ interfaces }}"

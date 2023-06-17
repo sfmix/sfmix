@@ -1,0 +1,44 @@
+---
+- name: "SFMIX Admin users: ensure user"
+  become: true
+  ansible.builtin.user:
+    name: "{{ item.username }}"
+    groups:
+      - sudo
+    append: true
+    state: present
+  with_items:
+    - "{{ sfmix_admin_users }}"
+    - "{{ sfmix_host_local_users }}"
+
+# This requires that the download_ssh_keys_from_github.yml task has run locally
+# already
+- name: "SFMIX Admin users: authorized_keys from github"
+  become: true
+  ansible.builtin.authorized_key:
+    user: "{{ item.username }}"
+    state: present
+    key: "{{ lookup('file', (playbook_dir ~ '/.github_ssh_keys/' ~ item.github_username ~ '.keys')) }}"
+  when: item.github_username is defined
+  with_items:
+    - "{{ sfmix_admin_users }}"
+    - "{{ sfmix_host_local_users }}"
+
+- name: "SFMIX Admin users: authorized_keys from keys_file"
+  become: true
+  ansible.builtin.authorized_key:
+    user: "{{ item.username }}"
+    state: present
+    key: "{{ lookup('file', item.keys_file) }}"
+  when: item.keys_file is defined
+  with_items:
+    - "{{ sfmix_admin_users }}"
+    - "{{ sfmix_host_local_users }}"
+
+- name: "sudo: No password for sudo group"
+  become: true
+  community.general.sudoers:
+    name: sudoers
+    group: sudo
+    commands: ALL
+    nopassword: true

@@ -1,0 +1,8 @@
+[Unit]
+Description=LibreIXP Portal Gunicorn Socket
+
+[Socket]
+ListenStream=/run/libreixp_portal.sock
+
+[Install]
+WantedBy=sockets.target

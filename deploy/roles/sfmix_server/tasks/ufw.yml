@@ -1,0 +1,21 @@
+---
+- name: "Install UFW"
+  become: true
+  ansible.builtin.apt:
+    name: ufw
+
+- name: "Firewall: Enable UFW"
+  become: true
+  community.general.ufw:
+    state: enabled
+    policy: reject
+
+- name: "Firewall: Allow admin subnets"
+  become: true
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+  with_items:
+    - "{{ ixp_admin_source_subnets }}"
+    - "{{ sfmix_host_local_admin_source_subnets }}"
+

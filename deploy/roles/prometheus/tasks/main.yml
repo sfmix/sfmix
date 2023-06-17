@@ -1,0 +1,33 @@
+---
+- name: "prometheus: ensure prometheus directories"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+  with_items:
+    - /opt/prometheus
+    - /opt/prometheus/var
+
+- name: "prometheus: Template config"
+  become: true
+  ansible.builtin.template:
+    src: prometheus.yaml.j2
+    dest: /opt/prometheus/prometheus.yml
+
+- name: "prometheus: run prom/prometheus container"
+  community.docker.docker_container:
+    name: prometheus
+    image: prom/prometheus
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/prometheus:/opt/prometheus
+    user: nobody
+    command:
+      - --config.file=/opt/prometheus/prometheus.yml
+      - --storage.tsdb.path=/opt/prometheus/var/
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-admin-api

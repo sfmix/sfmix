@@ -1,0 +1,20 @@
+---
+- name: "Create \"sfmix\" user"
+  become: true
+  ansible.builtin.user:
+    name: sfmix
+    state: present
+    groups:
+      - sudo
+      - docker
+    append: true
+    shell: /bin/bash
+
+- name: "Create ~sfmix/.netrc"
+  become: true
+  ansible.builtin.template:
+    src: ../templates/netrc.j2
+    dest: /home/sfmix/.netrc
+    owner: sfmix
+    group: sfmix
+    mode: o=rw,go=
