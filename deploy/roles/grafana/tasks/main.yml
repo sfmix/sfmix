@@ -1,0 +1,22 @@
+---
+- name: "grafana: ensure directory"
+  become: true
+  ansible.builtin.file:
+    path: /opt/grafana
+    state: directory
+    owner: nobody
+
+- name: "grafana: run grafana/grafana container"
+  community.docker.docker_container:
+    name: grafana
+    image: grafana/grafana
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/grafana:/var/lib/grafana
+    user: nobody
+    env:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: "{{ sfmix_grafana_admin }}"
+      GF_SERVER_DOMAIN: grafana.teleport.sfmix.org
+      GF_LIVE_ALLOWED_ORIGINS: "https://*.teleport.sfmix.org,http://metrics.sfo02.sfmix.org:3000,http://localhost:3000"

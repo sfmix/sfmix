@@ -1,0 +1,7 @@
+---
+sfmix_host_local_users:
+  - username: peter.phaal
+    keys_file: files/ssh_keys/peter.phaal
+sfmix_host_local_admin_source_subnets:
+  # fw.inmon.com
+  - 38.128.195.34/32

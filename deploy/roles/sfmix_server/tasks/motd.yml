@@ -1,0 +1,22 @@
+---
+- name: "MOTD: Ubuntu: Disable Dynamic MOTD"
+  when: 'ansible_lsb.id == "Ubuntu"'
+  block:
+    - name: "MOTD: Find all dynamic MOTD files"
+      ansible.builtin.find:
+        paths: "/etc/update-motd.d"
+        file_type: file
+      register: dynamic_motd_files
+
+    - name: "MOTD: Set dynamic MOTD files to non-executable"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: ugo-x
+      loop: "{{ dynamic_motd_files.files }}"
+      become: true
+
+- name: "MOTD: Place the motd file"
+  become: true
+  template:
+    src: motd.j2
+    dest: /etc/motd

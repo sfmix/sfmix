@@ -1,0 +1,61 @@
+---
+- connection: local
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.import_tasks:
+        file: roles/sfmix_server/tasks/download_ssh_keys_from_github.yml
+
+- hosts: servers
+  roles:
+    - sfmix_server
+
+- hosts: netbox
+  become: true
+  tags:
+    - netbox
+  roles:
+    - ixp_netbox
+
+- hosts: netbox
+  become: true
+  tags:
+    - netbox
+  roles:
+    - geerlingguy.postgresql
+    - davidwittman.redis
+    - lae.netbox
+
+- hosts: metrics
+  tags:
+    - metrics
+  roles:
+    - docker_engine
+    - sflow_rt
+    - prometheus
+    - grafana
+
+- hosts: teleport
+  tags:
+    - teleport
+  roles:
+    - teleport
+
+- hosts: portal
+  become: true
+  tags:
+    - postgresql
+  roles:
+    - geerlingguy.postgresql
+
+- hosts: portal
+  tags:
+    - portal
+  roles:
+    - libreixp_portal
+
+- hosts: sentry
+  tags:
+    - sentry
+  roles:
+    - sentry

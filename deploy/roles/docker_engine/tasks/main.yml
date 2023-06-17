@@ -1,0 +1,18 @@
+---
+- name: "Install Docker Engine"
+  become: true
+  ansible.builtin.apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Add SFMIX users to docker group
+  become: true
+  ansible.builtin.user:
+    name: "{{ item.username }}"
+    groups: docker
+    append: yes
+  with_items:
+    - "{{ sfmix_admin_users }}"
+    - "{{ sfmix_host_local_users }}"
+

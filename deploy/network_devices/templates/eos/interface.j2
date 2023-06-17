@@ -1,0 +1,39 @@
+#jinja2: lstrip_blocks: True
+interface {{ item.name }}
+{% if item.link_peers is defined and item.link_peers | length %}
+   !! Cabled: {% for cable_far_end in item.link_peers %} {{ cable_far_end.device.name }}/{{ cable_far_end.name }} {% endfor %}
+
+{% endif %}
+{% if item.description is defined and item.description|length %}
+   description {{ item.description }}
+{% endif %}
+{# speed forced 1000full #}
+{% if item.mode and not item.lag %}
+{%   if item.mode.value == "access" %}
+   switchport mode access
+{%   elif item.mode.value == "trunk" %}
+   switchport mode trunk
+{%     if item.untagged_vlan %}
+   switchport trunk native vlan {{ item.untagged_vlan.vid }}
+{%     endif %}
+{%     if item.tagged_vlans %}
+   switchport trunk allowed vlan {{ item.tagged_vlans | selectattr('vid') | join(',') }}
+{%     endif%}
+{% endif %}
+{% endif %}
+{% if item.lag is defined and item.lag.name is defined %}
+   no switchport
+   channel-group {{ item.lag.name | replace("Port-Channel", "") }} mode active
+{% endif %}
+{% if 'peering-port' in item.tags %}
+   switchport port-security mac-address maximum 3
+   switchport port-security
+{# storm-control broadcast level 0.01 #}
+{# storm-control multicast level 0.01 #}
+   spanning-tree bpduguard enable
+{% endif %}
+{% if item.name == "Vxlan1" %}
+  vxlan source-interface Loopback0
+  vxlan udp-port 4789
+  vxlan flood vtep {{ peering_switch_loopbacks | join(" ") }}
+{% endif %}
