@@ -1,2 +1,4 @@
 ---
 sfmix_grafana_admin: default_sfmix_grafana_admin_password8520147
+grafana_domain: grafana.sfmix.org
+grafana_public_domain: grafana-public.sfmix.org
