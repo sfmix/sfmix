@@ -6,9 +6,10 @@
     state: directory
     owner: nobody
 
-- name: "grafana: run grafana/grafana container"
+## Private Grafana
+- name: "grafana: run grafana/grafana container (private)"
   community.docker.docker_container:
-    name: grafana
+    name: grafana-private
     image: grafana/grafana
     restart_policy: unless-stopped
     network_mode: host
@@ -16,7 +17,88 @@
       - /opt/grafana:/var/lib/grafana
     user: nobody
     env:
+      GF_SERVER_HTTP_PORT: "3000"
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: "{{ sfmix_grafana_admin }}"
       GF_SERVER_DOMAIN: grafana.teleport.sfmix.org
       GF_LIVE_ALLOWED_ORIGINS: "https://*.teleport.sfmix.org,http://metrics.sfo02.sfmix.org:3000,http://localhost:3000"
+
+## Public Grafana
+- name: "Create a dhparams file"
+  become: true
+  community.crypto.openssl_dhparam:
+    path: /etc/ssl/certs/dhparam.pem
+    size: 2048
+
+- name: "Firewall: Allow HTTP(S)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+  loop:
+    - http
+    - https
+
+- name: "Install HTTPS/Nginx Reverse Proxy into Netbox"
+  become: true
+  block:
+    - include_role:
+        name: "{{ item }}"
+      loop:
+        - geerlingguy.certbot
+        - geerlingguy.nginx
+      vars:
+        certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+        certbot_create_if_missing: true
+        # certbot_create_standalone_stop_services: ["netbox.socket", "netbox.service"]
+        certbot_certs:
+          - domains:
+              - "{{ grafana_public_domain }}"
+        nginx_remove_default_vhost: true
+        nginx_vhosts:
+          - listen: "80"
+            server_name: "_"
+            return: "301 https://$host$request_uri"
+          - listen: "443 ssl http2"
+            server_name: "{{ grafana_public_domain }}"
+            extra_parameters: |
+              ssl_certificate /etc/letsencrypt/live/{{ grafana_public_domain }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ grafana_public_domain }}/privkey.pem;
+              ssl_dhparam /etc/ssl/certs/dhparam.pem;
+              location / {
+                proxy_pass http://127.0.0.1:4000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+- name: "Create Grafana data directory"
+  become: true
+  ansible.builtin.file:
+    path: /opt/grafana-public
+    state: directory
+    owner: nobody
+
+- name: "grafana: run grafana/grafana container (public)"
+  community.docker.docker_container:
+    name: grafana-public
+    image: grafana/grafana
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/grafana-public:/var/lib/grafana
+    user: nobody
+    env:
+      GF_SERVER_HTTP_PORT: "4000"
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ sfmix_grafana_admin }}"
+      GF_SERVER_DOMAIN: "grafana-public.teleport.sfmix.org"
+      GF_LIVE_ALLOWED_ORIGINS: "https://*.teleport.sfmix.org,http://metrics.sfo02.sfmix.org:4000,http://localhost:4000"
+      #
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_NAME: "Anonymous Users"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_AUTH_ANONYMOUS_HIDE_VERSION: "true"
+      #
+      GF_INSTALL_PLUGINS: "marcusolsson-json-datasource,fifemon-graphql-datasource"
