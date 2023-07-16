@@ -21,7 +21,7 @@
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
         certbot_create_if_missing: true
-        certbot_create_standalone_stop_services: ["netbox.socket", "netbox.service"]
+        certbot_create_standalone_stop_services: ["netbox.socket", "netbox.service", "nginx.service"]
         certbot_certs:
           - domains:
               - "{{ ixp_netbox_domain }}"
