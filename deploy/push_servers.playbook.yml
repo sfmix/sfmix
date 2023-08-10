@@ -21,6 +21,8 @@
   become: true
   tags:
     - netbox
+  collections:
+    - community.general
   roles:
     - geerlingguy.postgresql
     - davidwittman.redis
