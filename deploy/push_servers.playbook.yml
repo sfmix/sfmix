@@ -45,6 +45,8 @@
   become: true
   tags:
     - postgresql
+  collections:
+    - community.general
   roles:
     - geerlingguy.postgresql
 
