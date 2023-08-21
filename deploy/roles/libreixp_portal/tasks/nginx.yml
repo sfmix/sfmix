@@ -21,6 +21,35 @@
     pkg: systemd-cron
     state: present
 
+- name: "Create certbot hooks directories"
+  file:
+    path: /etc/letsencrypt/renewal-hooks/{{ item }}
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+  with_items:
+    - pre
+    - post
+
+- name: "Template ufw pre-script (disable Firewall)"
+  become: true
+  copy:
+    dest: /etc/letsencrypt/renewal-hooks/pre/ufw_stop.sh
+    content: "#!/bin/bash\nufw disable\n"
+    owner: root
+    group: root
+    mode: 0750
+
+- name: "Template ufw post-script (disable Firewall)"
+  become: true
+  copy:
+    dest: /etc/letsencrypt/renewal-hooks/post/ufw_stop.sh
+    content: "#!/bin/bash\nufw enable\n"
+    owner: root
+    group: root
+    mode: 0750
+
 - name: "Install HTTPS/Nginx Reverse Proxy"
   become: true
   block:
@@ -31,8 +60,9 @@
         - geerlingguy.nginx
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+        certbot_deploy_hook: "service nginx restart"
         certbot_create_if_missing: true
-        # certbot_create_standalone_stop_services: ["netbox.socket", "netbox.service"]
+        certbot_create_standalone_stop_services: ["nginx.service"]
         certbot_certs:
           - domains:
               - "{{ portal_domain }}"

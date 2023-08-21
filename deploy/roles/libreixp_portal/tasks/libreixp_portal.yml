@@ -1,11 +1,11 @@
 ---
-- name: Locally clone dorkmatt/sfmix
+- name: Locally clone sfmix/sfmix
   local_action:
     module: ansible.builtin.git
-    repo: "git@github.com:dorkmatt/sfmix.git"
-    dest: /tmp/dorkmatt__sfmix
+    repo: "git@github.com:sfmix/sfmix.git"
+    dest: /tmp/sfmix__sfmix
     depth: 1
-    version: master
+    version: main
 
 - name: Install rsync
   become: true
@@ -18,10 +18,10 @@
   ansible.builtin.pip:
     name: pipenv
 
-- name: Copy dorkmatt/sfmix to /opt/sfmix
+- name: Copy sfmix/sfmix to /opt/sfmix
   become: true
   ansible.posix.synchronize:
-    src: /tmp/dorkmatt__sfmix/
+    src: /tmp/sfmix__sfmix/
     dest: /opt/sfmix/
     delete: true
     rsync_opts:
@@ -31,14 +31,14 @@
 - name: Set IS_PRODUCTION=True in settings.py
   become: true
   ansible.builtin.lineinfile:
-    path: /opt/sfmix/ixp_web/ixp_web/settings.py
+    path: /opt/sfmix/libreixp/ixp_web/ixp_web/settings.py
     regexp: '^IS_PRODUCTION\s*=.*$'
     line: "IS_PRODUCTION = True"
 
 - name: Set DB Host
   become: true
   ansible.builtin.replace:
-    path: /opt/sfmix/ixp_web/ixp_web/settings.py
+    path: /opt/sfmix/libreixp/ixp_web/ixp_web/settings.py
     regexp: "{{ item.regex }}"
     replace: "{{ item.replace }}"
   no_log: true
@@ -55,29 +55,29 @@
   # when: copied_sfmix_repo.changed
   command:
     cmd: pipenv --python=/usr/bin/python3 sync
-    chdir: /opt/sfmix/ixp_web
+    chdir: /opt/sfmix/libreixp/ixp_web
   environment:
     PIPENV_VENV_IN_PROJECT: "true"
 
 - name: Template .env file
   template:
     src: dotenv.j2
-    dest: /opt/sfmix/ixp_web/.env
+    dest: /opt/sfmix/libreixp/ixp_web/.env
   no_log: true
 
 - name: Run DB Migrations
   ansible.builtin.command:
     argv:
-      - /opt/sfmix/ixp_web/.venv/bin/python
-      - /opt/sfmix/ixp_web/manage.py
+      - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
+      - /opt/sfmix/libreixp/ixp_web/manage.py
       - migrate
 
 - name: Build Django static files
   become: true
   ansible.builtin.command:
     argv:
-      - /opt/sfmix/ixp_web/.venv/bin/python
-      - /opt/sfmix/ixp_web/manage.py
+      - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
+      - /opt/sfmix/libreixp/ixp_web/manage.py
       - collectstatic
 
 - name: systemd socket for LibreIXP Portal
