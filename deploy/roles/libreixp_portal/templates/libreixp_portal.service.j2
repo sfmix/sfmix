@@ -6,8 +6,8 @@ After=network.target
 [Service]
 User=sfmix
 Group=sfmix
-WorkingDirectory=/opt/sfmix/ixp_web
-ExecStart=/opt/sfmix/ixp_web/.venv/bin/gunicorn \
+WorkingDirectory=/opt/sfmix/libreixp/ixp_web
+ExecStart=/opt/sfmix/libreixp/ixp_web/.venv/bin/gunicorn \
           --access-logfile - \
           --workers 3 \
           --bind unix:/run/libreixp_portal.sock \
