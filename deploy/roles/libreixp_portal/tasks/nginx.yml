@@ -76,7 +76,7 @@
             extra_parameters: |
               location = /favicon.ico { access_log off; log_not_found off; }
               location /static/ {
-                alias /opt/sfmix/ixp_web/staticfiles/;
+                alias /opt/sfmix/libreixp/ixp_web/staticfiles/;
               }
               location / {
                 include proxy_params;
@@ -90,7 +90,7 @@
               ssl_dhparam /etc/ssl/certs/dhparam.pem;
               location = /favicon.ico { access_log off; log_not_found off; }
               location /static/ {
-                alias /opt/sfmix/ixp_web/staticfiles/;
+                alias /opt/sfmix/libreixp/ixp_web/staticfiles/;
               }
               location / {
                 include proxy_params;
