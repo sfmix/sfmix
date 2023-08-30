@@ -79,6 +79,7 @@
       - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
       - /opt/sfmix/libreixp/ixp_web/manage.py
       - collectstatic
+      - --clear
 
 - name: systemd socket for LibreIXP Portal
   become: true
