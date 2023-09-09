@@ -2,9 +2,6 @@
 roles:
   - src: geerlingguy.postgresql
   - src: geerlingguy.nginx
-  #- src: geerlingguy.certbot
-  - src: git+https://github.com/jeffesquivels/ansible-role-certbot
-    version: b3885c0613f7041b5009760eb8ac8f20c4a5387b
   - src: davidwittman.redis
   - name: lae.netbox
     version: master

@@ -26,7 +26,7 @@
     - include_role:
         name: "{{ item }}"
       loop:
-        - geerlingguy.certbot
+        - certbot
         - geerlingguy.nginx
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
