@@ -1,8 +1,5 @@
 ---
 roles:
-  - src: postgresql
-  - src: geerlingguy.nginx
-  - src: davidwittman.redis
   - name: lae.netbox
     version: master
     src: https://github.com/lae/ansible-role-netbox/
