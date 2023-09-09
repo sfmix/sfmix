@@ -53,7 +53,7 @@
   become: true
   block:
     - include_role:
-        name: geerlingguy.certbot
+        name: certbot
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
         certbot_deploy_hook: "service teleport restart"
