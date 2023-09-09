@@ -24,7 +24,7 @@
   collections:
     - community.general
   roles:
-    - geerlingguy.postgresql
+    - postgresql
     - davidwittman.redis
     - lae.netbox
 
@@ -50,7 +50,7 @@
   collections:
     - community.general
   roles:
-    - geerlingguy.postgresql
+    - postgresql
     - libreixp_portal
 
 - hosts: sentry
