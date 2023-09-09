@@ -1,0 +1,110 @@
+{{ ansible_managed | comment }}
+import json
+import os
+
+{% if netbox_metrics_enabled %}
+if "prometheus_multiproc_dir" in os.environ:
+    try:
+        import prometheus_client
+        import uwsgi
+        prometheus_client.values.ValueClass = prometheus_client.values.MultiProcessValue(
+            uwsgi.worker_id
+        )
+    except ImportError:
+        pass  # not running in uwsgi
+{% endif %}
+
+DATABASE = {
+    'NAME': '{{ netbox_database }}',
+    'USER': '{{ netbox_database_user }}',
+{% if netbox_database_host is defined %}
+    'PASSWORD': '{{ netbox_database_password }}',
+    'HOST':  '{{ netbox_database_host }}',
+    'PORT': '{{ netbox_database_port }}',
+{% else %}
+{%      if netbox_database_password is defined %}
+    'PASSWORD': '{{ netbox_database_password }}',
+{%      endif %}
+    'HOST': '{{ netbox_database_socket }}',
+{% endif %}
+    'CONN_MAX_AGE': {{ netbox_database_conn_age }},
+{% if netbox_database_options|length > 0 %}
+    'OPTIONS': {
+        {% for setting, value in netbox_database_options.items() %}
+        {% if value is string or value is number %}
+        "{{ setting }}": {{ value | to_nice_json }},
+        {% endif %}
+        {% endfor %}
+    },
+{% endif %}
+}
+
+{% if netbox_stable and netbox_stable_version is version('2.9.4', '>=') or
+      netbox_git and _netbox_git_contains_rq_timeout.rc == 0 %}
+{% set _default_timeout = "RQ_DEFAULT_TIMEOUT" %}
+{% else %}
+{% set _default_timeout = "DEFAULT_TIMEOUT" %}
+{% endif %}
+
+REDIS = {
+{# https://github.com/netbox-community/netbox/pull/4366 #}
+{% if netbox_stable and netbox_stable_version is version('2.7.11', '>=') or
+      netbox_git and _netbox_git_contains_tasks_rename.rc == 0 %}
+    'tasks': {
+{% else %}
+    'webhooks': {
+{% endif %}
+{% if netbox_redis_sentinels|length == 0 %}
+        'HOST': '{{ netbox_redis_host }}',
+        'PORT': {{ netbox_redis_port }},
+        '{{ _default_timeout }}': {{ netbox_redis_default_timeout }},
+{% else %}
+        'SENTINELS': [
+{% for sentinel in netbox_redis_sentinels %}
+            ('{{ sentinel.host }}', {{ sentinel.port }}),
+{% endfor %}
+        ],
+        'SENTINEL_SERVICE': '{{ netbox_redis_sentinel_service }}',
+        'SENTINEL_TIMEOUT': {{ netbox_redis_default_timeout }},
+{% endif %}
+        'PASSWORD': '{{ netbox_redis_password }}',
+        'DATABASE': {{ netbox_redis_database }},
+        'SSL': {{ netbox_redis_ssl_enabled }},
+        'INSECURE_SKIP_TLS_VERIFY': {{ netbox_redis_insecure_skip_tls_verify }},
+    },
+    'caching': {
+{% if netbox_redis_cache_sentinels|length == 0 %}
+        'HOST': '{{ netbox_redis_cache_host }}',
+        'PORT': {{ netbox_redis_cache_port }},
+        '{{ _default_timeout }}': {{ netbox_redis_default_timeout }},
+{% else %}
+        'SENTINELS': [
+{% for sentinel in netbox_redis_cache_sentinels %}
+            ('{{ sentinel.host }}', {{ sentinel.port }}),
+{% endfor %}
+        ],
+        'SENTINEL_SERVICE': '{{ netbox_redis_cache_sentinel_service }}',
+        'SENTINEL_TIMEOUT': {{ netbox_redis_default_timeout }},
+{% endif %}
+        'PASSWORD': '{{ netbox_redis_cache_password }}',
+        'DATABASE': {{ netbox_redis_cache_database }},
+        'SSL': {{ netbox_redis_cache_ssl_enabled }},
+        'INSECURE_SKIP_TLS_VERIFY': {{ netbox_redis_cache_insecure_skip_tls_verify }},
+    }
+}
+
+{% if netbox_metrics_enabled %}
+METRICS_ENABLED = True
+{% endif %}
+
+{% for setting, value in _netbox_config.items() %}
+{%      if value in [True, False] %}
+{{ setting }} = {{ 'True' if value else 'False' }}
+{%      elif value is string or value is number %}
+{{ setting }} = {{ value | to_nice_json }}
+{%      else %}
+{{ setting }} = json.loads(r'''{{ value | to_json }}''')
+{%      endif %}
+{% endfor %}
+
+# vim: ft=python

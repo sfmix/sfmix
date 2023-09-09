@@ -1,5 +1,1 @@
 ---
-roles:
-  - name: lae.netbox
-    version: master
-    src: https://github.com/lae/ansible-role-netbox/

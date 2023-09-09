@@ -1,0 +1,37 @@
+---
+- name: Install EPEL repository
+  yum:
+    name: epel-release
+    state: installed
+  when: netbox_install_epel
+
+- name: Install required packages for selected NetBox configuration
+  yum:
+    name: "{{ _netbox_yum_packages | flatten }}"
+    state: present
+    update_cache: true
+  vars:
+    _netbox_yum_packages:
+      - "{{ netbox_python_packages }}"
+      - "{{ netbox_packages }}"
+      - "{{ netbox_ldap_packages if netbox_ldap_enabled else [] }}"
+      - "{{ 'git' if netbox_git else [] }}"
+      - "{{ 'acl' if ('SUDO_USER' in ansible_env and ansible_env.SUDO_USER != 'root') else [] }}"
+
+# python3 pip package not available on EPEL.
+- name: Ensure pip is available on Red Hat-based distros
+  shell: "{{ netbox_python_binary }} -m pip -V || {{ netbox_python_binary }} -m ensurepip"
+  register: _existence_of_pip
+  changed_when: "'Successfully installed pip' in _existence_of_pip.stdout"
+
+# python3 psycopg2/selinux packages are not available on EPEL.
+- name: Install psycopg2/selinux via pip on Red Hat-based distros
+  pip:
+    name:
+      - psycopg2-binary
+      - selinux
+    state: present
+  vars:
+    ansible_python_interpreter: "{{ netbox_python_binary }}"
+  environment:
+    PATH: "/usr/local/bin:{{ _path }}"
