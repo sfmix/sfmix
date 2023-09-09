@@ -1,6 +1,6 @@
 ---
 roles:
-  - src: geerlingguy.postgresql
+  - src: postgresql
   - src: geerlingguy.nginx
   - src: davidwittman.redis
   - name: lae.netbox
