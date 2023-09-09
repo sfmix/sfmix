@@ -126,7 +126,7 @@
 
   roles:
     - geerlingguy.certbot
-    - geerlingguy.nginx
+    - nginx
 
   tasks:
     - name: Flush handlers in case any configs have changed.
