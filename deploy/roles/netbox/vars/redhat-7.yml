@@ -1,0 +1,17 @@
+---
+_netbox_packages:
+  - gcc
+  - postgresql-devel
+  - libxml2-devel
+  - libxslt-devel
+  - libffi-devel
+  - libjpeg-devel
+  - graphviz
+  - openssl-devel
+_netbox_python_packages:
+  - python36
+  - python36-devel
+  - python36-setuptools
+_netbox_python_binary: /usr/bin/python3.6
+_netbox_ldap_packages:
+  - openldap-devel

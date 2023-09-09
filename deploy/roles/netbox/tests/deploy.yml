@@ -1,0 +1,6 @@
+---
+- hosts: netbox
+  become: true
+  any_errors_fatal: true
+  roles:
+    - lae.netbox

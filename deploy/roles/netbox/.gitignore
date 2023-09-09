@@ -1,0 +1,7 @@
+.vagrant/
+.vscode/
+.history
+*.retry
+*.code-workspace
+*.sw?
+.venv
