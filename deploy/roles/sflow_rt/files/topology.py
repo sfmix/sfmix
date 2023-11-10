@@ -13,6 +13,7 @@ SWITCHES = [
     "switch01.oob.sfo01.sfmix.org",
     "switch02.oob.sfo02.sfmix.org",
     "switch01.oob.sfo02.sfmix.org",
+    "switch03.oob.fmt01.sfmix.org",
     "switch02.oob.fmt01.sfmix.org",
     "switch01.oob.fmt01.sfmix.org",
     "switch01.oob.sjc01.sfmix.org",
