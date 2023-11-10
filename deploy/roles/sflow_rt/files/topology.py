@@ -6,20 +6,20 @@ import sys
 
 # eAPI info
 EAPI_TRANSPORT = "https"
-NETRC_HOST = "oob.sfmix.org"
+NETRC_HOST = "sfmix.org"
 # FIXME / TODO: The set of devices to discover should come from a Source of
 #   Truth, like Netbox
 SWITCHES = [
-    "switch01.oob.sfo01.sfmix.org",
-    "switch02.oob.sfo02.sfmix.org",
-    "switch01.oob.sfo02.sfmix.org",
+    "switch01.sfo01.sfmix.org",
+    "switch02.sfo02.sfmix.org",
+    "switch01.sfo02.sfmix.org",
     "switch03.fmt01.sfmix.org",
-    "switch02.oob.fmt01.sfmix.org",
-    "switch01.oob.fmt01.sfmix.org",
-    "switch01.oob.sjc01.sfmix.org",
-    "switch02.oob.sjc01.sfmix.org",
-    "switch01.oob.scl01.sfmix.org",
-    "switch01.oob.scl02.sfmix.org",
+    "switch02.fmt01.sfmix.org",
+    "switch01.fmt01.sfmix.org",
+    "switch01.sjc01.sfmix.org",
+    "switch02.sjc01.sfmix.org",
+    "switch01.scl01.sfmix.org",
+    "switch01.scl02.sfmix.org",
 ]
 
 # sFlow-RT REST API
