@@ -4,13 +4,22 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
         {
             "name": "Run dev server",
             "type": "python",
             "request": "launch",
             "program": "libreixp/ixp_web/manage.py",
-            "args": ["runserver"],
+            "args": [
+                "runserver"
+            ],
             "console": "integratedTerminal",
             "justMyCode": true
         }
