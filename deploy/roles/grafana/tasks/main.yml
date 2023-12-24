@@ -10,7 +10,7 @@
 - name: "grafana: run grafana/grafana container (private)"
   community.docker.docker_container:
     name: grafana-private
-    image: grafana/grafana
+    image: grafana/grafana:10.2.3
     restart_policy: unless-stopped
     network_mode: host
     volumes:
@@ -83,7 +83,7 @@
 - name: "grafana: run grafana/grafana container (public)"
   community.docker.docker_container:
     name: grafana-public
-    image: grafana/grafana
+    image: grafana/grafana:10.2.3
     restart_policy: unless-stopped
     network_mode: host
     volumes:
