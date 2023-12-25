@@ -90,9 +90,11 @@
 
 - name: Build Django static files
   become: true
-  become_user: sfmix
   ansible.builtin.command:
     argv:
+      - sudo
+      - -u
+      - sfmix
       - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
       - /opt/sfmix/libreixp/ixp_web/manage.py
       - collectstatic
