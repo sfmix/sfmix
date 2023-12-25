@@ -1,6 +1,6 @@
 ---
 netbox_stable: true
-netbox_stable_version: 3.4.10
+netbox_stable_version: 3.6.0
 netbox_database_socket: "{{ postgresql_unix_socket_directories[0] }}"
 netbox_database_conn_age: 300
 netbox_superuser_enabled: true
