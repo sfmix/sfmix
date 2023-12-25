@@ -28,6 +28,14 @@
       - "--exclude=.git"
   register: copied_sfmix_repo
 
+- name: Re-own /opt/sfmix
+  ansible.builtin.file:
+    path: /opt/sfmix
+    owner: sfmix
+    group: sfmix
+    recurse: yes
+    state: directory
+
 - name: Set IS_PRODUCTION=True in settings.py
   become: true
   ansible.builtin.lineinfile:
