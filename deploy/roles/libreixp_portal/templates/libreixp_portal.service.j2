@@ -9,6 +9,7 @@ Group=sfmix
 WorkingDirectory=/opt/sfmix/libreixp/ixp_web
 ExecStart=/opt/sfmix/libreixp/ixp_web/.venv/bin/gunicorn \
           --access-logfile - \
+          --timeout 120 \
           --workers 3 \
           --bind unix:/run/libreixp_portal.sock \
           ixp_web.wsgi:application
