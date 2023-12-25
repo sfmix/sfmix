@@ -96,4 +96,5 @@
               location / {
                 include proxy_params;
                 proxy_pass http://unix:/run/libreixp_portal.sock;
+                proxy_read_timeout 120;
               }
