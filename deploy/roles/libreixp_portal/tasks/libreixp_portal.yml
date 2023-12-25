@@ -51,8 +51,9 @@
     - { "regex": "CHANGEME_PRODUCTION_DB_HOST", "replace": "127.0.0.1" }
 
 - name: Build virtualenv for ixp_web
+  notify: Restart libreixp_portal
   become: true
-  # when: copied_sfmix_repo.changed
+  when: copied_sfmix_repo.changed
   command:
     cmd: pipenv --python=/usr/bin/python3 sync
     chdir: /opt/sfmix/libreixp/ixp_web
@@ -60,6 +61,7 @@
     PIPENV_VENV_IN_PROJECT: "true"
 
 - name: Template .env file
+  notify: Restart libreixp_portal
   template:
     src: dotenv.j2
     dest: /opt/sfmix/libreixp/ixp_web/.env
@@ -82,18 +84,21 @@
       - --clear
 
 - name: systemd socket for LibreIXP Portal
+  notify: Restart libreixp_portal
   become: true
   ansible.builtin.template:
     src: libreixp_portal.socket.j2
     dest: /etc/systemd/system/libreixp_portal.socket
 
 - name: systemd service for LibreIXP Portal
+  notify: Restart libreixp_portal
   become: true
   ansible.builtin.template:
     src: libreixp_portal.service.j2
     dest: /etc/systemd/system/libreixp_portal.service
 
 - name: Enable systemd units for libreixp_portal
+  notify: Restart libreixp_portal
   become: true
   ansible.builtin.systemd:
     name: "{{ item }}"
