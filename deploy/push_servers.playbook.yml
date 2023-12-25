@@ -44,14 +44,23 @@
     - teleport
 
 - hosts: portal
+  become: true
   tags:
     - portal
-    - postgresql
+    - redis
+    - postgres
   collections:
     - community.general
   roles:
     - postgresql
     - redis
+
+- hosts: portal
+  tags:
+    - portal
+  collections:
+    - community.general
+  roles:
     - libreixp_portal
 
 - hosts: sentry

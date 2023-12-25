@@ -1,5 +1,6 @@
 ---
 - name: Restart libreixp_portal
+  become: true
   ansible.builtin.systemd_service:
     state: restarted
     daemon_reload: true
