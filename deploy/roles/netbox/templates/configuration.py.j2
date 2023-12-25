@@ -14,6 +14,9 @@ if "prometheus_multiproc_dir" in os.environ:
         pass  # not running in uwsgi
 {% endif %}
 
+SENTRY_ENABLED = True
+SENTRY_DSN = "https://f2b4722590284462805634a21dd7695d@sentry.sfmix.org/4"
+
 DATABASE = {
     'NAME': '{{ netbox_database }}',
     'USER': '{{ netbox_database_user }}',
