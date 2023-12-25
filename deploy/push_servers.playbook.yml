@@ -51,6 +51,7 @@
     - community.general
   roles:
     - postgresql
+    - redis
     - libreixp_portal
 
 - hosts: sentry
