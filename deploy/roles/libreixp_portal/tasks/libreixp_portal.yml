@@ -71,12 +71,17 @@
 
 - name: Template .env file
   notify: Restart libreixp_portal
-  template:
+  become: true
+  ansible.builtin.template:
+    owner: sfmix
+    group: sfmix
     src: dotenv.j2
     dest: /opt/sfmix/libreixp/ixp_web/.env
   no_log: true
 
 - name: Run DB Migrations
+  become: true
+  become_user: sfmix
   ansible.builtin.command:
     argv:
       - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
@@ -85,6 +90,7 @@
 
 - name: Build Django static files
   become: true
+  become_user: sfmix
   ansible.builtin.command:
     argv:
       - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
