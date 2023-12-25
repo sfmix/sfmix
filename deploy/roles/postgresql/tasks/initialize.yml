@@ -16,7 +16,6 @@
 
 - name: Check if PostgreSQL database is initialized.
   become: true
-  become_user: "{{ postgresql_user }}"
   stat:
     path: "{{ postgresql_data_dir }}/PG_VERSION"
   register: pgdata_dir_version
@@ -31,6 +30,7 @@
     ansible_ssh_pipelining: true
 
 - name: Ensure PostgreSQL log directory exists.
+  become: true
   file:
     path: "{{ postgresql_effective_log_dir }}"
     owner: "{{ postgresql_user }}"
