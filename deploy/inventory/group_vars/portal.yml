@@ -1,4 +1,6 @@
 ---
+redis_bind: 127.0.0.1
+redis_version: 6.2.6
 portal_domain: portal.sfmix.org
 postgresql_databases:
   - name: libreixp_portal
