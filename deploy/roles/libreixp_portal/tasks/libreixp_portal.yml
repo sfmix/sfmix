@@ -29,6 +29,7 @@
   register: copied_sfmix_repo
 
 - name: Re-own /opt/sfmix
+  become: true
   ansible.builtin.file:
     path: /opt/sfmix
     owner: sfmix
