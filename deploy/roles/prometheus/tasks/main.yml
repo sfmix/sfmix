@@ -12,6 +12,7 @@
 
 - name: "prometheus: Template config"
   become: true
+  notify: restart prometheus
   ansible.builtin.template:
     src: prometheus.yaml.j2
     dest: /opt/prometheus/prometheus.yml
