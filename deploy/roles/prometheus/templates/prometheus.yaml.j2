@@ -2,13 +2,6 @@ global:
     scrape_interval: 15s
     scrape_timeout: 10s
     evaluation_interval: 15s
-alerting:
-    alertmanagers:
-        - static_configs:
-            - targets: []
-            scheme: http
-            timeout: 10s
-            api_version: v1
 scrape_configs:
     - job_name: sflow-rt-ifcounters
       metrics_path: /prometheus/metrics/ALL/ifinoctets,ifoutoctets,ifinutilization,ifoututilization,ifinerrors,ifouterrors,ifindiscards,ifoutdiscards/txt
@@ -30,3 +23,10 @@ scrape_configs:
       static_configs:
       - targets:
           - metrics.sfo02.sfmix.org:8008
+    - job_name: netbox
+      scheme: https
+      scrape_interval: 10s
+      scrape_timeout: 5s
+      static_configs:
+      - targets:
+        - netbox.sfmix.org
