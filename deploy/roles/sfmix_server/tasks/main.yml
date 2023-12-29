@@ -15,3 +15,6 @@
 
 - ansible.builtin.import_tasks:
     file: sfmix_user.yml
+
+- ansible.builtin.import_tasks:
+    file: common_packages.yml
