@@ -11,6 +11,7 @@
 
 - ansible.builtin.import_tasks:
     file: ufw.yml
+  when: sfmix_ufw_enabled
   tags: ufw
 
 - ansible.builtin.import_tasks:
