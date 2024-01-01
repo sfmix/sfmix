@@ -4,10 +4,11 @@
   ansible.builtin.apt:
     name: ufw
 
-- name: "Firewall: Enable UFW"
+- name: "Firewall: Enable/Disable UFW"
+  when: sfmix_ufw_enabled
   become: true
   community.general.ufw:
-    state: enabled
+    state: "{{ sfmix_ufw_enabled|bool | ternary('enabled', 'disabled')}}"
     policy: reject
 
 - name: "Firewall: Allow admin subnets"

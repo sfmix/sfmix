@@ -1,0 +1,29 @@
+---
+- name: Stop/disable systemd-resolved
+  become: true
+  ansible.builtin.systemd_service:
+    name: systemd-resolved.service
+    enabled: false
+    masked: true
+    state: stopped
+
+- name: stat /etc/resolv.conf
+  become: true
+  stat:
+    path: /etc/resolv.conf
+  register: stat_etc_resolv_conf
+
+- name: Remove /etc/resolv.conf symlink to systemd-resolved
+  become: true
+  file:
+    path: /etc/resolv.conf
+    state: absent
+  when: stat_etc_resolv_conf.stat.islnk
+
+- name: Create /etc/resolv.conf
+  become: true
+  copy:
+    dest: /etc/resolv.conf
+    content: |
+      search sfmix.org
+      nameserver {{ sfmix_dns_recursor }}

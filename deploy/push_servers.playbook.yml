@@ -21,12 +21,10 @@
   become: true
   tags:
     - netbox
-  collections:
-    - community.general
   roles:
-    - postgresql
-    - redis
-    - netbox
+    - geerlingguy.postgresql
+    - DavidWittman.redis
+    - lae.netbox
 
 - hosts: metrics
   tags:
@@ -49,11 +47,9 @@
     - portal
     - redis
     - postgres
-  collections:
-    - community.general
   roles:
-    - postgresql
-    - redis
+    - geerlingguy.postgresql
+    - DavidWittman.redis
 
 - hosts: portal
   tags:
@@ -68,3 +64,10 @@
     - sentry
   roles:
     - sentry
+
+- hosts: dns
+  become: true
+  tags:
+    - dns
+  roles:
+    - sfmix_dns
