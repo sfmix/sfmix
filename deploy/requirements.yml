@@ -1,3 +1,16 @@
 ---
-- name: systemli.bind9
-  version: 1.5.0
+roles:
+- name: PowerDNS.pdns
+  version: v1.8.0
+- name: lae.netbox
+  version: v1.0.4
+- name: geerlingguy.postgresql
+  version: 3.5.0
+- name: DavidWittman.redis
+  # https://github.com/DavidWittman/ansible-redis/pull/291
+  src: git+https://github.com/Puppet-Finland/ansible-redis.git
+  version: ce14d7a912af025ee1ec2cbc550417f75f8b6faf
+- name: geerlingguy.nginx
+  version: 3.1.4
+- name: geerlingguy.certbot
+  version: 5.1.0
