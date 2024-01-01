@@ -9,6 +9,9 @@ all:
         teleport:
         portal:
         sentry:
+        shell:
+        dns:
+        rs_linux:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -30,6 +33,6 @@ all:
     dns:
       hosts:
         ns1-new.sfmix.org:
-    rs-linux:
+    rs_linux:
       hosts:
         rs-linux.sfmix.org:
