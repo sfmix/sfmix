@@ -61,3 +61,5 @@
           - domains:
               - "teleport.sfmix.org"
               - "*.teleport.sfmix.org"
+
+- include_tasks: remove_old_logs.yml
