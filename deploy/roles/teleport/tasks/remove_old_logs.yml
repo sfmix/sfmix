@@ -29,9 +29,9 @@
       [Install]
       WantedBy=timers.target
 
-# - name: "Teleport: remove_old_logs: Enable and start systemd timer"
-#   become: true
-#   systemd:
-#     name: teleport_remove_old_logs.timer
-#     enabled: yes
-#     state: started
+- name: "Teleport: remove_old_logs: Enable and start systemd timer"
+  become: true
+  systemd:
+    name: teleport_remove_old_logs.timer
+    enabled: yes
+    state: started
