@@ -56,8 +56,8 @@
     - include_role:
         name: "{{ item }}"
       loop:
-        - certbot
-        - nginx
+        - geerlingguy.certbot
+        - geerlingguy.nginx
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
         certbot_deploy_hook: "service nginx restart"

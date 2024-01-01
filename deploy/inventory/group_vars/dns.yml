@@ -1,2 +1,4 @@
 ---
 sfmix_ufw_enabled: false
+pdns_config:
+  version-string: "SFMIX DNS"

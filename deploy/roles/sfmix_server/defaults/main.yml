@@ -1,2 +1,3 @@
 ---
 sfmix_ufw_enabled: true
+sfmix_dns_recursor: 192.33.255.3
