@@ -24,3 +24,12 @@ all:
     sentry:
       hosts:
         sentry.sfmix.org:
+    shell:
+      hosts:
+        shell.sfmix.org:
+    dns:
+      hosts:
+        ns1-new.sfmix.org:
+    rs-linux:
+      hosts:
+        rs-linux.sfmix.org:
