@@ -1,0 +1,37 @@
+---
+- name: "Teleport: remove_old_logs: Create systemd service file"
+  become: yes
+  copy:
+    dest: /etc/systemd/system/teleport_remove_old_logs.service
+    content: |
+      [Unit]
+      Description=Teleport: Remove Old Logs
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/bash -c "/usr/bin/find /var/lib/teleport/log -type f -name '*.log' -mtime +{{ teleport_log_retention_days }} -print -delete; /usr/bin/find /var/lib/teleport/log/records -type f -name '*.tar' -mtime +{{ teleport_log_retention_days }} -print -delete"
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: "Teleport: remove_old_logs: Create systemd timer file"
+  become: true
+  copy:
+    dest: /etc/systemd/system/teleport_remove_old_logs.timer
+    content: |
+      [Unit]
+      Description=Teleport: Remove Old Logs Every Day
+
+      [Timer]
+      OnCalendar=daily
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+# - name: "Teleport: remove_old_logs: Enable and start systemd timer"
+#   become: true
+#   systemd:
+#     name: teleport_remove_old_logs.timer
+#     enabled: yes
+#     state: started
