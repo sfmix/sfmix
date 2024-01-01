@@ -36,3 +36,4 @@ all:
     rs_linux:
       hosts:
         rs-linux.sfmix.org:
+          ansible_host: mgmt.rs-linux.sfmix.org
