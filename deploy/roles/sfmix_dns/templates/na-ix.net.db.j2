@@ -1,0 +1,29 @@
+; vim: set tabstop=8 shiftwidth=8
+$TTL 3600
+@       IN      SOA     ns1.sfmix.org.        tech-c.sfmix.org. (
+        {{ '%Y%m%d01'|strftime }} ; serial-number
+        8H              ; time-to-refresh
+        1H              ; time-to-retry
+        7D              ; time-to-expire
+        1H              ; minumum-TTL
+        )
+
+                IN      NS      ns1.sfmix.org.
+                IN      NS      ns3.he.net.
+                IN      NS      ns5.he.net.
+                IN      NS      ns1.lonap.net.
+                IN      NS      ns3.lonap.net.
+                IN      NS      ns4.lonap.net.uk.
+                IN      NS      ns5.lonap.net.uk.
+
+@               IN      A       192.33.255.3
+@               IN      MX      5       mail
+@               IN      TXT     "v=spf1 mx ~all"
+@               IN      SPF     "v=spf1 mx ~all"
+
+www             IN      A       192.33.255.3
+mail            IN      A       192.33.255.3
+lists           IN      A       192.33.255.3
+lists           IN      MX      5       lists
+lists           IN      TXT     "v=spf1 mx ~all"
+lists           IN      SPF     "v=spf1 mx ~all"

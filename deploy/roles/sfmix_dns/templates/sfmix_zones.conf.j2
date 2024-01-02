@@ -1,0 +1,92 @@
+// vim: set tabstop=8 shiftwidth=8
+// Management
+{% macro transfer_notify() %}
+allow-transfer {
+		127.0.0.0/8;
+		sfmix;
+		secondaries;
+	};
+
+	also-notify {
+		{% for secondary in sfmix_secondaries_to_notify -%}
+		{{ secondary }};
+		{% endfor -%}
+	};
+{% endmacro %}
+
+zone "sfmix.org" {
+	type master;
+	file "/etc/bind/zones/sfmix.org.db";
+	{{ transfer_notify() }}
+};
+
+zone "255.33.192.in-addr.arpa" {
+	type master;
+	file "/etc/bind/zones/192.33.255.0.db";
+	{{ transfer_notify() }}
+};
+
+zone "0.0.b.a.1.1.0.0.2.6.2.ip6.arpa" {
+	type master;
+	file "/etc/bind/zones/2620.11A.B000.44.db";
+	{{ transfer_notify() }}
+};
+
+// SFMIX Peering LAN
+zone "187.197.206.in-addr.arpa" {
+	type master;
+	file "/etc/bind/zones/206.197.187.0.db";
+	{{ transfer_notify() }}
+};
+
+zone "0.3.0.0.4.0.5.0.1.0.0.2.ip6.arpa" {
+	type master;
+	file "/etc/bind/zones/2001.504.30.db";
+	{{ transfer_notify() }}
+};
+
+// GoldenStateIX
+zone "goldenstateix.org" {
+	type master;
+	file "/etc/bind/zones/goldenstateix.org.db";
+	{{ transfer_notify() }}
+};
+ 
+zone "5.112.149.in-addr.arpa" {
+	type master;
+	file "/etc/bind/zones/149.112.5.0.db";
+	{{ transfer_notify() }}
+};
+
+zone "0.0.0.e.b.8.0.0.0.2.6.2.ip6.arpa" {
+	type master;
+	file "/etc/bind/zones/2620.8B.E000.db";
+	{{ transfer_notify() }}
+};
+
+// Misc
+zone "na-ix.org" {
+	type master;
+	file "/etc/bind/zones/na-ix.org.db";
+	{{ transfer_notify() }}
+};
+
+zone "na-ix.net" {
+	type master;
+	file "/etc/bind/zones/na-ix.net.db";
+	{{ transfer_notify() }}
+};
+
+// teleport.sfmix.org -- Dynamic DNS used for certbot
+key "teleport-certbot" {
+	algorithm hmac-sha512;
+	secret "{{ bind_teleport_certbot_tsig_key }}";
+};
+zone "teleport.sfmix.org" {
+	type master;
+	file "/var/lib/bind/db.teleport.sfmix.org";
+	update-policy {
+		grant teleport-certbot name _acme-challenge.teleport.sfmix.org. txt;
+	};
+};
+

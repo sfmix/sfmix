@@ -1,5 +1,37 @@
 ---
-- include_role:
-    name: PowerDNS.pdns
-  vars:
-    pdns_install_repo: "{{ pdns_auth_powerdns_repo_48 }}"
+- name: Create /etc/bind/zones
+  become: true
+  file:
+    dest: /etc/bind/zones
+    state: directory
+
+- name: Place sfmix_zones.conf
+  become: true
+  notify: Restart named.service
+  template:
+    src: sfmix_zones.conf.j2
+    dest: /etc/bind/sfmix_zones.conf
+    mode: ug=rw,o=r
+
+- name: Check for existing dynamic zone files
+  stat:
+    path: "/var/lib/bind/{{ item }}"
+  loop: "{{ sfmix_dynamic_zone_files }}"
+  register: dynamic_zone_files_stat
+
+- name: Add all Initial Dynamic DNS zone files
+  template:
+    src: "{{ item.item }}.j2"
+    dest: "/var/lib/bind/{{ item.item }}"
+    owner: root
+    group: bind
+  loop: "{{ dynamic_zone_files_stat.results }}"
+  when: "not item.stat.exists"
+  notify: Restart named.service
+
+- name: Place all DNS zone files
+  notify: Restart named.service
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/bind/zones/{{ item }}"
+  with_items: "{{ sfmix_zone_files }}"
