@@ -1,7 +1,5 @@
 ---
 roles:
-- name: PowerDNS.pdns
-  version: v1.8.0
 - name: lae.netbox
   version: v1.0.4
 - name: geerlingguy.postgresql
@@ -14,3 +12,5 @@ roles:
   version: 3.1.4
 - name: geerlingguy.certbot
   version: 5.1.0
+- name: bertvv.bind
+  version: v5.1.0

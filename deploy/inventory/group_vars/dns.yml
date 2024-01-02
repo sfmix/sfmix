@@ -1,4 +1,83 @@
 ---
 sfmix_ufw_enabled: false
-pdns_config:
-  version-string: "SFMIX DNS"
+bind_listen_ipv4: ['any']
+bind_listen_ipv6: ['any']
+bind_allow_query: ['any']
+sfmix_secondaries_to_notify:
+  # ns2.lonap.net AS8916, Sheffield
+  - 188.246.205.251
+  # ns6.lonap.net ns6.lonap.net - AS44684, Amsterdam
+  - 46.235.231.156
+  # ns1.he.net
+  - 216.218.130.2
+# Misleading; this option is simply deprecated in modern BIND. If DNSSEC data is
+# available, it will still be returned.
+bind_dnssec_enable: false
+bind_extra_include_files:
+- /etc/bind/sfmix_zones.conf
+sfmix_dynamic_zone_files:
+  - db.teleport.sfmix.org
+sfmix_zone_files:
+  - sfmix.org.db
+  - 206.197.187.0.db
+  - 2001.504.30.db
+  - 192.33.255.0.db
+  - 2620.11A.B000.44.db
+  - na-ix.net.db
+  - na-ix.org.db
+  - goldenstateix.org.db
+  - 149.112.5.0.db
+  - 2620.8B.E000.db
+bind_acls:
+  - name: sfmix
+    match_list:
+      - 192.33.255.0/24
+      - 2620:11a:b000::/44
+  - name: secondaries
+    match_list:
+      # ns1.he.net
+      - 216.218.130.2
+      # slave.dns.he.net
+      - 216.218.133.2
+      - 2001:470:600::2
+      # ns1.lonap.net AS8330, LONAP OOB Network
+      - 5.57.93.151
+      - 2a00:eb20:203::151
+      # ns2.lonap.net AS8916, Sheffield
+      - 188.246.205.251
+      - 2a03:9800:10:160::2
+      # ns3.lonap.net AS63949, London
+      - 139.162.215.99
+      - 2a01:7e00::f03c:92ff:febd:59d9
+      # ns4.lonap.net.uk AS8330, LONAP inband
+      - 5.57.91.100
+      - 2a00:eb20:403::100
+      # ns5.lonap.net.uk AS44684, London
+      - 93.93.130.43
+      - 2a00:1098:82:c0::1
+      # ns6.lonap.net ns6.lonap.net - AS44684, Amsterdam
+      - 46.235.231.156
+      - 2a00:1098:88:c6::1
+      # TODO: Remove once new LoNAP servers online
+      # ns0.lonap.net
+      - 91.198.81.8
+      - 5.57.95.8
+      - 2001:7f8:17:100::8
+      - 2a00:eb20:100::8
+      # ns1.lonap.net
+      - 91.198.81.9
+      - 5.57.95.9
+      - 2001:7f8:17:100::9
+      - 2a00:eb20:100::9
+      - 2a00:eb20:100::8
+bind_teleport_certbot_tsig_key: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  34313039323434316432616636313061383336636465303664366666373839626465316564363964
+  3138336437343434323662663430353831383839613037310a343035306361343962313465386138
+  38616537656135616531613939376663653733616238323562333335633163663238333765653362
+  3231396637646262620a323735326433306132313933396466316332306165663738336435646138
+  61316434343962353464353834366335643864643737633230393632356339343936623366353839
+  39613239663132383163623832366639626365653739633839356463393364623761656266353966
+  39626232626562633639396231663235363439663138663934353430343637623166363433626533
+  31656665323536383831663564643635313164323962643465316139313633623833666539656664
+  3738

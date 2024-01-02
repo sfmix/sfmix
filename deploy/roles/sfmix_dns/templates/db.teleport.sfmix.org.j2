@@ -1,0 +1,14 @@
+; vim: set tabstop=8 shiftwidth=8
+$ORIGIN teleport.sfmix.org.
+$TTL 300        ; 5 minutes
+@ IN SOA ns1.sfmix.org. tech-c.sfmix.org. (
+                                {{ '%Y%m%d01'|strftime }} ; serial
+                                10800      ; refresh (3 hours)
+                                3600       ; retry (1 hour)
+                                604800     ; expire (1 week)
+                                86400      ; minimum (1 day)
+                                )
+$TTL 60         ; 1 minute
+@                       NS      ns1.sfmix.org.
+@                       A       192.33.255.11
+@                       AAAA    2620:11a:b000::11

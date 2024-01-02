@@ -71,3 +71,4 @@
     - dns
   roles:
     - sfmix_dns
+    - bertvv.bind
