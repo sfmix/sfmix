@@ -14,3 +14,7 @@ roles:
   version: 5.1.0
 - name: bertvv.bind
   version: v5.1.0
+
+collections:
+- name: netbox.netbox
+  version: 3.15.0

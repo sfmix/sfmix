@@ -1,0 +1,29 @@
+---
+- name: Pull all Participant data from Netbox
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.set_fact:
+    netbox_participant_ip_addresses: "{{ query(
+      'netbox.netbox.nb_lookup',
+      'ip-addresses',
+      api_endpoint=ixp_netbox_api_endpoint,
+      token=ixp_netbox_api_token,
+      api_filter='tag=ixp_participant'
+      ) | items2dict }}"
+    netbox_participants: "{{ (
+        query(
+        'netbox.netbox.nb_lookup',
+        'tenants',
+        api_endpoint=ixp_netbox_api_endpoint,
+        token=ixp_netbox_api_token,
+        api_filter='tag=ixp_participant'
+        )
+        +
+        query(
+        'netbox.netbox.nb_lookup',
+        'tenants',
+        api_endpoint=ixp_netbox_api_endpoint,
+        token=ixp_netbox_api_token,
+        api_filter='tag=ixp_infrastructure'
+        )
+      ) | items2dict }}"

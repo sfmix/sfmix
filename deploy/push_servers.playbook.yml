@@ -70,5 +70,6 @@
   tags:
     - dns
   roles:
+    - netbox_data
     - sfmix_dns
     - bertvv.bind
