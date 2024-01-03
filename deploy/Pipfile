@@ -5,6 +5,13 @@ name = "pypi"
 
 [packages]
 ansible = "*"
+## FIXME/TODO: This is needed to fix ansible-galaxy installs of some roles.
+##   Once all the backports from this issue have been merged and released, we
+##   can remove this pin entirely, and pull in `ansible-core` transitively from the
+##   `ansible` package.
+## https://github.com/ansible/ansible/pull/82165
+ansible-core = "<2.15.5"
+##
 pytz = "*"
 paramiko = "*"
 pynetbox = "*"
