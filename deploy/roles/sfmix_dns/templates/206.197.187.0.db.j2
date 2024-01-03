@@ -20,10 +20,10 @@ $TTL 3600
 253		PTR	rs.sfo02.sfmix.org.
 254		PTR	rs.sfo01.sfmix.org.
 
-{% if participants is defined %}
-{% for p in participants|sort(attribute='v4_ip') %}
-{% if p.v4_ip != False %}
-{{ p.v4_ip|last_octet }}	IN	PTR	as{{ p.asn }}.sfmix.org. ; {{ p.name }}
-{% endif %}
+{% for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
+{%   set as_plus_number = 'as' + netbox_participants[ip_address.tenant.id].custom_fields.as_number | string %}
+{%   set as_name = netbox_participants[ip_address.tenant.id].description %}
+{%   if ip_address.family.value == 4 %}
+{{ ip_address.address | ansible.utils.ipaddr('revdns') }}	IN	PTR	{{ as_plus_number }}.sfmix.org. ; {{ as_name }}
+{%   endif %}
 {% endfor %}
-{% endif %}
