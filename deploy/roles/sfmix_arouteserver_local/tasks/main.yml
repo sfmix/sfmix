@@ -1,0 +1,7 @@
+---
+- name: Locally template a clients.yml file
+  delegate_to: localhost
+  run_once: True
+  template:
+    src: clients.yml.j2
+    dest: "{{ ansible_env.HOME }}/arouteserver_clients.yml"

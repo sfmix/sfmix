@@ -1,0 +1,19 @@
+---
+- name: Install BIRD
+  become: True
+  apt:
+    name: bird
+
+- name: Place generated BIRD config (v4)
+  become: True
+  copy:
+    src: "{{ arouteserver_dir }}/{{ inventory_hostname }}-bird4.cfg"
+    dest: /etc/bird/bird.conf
+  notify: Restart bird
+
+- name: Place generated BIRD config (v6)
+  become: True
+  copy:
+    src: "{{ arouteserver_dir }}/{{ inventory_hostname }}-bird6.cfg"
+    dest: /etc/bird/bird6.conf
+  notify: Restart bird6

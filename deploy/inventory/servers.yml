@@ -12,6 +12,7 @@ all:
         shell:
         dns:
         rs_linux:
+        rs_openbsd:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -33,7 +34,18 @@ all:
     dns:
       hosts:
         ns1-new.sfmix.org:
+    route_servers:
+      children:
+        rs_linux:
+        rs_openbsd:
     rs_linux:
       hosts:
         rs-linux.sfmix.org:
           ansible_host: mgmt.rs-linux.sfmix.org
+    rs_openbsd:
+      hosts:
+        # rs-openbsd.sfmix.org:
+        #   ansible_host: mgmt.rs-openbsd.sfmix.org
+    arouteserver_managed_routeservers:
+      children:
+        route_servers:

@@ -1,0 +1,20 @@
+---
+#jinja2: lstrip_blocks: "True"
+clients:
+{% for participant_id, participant in netbox_participants.items() %}
+- asn: {{ participant.custom_fields.as_number }}
+  description: {{ participant.description }}
+  ip:
+{% for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
+{%   if ip_address.tenant.id == participant.id %}
+    - "{{ ip_address.address | ansible.utils.ipaddr('address') }}"
+{%   endif %}
+{% endfor %}
+  cfg:
+    filtering:
+      rpki:
+        reject_invalid: True
+      max_prefix:
+        peering_db:
+          enabled: True
+{% endfor %}
