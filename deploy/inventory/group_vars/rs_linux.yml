@@ -1,2 +1,4 @@
 ---
-sfmix_ufw_enabled: false
+router_id: 206.197.187.253
+daemon: bird
+daemon_version: 1.6.8

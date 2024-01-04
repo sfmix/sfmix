@@ -73,3 +73,23 @@
     - netbox_data
     - sfmix_dns
     - bertvv.bind
+
+- hosts: localhost
+  tags:
+    - route_servers
+  roles:
+    - netbox_data
+    - sfmix_arouteserver_local
+    - pierky.arouteserver
+
+- hosts: rs_linux
+  tags:
+    - route_servers
+  roles:
+    - sfmix_route_server_linux
+
+# - hosts: rs_openbsd
+#   tags:
+#     - route_servers
+#   roles:
+#     - sfmix_route_server_openbsd
