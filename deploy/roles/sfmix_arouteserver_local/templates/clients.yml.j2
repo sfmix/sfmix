@@ -2,6 +2,7 @@
 #jinja2: lstrip_blocks: "True"
 clients:
 {% for participant_id, participant in netbox_participants.items() %}
+{% if participant.custom_fields.as_number != rs_asn %}
 - asn: {{ participant.custom_fields.as_number }}
   description: {{ participant.description }}
   ip:
@@ -17,4 +18,5 @@ clients:
       max_prefix:
         peering_db:
           enabled: True
+{% endif %}
 {% endfor %}
