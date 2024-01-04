@@ -1,6 +1,5 @@
 ---
 sfmix_ufw_enabled: false
-rs_asn: 63055
 local_networks:
 - 206.197.187.0/24
 - 2001:504:30::/48
