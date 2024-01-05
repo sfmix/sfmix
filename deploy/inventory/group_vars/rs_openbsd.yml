@@ -1,0 +1,5 @@
+---
+router_id: 206.197.187.254
+daemon: openbgpd
+daemon_version: 8.3
+

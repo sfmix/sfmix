@@ -1,5 +1,6 @@
 ---
-- name: "Create \"sfmix\" user"
+- name: Create "sfmix" user (Linux)
+  when: ansible_system == "Linux"
   become: true
   ansible.builtin.user:
     name: sfmix
@@ -10,7 +11,19 @@
     append: true
     shell: /bin/bash
 
-- name: "Create ~sfmix/.netrc"
+- name: Create "sfmix" user (OpenBSD)
+  when: ansible_system == "OpenBSD"
+  become: true
+  ansible.builtin.user:
+    name: sfmix
+    state: present
+    groups:
+      - wheel
+    append: true
+    shell: /bin/bash
+
+- name: Create ~sfmix/.netrc (Linux)
+  when: ansible_system == "Linux"
   become: true
   ansible.builtin.template:
     src: ../templates/netrc.j2

@@ -1,5 +1,6 @@
 ---
-- name: Install common packages
+- name: Install common packages (Linux)
+  when: ansible_system == "Linux"
   become: true
   ansible.builtin.apt:
     name: "{{ item }}"

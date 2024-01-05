@@ -5,11 +5,12 @@
 - ansible.builtin.import_tasks:
     file: users.yml
 
-
-- ansible.builtin.import_tasks:
+- when: ansible_system == "Linux"
+  ansible.builtin.import_tasks:
     file: docker.yml
 
-- ansible.builtin.import_tasks:
+- when: ansible_system == "Linux"
+  ansible.builtin.import_tasks:
     file: ufw.yml
   tags: ufw
 
@@ -19,7 +20,8 @@
 - ansible.builtin.import_tasks:
     file: common_packages.yml
 
-- ansible.builtin.import_tasks:
+- when: ansible_system == "Linux"
+  ansible.builtin.import_tasks:
     file: sfmix_dns.yml
   tags:
     - dns

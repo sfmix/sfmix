@@ -1,7 +1,16 @@
 ---
+- name: Install arouteserver locally and setup default templates
+  include_role:
+    name: pierky.arouteserver
+    tasks_from: installation.yml
+
+- name: Remove arouteserver BIRD logfile (we use syslog/journald)
+  lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/arouteserver/templates/bird/header.j2"
+    regexp: 'log "/var/log/bird.log" all;'
+    state: absent
+
 - name: Locally template a clients.yml file
-  delegate_to: localhost
-  run_once: True
   template:
     src: clients.yml.j2
-    dest: "{{ ansible_env.HOME }}/arouteserver_clients.yml"
+    dest: "{{ lookup('env', 'HOME') }}/arouteserver_clients.yml"

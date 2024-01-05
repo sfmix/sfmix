@@ -88,8 +88,8 @@
   roles:
     - sfmix_route_server_linux
 
-# - hosts: rs_openbsd
-#   tags:
-#     - route_servers
-#   roles:
-#     - sfmix_route_server_openbsd
+- hosts: rs_openbsd
+  tags:
+    - route_servers
+  roles:
+    - sfmix_route_server_openbsd
