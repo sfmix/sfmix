@@ -10,6 +10,19 @@ In order to handle these use cases, we make use of a mix of Netbox Tagging and N
 We run Netbox in a VM, which is deployed with the ansible inside of `deploy/` of this repository.
 We use PostgreSQL as a persistent database. We use Redis as a cache.
 
+## Bootstrapping
+
+Run the `Device-Type-Library-Import` script to populate the Manufacturer and Device database: https://github.com/netbox-community/Device-Type-Library-Import
+
+Add the Peering VLANs and Prefixes.
+
+Add IX-specific tags:
+
+- IXP Infrastructure (Slug: "ixp_infrastructure")
+- IXP Participant (Slug: "ixp_participant")
+- Peering LAN (Slug: "peering_lan")
+- Peering Port (Slug: "peering_port")
+
 ## SFMIX-Specific Objects and Relationships
 
 ### Participants as Netbox Tenants
