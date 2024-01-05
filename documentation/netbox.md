@@ -45,6 +45,8 @@ IP subnet prefixes are tracked as Netbox Prefixes, tagged with the Netbox Tag "P
 
 Participant Peering Subnet IP assignments are tracked as Netbox IP Addresses tagged with the Netbox Tag "IXP Participant".
 
+The association to a Participant is made by setting the Participant's Tenant as the Netbox Tenant on the Netbox IP Address.
+
 In order to facilitate mapping the address to a participant's logical/physical L2 interface, two Netbox Custom Fields are used:
 
 - "Participant LAG" of type "Interface" points to the LAG or physical interface for that participant.
