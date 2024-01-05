@@ -1,6 +1,6 @@
 ---
 - name: "MOTD: Ubuntu: Disable Dynamic MOTD"
-  when: 'ansible_lsb.id == "Ubuntu"'
+  when: ansible_system == "Linux" and ansible_lsb.id == "Ubuntu"
   block:
     - name: "MOTD: Find all dynamic MOTD files"
       ansible.builtin.find:

@@ -5,7 +5,6 @@
     name: ufw
 
 - name: "Firewall: Enable/Disable UFW"
-  when: sfmix_ufw_enabled
   become: true
   community.general.ufw:
     state: "{{ sfmix_ufw_enabled|bool | ternary('enabled', 'disabled')}}"
