@@ -60,7 +60,7 @@ Participant Peering Subnet IP assignments are tracked as Netbox IP Addresses tag
 
 The association to a Participant is made by setting the Participant's Tenant as the Netbox Tenant on the Netbox IP Address.
 
-In order to facilitate mapping the address to a participant's logical/physical L2 interface, two Netbox Custom Fields are used:
+In order to facilitate mapping the address to a participant's logical/physical L2 interface, because a Netbox Interface does not have a field to set a Netbox Tenant, two Netbox Custom Fields are used:
 
 - "Participant LAG" of type "Interface" points to the LAG or physical interface for that participant.
 - "Participant MAC Address" of type String contains a lower-case, colon-delimited MAC address that we detect (via ARP or ICMPv6 Neighbor Discovery) the participant using.
