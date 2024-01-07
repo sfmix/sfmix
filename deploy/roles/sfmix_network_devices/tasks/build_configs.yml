@@ -1,0 +1,16 @@
+---
+- name: "Template: General"
+  delegate_to: localhost
+  ansible.builtin.template:
+    src: eos/general.j2
+    dest: "{{ config_parts_dir }}/general.eos_config.txt"
+    mode: ug=rw,o=r
+- name: "Template: Interfaces"
+  delegate_to: localhost
+  ansible.builtin.template:
+    src: eos/interface.j2
+    dest: "{{ config_parts_dir }}/interface_{{ item.name }}.eos_config.txt"
+    mode: ug=rw,o=r
+  tags:
+    - interfaces
+  with_items: "{{ interfaces }}"
