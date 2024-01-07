@@ -3,6 +3,7 @@
   delegate_to: localhost
   run_once: true
   ansible.builtin.set_fact:
+    # noqa jinja[spacing]
     netbox_participant_ip_addresses: "{{ query(
       'netbox.netbox.nb_lookup',
       'ip-addresses',
@@ -10,6 +11,69 @@
       token=ixp_netbox_api_token,
       api_filter='tag=ixp_participant'
       ) | items2dict }}"
+# This sets a dict mapping Netbox IP Address IDs to Netbox IP Addresses that
+# look like this:
+# {637: {
+#       "id": 637,
+#       "address": "2001:504:30::ba21:0:1/128",
+#       "assigned_object": null,
+#       "assigned_object_id": null,
+#       "assigned_object_type": null,
+#       "comments": "",
+#       "created": "2023-12-13T05:33:43.381744Z",
+#       "custom_fields": {
+#           "participant_lag": {
+#               "_occupied": true,
+#               "cable": 450,
+#               "device": {
+#                   "display": "switch01.fmt01",
+#                   "id": 63,
+#                   "name": "switch01.fmt01",
+#                   "url": "https://netbox.sfmix.org/api/dcim/devices/63/"
+#               },
+#               "display": "Ethernet29",
+#               "id": 2032,
+#               "name": "Ethernet29",
+#               "url": "https://netbox.sfmix.org/api/dcim/interfaces/2032/"
+#           },
+#           "participant_mac_address": "48:73:10:bb:f9:c0"
+#       },
+#       "description": "",
+#       "display": "2001:504:30::ba21:0:1/128",
+#       "dns_name": "",
+#       "family": {
+#           "label": "IPv6",
+#           "value": 6
+#       },
+#       "last_updated": "2023-12-28T18:36:24.579467Z",
+#       "nat_inside": null,
+#       "nat_outside": [],
+#       "role": null,
+#       "status": {
+#           "label": "Active",
+#           "value": "active"
+#       },
+#       "tags": [
+#           {
+#               "color": "9c27b0",
+#               "display": "IXP Participant",
+#               "id": 1,
+#               "name": "IXP Participant",
+#               "slug": "ixp_participant",
+#               "url": "https://netbox.sfmix.org/api/extras/tags/1/"
+#           }
+#       ],
+#       "tenant": {
+#           "display": "AS210000",
+#           "id": 158,
+#           "name": "AS210000",
+#           "slug": "as210000",
+#           "url": "https://netbox.sfmix.org/api/tenancy/tenants/158/"
+#       },
+#       "url": "https://netbox.sfmix.org/api/ipam/ip-addresses/637/",
+#       "vrf": null
+#     }
+# }
     netbox_participants: "{{ (
         query(
         'netbox.netbox.nb_lookup',
@@ -27,3 +91,53 @@
         api_filter='tag=ixp_infrastructure'
         )
       ) | items2dict }}"
+# This sets a dict mapping Netbox Tenant IDs to Netbox Tenant objects. One example entry looks like:
+# {187: {
+#   "id": 187,
+#   "circuit_count": 0,
+#   "cluster_count": 0,
+#   "comments": "",
+#   "created": "2023-11-29T08:16:51.101197Z",
+#   "custom_fields": {
+#       "as_number": 63055,
+#       "participant_type": "Infrastructure"
+#   },
+#   "description": "SFMIX Route Servers",
+#   "device_count": 0,
+#   "display": "AS63055",
+#   "group": null,
+#   "ipaddress_count": 3,
+#   "last_updated": "2023-12-29T08:44:48.453945Z",
+#   "name": "AS63055",
+#   "prefix_count": 0,
+#   "rack_count": 0,
+#   "site_count": 0,
+#   "slug": "as63055",
+#   "tags": [
+#       {
+#           "color": "ff5722",
+#           "display": "IXP Infrastructure",
+#           "id": 2,
+#           "name": "IXP Infrastructure",
+#           "slug": "ixp_infrastructure",
+#           "url": "https://netbox.sfmix.org/api/extras/tags/2/"
+#       }
+#   ],
+#   "url": "https://netbox.sfmix.org/api/tenancy/tenants/187/",
+#   "virtualmachine_count": 0,
+#   "vlan_count": 0,
+#   "vrf_count": 0
+# }
+    netbox_devices: "{{ query('netbox.netbox.nb_lookup', 'devices', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token) | items2dict }}"
+# This sets a dict mapping Netbox Device IDs to Netbox Devices
+    netbox_sites: "{{ query('netbox.netbox.nb_lookup', 'sites', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token ) | items2dict }}"
+# This sets a dict mapping Netbox Site IDs to Netbox Sites
+
+- name: Reformat Participant data from Netbox
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.set_fact:
+    # noqa yaml[line-length]
+    netbox_participant_ip_addresses_list: "{{ netbox_participant_ip_addresses.values() | map(attribute='address') | map('ansible.utils.ipaddr', 'address') | list }}"
+# This creates a simple flat list of currently-assigned participant IP addresses as strings
+# e.g.  ["206.197.187.1", "206.197.187.2", "206.197.187.5", ... ]
