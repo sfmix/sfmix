@@ -13,7 +13,8 @@
 - name: "Install HTTPS/Nginx Reverse Proxy into Netbox"
   become: true
   block:
-    - include_role:
+    - name: "Install certbox and nginx"
+      ansible.builtin.include_role:
         name: "{{ item }}"
       loop:
         - geerlingguy.certbot

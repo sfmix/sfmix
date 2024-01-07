@@ -26,7 +26,7 @@
   when: ansible_system == "Linux"
   become: true
   ansible.builtin.template:
-    src: ../templates/netrc.j2
+    src: netrc.j2
     dest: /home/sfmix/.netrc
     owner: sfmix
     group: sfmix

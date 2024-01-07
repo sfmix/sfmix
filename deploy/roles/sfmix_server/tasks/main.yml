@@ -1,26 +1,29 @@
 ---
-- ansible.builtin.import_tasks:
-    file: motd.yml
+- name: "SFMIX Server: MOTD"
+  ansible.builtin.import_tasks: motd.yml
 
-- ansible.builtin.import_tasks:
-    file: users.yml
+- name: "SFMIX Server: Users"
+  ansible.builtin.import_tasks: users.yml
 
-- when: ansible_system == "Linux"
+- name: "SFMIX Server: sfmix User"
+  ansible.builtin.import_tasks: sfmix_user.yml
+
+- name: "SFMIX Server: common packages"
+  ansible.builtin.import_tasks: common_packages.yml
+
+- name: "SFMIX Server: Docker"
+  when: ansible_system == "Linux"
   ansible.builtin.import_tasks:
     file: docker.yml
 
-- when: ansible_system == "Linux"
+- name: "SFMIX Server: UFW"
+  when: ansible_system == "Linux"
   ansible.builtin.import_tasks:
     file: ufw.yml
   tags: ufw
 
-- ansible.builtin.import_tasks:
-    file: sfmix_user.yml
-
-- ansible.builtin.import_tasks:
-    file: common_packages.yml
-
-- when: ansible_system == "Linux"
+- name: "SFMIX Server: DNS"
+  when: ansible_system == "Linux"
   ansible.builtin.import_tasks:
     file: sfmix_dns.yml
   tags:

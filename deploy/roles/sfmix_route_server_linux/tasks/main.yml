@@ -1,19 +1,21 @@
 ---
 - name: Install BIRD
-  become: True
-  apt:
+  become: true
+  ansible.builtin.apt:
     name: bird
 
 - name: Place generated BIRD config (v4)
-  become: True
-  copy:
+  become: true
+  ansible.builtin.copy:
     src: "{{ lookup('env', 'HOME') }}/arouteserver/{{ inventory_hostname }}-bird4.cfg"
     dest: /etc/bird/bird.conf
+    mode: ug=rw,o=r
   notify: Reload bird
 
 - name: Place generated BIRD config (v6)
-  become: True
-  copy:
+  become: true
+  ansible.builtin.copy:
     src: "{{ lookup('env', 'HOME') }}/arouteserver/{{ inventory_hostname }}-bird6.cfg"
     dest: /etc/bird/bird6.conf
+    mode: ug=rw,o=r
   notify: Reload bird

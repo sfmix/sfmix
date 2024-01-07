@@ -1,5 +1,5 @@
 ---
-- name: "ufw: accept sFlow on OOB"
+- name: "UFW: accept sFlow on OOB"
   become: true
   community.general.ufw:
     rule: allow
@@ -7,17 +7,18 @@
     proto: udp
     to_port: 6343
 
-- name: "sflow-rt: Ensure directories"
+- name: "Sflow-rt: Ensure directories"
   become: true
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: nobody
     group: nogroup
+    mode: ugo=rx
   with_items:
     - "{{ sflow_rt_store_dir }}"
 
-- name: "sflow-rt: run {{ sflow_rt_docker_container }} container"
+- name: "Sflow-rt: run container: {{ sflow_rt_docker_container }}"
   community.docker.docker_container:
     name: sflow-rt
     image: "{{ sflow_rt_docker_container }}"
@@ -48,7 +49,7 @@
 
 - name: "Run ~sfmix/topology.py every 12 hours"
   become: true
-  cron:
+  ansible.builtin.cron:
     name: "SFMIX topology.py"
     user: sfmix
     job: "/home/sfmix/topology.py"

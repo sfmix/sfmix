@@ -7,7 +7,7 @@
 - name: "Firewall: Enable/Disable UFW"
   become: true
   community.general.ufw:
-    state: "{{ sfmix_ufw_enabled|bool | ternary('enabled', 'disabled')}}"
+    state: "{{ sfmix_server_ufw_enabled | bool | ternary('enabled', 'disabled') }}"
     policy: reject
 
 - name: "Firewall: Allow admin subnets"
@@ -18,4 +18,3 @@
   with_items:
     - "{{ ixp_admin_source_subnets }}"
     - "{{ sfmix_host_local_admin_source_subnets }}"
-

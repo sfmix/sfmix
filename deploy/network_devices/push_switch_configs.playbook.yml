@@ -1,5 +1,6 @@
 ---
-- hosts: peering_switch
+- name: Push switch configs
+  hosts: peering_switch
   gather_facts: false
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/../configs/' ~ inventory_hostname) | realpath }}"

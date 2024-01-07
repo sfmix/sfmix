@@ -1,32 +1,37 @@
 ---
 - name: Enable bgpd
-  become: True
+  become: true
   ansible.builtin.lineinfile:
     path: /etc/rc.conf.local
     regexp: ^bgpd_flags=.*$
     line: 'bgpd_flags=""'
-    create: yes
 
 - name: Place generated bgpd.conf into /etc/bgpd.candidate.conf
-  become: True
+  become: true
   ansible.builtin.copy:
     src: "{{ lookup('env', 'HOME') }}/arouteserver/{{ inventory_hostname }}-openbgpd.cfg"
     dest: /etc/bgpd.candidate.conf
+    owner: root
+    group: root
+    mode: ug=rw,o=r
 
 - name: Test the candidate bgpd.conf
-  become: True
+  become: true
   ansible.builtin.command:
     cmd: bgpd -n -f /etc/bgpd.candidate.conf
   register: bgpd_config_test
+  changed_when: false
 
 - name: Install the candidate bgpd.conf
-  become: True
+  become: true
   when: bgpd_config_test.rc == 0
   ansible.builtin.command:
     cmd: mv /etc/bgpd.candidate.conf /etc/bgpd.conf
+  changed_when: true
 
 - name: Run `bgpctl reload`
-  become: True
+  become: true
   when: bgpd_config_test.rc == 0
   ansible.builtin.command:
     cmd: bgpctl reload
+  changed_when: true

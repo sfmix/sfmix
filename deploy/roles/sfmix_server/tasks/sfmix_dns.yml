@@ -7,23 +7,26 @@
     masked: true
     state: stopped
 
-- name: stat /etc/resolv.conf
+- name: Call stat on /etc/resolv.conf
   become: true
-  stat:
+  ansible.builtin.stat:
     path: /etc/resolv.conf
   register: stat_etc_resolv_conf
 
 - name: Remove /etc/resolv.conf symlink to systemd-resolved
   become: true
-  file:
+  ansible.builtin.file:
     path: /etc/resolv.conf
     state: absent
   when: stat_etc_resolv_conf.stat.islnk
 
 - name: Create /etc/resolv.conf
   become: true
-  copy:
+  ansible.builtin.copy:
     dest: /etc/resolv.conf
     content: |
       search sfmix.org
       nameserver {{ sfmix_dns_recursor }}
+    owner: root
+    group: root
+    mode: ug=rw,o=r

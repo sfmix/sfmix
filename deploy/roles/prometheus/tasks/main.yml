@@ -1,23 +1,27 @@
 ---
-- name: "prometheus: ensure prometheus directories"
+- name: "Prometheus: ensure prometheus directories"
   become: true
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: nobody
     group: nogroup
+    mode: ug=rwx,o=rx
   with_items:
     - /opt/prometheus
     - /opt/prometheus/var
 
-- name: "prometheus: Template config"
+- name: "Prometheus: Template config"
   become: true
-  notify: restart prometheus
+  notify: Restart prometheus
   ansible.builtin.template:
     src: prometheus.yaml.j2
     dest: /opt/prometheus/prometheus.yml
+    owner: nobody
+    group: nogroup
+    mode: ugo=r
 
-- name: "prometheus: run prom/prometheus container"
+- name: "Prometheus: run prom/prometheus container"
   community.docker.docker_container:
     name: prometheus
     image: prom/prometheus

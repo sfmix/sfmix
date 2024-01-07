@@ -41,11 +41,15 @@ all:
     rs_linux:
       hosts:
         rs-linux.sfmix.org:
-          ansible_host: mgmt.rs-linux.sfmix.org
+          # ansible_host: mgmt.rs-linux.sfmix.org
+          ansible_host: 192.168.178.148
+          ansible_user: vagrant
     rs_openbsd:
       hosts:
         rs-openbsd.sfmix.org:
         #   ansible_host: mgmt.rs-openbsd.sfmix.org
+          ansible_host: 192.168.178.230
+          ansible_user: vagrant
     arouteserver_managed_routeservers:
       children:
         route_servers:

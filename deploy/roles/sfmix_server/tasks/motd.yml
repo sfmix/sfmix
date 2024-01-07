@@ -17,6 +17,9 @@
 
 - name: "MOTD: Place the motd file"
   become: true
-  template:
+  ansible.builtin.template:
     src: motd.j2
     dest: /etc/motd
+    owner: root
+    group: root
+    mode: ug=rw,o=r

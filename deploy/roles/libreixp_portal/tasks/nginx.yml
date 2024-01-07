@@ -17,15 +17,15 @@
 
 - name: Install systemd-cron for certbot
   become: true
-  apt:
+  ansible.builtin.apt:
     pkg: systemd-cron
     state: present
 
 - name: "Create certbot hooks directories"
-  file:
+  ansible.builtin.file:
     path: /etc/letsencrypt/renewal-hooks/{{ item }}
     state: directory
-    mode: 0755
+    mode: u=rwx,go=rx
     owner: root
     group: root
   with_items:
@@ -34,26 +34,27 @@
 
 - name: "Template ufw pre-script (disable Firewall)"
   become: true
-  copy:
+  ansible.builtin.copy:
     dest: /etc/letsencrypt/renewal-hooks/pre/ufw_stop.sh
     content: "#!/bin/bash\nufw disable\n"
     owner: root
     group: root
-    mode: 0750
+    mode: u=rwx,g=rx,o=
 
 - name: "Template ufw post-script (disable Firewall)"
   become: true
-  copy:
+  ansible.builtin.copy:
     dest: /etc/letsencrypt/renewal-hooks/post/ufw_stop.sh
     content: "#!/bin/bash\nufw enable\n"
     owner: root
     group: root
-    mode: 0750
+    mode: u=rwx,g=rx,o=
 
 - name: "Install HTTPS/Nginx Reverse Proxy"
   become: true
   block:
-    - include_role:
+    - name: "Install HTTPS/Nginx Reverse Proxy"
+      ansible.builtin.include_role:
         name: "{{ item }}"
       loop:
         - geerlingguy.certbot

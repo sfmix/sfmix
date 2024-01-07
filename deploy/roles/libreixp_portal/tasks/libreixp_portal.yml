@@ -1,7 +1,7 @@
 ---
 - name: Locally clone sfmix/sfmix
-  local_action:
-    module: ansible.builtin.git
+  delegate_to: localhost
+  ansible.builtin.git:
     repo: "git@github.com:sfmix/sfmix.git"
     dest: /tmp/sfmix__sfmix
     depth: 1
@@ -9,7 +9,7 @@
 
 - name: Install rsync
   become: true
-  apt:
+  ansible.builtin.apt:
     pkg: rsync
     state: present
 
@@ -26,6 +26,7 @@
     delete: true
     rsync_opts:
       - "--exclude=.git"
+  notify: Build virtualenv for ixp_web
   register: copied_sfmix_repo
 
 - name: Set IS_PRODUCTION=True in settings.py
@@ -43,22 +44,9 @@
     replace: "{{ item.replace }}"
   no_log: true
   with_items:
-    - {
-        "regex": "CHANGEME_PRODUCTION_DB_PASSWORD",
-        "replace": "{{ postgresql_sfmix_password }}",
-      }
+    - { "regex": "CHANGEME_PRODUCTION_DB_PASSWORD", "replace": "{{ postgresql_sfmix_password }}" }
     - { "regex": "CHANGEME_PRODUCTION_DB_PORT", "replace": "5432" }
     - { "regex": "CHANGEME_PRODUCTION_DB_HOST", "replace": "127.0.0.1" }
-
-- name: Build virtualenv for ixp_web
-  notify: Restart libreixp_portal
-  become: true
-  when: copied_sfmix_repo.changed
-  command:
-    cmd: pipenv --python=/usr/bin/python3 sync
-    chdir: /opt/sfmix/libreixp/ixp_web
-  environment:
-    PIPENV_VENV_IN_PROJECT: "true"
 
 - name: Template .env file
   notify: Restart libreixp_portal
@@ -68,6 +56,7 @@
     group: sfmix
     src: dotenv.j2
     dest: /opt/sfmix/libreixp/ixp_web/.env
+    mode: ug=rw,o=
   no_log: true
 
 - name: Re-own /opt/sfmix
@@ -76,7 +65,7 @@
     path: /opt/sfmix
     owner: sfmix
     group: sfmix
-    recurse: yes
+    recurse: true
     state: directory
 
 - name: Run DB Migrations
@@ -89,6 +78,8 @@
       - /opt/sfmix/libreixp/ixp_web/.venv/bin/python
       - /opt/sfmix/libreixp/ixp_web/manage.py
       - migrate
+  register: django_migration_output
+  changed_when: "'No migrations to apply.' not in django_migration_output.stdout"
 
 - name: Build Django static files
   become: true
@@ -101,20 +92,28 @@
       - /opt/sfmix/libreixp/ixp_web/manage.py
       - collectstatic
       - --clear
+  register: libreixp_portal_django_collectstatic
+  changed_when: libreixp_portal_django_collectstatic.rc == 0
 
-- name: systemd socket for LibreIXP Portal
+- name: Template systemd socket for LibreIXP Portal
   notify: Restart libreixp_portal
   become: true
   ansible.builtin.template:
     src: libreixp_portal.socket.j2
     dest: /etc/systemd/system/libreixp_portal.socket
+    owner: root
+    group: root
+    mode: ug=rw,o=r
 
-- name: systemd service for LibreIXP Portal
+- name: Template systemd service for LibreIXP Portal
   notify: Restart libreixp_portal
   become: true
   ansible.builtin.template:
     src: libreixp_portal.service.j2
     dest: /etc/systemd/system/libreixp_portal.service
+    owner: root
+    group: root
+    mode: ug=rw,o=r
 
 - name: Enable systemd units for libreixp_portal
   notify: Restart libreixp_portal

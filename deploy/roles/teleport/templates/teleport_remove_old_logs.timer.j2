@@ -1,0 +1,9 @@
+[Unit]
+Description=Teleport: Remove Old Logs Every Day
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

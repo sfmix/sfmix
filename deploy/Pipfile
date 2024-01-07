@@ -16,6 +16,7 @@ pytz = "*"
 paramiko = "*"
 pynetbox = "*"
 netaddr = "*"
+ansible-lint = "*"
 
 [dev-packages]
 
