@@ -1,24 +1,28 @@
 ---
-- hosts: peering_switch
+- name: Build device configurations
+  hosts: peering_switch
   gather_facts: false
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/../configs/' ~ inventory_hostname) | realpath }}"
   tasks:
     - name: Ensure output configuration directories
       connection: local
-      file:
+      ansible.builtin.file:
         dest: "{{ config_parts_dir }}"
         state: directory
+        mode: ug=rwx,o=rx
     - name: "Template: General"
       connection: local
-      template:
+      ansible.builtin.template:
         src: eos/general.j2
         dest: "{{ config_parts_dir }}/general.eos_config.txt"
+        mode: ug=rw,o=r
     - name: "Template: Interfaces"
       connection: local
-      template:
+      ansible.builtin.template:
         src: eos/interface.j2
         dest: "{{ config_parts_dir }}/interface_{{ item.name }}.eos_config.txt"
+        mode: ug=rw,o=r
       tags:
         - interfaces
       with_items: "{{ interfaces }}"

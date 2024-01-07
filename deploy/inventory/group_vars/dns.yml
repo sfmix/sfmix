@@ -1,5 +1,5 @@
 ---
-sfmix_ufw_enabled: false
+sfmix_server_ufw_enabled: false
 bind_listen_ipv4: ['any']
 bind_listen_ipv6: ['any']
 bind_allow_query: ['any']
@@ -14,7 +14,7 @@ sfmix_secondaries_to_notify:
 # available, it will still be returned.
 bind_dnssec_enable: false
 bind_extra_include_files:
-- /etc/bind/sfmix_zones.conf
+  - /etc/bind/sfmix_zones.conf
 sfmix_dynamic_zone_files:
   - db.teleport.sfmix.org
 sfmix_zone_files:

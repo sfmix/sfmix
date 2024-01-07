@@ -29,7 +29,7 @@
 # already
 - name: "SFMIX Admin users: authorized_keys from github"
   become: true
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: "{{ item.username }}"
     state: present
     key: "{{ lookup('file', (playbook_dir ~ '/.github_ssh_keys/' ~ item.github_username ~ '.keys')) }}"
@@ -40,7 +40,7 @@
 
 - name: "SFMIX Admin users: authorized_keys from keys_file"
   become: true
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: "{{ item.username }}"
     state: present
     key: "{{ lookup('file', item.keys_file) }}"
@@ -49,7 +49,7 @@
     - "{{ sfmix_admin_users }}"
     - "{{ sfmix_host_local_users }}"
 
-- name: "sudo: No password for sudo group (Linux)"
+- name: "No password for sudo group (Linux)"
   when: ansible_system == "Linux"
   become: true
   community.general.sudoers:
@@ -58,7 +58,7 @@
     commands: ALL
     nopassword: true
 
-- name: "sudo: No password for wheel group (OpenBSD)"
+- name: "No password for wheel group (OpenBSD)"
   when: ansible_system == "OpenBSD"
   become: true
   community.general.sudoers:

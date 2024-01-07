@@ -1,6 +1,6 @@
 ---
 - name: Install docker
   become: true
-  apt:
+  ansible.builtin.apt:
     pkg: docker.io
     state: present

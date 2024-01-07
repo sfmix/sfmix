@@ -1,23 +1,28 @@
 ---
-- connection: local
+- name: Download SSH Keys from GitHub
+  connection: local
   hosts: localhost
   gather_facts: false
   tasks:
-    - ansible.builtin.import_tasks:
+    - name: Download SSH Keys from GitHub
+      ansible.builtin.import_tasks:
         file: roles/sfmix_server/tasks/download_ssh_keys_from_github.yml
 
-- hosts: servers
+- name: SFMIX Servers
+  hosts: servers
   roles:
     - sfmix_server
 
-- hosts: netbox
+- name: "Netbox: Prepare server"
+  hosts: netbox
   become: true
   tags:
     - netbox
   roles:
     - ixp_netbox
 
-- hosts: netbox
+- name: "Netbox: Install Netbox"
+  hosts: netbox
   become: true
   tags:
     - netbox
@@ -26,7 +31,8 @@
     - DavidWittman.redis
     - lae.netbox
 
-- hosts: metrics
+- name: Metrics Server
+  hosts: metrics
   tags:
     - metrics
   roles:
@@ -35,13 +41,15 @@
     - prometheus
     - grafana
 
-- hosts: teleport
+- name: Teleport Auth/Proxy Server
+  hosts: teleport
   tags:
     - teleport
   roles:
     - teleport
 
-- hosts: portal
+- name: "Participant Portal: Prepare Server"
+  hosts: portal
   become: true
   tags:
     - portal
@@ -51,21 +59,22 @@
     - geerlingguy.postgresql
     - DavidWittman.redis
 
-- hosts: portal
+- name: "Participant Portal: Install LibreIXP"
+  hosts: portal
   tags:
     - portal
-  collections:
-    - community.general
   roles:
     - libreixp_portal
 
-- hosts: sentry
+- name: Install Sentry
+  hosts: sentry
   tags:
     - sentry
   roles:
     - sentry
 
-- hosts: dns
+- name: DNS Server
+  hosts: dns
   become: true
   tags:
     - dns
@@ -74,7 +83,8 @@
     - sfmix_dns
     - bertvv.bind
 
-- hosts: localhost
+- name: "Route Servers: Generate Configurations"
+  hosts: localhost
   tags:
     - route_servers
   roles:
@@ -82,13 +92,15 @@
     - sfmix_arouteserver_local
     - pierky.arouteserver
 
-- hosts: rs_linux
+- name: "Route Servers: Configure Linux/BIRD"
+  hosts: rs_linux
   tags:
     - route_servers
   roles:
     - sfmix_route_server_linux
 
-- hosts: rs_openbsd
+- name: "Route Servers: Configure OpenBSD/OpenBGPD"
+  hosts: rs_openbsd
   tags:
     - route_servers
   roles:

@@ -1,0 +1,9 @@
+[Unit]
+Description=Teleport: Remove Old Logs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -c "/usr/bin/find /var/lib/teleport/log -type f -name '*.log' -mtime +{{ teleport_log_retention_days }} -print -delete; /usr/bin/find /var/lib/teleport/log/records -type f -name '*.tar' -mtime +{{ teleport_log_retention_days }} -print -delete"
+
+[Install]
+WantedBy=multi-user.target

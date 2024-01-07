@@ -5,7 +5,7 @@ ansible_remote_port: 443
 ansible_httpapi_validate_certs: false
 ansible_user: admin
 ansible_password: admin
-ansible_become: yes
+ansible_become: true
 ansible_become_method: enable
 
 dns_resolvers: ["1.1.1.1", "8.8.8.8"]

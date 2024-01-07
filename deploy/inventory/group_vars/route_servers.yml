@@ -1,5 +1,5 @@
 ---
-sfmix_ufw_enabled: false
+sfmix_server_ufw_enabled: false
 local_networks:
-- 206.197.187.0/24
-- 2001:504:30::/48
+  - 206.197.187.0/24
+  - 2001:504:30::/48

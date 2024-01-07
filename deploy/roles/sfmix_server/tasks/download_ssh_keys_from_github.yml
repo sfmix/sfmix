@@ -4,11 +4,12 @@
   ansible.builtin.file:
     dest: "{{ (playbook_dir ~ '/.github_ssh_keys/') }}"
     state: directory
+    mode: ug=rwx,o=rx
 
 - name: "SFMIX Admin users: Download keys from Github"
   connection: local
   ansible.builtin.get_url:
     url: "https://github.com/{{ item.github_username }}.keys"
     dest: "{{ (playbook_dir ~ '/.github_ssh_keys/' ~ item.github_username ~ '.keys') }}"
+    mode: ugo=rw
   with_items: "{{ sfmix_admin_users }}"
-

@@ -10,7 +10,7 @@
 
 - name: "Dynamic DNS: Install RFC2136 Credentials file"
   become: true
-  template:
+  ansible.builtin.template:
     src: certbot_rfc2136.ini
     dest: /etc/certbot_rfc2136.ini
     owner: root
@@ -19,7 +19,7 @@
 
 - name: Install certbot
   become: true
-  apt:
+  ansible.builtin.apt:
     name: "{{ item }}"
     state: present
   with_items:
@@ -28,7 +28,7 @@
 
 - name: Start certbot with special parameters for wildcard
   become: true
-  command:
+  ansible.builtin.command:
     argv:
       - certbot
       - certonly
@@ -45,14 +45,15 @@
 
 - name: Generate dhparams file
   become: true
-  openssl_dhparam:
+  community.crypto.openssl_dhparam:
     path: /etc/ssl/certs/dhparam.pem
     size: 2048
 
 - name: "Install certbot for teleport certs"
   become: true
   block:
-    - include_role:
+    - name: Install certbot
+      ansible.builtin.include_role:
         name: geerlingguy.certbot
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
@@ -62,4 +63,5 @@
               - "teleport.sfmix.org"
               - "*.teleport.sfmix.org"
 
-- include_tasks: remove_old_logs.yml
+- name: Remove old logs
+  ansible.builtin.include_tasks: remove_old_logs.yml
