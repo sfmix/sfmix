@@ -137,7 +137,6 @@
   delegate_to: localhost
   run_once: true
   ansible.builtin.set_fact:
-    # noqa yaml[line-length]
-    netbox_participant_ip_addresses_list: "{{ netbox_participant_ip_addresses.values() | map(attribute='address') | map('ansible.utils.ipaddr', 'address') | list }}"
+    netbox_participant_ip_addresses_list: "{{ netbox_participant_ip_addresses.values() | map(attribute='address') | map('ansible.utils.ipaddr', 'address') | list }}" # noqa yaml[line-length]
 # This creates a simple flat list of currently-assigned participant IP addresses as strings
 # e.g.  ["206.197.187.1", "206.197.187.2", "206.197.187.5", ... ]
