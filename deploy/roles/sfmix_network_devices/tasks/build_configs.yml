@@ -9,8 +9,10 @@
   delegate_to: localhost
   ansible.builtin.template:
     src: eos/interface.j2
-    dest: "{{ config_parts_dir }}/interface_{{ item.name }}.eos_config.txt"
+    dest: "{{ config_parts_dir }}/interface_{{ interface.name | replace('/', '_') }}.eos_config.txt"
     mode: ug=rw,o=r
   tags:
     - interfaces
   with_items: "{{ interfaces }}"
+  loop_control:
+    loop_var: interface
