@@ -22,6 +22,8 @@ Add IX-specific tags:
 - IXP Participant (Slug: "ixp_participant")
 - Peering LAN (Slug: "peering_lan")
 - Peering Port (Slug: "peering_port")
+- Encapsulated Peering Port (Slug: "encapsulated_peering_port")
+- Encapsulating Peering Port (Slug: "encapsulating_peering_port")
 
 ## SFMIX-Specific Objects and Relationships
 
@@ -64,3 +66,15 @@ In order to facilitate mapping the address to a participant's logical/physical L
 
 - "Participant LAG" of type "Interface" points to the LAG or physical interface for that participant.
 - "Participant MAC Address" of type String contains a lower-case, colon-delimited MAC address that we detect (via ARP or ICMPv6 Neighbor Discovery) the participant using.
+
+### Encapsulating Peering Ports
+
+Some interfaces go towards remote peering transport providers. In these cases, a single physical interface is shared by multiple participants, with an outer 802.1Q VLAN tag used to differentiate the participants on the port.
+
+To differentiate these physical interfaces from other Peering Ports tagged as "Peering Port", these will have an additional tag applied: "Encapsulating Peering Port".
+
+### Encapsulated Peering Ports
+
+The child sub-interfaces of Encapsulating Peering Ports are called Encapsulated Peering Ports and have a Netbox Tag "Encapsulated Peering Port" applied to them.
+
+Additionally, an optional custom field is defined on Netbox Interfaces called "dot1q_encapsulation_tag". This field is used by these child sub-interfaces of the parent physical interface to denote the outer encapsulation tag used for the participant.
