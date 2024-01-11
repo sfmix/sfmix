@@ -1,4 +1,5 @@
 #jinja2: lstrip_blocks: True
+{% set interface = interfaces | selectattr('name', 'equalto', interface_name) | first %}
 interface {{ interface.name }}
 {% if interface.link_peers is defined and interface.link_peers | length %}
    !! Cabled: {% for cable_far_end in interface.link_peers %} {{ cable_far_end.device.name }}/{{ cable_far_end.name }} {% endfor %}
@@ -8,35 +9,66 @@ interface {{ interface.name }}
    description {{ interface.description }}
 {% endif %}
 {% if interface.speed == 1000000 %}
-speed forced 1000full
+   speed forced 1000full
 {% endif %}
-{% if interface.mode and not interface.lag %}
+{% if interface.ip_addresses %}
+{%   for ip_address in interface.ip_addresses %}
+{%     if ip_address.family.value == 4 %}
+   ip address {{ ip_address.address }}
+{%     elif ip_address.family.value == 6 %}
+   ipv6 address {{ ip_address.address }}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{# switchport/VLAN Access interfaces#}
+{% if interface.mode and not interface.lag and interface.name != "Vxlan1" %}
 {%   if interface.mode.value == "access" %}
    switchport mode access
-{%   elif interface.mode.value == "trunk" %}
+{%     if interface.untagged_vlan.vid %}
+   switchport access vlan {{ interface.untagged_vlan.vid }}
+{%     endif %}
+{%   elif interface.mode.value == "tagged" %}
    switchport mode trunk
 {%     if interface.untagged_vlan %}
    switchport trunk native vlan {{ interface.untagged_vlan.vid }}
 {%     endif %}
 {%     if interface.tagged_vlans %}
-   switchport trunk allowed vlan {{ interface.tagged_vlans | selectattr('vid') | join(',') }}
+   switchport trunk allowed vlan {{ interface.tagged_vlans | map(attribute='vid') | join(',') }}
 {%     endif%}
-{% endif %}
+{%   endif %}
 {% endif %}
 {% if interface.lag is defined and interface.lag.name is defined %}
-   no switchport
-   channel-group {{ interface.lag.name | replace("Port-Channel", "") }} mode active
+   switchport
+   channel-group {{ interface.lag.name | replace("Port-Channel", "") }} mode {{ interface.custom_fields.lacp_mode }}
 {% endif %}
 {% if 'peering_port' in interface.tags %}
+{%  if 'encapsulating_peering_port' in interface.tags %}
+   storm-control broadcast level 0.01
+   storm-control multicast level 0.01
+   storm-control unknown-unicast level 0.01
+{%  elif 'encapsulated_peering_port' in interface.tags %}
+   encapsulation dot1q vlan {{ interface.custom_fields.dot1q_encapsulation_tag }}
+{%  else %}
    switchport port-security mac-address maximum 3
    switchport port-security
    storm-control broadcast level 0.01
    storm-control multicast level 0.01
    storm-control unknown-unicast level 0.01
    spanning-tree bpduguard enable
+{%  endif %}
 {% endif %}
+{# Special cases #}
 {% if interface.name == "Vxlan1" %}
   vxlan source-interface Loopback0
   vxlan udp-port 4789
+{%   for vlan_id, vlan in exchange_fabric_vlans.items() %}
+{%     if vlan.status.value == "active" %}
+  vxlan vlan {{ vlan.vid }} vni {{ vlan.vid }}
+{%     endif %}
+{%   endfor %}
   vxlan flood vtep {{ other_peering_switch_loopbacks | join(" ") }}
+{% elif interface.name == "Management1" %}
+   ipv6 enable
+   ipv6 address auto-config
+   ipv6 nd ra rx accept default-route
 {% endif %}

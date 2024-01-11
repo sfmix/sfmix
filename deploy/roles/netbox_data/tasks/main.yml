@@ -132,6 +132,8 @@
 # This sets a dict mapping Netbox Device IDs to Netbox Devices
     netbox_sites: "{{ query('netbox.netbox.nb_lookup', 'sites', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token ) | items2dict }}"
 # This sets a dict mapping Netbox Site IDs to Netbox Sites
+    exchange_fabric_vlans: "{{ query('netbox.netbox.nb_lookup', 'vlans', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token, api_filter='group=exchange_fabric_vlans') | items2dict }}"
+# This sets a dict mapping Netbox VLAN IDs to Netbox VLANs (of the VLANs in the "Exchange Fabric VLANs" group)
 
 - name: Reformat Participant data from Netbox
   delegate_to: localhost
@@ -140,3 +142,31 @@
     netbox_participant_ip_addresses_list: "{{ netbox_participant_ip_addresses.values() | map(attribute='address') | map('ansible.utils.ipaddr', 'address') | list }}" # noqa yaml[line-length]
 # This creates a simple flat list of currently-assigned participant IP addresses as strings
 # e.g.  ["206.197.187.1", "206.197.187.2", "206.197.187.5", ... ]
+
+- name: Build a list of all peering_switch loopbacks
+  ansible.builtin.set_fact:
+    all_peering_switch_loopbacks: >
+      {{ groups['peering_switch'] |
+        map('extract', hostvars, 'interfaces') |
+        map('selectattr', 'name', 'equalto', 'Loopback0') |
+        sum(start=[]) |
+        map(attribute='ip_addresses') |
+        sum(start=[]) |
+        map(attribute='address') |
+        ansible.utils.ipaddr('address')
+        }}
+    local_loopbacks: >
+      {{
+        interfaces |
+        selectattr('name', 'equalto', 'Loopback0') |
+        map(attribute='ip_addresses') |
+        sum(start=[]) |
+        map(attribute='address') |
+        ansible.utils.ipaddr('address')
+      }}
+- name: Build a list of all other peering_switch loopbacks
+  ansible.builtin.set_fact:
+    other_peering_switch_loopbacks: >
+      {{
+        all_peering_switch_loopbacks | difference(local_loopbacks) | sort
+      }}
