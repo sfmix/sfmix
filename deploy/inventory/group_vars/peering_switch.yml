@@ -1,12 +1,5 @@
-ansible_connection: ansible.netcommon.httpapi
+ansible_connection: ansible.netcommon.network_cli
 ansible_network_os: arista.eos.eos
-ansible_httpapi_use_ssl: true
-ansible_remote_port: 443
-ansible_httpapi_validate_certs: false
-ansible_user: admin
-ansible_password: admin
-ansible_become: true
-ansible_become_method: enable
 
 dns_resolvers: ["1.1.1.1", "8.8.8.8"]
 snmp_community: public

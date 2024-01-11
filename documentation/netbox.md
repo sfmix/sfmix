@@ -78,3 +78,11 @@ To differentiate these physical interfaces from other Peering Ports tagged as "P
 The child sub-interfaces of Encapsulating Peering Ports are called Encapsulated Peering Ports and have a Netbox Tag "Encapsulated Peering Port" applied to them.
 
 Additionally, an optional custom field is defined on Netbox Interfaces called "dot1q_encapsulation_tag". This field is used by these child sub-interfaces of the parent physical interface to denote the outer encapsulation tag used for the participant.
+
+### LACP Mode on Interfaces
+
+As Netbox does not have a native way to model LACP mode on LAG member links, we add a Custom Field Choice Set and Custom Field on Interfaces to denote this desired mode.
+
+The mode choices are: on, active, passive
+
+The custom field is called LACP Mode (Slug: "lacp_mode")
