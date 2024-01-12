@@ -12,8 +12,8 @@
 
 - name: Place generated bgpd.conf into /etc/bgpd.candidate.conf
   become: true
-  ansible.builtin.copy:
-    src: "{{ lookup('env', 'HOME') }}/arouteserver/{{ inventory_hostname }}-openbgpd.cfg"
+  ansible.builtin.template:
+    src: bgpd.conf.j2
     dest: /etc/bgpd.candidate.conf
     owner: root
     group: wheel
@@ -33,9 +33,18 @@
     cmd: mv /etc/bgpd.candidate.conf /etc/bgpd.conf
   changed_when: true
 
+- name: Check for bgpd running
+  community.general.pids:
+    name: bgpd
+  register: pids_bgpd
+
+- debug:
+    var: pids_bgpd
+
 - name: Run `bgpctl reload`
   become: true
   when: bgpd_config_test.rc == 0
   ansible.builtin.command:
     cmd: bgpctl reload
   changed_when: true
+

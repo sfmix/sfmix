@@ -83,7 +83,7 @@
     - sfmix_dns
     - bertvv.bind
 
-- name: "Route Servers: Generate Configurations"
+- name: "Route Servers/Looking Glass: Generate Configurations"
   hosts: localhost
   tags:
     - route_servers
@@ -105,3 +105,11 @@
     - route_servers
   roles:
     - sfmix_route_server_openbsd
+
+- name: "Looking Glass: Configure OpenBGPD"
+  hosts: looking_glass
+  tags:
+    - looking_glass
+  roles:
+    - netbox_data
+    - sfmix_looking_glass

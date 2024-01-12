@@ -4,6 +4,7 @@
   gather_facts: false
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
+    ansible_ssh_pipelining: true
   tasks:
     - name: Load data from netbox
       ansible.builtin.include_role:

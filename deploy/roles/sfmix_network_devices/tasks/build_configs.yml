@@ -1,4 +1,32 @@
 ---
+- name: Build a list of all peering_switch loopbacks
+  ansible.builtin.set_fact:
+    all_peering_switch_loopbacks: >
+      {{ groups['peering_switch'] |
+        map('extract', hostvars, 'interfaces') |
+        map('selectattr', 'name', 'equalto', 'Loopback0') |
+        sum(start=[]) |
+        map(attribute='ip_addresses') |
+        sum(start=[]) |
+        map(attribute='address') |
+        ansible.utils.ipaddr('address')
+        }}
+    local_loopbacks: >
+      {{
+        interfaces |
+        selectattr('name', 'equalto', 'Loopback0') |
+        map(attribute='ip_addresses') |
+        sum(start=[]) |
+        map(attribute='address') |
+        ansible.utils.ipaddr('address')
+      }}
+- name: Build a list of all other peering_switch loopbacks
+  ansible.builtin.set_fact:
+    other_peering_switch_loopbacks: >
+      {{
+        all_peering_switch_loopbacks | difference(local_loopbacks) | sort
+      }}
+
 - name: "Template: General"
   delegate_to: localhost
   ansible.builtin.template:
