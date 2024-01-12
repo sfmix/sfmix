@@ -1,0 +1,27 @@
+
+AS {{ sfmix_looking_glass_asn | mandatory }}
+fib-update no
+listen on {{ sfmix_looking_glass_router_id | mandatory }}
+router-id {{ sfmix_looking_glass_router_id | mandatory }}
+
+socket "/var/www/run/bgpd.rsock" restricted
+
+{% for participant_id, participant in netbox_participants.items() %}
+# {{ participant.custom_fields.as_number }}: {{ participant.description }}
+group "{{ participant.description | truncate(31, leeway=0) }}" {
+	remote-as {{ participant.custom_fields.as_number }}
+	export none
+	set metric 0
+
+{%   for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
+{%     if ip_address.tenant.id == participant.id %}
+	neighbor {{ ip_address.address | ansible.utils.ipaddr('address') }} {
+		descr "{{ participant.description | truncate(23, leeway=0) }}"
+	}
+{%     endif %}
+{%   endfor %}
+}
+{% endfor %}
+
+# See all prefixes, since we want to visibility for a looking glass
+allow from any

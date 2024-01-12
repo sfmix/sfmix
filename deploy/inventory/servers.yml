@@ -1,6 +1,7 @@
 ---
 all:
   hosts:
+    localhost:
   children:
     servers:
       children:
@@ -50,6 +51,9 @@ all:
         #   ansible_host: mgmt.rs-openbsd.sfmix.org
           ansible_host: 192.168.178.230
           ansible_user: vagrant
+    looking_glass:
+      hosts:
+        looking-glass.sfmix.org:
     arouteserver_managed_routeservers:
       children:
         route_servers:
