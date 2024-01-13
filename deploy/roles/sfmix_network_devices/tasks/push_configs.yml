@@ -25,6 +25,12 @@
 
 - name: "Push: router ospf 1"
   arista.eos.eos_config:
-    src: "{{ config_parts_dir }}/ospf.eos_config.txt"
+    lines: >
+      {{
+        lookup('file', (config_parts_dir ~ "/ospf.eos_config.txt")) |
+        split('\n') |
+        select('string') |
+        list
+      }}
     before: "default router ospf 1"
     replace: block

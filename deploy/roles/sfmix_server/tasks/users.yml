@@ -34,7 +34,7 @@
     user: "{{ item.username }}"
     state: present
     key: "{{ lookup('file', (playbook_dir ~ '/.github_ssh_keys/' ~ item.github_username ~ '.keys')) }}"
-  when: item.github_username is defined
+  when: item.github_username is defined and not ansible_check_mode
   with_items:
     - "{{ sfmix_admin_users }}"
     - "{{ sfmix_host_local_users }}"

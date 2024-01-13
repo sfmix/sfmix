@@ -12,7 +12,7 @@ token: !vault |
 validate_certs: true
 config_context: false
 group_by:
-- device_roles
+  - device_roles
 query_filters:
   - role: peering_switch
 group_names_raw: true

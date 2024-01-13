@@ -132,7 +132,15 @@
 # This sets a dict mapping Netbox Device IDs to Netbox Devices
     netbox_sites: "{{ query('netbox.netbox.nb_lookup', 'sites', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token ) | items2dict }}"
 # This sets a dict mapping Netbox Site IDs to Netbox Sites
-    exchange_fabric_vlans: "{{ query('netbox.netbox.nb_lookup', 'vlans', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token, api_filter='group=exchange_fabric_vlans') | items2dict }}"
+    exchange_fabric_vlans: >
+      {{
+        query('netbox.netbox.nb_lookup',
+          'vlans',
+          api_endpoint=ixp_netbox_api_endpoint,
+          token=ixp_netbox_api_token,
+          api_filter='group=exchange_fabric_vlans') |
+        items2dict
+      }}
 # This sets a dict mapping Netbox VLAN IDs to Netbox VLANs (of the VLANs in the "Exchange Fabric VLANs" group)
 
 - name: Reformat Participant data from Netbox

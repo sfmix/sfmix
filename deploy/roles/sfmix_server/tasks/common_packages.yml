@@ -4,6 +4,7 @@
   become: true
   ansible.builtin.apt:
     name: "{{ item }}"
+    update_cache: yes
   with_items:
     - zsh
     - kitty-terminfo
