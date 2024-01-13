@@ -1,7 +1,7 @@
 ; vim: set tabstop=8 shiftwidth=8
 $TTL 3600
-@	IN	SOA	ns1.sfmix.org.	tech-c.sfmix.org.(
-	{{'%Y%m%d01'|strftime}} ;serial-number
+@	IN	SOA ns1.sfmix.org. tech-c.sfmix.org. (
+	{{'%Y%m%d01'|strftime}}	;serial-number
 	8H			;time-to-refresh
 	1H			;time-to-retry
 	7D			;time-to-expire
@@ -15,7 +15,3 @@ $TTL 3600
 @	IN	NS	ns3.lonap.net.
 @	IN	NS	ns4.lonap.net.uk.
 @	IN	NS	ns5.lonap.net.uk.
-
-; External
-ns3	IN	A	193.47.147.100
-ns3	IN	AAAA	2001:67c:1b43:100::100

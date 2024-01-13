@@ -15,19 +15,21 @@ sfmix_secondaries_to_notify:
 bind_dnssec_enable: false
 bind_extra_include_files:
   - /etc/bind/sfmix_zones.conf
-sfmix_dynamic_zone_files:
-  - db.teleport.sfmix.org
-sfmix_zone_files:
-  - sfmix.org.db
-  - 206.197.187.0.db
-  - 2001.504.30.db
-  - 192.33.255.0.db
-  - 2620.11A.B000.44.db
-  - na-ix.net.db
-  - na-ix.org.db
-  - goldenstateix.org.db
-  - 149.112.5.0.db
-  - 2620.8B.E000.db
+sfmix_dynamic_zones:
+  - teleport.sfmix.org
+sfmix_forward_zones:
+  - goldenstateix.org
+  - na-ix.net
+  - na-ix.org
+  - sfmix.org
+sfmix_reverse_zones:
+  - "0.0.0.e.b.8.0.0.0.2.6.2.ip6.arpa"
+  - "0.0.b.a.1.1.0.0.2.6.2.ip6.arpa"
+  - "0.3.0.0.4.0.5.0.1.0.0.2.ip6.arpa"
+  - "187.197.206.in-addr.arpa"
+  - "255.33.192.in-addr.arpa"
+  - "5.112.149.in-addr.arpa"
+  - "64.100.in-addr.arpa"
 bind_acls:
   - name: sfmix
     match_list:
