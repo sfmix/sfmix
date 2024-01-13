@@ -1,20 +1,23 @@
 ---
+- name: "Download SSH Keys from GitHub"
+  ansible.builtin.import_tasks: download_ssh_keys_from_github.yml
+
 - name: "SFMIX Server: MOTD"
   ansible.builtin.import_tasks: motd.yml
-
-- name: "SFMIX Server: Users"
-  ansible.builtin.import_tasks: users.yml
-
-- name: "SFMIX Server: sfmix User"
-  ansible.builtin.import_tasks: sfmix_user.yml
-
-- name: "SFMIX Server: common packages"
-  ansible.builtin.import_tasks: common_packages.yml
 
 - name: "SFMIX Server: Docker"
   when: ansible_system == "Linux"
   ansible.builtin.import_tasks:
     file: docker.yml
+
+- name: "SFMIX Server: sfmix User"
+  ansible.builtin.import_tasks: sfmix_user.yml
+
+- name: "SFMIX Server: Users"
+  ansible.builtin.import_tasks: users.yml
+
+- name: "SFMIX Server: common packages"
+  ansible.builtin.import_tasks: common_packages.yml
 
 - name: "SFMIX Server: UFW"
   when: ansible_system == "Linux"
