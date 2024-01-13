@@ -6,6 +6,7 @@
     name: "{{ item.username }}"
     groups:
       - sudo
+      - sfmix
     append: true
     state: present
   with_items:
