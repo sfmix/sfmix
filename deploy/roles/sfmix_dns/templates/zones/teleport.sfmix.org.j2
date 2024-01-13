@@ -2,7 +2,7 @@
 $ORIGIN teleport.sfmix.org.
 $TTL 300        ; 5 minutes
 @ IN SOA ns1.sfmix.org. tech-c.sfmix.org. (
-                                {{ '%Y%m%d01'|strftime }} ; serial
+                                {{ sfmix_dns_current_zone_serial }} ; serial
                                 10800      ; refresh (3 hours)
                                 3600       ; retry (1 hour)
                                 604800     ; expire (1 week)
