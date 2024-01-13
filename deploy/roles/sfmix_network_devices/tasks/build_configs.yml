@@ -28,14 +28,15 @@
       }}
 
 - name: "Template: General"
-  delegate_to: localhost
-  ansible.builtin.template:
+  local_action:
+    module: ansible.builtin.template
     src: eos/general.j2
     dest: "{{ config_parts_dir }}/general.eos_config.txt"
     mode: ug=rw,o=r
+
 - name: "Template: Interfaces"
-  delegate_to: localhost
-  ansible.builtin.template:
+  local_action:
+    module: ansible.builtin.template
     src: eos/interface.j2
     dest: "{{ config_parts_dir }}/interface_{{ interface_name | replace('/', '_') }}.eos_config.txt"
     mode: ug=rw,o=r
@@ -44,3 +45,10 @@
   with_items: "{{ interfaces | map(attribute='name') | sort }}"
   loop_control:
     loop_var: interface_name
+
+- name: "Template OSPF"
+  local_action:
+    module: ansible.builtin.template
+    src: eos/ospf.j2
+    dest: "{{ config_parts_dir }}/ospf.eos_config.txt"
+    mode: ug=rw,o=r
