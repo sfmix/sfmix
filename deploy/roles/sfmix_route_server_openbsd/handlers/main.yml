@@ -1,0 +1,6 @@
+---
+- name: reload bgpd
+  become: true
+  ansible.builtin.service:
+    name: bgpd
+    state: reloaded
