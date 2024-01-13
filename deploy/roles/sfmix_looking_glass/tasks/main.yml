@@ -32,19 +32,9 @@
   ansible.builtin.command:
     cmd: mv /etc/bgpd.candidate.conf /etc/bgpd.conf
   changed_when: true
+  notify: reload bgpd
 
-- name: Check for bgpd running
-  community.general.pids:
+- name: Ensure bgpd is started
+  ansible.builtin.service:
     name: bgpd
-  register: pids_bgpd
-
-- debug:
-    var: pids_bgpd
-
-- name: Run `bgpctl reload`
-  become: true
-  when: bgpd_config_test.rc == 0
-  ansible.builtin.command:
-    cmd: bgpctl reload
-  changed_when: true
-
+    state: started
