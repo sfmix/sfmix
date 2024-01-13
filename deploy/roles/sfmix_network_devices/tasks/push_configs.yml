@@ -1,7 +1,8 @@
 ---
-# - name: "Push: General"
-#   arista.eos.eos_config:
-#     src: "{{ config_parts_dir }}/general.eos_config.txt"
+- name: "Push: General"
+  arista.eos.eos_config:
+    src: "{{ config_parts_dir }}/general.eos_config.txt"
+
 - name: "Push: Interfaces"
   arista.eos.eos_config:
     before: "default interface {{ interface_name }}"
@@ -21,3 +22,9 @@
   with_items: "{{ interfaces | map(attribute='name') | sort }}"
   loop_control:
     loop_var: interface_name
+
+- name: "Push: router ospf 1"
+  arista.eos.eos_config:
+    src: "{{ config_parts_dir }}/ospf.eos_config.txt"
+    before: "default router ospf 1"
+    replace: block

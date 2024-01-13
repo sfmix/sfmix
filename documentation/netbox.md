@@ -24,6 +24,7 @@ Add IX-specific tags:
 - Peering Port (Slug: "peering_port")
 - Encapsulated Peering Port (Slug: "encapsulated_peering_port")
 - Encapsulating Peering Port (Slug: "encapsulating_peering_port")
+- Core Port (Slug: "core_port")
 
 ## SFMIX-Specific Objects and Relationships
 
