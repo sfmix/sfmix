@@ -1,17 +1,24 @@
 ---
 - name: "Template participants.yaml to a string"
   ansible.builtin.set_fact:
-    participants_json_as_yaml: "{{ lookup('template', 'participants.yaml.j2') }}"
+    participants_json_string: |
+      {{
+        lookup('template', 'participants.yaml.j2') |
+        ansible.builtin.from_yaml |
+        ansible.builtin.to_json(indent=4, sort_keys=True)
+      }}
+
+- name: Validate participants.json
+  ansible.utils.validate:
+    data: "{{ participants_json_string }}"
+    criteria: "{{ lookup('ansible.builtin.file', 'ixp-member-list.schema.json') }}"
+    engine: ansible.utils.jsonschema
 
 - name: "Template participants.json"
   become: true
   ansible.builtin.copy:
     dest: "{{ participants_json_output_directory }}/participants.json"
-    content: "{{
-        participants_json_as_yaml |
-        ansible.builtin.from_yaml |
-        ansible.builtin.to_json(indent=4, sort_keys=True)
-      }}"
+    content: "{{ participants_json_string }}"
     owner: sfmix
     group: sfmix
     mode: ug=rw,o=r

@@ -48,69 +48,71 @@ ixp_list:
       {%     endif %}
       {%   endfor %}
       {% endfor %}
-      member_list:
-      {% for participant_id, participant in netbox_participants.items() %}
-      {% if participant.custom_fields.participant_type == "Infrastructure" %}
-      {%   set participant_type = "ixp" %}
-      {% else %}
-      {%   set participant_type = "peering" %}
-      {% endif %}
-        - asnum: {{ participant.custom_fields.as_number }}
-          member_type: {{ participant_type }}
-          name: {{ participant.description }}
-          connection_list:
-            {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
-            {%   if peering_port.custom_fields.participant.id == participant_id %}
-            - ixp_id: 155
-              state: active
-              if_list:
-                - switch_id: {{ peering_port.device.id }}
-                  {% if peering_port.speed %}
-                  if_speed: {{ peering_port.speed / 1000 }}
-                  {% endif %}
-              vlan_list:
-                {% set vlan_map = namespace(vlan_ids={}, ipv4={}, ipv6 = {}) %}
-                {% for ip_address in netbox_participant_ip_addresses.values() %}
-                {%   if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
-                {%     for vlan in exchange_fabric_vlans.values() %}
-                {%       for tag in vlan.tags %}
-                {%         if tag.slug == "peering_lan" %}
-                {%           for prefix in netbox_prefixes.values() %}
-                {%             if prefix.vlan and prefix.vlan.id == vlan.id %}
-                {%               if (ip_address.address | ansible.utils.ipaddr('address')) | ansible.utils.ipaddr(prefix.prefix) %}
-                {%                 set vlan_map.vlan_ids = vlan_map.vlan_ids | combine({vlan.id: True}) %}
-                {%                 if ip_address.family.value == 4 %}
-                {%                   set vlan_map.ipv4 = vlan_map.ipv4 | combine({vlan.id: ip_address}) %}
-                {%                 elif ip_address.family.value == 6 %}
-                {%                   set vlan_map.ipv6 = vlan_map.ipv6 | combine({vlan.id: ip_address}) %}
-                {%                 endif %}
-                {%               endif %}
-                {%             endif %}
-                {%           endfor %}
-                {%         endif %}
-                {%       endfor %}
-                {%     endfor %}
-                {%   endif %}
-                {% endfor %}
-                {% for vlan_id in vlan_map.vlan_ids %}
-                - vlan_id: {{ vlan_id }}
-                  {% if vlan_id in vlan_map.ipv4 %}
-                  {%   set ip_address = vlan_map.ipv4[vlan_id] %}
-                  ipv4:
-                    address: {{ ip_address.address | ansible.utils.ipaddr('address') }}
-                    {% if ip_address.custom_fields.participant_mac_address %}
-                    mac_address: "{{ ip_address.custom_fields.participant_mac_address }}"
-                    {% endif %}
-                  {% endif %}
-                  {% if vlan_id in vlan_map.ipv6 %}
-                  {%   set ip_address = vlan_map.ipv6[vlan_id] %}
-                  ipv6:
-                    address: {{ ip_address.address | ansible.utils.ipaddr('address') }}
-                    {% if ip_address.custom_fields.participant_mac_address %}
-                    mac_address: "{{ ip_address.custom_fields.participant_mac_address }}"
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-            {%   endif %}
-            {% endfor %}
+member_list:
+{% for participant_id, participant in netbox_participants.items() %}
+{% if participant.custom_fields.participant_type == "Infrastructure" %}
+{%   set participant_type = "ixp" %}
+{% else %}
+{%   set participant_type = "peering" %}
+{% endif %}
+  - asnum: {{ participant.custom_fields.as_number }}
+    member_type: {{ participant_type }}
+    name: {{ participant.description }}
+    connection_list:
+      {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
+      {%   if peering_port.custom_fields.participant.id == participant_id %}
+      - ixp_id: 155
+        state: active
+        if_list:
+          - switch_id: {{ peering_port.device.id }}
+            {% if peering_port.speed %}
+            if_speed: {{ (peering_port.speed / 1000) | int }}
+            {% endif %}
+        {% set vlan_map = namespace(vlan_ids={}, ipv4={}, ipv6 = {}) %}
+        {% for ip_address in netbox_participant_ip_addresses.values() %}
+        {%   if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
+        {%     for vlan in exchange_fabric_vlans.values() %}
+        {%       for tag in vlan.tags %}
+        {%         if tag.slug == "peering_lan" %}
+        {%           for prefix in netbox_prefixes.values() %}
+        {%             if prefix.vlan and prefix.vlan.id == vlan.id %}
+        {%               if (ip_address.address | ansible.utils.ipaddr('address')) | ansible.utils.ipaddr(prefix.prefix) %}
+        {%                 set vlan_map.vlan_ids = vlan_map.vlan_ids | combine({vlan.id: True}) %}
+        {%                 if ip_address.family.value == 4 %}
+        {%                   set vlan_map.ipv4 = vlan_map.ipv4 | combine({vlan.id: ip_address}) %}
+        {%                 elif ip_address.family.value == 6 %}
+        {%                   set vlan_map.ipv6 = vlan_map.ipv6 | combine({vlan.id: ip_address}) %}
+        {%                 endif %}
+        {%               endif %}
+        {%             endif %}
+        {%           endfor %}
+        {%         endif %}
+        {%       endfor %}
+        {%     endfor %}
+        {%   endif %}
+        {% endfor %}
+        {% if vlan_map.vlan_ids %}
+        vlan_list:
+        {% endif %}
+        {% for vlan_id in vlan_map.vlan_ids %}
+        - vlan_id: {{ vlan_id }}
+          {% if vlan_id in vlan_map.ipv4 %}
+          {%   set ip_address = vlan_map.ipv4[vlan_id] %}
+          ipv4:
+            address: {{ ip_address.address | ansible.utils.ipaddr('address') }}
+            {% if ip_address.custom_fields.participant_mac_address %}
+            mac_address: "{{ ip_address.custom_fields.participant_mac_address }}"
+            {% endif %}
+          {% endif %}
+          {% if vlan_id in vlan_map.ipv6 %}
+          {%   set ip_address = vlan_map.ipv6[vlan_id] %}
+          ipv6:
+            address: {{ ip_address.address | ansible.utils.ipaddr('address') }}
+            {% if ip_address.custom_fields.participant_mac_address %}
+            mac_address: "{{ ip_address.custom_fields.participant_mac_address }}"
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {%   endif %}
       {% endfor %}
+{% endfor %}
