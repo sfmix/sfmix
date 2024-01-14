@@ -14,3 +14,10 @@
   become: true
   ansible.builtin.apt:
     name: qemu-guest-agent
+
+- name: Install qemu-ga on OpenBSD VMs
+  when: ansible_system == "OpenBSD" and ansible_virtualization_role == "guest"
+  become: true
+  community.general.openbsd_pkg:
+    name: qemu-ga
+    state: present
