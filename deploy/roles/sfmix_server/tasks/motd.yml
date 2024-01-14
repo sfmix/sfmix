@@ -15,11 +15,22 @@
       loop: "{{ dynamic_motd_files.files }}"
       become: true
 
-- name: "MOTD: Place the motd file"
+- name: "MOTD: Place the motd file (Linux)"
   become: true
+  when: ansible_system == "Linux"
   ansible.builtin.template:
     src: motd.j2
     dest: /etc/motd
     owner: root
     group: root
+    mode: ug=rw,o=r
+
+- name: "MOTD: Place the motd file (OpenBSD)"
+  when: ansible_system == "OpenBSD"
+  become: true
+  ansible.builtin.template:
+    src: motd.j2
+    dest: /etc/motd
+    owner: root
+    group: wheel
     mode: ug=rw,o=r
