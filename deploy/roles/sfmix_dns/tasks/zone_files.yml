@@ -1,0 +1,90 @@
+---
+- name: Set a current zone file serial
+  ansible.builtin.set_fact:
+    # Holy jinja, Batman! What's happening here?
+    # This takes the current year, month, and day, and then spreads 100 updates
+    # up over the day, using the current time to generate some incrementing
+    # serial numbers throughout the day.
+    # This way, we can easily support multiple deploys a day (so long as there
+    # is 864 seconds, or a little less than 15 minutes) in-between deploys,
+    # without having to have ansible be a DNS client and do math from SOA records
+    sfmix_dns_current_zone_serial: >
+      {{
+        ('%Y%m%d' | strftime(ansible_date_time.epoch)) ~
+        '%02d' | format(
+          (
+            (
+              (
+                ansible_date_time.epoch|int -
+                (
+                  lookup('pipe','date --date=' ~ (
+                      lookup('pipe','date +%Y%m%d')
+                    ) ~ ' +%s')
+                )|int
+              )|int * 99 / 86400
+            )|int
+          )
+        )
+      }}
+
+- name: Create /etc/bind/zones
+  become: true
+  ansible.builtin.file:
+    dest: /etc/bind/zones
+    state: directory
+    mode: ug=rwx,o=rx
+
+- name: Check for existing dynamic zone files
+  ansible.builtin.stat:
+    path: "/var/lib/bind/{{ item }}"
+  loop: "{{ sfmix_dynamic_zones }}"
+  register: dynamic_zone_files_stat
+
+- name: Add all Initial Dynamic DNS zone files
+  ansible.builtin.template:
+    src: "zones/{{ item.item }}.j2"
+    dest: "/var/lib/bind/{{ item.item }}"
+    owner: root
+    group: bind
+    mode: ug=rw,o=r
+  loop: "{{ dynamic_zone_files_stat.results }}"
+  when: "not item.stat.exists"
+  notify: Restart named.service
+
+- name: Place all DNS forward zone files
+  ansible.builtin.template:
+    src: "zones/{{ item }}.j2"
+    dest: "/etc/bind/zones/{{ item }}"
+    mode: ug=rw,o=r
+  with_items: "{{ sfmix_forward_zones }}"
+  notify: Restart named.service
+
+- name: Check for existing reverse zone files
+  ansible.builtin.stat:
+    path: "/etc/bind/zones/{{ item }}"
+  loop: "{{ sfmix_reverse_zones }}"
+  register: reverse_zone_files_stat
+
+- name: Add all Initial Reverse DNS zone files
+  ansible.builtin.template:
+    src: "zones/{{ item.item }}.j2"
+    dest: "/etc/bind/zones/{{ item.item }}"
+    owner: root
+    group: bind
+    mode: ug=rw,o=r
+  loop: "{{ reverse_zone_files_stat.results }}"
+  when: "not item.stat.exists"
+  notify: Restart named.service
+
+- name: Place mkrdns
+  become: true
+  ansible.builtin.copy:
+    src: mkrdns
+    dest: /usr/local/bin/mkrdns
+    mode: ug=rwx,o=rx
+
+- name: Run mkrdns
+  become: true
+  ansible.builtin.command: mkrdns
+  register: mkrdns_result
+  changed_when: mkrdns_result.rc == 0
