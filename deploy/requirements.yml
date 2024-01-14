@@ -6,8 +6,9 @@ roles:
     version: 3.5.0
   - name: DavidWittman.redis
     # https://github.com/DavidWittman/ansible-redis/pull/291
-    src: git+https://github.com/Puppet-Finland/ansible-redis.git
-    version: ce14d7a912af025ee1ec2cbc550417f75f8b6faf
+    # Fix is merged, but waiting on a release version
+    src: git+https://github.com/DavidWittman/ansible-redis.git
+    version: 51b0dffa85c0d971ed5d9826e47d519346a0e918
   - name: geerlingguy.nginx
     version: 3.1.4
   - name: geerlingguy.certbot
