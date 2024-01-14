@@ -3,6 +3,7 @@
   delegate_to: localhost
   run_once: true
   ansible.builtin.set_fact:
+    cacheable: true
     # noqa jinja[spacing]
     netbox_participant_ip_addresses: "{{ query(
       'netbox.netbox.nb_lookup',
@@ -128,9 +129,23 @@
 #   "vlan_count": 0,
 #   "vrf_count": 0
 # }
-    netbox_devices: "{{ query('netbox.netbox.nb_lookup', 'devices', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token) | items2dict }}"
+    netbox_devices: >
+      {{
+        query('netbox.netbox.nb_lookup',
+          'devices',
+          api_endpoint=ixp_netbox_api_endpoint,
+          token=ixp_netbox_api_token
+        ) | items2dict
+      }}
 # This sets a dict mapping Netbox Device IDs to Netbox Devices
-    netbox_sites: "{{ query('netbox.netbox.nb_lookup', 'sites', api_endpoint=ixp_netbox_api_endpoint, token=ixp_netbox_api_token ) | items2dict }}"
+    netbox_sites: >
+      {{
+        query('netbox.netbox.nb_lookup',
+          'sites',
+          api_endpoint=ixp_netbox_api_endpoint,
+          token=ixp_netbox_api_token
+        ) | items2dict
+      }}
 # This sets a dict mapping Netbox Site IDs to Netbox Sites
     exchange_fabric_vlans: >
       {{
@@ -142,12 +157,37 @@
         items2dict
       }}
 # This sets a dict mapping Netbox VLAN IDs to Netbox VLANs (of the VLANs in the "Exchange Fabric VLANs" group)
+    netbox_prefixes: >
+      {{
+        query('netbox.netbox.nb_lookup',
+          'prefixes',
+          api_endpoint=ixp_netbox_api_endpoint,
+          token=ixp_netbox_api_token
+        ) | items2dict
+      }}
+# This sets a dict mapping Netbox Prefix IDs to Netbox Prefixes
+    netbox_peering_port_interfaces: >
+      {{
+        query('netbox.netbox.nb_lookup',
+          'interfaces',
+          api_filter='tag=peering_port',
+          api_endpoint=ixp_netbox_api_endpoint,
+          token=ixp_netbox_api_token
+        ) | items2dict
+      }}
+# This sets a dict mapping Netbox Interface IDs to Netbox Interfaces (but only of interfaces used as Peering Ports)
 
 - name: Reformat Participant data from Netbox
   delegate_to: localhost
   run_once: true
   ansible.builtin.set_fact:
-    netbox_participant_ip_addresses_list: "{{ netbox_participant_ip_addresses.values() | map(attribute='address') | map('ansible.utils.ipaddr', 'address') | list }}" # noqa yaml[line-length]
+    cacheable: true
+    netbox_participant_ip_addresses_list: >
+      {{
+        netbox_participant_ip_addresses.values() |
+        map(attribute='address') |
+        map('ansible.utils.ipaddr', 'address') |
+        list
+      }}
 # This creates a simple flat list of currently-assigned participant IP addresses as strings
 # e.g.  ["206.197.187.1", "206.197.187.2", "206.197.187.5", ... ]
-

@@ -113,3 +113,12 @@
   roles:
     - netbox_data
     - sfmix_looking_glass
+
+- name: "Alice Public Looking Glass: participants.json"
+  hosts: alice
+  tags:
+    - participants_json
+    - alice
+  roles:
+    - netbox_data
+    - participants_json

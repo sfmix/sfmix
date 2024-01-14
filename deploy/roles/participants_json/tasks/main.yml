@@ -1,0 +1,17 @@
+---
+- name: "Template participants.yaml to a string"
+  ansible.builtin.set_fact:
+    participants_json_as_yaml: "{{ lookup('template', 'participants.yaml.j2') }}"
+
+- name: "Template participants.json"
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ participants_json_output_directory }}/participants.json"
+    content: "{{
+        participants_json_as_yaml |
+        ansible.builtin.from_yaml |
+        ansible.builtin.to_json(indent=4, sort_keys=True)
+      }}"
+    owner: sfmix
+    group: sfmix
+    mode: ug=rw,o=r
