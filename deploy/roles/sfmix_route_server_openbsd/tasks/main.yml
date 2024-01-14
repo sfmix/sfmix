@@ -32,7 +32,7 @@
   ansible.builtin.command:
     cmd: mv /etc/bgpd.candidate.conf /etc/bgpd.conf
   changed_when: true
-  notify: reload bgpd
+  notify: Reload bgpd
 
 - name: Ensure bgpd is starte
   become: true
