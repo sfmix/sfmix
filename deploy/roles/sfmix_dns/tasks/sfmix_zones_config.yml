@@ -1,0 +1,8 @@
+---
+- name: Place sfmix_zones.conf
+  become: true
+  notify: Restart named.service
+  ansible.builtin.template:
+    src: sfmix_zones.conf.j2
+    dest: /etc/bind/sfmix_zones.conf
+    mode: ug=rw,o=r

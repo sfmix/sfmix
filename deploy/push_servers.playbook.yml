@@ -5,8 +5,9 @@
   gather_facts: false
   tasks:
     - name: Download SSH Keys from GitHub
-      ansible.builtin.import_tasks:
-        file: roles/sfmix_server/tasks/download_ssh_keys_from_github.yml
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: download_ssh_keys_from_github.yml
 
 - name: SFMIX Servers
   hosts: servers
@@ -73,15 +74,29 @@
   roles:
     - sentry
 
-- name: DNS Server
+- name: "DNS: SFMIX Zones config"
+  hosts: dns
+  become: true
+  tags:
+    - dns
+  tasks:
+    - name: Load data from netbox
+      ansible.builtin.include_role:
+        name: netbox_data
+    - name: Place sfmix_zones.conf
+      ansible.builtin.include_role:
+        name: sfmix_dns
+        tasks_from: sfmix_zones_config.yml
+
+- name: "DNS: Setup BIND and SFMIX Zone files"
   hosts: dns
   become: true
   tags:
     - dns
   roles:
     - netbox_data
-    - sfmix_dns
     - bertvv.bind
+    - sfmix_dns
 
 - name: "Route Servers/Looking Glass: Generate Configurations"
   hosts: localhost
