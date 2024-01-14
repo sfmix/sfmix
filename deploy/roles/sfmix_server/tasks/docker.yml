@@ -4,3 +4,4 @@
   ansible.builtin.apt:
     pkg: docker.io
     state: present
+    update_cache: true
