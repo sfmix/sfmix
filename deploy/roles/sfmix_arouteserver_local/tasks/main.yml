@@ -1,17 +1,12 @@
 ---
-- name: Install arouteserver locally and setup default templates
-  ansible.builtin.include_role:
-    name: pierky.arouteserver
-    tasks_from: installation.yml
-
-- name: Remove arouteserver BIRD logfile (we use syslog/journald)
-  ansible.builtin.lineinfile:
-    path: "{{ lookup('env', 'HOME') }}/arouteserver/templates/bird/header.j2"
-    regexp: 'log "/var/log/bird.log" all;'
-    state: absent
+- name: Place SFMIX arouteserver templates
+  ansible.builtin.copy:
+    src: sfmix_templates/
+    dest: "{{ arouteserver_templates_dir }}"
+    mode: ug=rwx,o=rx
 
 - name: Locally template a clients.yml file
   ansible.builtin.template:
     src: clients.yml.j2
-    dest: "{{ lookup('env', 'HOME') }}/arouteserver_clients.yml"
+    dest: "{{ arouteserver_clients_cfg_file }}"
     mode: ug=rw,o=r

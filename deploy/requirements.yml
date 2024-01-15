@@ -15,9 +15,10 @@ roles:
     version: 5.1.0
   - name: bertvv.bind
     version: v5.1.0
+    # Pending some upstream PRs merging
   - name: pierky.arouteserver
-    src: git+https://github.com/pierky/ansible-role-arouteserver.git
-    version: b3575718ff7aed14bd24d90e6e7c9584f6e204c3
+    src: git+https://github.com/jof/ansible-role-arouteserver.git
+    version: jof/sfmix
 
 collections:
   - name: netbox.netbox

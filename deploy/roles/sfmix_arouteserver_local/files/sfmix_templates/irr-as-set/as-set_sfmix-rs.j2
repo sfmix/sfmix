@@ -1,0 +1,12 @@
+as-set:   AS-SFMIX-RS
+descr:    SFMIX route server {{ ip_ver_descr }} routes
+remarks:  List of ASes and AS-SETs announced by {{ ip_ver_descr }}
+remarks:  clients to the SFMIX route servers (AS63055)
+tech-c:   STRA-ARIN
+admin-c:  MPE54-ARIN
+admin-c:  TP47-ARIN
+mnt-by:   MNT-SFMIES
+{% for member in as_sets_rpsl_objects|sort %}
+members:  {{ member }}
+{% endfor %}
+source:   ARIN
