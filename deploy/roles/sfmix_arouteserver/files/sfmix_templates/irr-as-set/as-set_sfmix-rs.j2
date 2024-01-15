@@ -1,0 +1,20 @@
+as-set:   AS-SFMIX-RS
+descr:    SFMIX route server {{ ip_ver_descr }} routes
+remarks:  List of ASes and AS-SETs announced by {{ ip_ver_descr }}
+remarks:  clients to the SFMIX route servers (AS63055)
+remarks:  #############################################
+remarks:  .d88888b   88888888b 8888ba.88ba  dP dP    dP
+remarks:  88.    "'  88        88  `8b  `8b 88 Y8.  .8P
+remarks:  `Y88888b.  8aaaa     88   88   88 88  Y8aa8P
+remarks:        `8b  88        88   88   88 88 d8'  `8b
+remarks:  d8'   .8P  88        88   88   88 88 88    88
+remarks:   Y88888P   dP        dP   dP   dP dP dP    dP
+remarks:  #############################################
+tech-c:   STRA-ARIN
+admin-c:  MPE54-ARIN
+admin-c:  TP47-ARIN
+mnt-by:   MNT-SFMIES
+{% for member in as_sets_rpsl_objects|sort %}
+members:  {{ member }}
+{% endfor %}
+source:   ARIN

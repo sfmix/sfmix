@@ -104,8 +104,18 @@
     - route_servers
   roles:
     - netbox_data
-    - sfmix_arouteserver_local
+    - sfmix_arouteserver
     - pierky.arouteserver
+
+- name: "Route Servers: Publish as-set to ARIN"
+  hosts: localhost
+  tags:
+    - route_servers
+  tasks:
+    - name: "Publish as-set to ARIN"
+      ansible.builtin.include_role:
+        name: sfmix_arouteserver
+        tasks_from: publish_as_set.yml
 
 - name: "Route Servers: Configure Linux/BIRD"
   hosts: rs_linux
