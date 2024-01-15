@@ -4,7 +4,7 @@
   run_once: true
   ansible.builtin.set_fact:
     cacheable: true
-    # noqa jinja[spacing]
+    # noqa: jinja[spacing]
     netbox_participant_ip_addresses: "{{ query(
       'netbox.netbox.nb_lookup',
       'ip-addresses',
