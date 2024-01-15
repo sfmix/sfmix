@@ -4,13 +4,66 @@
   ansible.builtin.apt:
     name: bird2
 
-- name: Place generated BIRD config
+- name: Place generated BIRD config candidate
   become: true
   ansible.builtin.copy:
     src: "{{ lookup('env', 'HOME') }}/arouteserver/{{ inventory_hostname }}-bird.cfg"
-    dest: /etc/bird/bird.conf
+    dest: /etc/bird/bird-candidate.conf
+    owner: bird
+    group: bird
     mode: ug=rw,o=r
-  notify: Reload bird
+
+- name: Test candidate BIRD config
+  become: true
+  ansible.builtin.command: bird -p -c /etc/bird/bird-candidate.conf
+  register: bird_config_test_result
+  changed_when: false
+
+- name: Ensure BIRD config backup directory /etc/bird/backups
+  become: true
+  ansible.builtin.file:
+    path: /etc/bird/backups
+    state: directory
+    owner: bird
+    group: bird
+    mode: ug=rwx,o=rx
+
+- name: "Install BIRD Config: Take a backup, place new config, and reload"
+  when: bird_config_test_result.rc == 0
+  block:
+    - name: Backup existing BIRD config
+      become: true
+      ansible.builtin.copy:
+        src: /etc/bird/bird.conf
+        dest: "/etc/bird/backups/{{ '%Y%m%d-%H%M%S' | strftime }}-bird.conf"
+        remote_src: true
+        owner: bird
+        group: bird
+        mode: ug=rw,o=r
+    - name: Install new BIRD config
+      become: true
+      ansible.builtin.copy:
+        src: /etc/bird/bird-candidate.conf
+        dest: /etc/bird/bird.conf
+        remote_src: true
+        owner: bird
+        group: bird
+        mode: ug=rw,o=r
+      notify: Reload bird
+
+- name: Find old BIRD config backups more than 52 weeks old
+  become: true
+  ansible.builtin.find:
+    paths: /etc/bird/backups
+    age: 52w
+  register: old_bird_configs
+
+- name: Delete old BIRD config backups
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_bird_configs.files }}"
 
 - name: Enable/start BIRD
   become: true

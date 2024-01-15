@@ -1,15 +1,4 @@
 ---
-- name: Enable bgpd
-  become: true
-  ansible.builtin.lineinfile:
-    path: /etc/rc.conf.local
-    regexp: ^bgpd_flags=.*$
-    line: 'bgpd_flags=""'
-    owner: root
-    group: wheel
-    mode: ug=rw,o=r
-    create: true
-
 - name: Place generated bgpd.conf into /etc/bgpd.candidate.conf
   become: true
   ansible.builtin.copy:
@@ -26,16 +15,55 @@
   register: bgpd_config_test
   changed_when: false
 
-- name: Install the candidate bgpd.conf
+- name: "Ensure directory: /etc/bgpd_backups"
   become: true
-  when: bgpd_config_test.rc == 0
-  ansible.builtin.command:
-    cmd: mv /etc/bgpd.candidate.conf /etc/bgpd.conf
-  changed_when: true
-  notify: Reload bgpd
+  ansible.builtin.file:
+    path: /etc/bgpd_backups
+    state: directory
+    owner: root
+    group: wheel
+    mode: ug=rwx,o=rx
 
-- name: Ensure bgpd is starte
+- name: "Install OpenBGPD Config: Take a backup, place new config, and reload"
+  when: bgpd_config_test.rc == 0
+  block:
+    - name: Backup existing bgpd.conf
+      become: true
+      ansible.builtin.copy:
+        src: /etc/bgpd.conf
+        dest: "/etc/bgpd_backups/{{ '%Y%m%d-%H%M%S' | strftime }}-bgpd.conf"
+        remote_src: true
+        owner: root
+        group: wheel
+        mode: ug=rw,o=r
+    - name: Install new bgpd.conf
+      become: true
+      ansible.builtin.copy:
+        src: /etc/bgpd.candidate.conf
+        dest: /etc/bgpd.conf
+        remote_src: true
+        owner: root
+        group: wheel
+        mode: ug=rw,o=r
+      notify: Reload bgpd
+
+- name: Find old BGPD config backups more than 52 weeks old
+  become: true
+  ansible.builtin.find:
+    paths: /etc/bgpd_backups
+    age: 52w
+  register: old_bgpd_configs
+
+- name: Delete old BGPD config backups
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_bgpd_configs.files }}"
+
+- name: Ensure bgpd is enabled/started
   become: true
   ansible.builtin.service:
     name: bgpd
+    enabled: true
     state: started
