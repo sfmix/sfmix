@@ -1,0 +1,10 @@
+---
+- name: Publish as-set AS-SFMIX-RS to ARIN
+  ansible.builtin.command:
+    argv:
+      - "{{ playbook_dir }}/roles/sfmix_arouteserver/files/publish_as_set.py"
+      - "{{ arouteserver_dir }}/rs-linux.sfmix.org-irr-as-set.rpsl.txt"
+  changed_when: true
+  environment:
+    API_KEY: FILL_THIS_IN
+    ARIN_ORG_HANDLE: SFMIES

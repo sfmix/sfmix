@@ -5,7 +5,7 @@
     dest: "{{ arouteserver_templates_dir }}"
     mode: ug=rwx,o=rx
 
-- name: Locally template a clients.yml file
+- name: Template a clients.yml file
   ansible.builtin.template:
     src: clients.yml.j2
     dest: "{{ arouteserver_clients_cfg_file }}"
