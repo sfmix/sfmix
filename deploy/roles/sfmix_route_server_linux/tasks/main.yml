@@ -31,8 +31,14 @@
 - name: "Install BIRD Config: Take a backup, place new config, and reload"
   when: bird_config_test_result.rc == 0
   block:
+    - name: Check for an existing BIRD config
+      become: true
+      ansible.builtin.stat:
+        path: /etc/bird/bird.conf
+      register: existing_bird_config
     - name: Backup existing BIRD config
       become: true
+      when: existing_bird_config.stat.exists
       ansible.builtin.copy:
         src: /etc/bird/bird.conf
         dest: "/etc/bird/backups/{{ '%Y%m%d-%H%M%S' | strftime }}-bird.conf"
