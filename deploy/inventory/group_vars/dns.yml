@@ -3,6 +3,9 @@ sfmix_server_ufw_enabled: false
 bind_listen_ipv4: ['any']
 bind_listen_ipv6: ['any']
 bind_allow_query: ['any']
+bind_recursion: true
+bind_allow_recursion:
+  - sfmix
 sfmix_secondaries_to_notify:
   # ns2.lonap.net AS8916, Sheffield
   - 188.246.205.251
@@ -35,6 +38,21 @@ bind_acls:
     match_list:
       - 192.33.255.0/24
       - 2620:11a:b000::/44
+      - 100.64.0.0/10
+      # mgmt-gw.sfo02
+      - 198.35.53.243
+      # mgmt-gw.sfo01
+      - 192.235.122.10
+      # mgmt-gw.sfo02
+      - 198.35.53.243
+      # mgmt-gw.fmt01
+      - 64.71.188.18
+      # mgmt-gw.sjc01
+      - 173.243.64.202
+      # mgmt-gw.scl01
+      - 205.234.25.36
+      # mgmt-gw.scl02
+      - 66.128.149.4
   - name: secondaries
     match_list:
       # ns1.he.net
