@@ -14,6 +14,16 @@
   roles:
     - sfmix_server
 
+- name: Setup an ansible control node
+  hosts: shell
+  tags:
+    - shell
+  tasks:
+    - name: Setup an ansible control node
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: ansible_control_node.yml
+
 - name: "Netbox: Prepare server"
   hosts: netbox
   become: true
@@ -148,13 +158,3 @@
   roles:
     - netbox_data
     - participants_json
-
-- name: Setup an ansible control node
-  hosts: shell
-  tags:
-    - shell
-  tasks:
-    - name: Setup an ansible control node
-      ansible.builtin.include_role:
-        name: sfmix_server
-        tasks_from: ansible_control_node.yml
