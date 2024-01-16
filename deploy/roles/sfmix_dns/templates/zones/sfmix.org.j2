@@ -104,31 +104,13 @@ openwrt.sfo02		IN	A	198.35.53.246
 
 re1-30.gw.sfo02		IN	A	149.20.37.65
 			IN	AAAA	2001:4f8:4:6a::2
+; old name
+rs.sfo02	IN	CNAME	rs-linux
+;
+rs-linux	IN	A	206.197.187.253
 
-; rs.sfo02 is actually in fmt01 should be renamed
-mgmt.rs.sfo02	IN	A	192.33.255.2
-mgmt.rs.sfo02	IN	AAAA	2620:11a:b000::2
-rs.sfo02	IN	A	206.197.187.253
-ens19.rs.sfo02	IN	A	206.197.187.253
-ens19.rs.sfo02	IN	AAAA	2001:504:30::ba06:3055:1
-
-; this is the old/classic "ns01" VM in fmt01
 ns1			IN	A	192.33.255.3
 			IN	AAAA	2620:11a:b000::3
-ens18.dns01.sfo02	IN	A	192.33.255.3
-			IN	AAAA	2620:11a:b000::3
-dns01.sfo02		IN	CNAME	ens18.dns01.sfo02
-ens18.dns01.sfo02	IN SSHFP 1 1 dab0784c23a3aa5700ffdb3f652e11fd1db4362b
-ens18.dns01.sfo02	IN SSHFP 1 2 b88700262d5ce3f8594187698a6c6d9996b57bde495a77ceb0269317bb05b4ed
-ens18.dns01.sfo02	IN SSHFP 2 1 ba20287fea2b807aaa0e4fbb9cf726cfe8bb89ac
-ens18.dns01.sfo02	IN SSHFP 2 2 0a2947dcf1238add1639ee3e6925f73244152840a019d1ffed7856814f3c5312
-ens18.dns01.sfo02	IN SSHFP 3 1 d1a766ef84651f2c7711484cde2ac5345edb67c5
-ens18.dns01.sfo02	IN SSHFP 3 2 08594287fb4469c3f365ab997fb9a2a012a4a92645641e3962ffeb4a5d82dc38
-ens18.dns01.sfo02	IN SSHFP 4 1 bd53438c9cc85f53a86bf4efa46bc5d3e464d8c2
-ens18.dns01.sfo02	IN SSHFP 4 2 2e13343efb9389d60fdd7bdb276ea16b7c8d4023a29ca427e9aa3c67bc4c687b
-; this is the new "ns1" VM in sfo02
-ns1-new			IN	A	192.33.255.5
-ns1-new			IN	AAAA	2620:11a:b000::5
 
 librenms	IN	CNAME	monitor.sfo02
 monitor.sfo02	IN	A	192.33.255.4
