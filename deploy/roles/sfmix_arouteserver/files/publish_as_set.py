@@ -26,13 +26,13 @@ def read_input(file_name):
         sys.exit(f"Error reading input: {e}")
 
 
-def post_data(api_key, org_id, rpsl_text):
+def post_data(arin_api_key, org_id, rpsl_text):
     """Makes a POST request to create a new object."""
     try:
         response = requests.post(
             API_ENDPOINT,
             headers=RPSL_HEADERS,
-            params={"apikey": api_key, "orgHandle": org_id},
+            params={"apikey": arin_api_key, "orgHandle": org_id},
             json=rpsl_text,
         )
         response.raise_for_status()
@@ -42,12 +42,12 @@ def post_data(api_key, org_id, rpsl_text):
         return None
 
 
-def put_data(api_key, as_set_name, rpsl_text):
+def put_data(arin_api_key, as_set_name, rpsl_text):
     """Makes a PUT request to update an existing object."""
     try:
         response = requests.put(
             API_ENDPOINT + f"/{as_set_name}",
-            params={"apikey": api_key},
+            params={"apikey": arin_api_key},
             headers=RPSL_HEADERS,
             json=rpsl_text,
         )
@@ -78,9 +78,9 @@ def main():
     if len(sys.argv) < 3:
         sys.exit(f"Usage: publish_as_set.py <Input File (optional)>")
 
-    api_key = os.environ.get("API_KEY")
-    if not api_key:
-        sys.exit("The required environment variable API_KEY wasn't found")
+    arin_api_key = os.environ.get("ARIN_API_KEY")
+    if not arin_api_key:
+        sys.exit("The required environment variable ARIN_API_KEY wasn't found")
 
     org_id = os.environ.get("ARIN_ORG_HANDLE")
     if not org_id:
@@ -96,13 +96,13 @@ def main():
     as_set_name = extract_as_set_name(rpsl_text)
 
     print("Attempting to create a new object...")
-    post_response = post_data(api_key, org_id, rpsl_text)
+    post_response = post_data(arin_api_key, org_id, rpsl_text)
 
     if post_response:
         print(f"Object created successfully: {post_response.json()}")
     else:
         print("Attempting to update an existing object...")
-        put_response = put_data(api_key, as_set_name, rpsl_text)
+        put_response = put_data(arin_api_key, as_set_name, rpsl_text)
 
         if put_response:
             print(f"Object updated successfully: {put_response.json()}")

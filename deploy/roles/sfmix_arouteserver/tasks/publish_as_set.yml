@@ -6,5 +6,5 @@
       - "{{ arouteserver_dir }}/rs-linux.sfmix.org-irr-as-set.rpsl.txt"
   changed_when: true
   environment:
-    API_KEY: FILL_THIS_IN
+    ARIN_API_KEY: FILL_THIS_IN
     ARIN_ORG_HANDLE: SFMIES
