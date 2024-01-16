@@ -23,4 +23,7 @@ server "lg.sfmix.org" {
                 fastcgi
                 root "/"
         }
+        location "/" {
+                block return 301 "https://$HTTP_HOST/cgi-bin/bgplg"
+        }
 }
