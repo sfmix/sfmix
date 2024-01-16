@@ -1,14 +1,72 @@
 ---
+- name: Place httpd.conf
+  become: true
+  ansible.builtin.template:
+    src: httpd.conf.j2
+    dest: /etc/httpd.conf
+    mode: ug=rw,o=r
+  notify: Restart httpd
+
+- name: Place acme-client.conf
+  become: true
+  ansible.builtin.template:
+    src: acme-client.conf.j2
+    dest: /etc/acme-client.conf
+    mode: ug=rw,o=r
+
+- name: Place bgplg.head
+  become: true
+  ansible.builtin.template:
+    src: bgplg.head.j2
+    dest: /var/www/conf/bgplg.head
+    mode: ug=rw,o=r
+
+- name: Place SFMIX logo
+  become: true
+  ansible.builtin.copy:
+    src: sfmix.png
+    dest: /var/www/htdocs/sfmix.png
+    mode: ug=rw,o=r
+
+- name: Enable/start daemons
+  become: true
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  with_items:
+    - ntpd
+    - httpd
+    - slowcgi
+
+- name: Check for /etc/ssl/lg.sfmix.org.fullchain.pem
+  become: true
+  ansible.builtin.stat:
+    path: /etc/ssl/lg.sfmix.org.fullchain.pem
+  register: tls_certificate_stat
+
+- name: Run acme-client initially
+  become: true
+  when: not tls_certificate_stat.stat.exists
+  ansible.builtin.command: acme-client lg.sfmix.org
+  register: acme_client_command
+  changed_when: acme_client_command.rc == 0
+  notify: Restart httpd
+
+- name: Run acme-client once a day
+  become: true
+  ansible.builtin.cron:
+    name: run acme-client
+    job: acme-client lg.sfmix.org
+    minute: "0"
+    hour: "2"
+    user: root
+
 - name: Enable bgpd
   become: true
-  ansible.builtin.lineinfile:
-    path: /etc/rc.conf.local
-    regexp: ^bgpd_flags=.*$
-    line: 'bgpd_flags=""'
-    owner: root
-    group: wheel
-    mode: ug=rw,o=r
-    create: true
+  ansible.builtin.service:
+    name: bgpd
+    enabled: true
 
 - name: Place generated bgpd.conf into /etc/bgpd.candidate.conf
   become: true
@@ -18,24 +76,30 @@
     owner: root
     group: wheel
     mode: ug=rw,o=r
+  notify: Test the candidate bgpd.conf
 
-- name: Test the candidate bgpd.conf
-  become: true
-  ansible.builtin.command:
-    cmd: bgpd -n -f /etc/bgpd.candidate.conf
-  register: bgpd_config_test
-  changed_when: false
+# - name: Ensure bgpd is started
+#   become: true
+#   ansible.builtin.service:
+#     name: bgpd
+#     state: started
 
-- name: Install the candidate bgpd.conf
+- name: Make cgi-bins executable
   become: true
-  when: bgpd_config_test.rc == 0
-  ansible.builtin.command:
-    cmd: cp /etc/bgpd.candidate.conf /etc/bgpd.conf
-  changed_when: true
-  notify: Reload bgpd
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: ugo=rx
+  with_items:
+    - /var/www/cgi-bin/bgplg
+    - /var/www/bin/bgpctl
 
-- name: Ensure bgpd is started
+- name: Make chroot cgi-bins sticky-executable
   become: true
-  ansible.builtin.service:
-    name: bgpd
-    state: started
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: ugo=rx,ugo+s
+  with_items:
+    - /var/www/bin/ping
+    - /var/www/bin/ping6
+    - /var/www/bin/traceroute
+    - /var/www/bin/traceroute6

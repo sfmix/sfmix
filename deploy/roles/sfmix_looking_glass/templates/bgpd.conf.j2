@@ -14,7 +14,8 @@ group "{{ participant.description | truncate(31, leeway=0) }}" {
 	set metric 0
 
 {%   for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
-{%     if ip_address.tenant.id == participant.id %}
+{# Skip the Looking Glass IPs #}
+{%     if (ip_address.tenant.id == participant.id) and not (ip_address.address | ansible.utils.ipaddr('address') == "206.197.187.1" or ip_address.address | ansible.utils.ipaddr('address') == "2001:504:30::ba01:2276:1") %}
 	neighbor {{ ip_address.address | ansible.utils.ipaddr('address') }} {
 {%       if ip_address.family.value == 4 %}
 		descr "{{ participant.description | truncate(18, leeway=0) ~ " (v4)" }}"

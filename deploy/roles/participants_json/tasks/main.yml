@@ -14,6 +14,15 @@
     criteria: "{{ lookup('ansible.builtin.file', 'ixp-member-list.schema.json') }}"
     engine: ansible.utils.jsonschema
 
+- name: Ensure participants.json output directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ participants_json_output_directory }}"
+    state: directory
+    owner: sfmix
+    group: sfmix
+    mode: ug=rwx,o=rx
+
 - name: "Template participants.json"
   become: true
   ansible.builtin.copy:

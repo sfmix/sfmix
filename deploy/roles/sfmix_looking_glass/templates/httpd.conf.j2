@@ -1,0 +1,26 @@
+server "secure-redirect" {
+        listen on egress port 80
+        location "/.well-known/acme-challenge/*" {
+                root "/acme"
+                request strip 2
+        }
+        location "/*" {
+            block return 301 "https://$HTTP_HOST$REQUEST_URI"
+        }
+}
+
+server "lg.sfmix.org" {
+        listen on * tls port 443
+        tls {
+                certificate "/etc/ssl/lg.sfmix.org.fullchain.pem"
+                key "/etc/ssl/private/lg.sfmix.org.key"
+        }
+        location "/.well-known/acme-challenge/*" {
+                root "/acme"
+                request strip 2
+        }
+        location "/cgi-bin/*" {
+                fastcgi
+                root "/"
+        }
+}
