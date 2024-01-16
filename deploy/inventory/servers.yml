@@ -36,7 +36,7 @@ all:
         shell.sfmix.org:
     dns:
       hosts:
-        ns1-new.sfmix.org:
+        ns1.sfmix.org:
     route_servers:
       children:
         rs_linux:
