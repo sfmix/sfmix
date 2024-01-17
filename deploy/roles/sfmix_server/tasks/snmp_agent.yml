@@ -1,0 +1,14 @@
+---
+- name: Install snmpd (Linux)
+  become: true
+  when: ansible_system == "Linux"
+  ansible.builtin.apt:
+    name: snmpd
+
+- name: Template snmpd.conf (Linux)
+  become: true
+  when: ansible_system == "Linux"
+  ansible.builtin.template:
+    src: snmpd.conf.j2
+    dest: /etc/snmp/snmpd.conf
+  notify: Restart snmpd
