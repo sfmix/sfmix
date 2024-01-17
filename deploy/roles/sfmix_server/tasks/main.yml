@@ -31,3 +31,9 @@
     file: sfmix_dns.yml
   tags:
     - dns
+
+- name: "SFMIX Server: SNMP Agent"
+  ansible.builtin.import_tasks:
+    file: snmp_agent.yml
+  tags:
+    - snmp
