@@ -36,3 +36,7 @@ group "{{ participant.description | truncate(31, leeway=0) }}" {
 
 # See all prefixes, since we want to visibility for a looking glass
 allow from any
+
+# Honor requests to gracefully shutdown BGP sessions
+# https://tools.ietf.org/html/rfc8326
+match from any community GRACEFUL_SHUTDOWN set { localpref 0 }
