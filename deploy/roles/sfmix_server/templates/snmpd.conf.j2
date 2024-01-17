@@ -1,0 +1,7 @@
+sysLocation SFMIX
+sysContact tech-c@sfmix.org
+agentaddress udp:161,udp6:161
+{% for subnet in ixp_admin_source_subnets %}
+rocommunity  {{ sfmix_server_snmp_community }} {{ subnet }}
+rocommunity6 {{ sfmix_server_snmp_community }} {{ subnet }}
+{% endfor %}
