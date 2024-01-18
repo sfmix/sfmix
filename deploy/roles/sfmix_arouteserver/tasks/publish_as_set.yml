@@ -1,13 +1,17 @@
 ---
 - name: Publish as-set AS-SFMIX-RS to ARIN
+  tags:
+    - publish_as_set
   ansible.builtin.command:
     argv:
       - "{{ playbook_dir }}/roles/sfmix_arouteserver/files/publish_as_set.py"
       - "{{ arouteserver_dir }}/rs-linux.sfmix.org-irr-as-set.rpsl.txt"
-  changed_when: true
+  register: publish_as_set_result
+  changed_when: publish_as_set_result.rc == 0
   environment:
     # This API key is linked to MPE54-ARIN
-    ARIN_API_KEY: $ANSIBLE_VAULT;1.1;AES256
+    ARIN_API_KEY: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
       63396664666138623231643762636461316664393566373665306536353466623265396136336433
       3862353538383662643631636563363661306163386438620a356139366139373462386432326634
       32363337303536303963386232303036303435346534363361323061363738323631333962396137
