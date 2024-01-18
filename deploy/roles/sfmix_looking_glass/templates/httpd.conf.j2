@@ -24,6 +24,6 @@ server "lg.sfmix.org" {
                 root "/"
         }
         location "/" {
-                block return 301 "https://$HTTP_HOST/cgi-bin/bgplg"
+                block return 301 "https://$HTTP_HOST/cgi-bin/bgplg?cmd=show+ip+bgp+summary&req="
         }
 }
