@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import json
 import os
 import sys
 
@@ -17,11 +16,11 @@ def read_input(file_name):
     """Reads content from a file or standard input."""
     try:
         if file_name:
-            with open(file_name, "r") as file:
+            with open(file_name, "rb") as file:
                 return file.read()
         else:
             print("Reading from standard input. Please enter your data:")
-            return sys.stdin.read()
+            return bytes(sys.stdin.read(), encoding='utf-8')
     except Exception as e:
         sys.exit(f"Error reading input: {e}")
 
@@ -33,12 +32,13 @@ def post_data(arin_api_key, org_id, rpsl_text):
             API_ENDPOINT,
             headers=RPSL_HEADERS,
             params={"apikey": arin_api_key, "orgHandle": org_id},
-            json=rpsl_text,
+            data=rpsl_text,
         )
         response.raise_for_status()
         return response
     except requests.RequestException as e:
         print(f"POST request failed: {e}")
+        print(f"POST request response: {response.content!r}")
         return None
 
 
@@ -49,12 +49,13 @@ def put_data(arin_api_key, as_set_name, rpsl_text):
             API_ENDPOINT + f"/{as_set_name}",
             params={"apikey": arin_api_key},
             headers=RPSL_HEADERS,
-            json=rpsl_text,
+            data=rpsl_text,
         )
         response.raise_for_status()
         return response
     except requests.RequestException as e:
         print(f"PUT request failed: {e}")
+        print(f"PUT request response: {response.content!r}")
         return None
 
 
@@ -68,14 +69,14 @@ def extract_as_set_name(rpsl_text):
     Returns:
     str: The extracted as-set name, or an empty string if not found.
     """
-    for line in rpsl_text.splitlines():
+    for line in str(rpsl_text, encoding='utf-8').splitlines():
         if line.startswith("as-set:"):
             return line.split()[1].strip()
     raise Exception("as-set name not found in input")
 
 
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         sys.exit(f"Usage: publish_as_set.py <Input File (optional)>")
 
     arin_api_key = os.environ.get("ARIN_API_KEY")
@@ -89,25 +90,22 @@ def main():
     input_file = sys.argv[1] if len(sys.argv) > 1 else None
 
     rpsl_text = read_input(input_file)
-    try:
-        rpsl_text = json.loads(rpsl_text)
-    except json.JSONDecodeError:
-        sys.exit("Invalid input format. Please provide valid JSON.")
     as_set_name = extract_as_set_name(rpsl_text)
 
     print("Attempting to create a new object...")
     post_response = post_data(arin_api_key, org_id, rpsl_text)
 
     if post_response:
-        print(f"Object created successfully: {post_response.json()}")
+        print(f"Object created successfully: {post_response}")
+        sys.exit("Success")
     else:
         print("Attempting to update an existing object...")
         put_response = put_data(arin_api_key, as_set_name, rpsl_text)
 
         if put_response:
-            print(f"Object updated successfully: {put_response.json()}")
+            print(f"Object updated successfully: {put_response}")
         else:
-            print("Error: Unable to create or update the object.")
+            sys.exit("Error: Unable to create or update the object.")
 
 
 if __name__ == "__main__":

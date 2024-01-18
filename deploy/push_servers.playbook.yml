@@ -121,6 +121,7 @@
   hosts: localhost
   tags:
     - route_servers
+    - publish_as_set
   tasks:
     - name: "Publish as-set to ARIN"
       ansible.builtin.include_role:
