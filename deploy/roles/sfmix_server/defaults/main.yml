@@ -1,4 +1,5 @@
 ---
 sfmix_server_ufw_enabled: true
-sfmix_server_dns_recursor: 192.33.255.3
+sfmix_server_dns_recursors:
+  - 8.8.8.8
 sfmix_server_snmp_community: public

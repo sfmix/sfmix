@@ -26,7 +26,9 @@
     dest: /etc/resolv.conf
     content: |
       search sfmix.org
-      nameserver {{ sfmix_server_dns_recursor }}
+      {% for recursor in sfmix_server_dns_recursors %}
+      nameserver {{ recursor }}
+      {% endfor %}
     owner: root
     group: root
     mode: ug=rw,o=r
