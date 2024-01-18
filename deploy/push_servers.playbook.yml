@@ -146,12 +146,32 @@
   hosts: looking_glass
   tags:
     - looking_glass
+    # FIXME: Migrate usage of participants.json to Alice
+    # Currently used by sfmix.org/participants/
+    - participants_json
   roles:
     - netbox_data
     - sfmix_looking_glass
+    # FIXME: Migrate usage of participants.json to Alice
+    # Currently used by sfmix.org/participants/
     - participants_json
 
-- name: "Alice Public Looking Glass: participants.json"
+- name: "Alice Looking Glass: Install postgresql"
+  become: true
+  hosts: alice
+  tags:
+    - alice
+  roles:
+    - geerlingguy.postgresql
+
+- name: "Alice Looking Glass: Install alice"
+  hosts: alice
+  tags:
+    - alice
+  roles:
+    - alice
+
+- name: "Alice Looking Glass: participants.json"
   hosts: alice
   tags:
     - participants_json
