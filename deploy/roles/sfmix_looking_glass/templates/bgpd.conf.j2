@@ -14,7 +14,7 @@ group "{{ participant.description | truncate(31, leeway=0) }}" {
 	set metric 0
 
 {%   for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
-{# Skip the Looking Glass IPs #}
+{# Skip the Looking Glass IPs and Route Servers #}
 {%     if (
 			ip_address.tenant.id == participant.id)
 			and not (
