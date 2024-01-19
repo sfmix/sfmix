@@ -2,6 +2,7 @@
 all:
   hosts:
     localhost:
+      ansible_python_interpreter: /home/jof/.pyenv/shims/python3
   children:
     servers:
       children:
@@ -33,7 +34,7 @@ all:
         sentry.sfmix.org:
     shell:
       hosts:
-        shell.sfmix.org:
+        shell.teleport.sfmix.org:
     dns:
       hosts:
         ns1.sfmix.org:
@@ -44,18 +45,11 @@ all:
     rs_linux:
       hosts:
         rs-linux.sfmix.org:
-          # ansible_host: mgmt.rs-linux.sfmix.org
-          ansible_host: 192.168.178.148
-          ansible_user: vagrant
     rs_openbsd:
       hosts:
-        rs-openbsd.sfmix.org:
-        #   ansible_host: mgmt.rs-openbsd.sfmix.org
-          ansible_host: 192.168.178.230
-          ansible_user: vagrant
     looking_glass:
       hosts:
-        looking-glass.sfmix.org:
+        lg.sfmix.org:
     alice:
       hosts:
         alice.sfmix.org:
