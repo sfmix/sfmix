@@ -1,3 +1,7 @@
+types {
+        application/json        json
+        image/png               png
+}
 server "secure-redirect" {
         listen on egress port 80
         location "/.well-known/acme-challenge/*" {
