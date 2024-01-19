@@ -113,6 +113,8 @@ sfmix_admin_users:
     github_username: dorkmatt
   - username: pozar
     github_username: pozar
+  - username: xenith
+    github_username: xenith
 sfmix_host_local_users: []
 sfmix_host_local_admin_source_subnets: []
 grafana_sfmix_admin: !vault |
