@@ -33,7 +33,7 @@ all:
         sentry.sfmix.org:
     shell:
       hosts:
-        shell.teleport.sfmix.org:
+        shell.sfmix.org:
     dns:
       hosts:
         ns1.sfmix.org:
