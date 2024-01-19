@@ -2,7 +2,6 @@
 all:
   hosts:
     localhost:
-      ansible_python_interpreter: /home/jof/.pyenv/shims/python3
   children:
     servers:
       children:
