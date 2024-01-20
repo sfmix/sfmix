@@ -10,7 +10,7 @@
 
 - name: "Teleport: remove_old_logs: Create systemd timer file"
   become: true
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: teleport_remove_old_logs.timer.j2
     dest: /etc/systemd/system/teleport_remove_old_logs.timer
     owner: root
