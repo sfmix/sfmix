@@ -59,6 +59,24 @@
     commands: ALL
     nopassword: true
 
+- name: Ensure /etc/sudoers.d directory (OpenBSD)
+  when: ansible_system == "OpenBSD"
+  become: true
+  ansible.builtin.file:
+    path: /etc/sudoers.d
+    state: directory
+    owner: root
+    group: wheel
+    mode: ug=rwx,o=
+
+- name: Add /etc/sudoers.d to /etc/sudoers (OpenBSD)
+  when: ansible_system == "OpenBSD"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    state: present
+    line: "@includedir /etc/sudoers.d"
+
 - name: "No password for wheel group (OpenBSD)"
   when: ansible_system == "OpenBSD"
   become: true
