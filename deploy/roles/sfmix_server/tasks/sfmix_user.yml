@@ -9,7 +9,7 @@
       - sudo
       - docker
     append: true
-    shell: /bin/bash
+    shell: /usr/sbin/nologin
 
 - name: Create "sfmix" user (OpenBSD)
   when: ansible_system == "OpenBSD"
@@ -20,7 +20,7 @@
     groups:
       - wheel
     append: true
-    shell: /bin/bash
+    shell: /sbin/nologin
 
 - name: Create ~sfmix/.netrc (Linux)
   when: ansible_system == "Linux"
