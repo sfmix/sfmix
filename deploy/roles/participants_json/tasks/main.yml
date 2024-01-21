@@ -1,4 +1,16 @@
 ---
+- name: "Install jq (Linux)"
+  when: ansible_system == "Linux"
+  become: true
+  ansible.builtin.apt:
+    name: jq
+
+- name: "Install jq (OpenBSD)"
+  when: ansible_system == "OpenBSD"
+  become: true
+  community.general.openbsd_pkg:
+    name: jq
+
 - name: "Template participants.yaml to a string"
   ansible.builtin.set_fact:
     participants_json_string: |
@@ -23,11 +35,20 @@
     group: sfmix
     mode: ug=rwx,o=rx
 
-- name: "Template participants.json"
+- name: "Template participants.min.json"
   become: true
   ansible.builtin.copy:
-    dest: "{{ participants_json_output_directory }}/participants.json"
+    dest: "{{ participants_json_output_directory }}/participants.min.json"
     content: "{{ participants_json_string }}"
     owner: sfmix
     group: sfmix
     mode: ug=rw,o=r
+
+- name: "Prettyify participants.min.json into participants.json"
+  become: true
+  ansible.builtin.shell:
+    cmd: >
+      jq --sort-keys .
+      {{ participants_json_output_directory }}/participants.min.json
+      > {{ participants_json_output_directory }}/participants.json
+  changed_when: true
