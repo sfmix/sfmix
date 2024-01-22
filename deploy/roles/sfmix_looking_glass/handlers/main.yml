@@ -10,18 +10,3 @@
   ansible.builtin.service:
     name: httpd
     state: reloaded
-
-- name: Test the candidate bgpd.conf
-  become: true
-  ansible.builtin.command:
-    cmd: bgpd -n -f /etc/bgpd.candidate.conf
-  register: bgpd_config_test
-  changed_when: bgpd_config_test.rc == 0
-  notify: Install the candidate bgpd.conf
-
-- name: Install the candidate bgpd.conf
-  become: true
-  ansible.builtin.command:
-    cmd: cp /etc/bgpd.candidate.conf /etc/bgpd.conf
-  changed_when: true
-  notify: Reload bgpd
