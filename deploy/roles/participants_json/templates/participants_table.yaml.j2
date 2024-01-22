@@ -1,0 +1,30 @@
+#jinja2: lstrip_blocks: True
+---
+participants:
+{% for participant_id, participant in netbox_participants.items() %}
+  - as_number: {{ participant.custom_fields.as_number }}
+    member_type: {{ participant.custom_fields.participant_type }}
+    name: {{ participant.description }}
+    peering_ports:
+        {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
+        {%   if peering_port.custom_fields.participant.id == participant_id %}
+        - speed: {{ peering_port.speed / 1000000 | int }} Gbit/s
+        {# - speed: {{ peering_port.speed }} Gbit/s #}
+          location: {{ netbox_sites[netbox_devices[peering_port.device.id].site.id].facility }}
+          {% set ip_map = namespace(ipv4=null, ipv6 = null) %}
+          {% for ip_address in netbox_participant_ip_addresses.values() %}
+          {%   if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
+          {%     if ip_address.family.value == 4 %}
+          {%       set ip_map.ipv4 = ip_address.address | ansible.utils.ipaddr('address') %}
+          {%     elif ip_address.family.value == 6 %}
+          {%       set ip_map.ipv6 = ip_address.address | ansible.utils.ipaddr('address') %}
+          {%     endif %}
+          {%   endif %}
+          {% endfor %}
+          {# ipv4: {% if ip_map.ipv4 %}{{ ip_map.ipv4 }}{% else %}{{ "Pending" }}{% endif %}
+          ipv6: {% if ip_map.ipv6 %}{{ ip_map.ipv6 }}{% else %}{{ "Pending" }}{% endif %} #}
+          ipv4: {{ ip_map.ipv4 | default("Pending") }}
+          ipv6: {{ ip_map.ipv6 | default("Pending") }}
+        {%   endif %}
+        {% endfor %}
+{% endfor %}
