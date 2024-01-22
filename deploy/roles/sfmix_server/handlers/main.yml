@@ -4,3 +4,9 @@
   ansible.builtin.service:
     name: snmpd
     state: restarted
+
+- name: Restart sshd
+  become: true
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
