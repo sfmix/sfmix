@@ -1,0 +1,7 @@
+---
+- name: "Template: General"
+  delegate_to: localhost
+  ansible.builtin.template:
+    src: vyos/general.j2
+    dest: "{{ config_parts_dir }}/general.vyos_config.txt"
+    mode: ug=rw,o=r

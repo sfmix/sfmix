@@ -1,0 +1,9 @@
+delete service ntp
+set service ntp allow-client address '0.0.0.0/0'
+set service ntp allow-client address '::/0'
+set service ntp server time1.vyos.net
+set service ntp server time2.vyos.net
+set service ntp server time3.vyos.net
+
+delete service ssh
+set service ssh
