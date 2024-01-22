@@ -42,7 +42,7 @@ management api http-commands
 !
 snmp-server contact tech-c@sfmix.org
 {% if sites is defined and sites | length %}
-snmp-server location {{ sites[0].name }}
+snmp-server location {{ sites[0].name }} [{{ sites[0].latitude }}, {{ sites[0].longitude }}]
 {% endif %}
 snmp-server community {{ snmp_community }}
 !
