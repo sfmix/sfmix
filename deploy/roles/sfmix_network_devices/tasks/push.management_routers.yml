@@ -5,6 +5,3 @@
     match: none
   register: vyos_result
   changed_when: vyos_result.diff.prepared
-
-- debug:
-    var: vyos_result
