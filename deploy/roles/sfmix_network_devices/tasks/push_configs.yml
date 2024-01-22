@@ -32,5 +32,7 @@
         select('string') |
         list
       }}
+    parents:
+      - router ospf 1
     before: "default router ospf 1"
     replace: block
