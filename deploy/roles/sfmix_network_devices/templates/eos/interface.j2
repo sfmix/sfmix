@@ -6,9 +6,9 @@ interface {{ interface.name }}
 
 {% endif %}
 {% if interface.enabled %}
-no shutdown
+   no shutdown
 {% else %}
-shutdown
+   shutdown
 {% endif %}
 {% if interface.description is defined and interface.description|length %}
    description {{ interface.description }}
