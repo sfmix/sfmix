@@ -9,6 +9,27 @@
   become: true
   when: ansible_system == "Linux"
   ansible.builtin.template:
-    src: snmpd.conf.j2
+    src: net-snmp.snmpd.conf.j2
     dest: /etc/snmp/snmpd.conf
+    owner: root
+    group: root
+    mode: ug=rw,o=
+  notify: Restart snmpd
+
+- name: Enable snmpd (OpenBSD)
+  become: true
+  when: ansible_system == "OpenBSD"
+  ansible.builtin.service:
+    name: snmpd
+    enabled: true
+
+- name: Template snmpd.conf (OpenBSD)
+  become: true
+  when: ansible_system == "OpenBSD"
+  ansible.builtin.template:
+    src: openbsd.snmpd.conf.j2
+    dest: /etc/snmpd.conf
+    owner: root
+    group: wheel
+    mode: ug=rw,o=
   notify: Restart snmpd
