@@ -8,7 +8,7 @@ participants:
     peering_ports:
         {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
         {%   if peering_port.custom_fields.participant.id == participant_id %}
-        - speed: {{ peering_port.speed / 1000000 | int }} Gbit/s
+        - speed: {{ (peering_port.speed / 1000000) | int }} Gbit/s
         {# - speed: {{ peering_port.speed }} Gbit/s #}
           location: {{ netbox_sites[netbox_devices[peering_port.device.id].site.id].facility }}
           {% set ip_map = namespace(ipv4=null, ipv6 = null) %}
