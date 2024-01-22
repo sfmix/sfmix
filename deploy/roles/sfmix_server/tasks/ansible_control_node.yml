@@ -16,3 +16,13 @@
     owner: sfmix
     group: sfmix
     mode: ug=r,o=
+
+- name: Install build-essential
+  become: true
+  ansible.builtin.apt:
+    name: build-essential
+
+- name: Install pipenv
+  become: true
+  ansible.builtin.pip:
+    name: pipenv
