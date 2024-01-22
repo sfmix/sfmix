@@ -26,7 +26,7 @@ interface {{ interface.name }}
 {%   endfor %}
 {% endif %}
 {# switchport/VLAN Access interfaces#}
-{% if interface.mode and not interface.lag and interface.name != "Vxlan1" %}
+{% if interface.mode and (not interface.lag) and (interface.name != "Vxlan1") and ("encapsulated_peering_port" not in interface.tags) %}
 {%   if interface.mode.value == "access" %}
    switchport mode access
 {%     if interface.untagged_vlan.vid %}
@@ -53,6 +53,7 @@ interface {{ interface.name }}
    storm-control unknown-unicast level 0.01
 {%  elif 'encapsulated_peering_port' in interface.tags %}
    encapsulation dot1q vlan {{ interface.custom_fields.dot1q_encapsulation_tag }}
+   vlan id {{ interface.untagged_vlan.vid }}
 {%  else %}
    switchport port-security mac-address maximum 3
    switchport port-security
