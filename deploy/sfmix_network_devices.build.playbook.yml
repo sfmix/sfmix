@@ -18,4 +18,24 @@
     - name: Build configs
       ansible.builtin.include_role:
         name: sfmix_network_devices
-        tasks_from: build_configs.yml
+        tasks_from: build.peering_switches.yml
+
+- name: Build management router configs
+  tags:
+    - management_routers
+  hosts: management_routers
+  gather_facts: false
+  vars:
+    config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
+    ansible_ssh_pipelining: true
+  tasks:
+    - name: Ensure output configuration directories
+      delegate_to: localhost
+      ansible.builtin.file:
+        dest: "{{ config_parts_dir }}"
+        state: directory
+        mode: ug=rwx,o=rx
+    - name: Build configs
+      ansible.builtin.include_role:
+        name: sfmix_network_devices
+        tasks_from: build.management_routers.yml

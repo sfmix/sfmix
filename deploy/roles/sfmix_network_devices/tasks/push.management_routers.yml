@@ -1,0 +1,10 @@
+---
+- name: "Push: General"
+  vyos.vyos.vyos_config:
+    src: "{{ config_parts_dir }}/general.vyos_config.txt"
+    match: none
+  register: vyos_result
+  changed_when: vyos_result.diff.prepared
+
+- debug:
+    var: vyos_result

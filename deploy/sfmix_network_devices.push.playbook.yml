@@ -5,10 +5,22 @@
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
   tasks:
-    - name: Load data from netbox
-      ansible.builtin.include_role:
-        name: netbox_data
     - name: Diff/Push Configs
+      tags:
+        - always
       ansible.builtin.include_role:
         name: sfmix_network_devices
-        tasks_from: push_configs.yml
+        tasks_from: push.peering_switches.yml
+
+- name: Push management router configs
+  hosts: management_routers
+  gather_facts: false
+  vars:
+    config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
+  tasks:
+    - name: Diff/Push Configs
+      tags:
+        - always
+      ansible.builtin.include_role:
+        name: sfmix_network_devices
+        tasks_from: push.management_routers.yml
