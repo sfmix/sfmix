@@ -27,8 +27,8 @@ ip name-server vrf default {{ dns_resolver }}
 {% endfor %}
 dns domain sfmix.org
 !
-sflow sample 16384
-sflow source-interface Loopback0
+sflow sample 50000
+sflow source-interface Management1
 sflow run
 !
 management security
