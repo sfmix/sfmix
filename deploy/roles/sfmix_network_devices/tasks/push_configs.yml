@@ -4,6 +4,9 @@
     src: "{{ config_parts_dir }}/general.eos_config.txt"
 
 - name: "Push: Interfaces"
+  tags:
+    - interfaces
+    - "{{ interface_name }}"
   arista.eos.eos_config:
     before: "default interface {{ interface_name }}"
     # What's going on here!?
@@ -17,13 +20,13 @@
       select('string') |
       list }}
     replace: block
-  tags:
-    - interfaces
   with_items: "{{ interfaces | map(attribute='name') | sort }}"
   loop_control:
     loop_var: interface_name
 
 - name: "Push: router ospf 1"
+  tags:
+    - ospf
   arista.eos.eos_config:
     lines: >
       {{
