@@ -5,6 +5,11 @@ interface {{ interface.name }}
    !! Cabled: {% for cable_far_end in interface.link_peers %} {{ cable_far_end.device.name }}/{{ cable_far_end.name }} {% endfor %}
 
 {% endif %}
+{% if interface.enabled %}
+no shutdown
+{% else %}
+shutdown
+{% endif %}
 {% if interface.description is defined and interface.description|length %}
    description {{ interface.description }}
 {% endif %}
