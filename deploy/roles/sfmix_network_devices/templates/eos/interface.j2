@@ -77,3 +77,7 @@ interface {{ interface.name }}
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
 {% endif %}
+{# Core ports #}
+{% if "core_port" in interface.tags %}
+   mtu 9192
+{% endif %}
