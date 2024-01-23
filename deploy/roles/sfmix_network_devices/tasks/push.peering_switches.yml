@@ -6,7 +6,6 @@
 - name: "Push: Interfaces"
   tags:
     - interfaces
-    - "{{ interface_name }}"
   arista.eos.eos_config:
     before: "default interface {{ interface_name }}"
     # What's going on here!?
