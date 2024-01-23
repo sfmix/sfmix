@@ -59,7 +59,7 @@ interface {{ interface.name }}
    encapsulation dot1q vlan {{ interface.custom_fields.dot1q_encapsulation_tag }}
    vlan id {{ interface.untagged_vlan.vid }}
 {%  else %}
-   switchport port-security mac-address maximum 3
+   switchport port-security mac-address maximum 2
    switchport port-security
    storm-control broadcast level 0.01
    storm-control multicast level 0.01
