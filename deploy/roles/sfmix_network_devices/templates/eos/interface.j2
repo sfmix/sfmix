@@ -24,12 +24,14 @@ interface {{ interface.name }}
 {% endif %}
 {# switchport/VLAN Access interfaces #}
 {% if interface.mode and (not interface.lag) and (interface.name != "Vxlan1") and ("encapsulated_peering_port" not in interface.tags) %}
-{%   if interface.speed == 1000000 %}
+{%   if interface.type.value != "lag" %}
+{%     if interface.speed == 1000000 %}
    speed forced 1000full
-{%   elif interface.speed == 10000000 %}
+{%     elif interface.speed == 10000000 %}
    speed forced 10000full
-{%   elif interface.speed == 100000000 %}
+{%     elif interface.speed == 100000000 %}
    speed forced 100gfull
+{%     endif %}
 {%   endif %}
 {%   if interface.mode.value == "access" %}
    switchport mode access
@@ -85,4 +87,7 @@ interface {{ interface.name }}
 {# Core ports #}
 {% if "core_port" in interface.tags %}
    mtu 9192
+{% endif %}
+{% if interface.custom_fields.ospf_cost %}
+   ip ospf cost {{ interface.custom_fields.ospf_cost }}
 {% endif %}
