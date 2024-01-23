@@ -13,13 +13,6 @@ interface {{ interface.name }}
 {% if interface.description is defined and interface.description|length %}
    description {{ interface.description }}
 {% endif %}
-{% if interface.speed == 1000000 %}
-   speed forced 1000full
-{% elif interface.speed == 10000000 %}
-   speed forced 10000full
-{% elif interface.speed == 100000000 %}
-   speed forced 100gfull
-{% endif %}
 {% if interface.ip_addresses %}
 {%   for ip_address in interface.ip_addresses %}
 {%     if ip_address.family.value == 4 %}
@@ -29,8 +22,15 @@ interface {{ interface.name }}
 {%     endif %}
 {%   endfor %}
 {% endif %}
-{# switchport/VLAN Access interfaces#}
+{# switchport/VLAN Access interfaces #}
 {% if interface.mode and (not interface.lag) and (interface.name != "Vxlan1") and ("encapsulated_peering_port" not in interface.tags) %}
+{%   if interface.speed == 1000000 %}
+   speed forced 1000full
+{%   elif interface.speed == 10000000 %}
+   speed forced 10000full
+{%   elif interface.speed == 100000000 %}
+   speed forced 100gfull
+{%   endif %}
 {%   if interface.mode.value == "access" %}
    switchport mode access
 {%     if interface.untagged_vlan.vid %}
