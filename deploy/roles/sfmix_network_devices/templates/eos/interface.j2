@@ -15,6 +15,10 @@ interface {{ interface.name }}
 {% endif %}
 {% if interface.speed == 1000000 %}
    speed forced 1000full
+{% elif interface.speed == 10000000 %}
+   speed forced 10000full
+{% elif interface.speed == 100000000 %}
+   speed forced 100gfull
 {% endif %}
 {% if interface.ip_addresses %}
 {%   for ip_address in interface.ip_addresses %}
