@@ -5,6 +5,10 @@
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
     ansible_ssh_pipelining: true
+  tags:
+    - interfaces
+    - ospf
+    - vlans
   tasks:
     - name: Load data from netbox
       ansible.builtin.include_role:
