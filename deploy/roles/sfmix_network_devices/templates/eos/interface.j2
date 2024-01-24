@@ -2,7 +2,7 @@
 {% set interface = interfaces | selectattr('name', 'equalto', interface_name) | first %}
 interface {{ interface.name }}
 {% if interface.link_peers is defined and interface.link_peers | length %}
-   !! Cabled: {% for cable_far_end in interface.link_peers %} {{ cable_far_end.device.name }}/{{ cable_far_end.name }} {% endfor %}
+   !! Cabled: {% for cable_far_end in interface.link_peers %}{{ cable_far_end.device.name }}/{{ cable_far_end.name }} {% endfor %}
 
 {% endif %}
 {% if interface.enabled %}
