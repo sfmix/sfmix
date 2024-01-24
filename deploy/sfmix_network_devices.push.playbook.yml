@@ -2,6 +2,10 @@
 - name: Push switch configs
   hosts: peering_switch
   gather_facts: false
+  tags:
+    - interfaces
+    - ospf
+    - vlans
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
   tasks:
@@ -19,8 +23,6 @@
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
   tasks:
     - name: Diff/Push Configs
-      tags:
-        - always
       ansible.builtin.include_role:
         name: sfmix_network_devices
         tasks_from: push.management_routers.yml

@@ -1,0 +1,9 @@
+#jinja2: lstrip_blocks: True
+!
+{% for vlan_id, vlan in exchange_fabric_vlans.items() %}
+{%   if vlan.status.value != "reserved" %}
+vlan {{ vlan.vid }}
+   name {{ vlan.name }}
+{%   endif %}
+!
+{% endfor %}

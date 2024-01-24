@@ -1,13 +1,26 @@
 ---
 - name: "Push: General"
+  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('general' in ansible_run_tags) or ('general' not in ansible_skip_tags and ('general' in ansible_run_tags or ansible_run_tags == ['all']))
   arista.eos.eos_config:
     src: "{{ config_parts_dir }}/general.eos_config.txt"
 
-- name: "Push: Interfaces"
-  tags:
-    - interfaces
+- name: "Push: VLANs"
+  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('vlans' in ansible_run_tags) or ('vlans' not in ansible_skip_tags and ('vlans' in ansible_run_tags or ansible_run_tags == ['all']))
   arista.eos.eos_config:
-    before: "default interface {{ interface_name }}"
+    lines: >
+      {{
+        lookup('file', (config_parts_dir ~ "/vlans.eos_config.txt")) |
+        split('\n') |
+        select('string') |
+        list
+      }}
+    before: "default vlan 1-4094"
+    match: none
+    replace: block
+
+- name: "Push: Interfaces"
+  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or (interface_name in ansible_run_tags) or (interface_name not in ansible_skip_tags and (interface_name in ansible_run_tags or ansible_run_tags == ['all']))
+  arista.eos.eos_config:
     # What's going on here!?
     # This reads the locally-built config file for each interface
     # (in `item`), splits it into newlines, and removes any empty lines
@@ -18,14 +31,15 @@
       split('\n') |
       select('string') |
       list }}
+    before: "default interface {{ interface_name }}"
+    match: none
     replace: block
   with_items: "{{ interfaces | map(attribute='name') | sort }}"
   loop_control:
     loop_var: interface_name
 
 - name: "Push: router ospf 1"
-  tags:
-    - ospf
+  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('ospf' in ansible_run_tags) or ('ospf' not in ansible_skip_tags and ('ospf' in ansible_run_tags or ansible_run_tags == ['all']))
   arista.eos.eos_config:
     lines: >
       {{
@@ -35,4 +49,5 @@
         list
       }}
     before: "default router ospf 1"
+    match: none
     replace: block
