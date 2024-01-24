@@ -5,7 +5,8 @@ router ospf 1
    no passive-interface {{ interface.name }}
 {%   endif %}
 {% endfor %}
-   {# TODO: This should probably come from some kind of prefix lookup #}
+   no passive-interface Loopback0
+{# TODO: This should probably come from some kind of prefix lookup #}
    network 100.64.0.0/10 area 0.0.0.0
    max-lsa 12000
    log-adjacency-changes detail
