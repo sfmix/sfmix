@@ -19,6 +19,7 @@ import sys
 import pynetbox
 import requests
 from sgqlc.endpoint.http import HTTPEndpoint
+import ipaddress
 
 
 def main(
@@ -54,6 +55,7 @@ def main(
         name=f"AS{new_participant_asn}",
         slug=f"as{new_participant_asn}",
         description=peeringdb_asn_name,
+        custom_fields={"participant_type": "Member", "as_number": int(new_participant_asn)},
     )
     print("New Netbox Tenant Created: ", netbox_tenant["url"])
 
@@ -61,8 +63,8 @@ def main(
     peering_switches_at_site = netbox.dcim.devices.filter(
         site=new_participant_site, role="peering_switch"
     )
-    peering_switch_id_strings = map(
-        str, [switch["id"] for switch in peering_switches_at_site]
+    peering_switch_id_strings = list(
+        map(str, [switch["id"] for switch in peering_switches_at_site])
     )
     peering_switches_ports_query = """
     query($device_ids: [String!]) {
@@ -70,6 +72,7 @@ def main(
             id
             name
             description
+            speed
             device {
                 id
                 name
@@ -106,8 +109,11 @@ def main(
             # FIXME: This really ought to selecting by optic media type, though netbox
             #   doesn't model this well. For example: colored optics or BiDi
             continue
+        is_patched_to_patch_panel = False
         for termination in port["cable"]["terminations"]:
-            if termination["device"]["role"]["slug"] == "patch_panel":
+            if termination["_device"]["role"]["slug"] == "patch_panel":
+                is_patched_to_patch_panel = True
+        if is_patched_to_patch_panel:
                 patched_and_unassigned_ports.append(port)
     print(f"Found {len(patched_and_unassigned_ports)} patched and unassigned ports: ")
     enumerated_patched_and_unassigned_ports = dict(
@@ -138,7 +144,7 @@ def main(
         group_id=exchange_fabric_vlans_group_id, vid=999
     )
     # Next-available Port-Channel
-    port_channel_name = next_available_port_channel_for_device_id(
+    port_channel_name = next_available_port_channel_for_device_id(netbox=netbox,
         device_id=selected_port["device"]["id"]
     )
     port_channel_interface = netbox.dcim.interfaces.create(
@@ -162,14 +168,60 @@ def main(
     peering_port.tags = [{"slug": "peering_port"}, {"slug": "ixp_participant"}]
     peering_port.enabled = True
     peering_port.lag = port_channel_interface.id
-    peering_port.description = f"{peeringdb_asn_name} LAG Member (AS{new_participant_asn})"
+    peering_port.description = (
+        f"{peeringdb_asn_name} LAG Member (AS{new_participant_asn})"
+    )
     peering_port.custom_fields = {"lacp_mode": "on"}
     peering_port.save()
     print(f"Added physical port to {port_channel_name}: {peering_port.url}")
 
     # IPv4 Next-Available
-    raise NotImplementedError
-    # list(nb.ipam.prefixes.filter(prefix='206.197.187.0/24'))[0].available_ips.create({'tenant':{'slug': 'as10310','tags':1}})
+    next_ipv4_address = list(
+        netbox.ipam.prefixes.filter(prefix=operator_config["ipv4_peering_prefix"])
+    )[0].available_ips.list()[0].address
+    ipv4_address = netbox.ipam.ip_addresses.create(
+        address=next_ipv4_address,
+        tenant=netbox_tenant.id,
+        tags=[{"slug": "ixp_participant"}],
+        custom_fields={"participant_lag": port_channel_interface.id},
+    )
+    print(f"Allocated IPv4 Address: {ipv4_address.address} - {ipv4_address.url}")
+
+    # IPv6 Address Templating
+    zero_padded_asn = new_participant_asn.zfill(6)
+    asn_hex_byte_one = str(zero_padded_asn[0:2])
+    asn_hex_byte_two = str(zero_padded_asn[2:4])
+    asn_hex_byte_three = str(zero_padded_asn[4:6])
+    v6_address = str(
+        ipaddress.IPv6Network(operator_config["ipv6_peering_prefix"]).network_address
+    )
+    v6_address = apply_ipv6_mask(
+        v6_address, 10, "ba"
+    )  # The "ba" stands for "Bay Area" ;)
+    v6_address = apply_ipv6_mask(v6_address, 11, asn_hex_byte_one)
+    v6_address = apply_ipv6_mask(v6_address, 12, asn_hex_byte_two)
+    v6_address = apply_ipv6_mask(v6_address, 13, asn_hex_byte_three)
+    v6_address = apply_ipv6_mask(v6_address, 15, "01")
+    ipv6_address = netbox.ipam.ip_addresses.create(
+        address=f"{v6_address}/64",
+        tenant=netbox_tenant.id,
+        tags=[{"slug": "ixp_participant"}],
+        custom_fields={"participant_lag": port_channel_interface.id},
+    )
+    print(f"Allocated IPv6 Address: {ipv6_address.address} - {ipv6_address.url}")
+
+
+def apply_ipv6_mask(ipv6_addr, offset, hex_byte):
+    # Convert IPv6 address to integer
+    addr_int = int(ipaddress.IPv6Address(ipv6_addr))
+    # Convert hex byte to integer
+    hex_byte_int = int(hex_byte, 16)
+    # Apply the mask
+    # Shift the hex byte to the correct position and apply it
+    mask = hex_byte_int << (8 * (16 - offset - 1))
+    new_addr_int = (addr_int & ~(0xFF << (8 * (16 - offset - 1)))) | mask
+    # Convert back to IPv6 address
+    return str(ipaddress.IPv6Address(new_addr_int))
 
 
 def graphql_endpoint(operator_config) -> HTTPEndpoint:
@@ -181,11 +233,29 @@ def graphql_endpoint(operator_config) -> HTTPEndpoint:
     return netbox_graphql_endpoint
 
 
-def next_available_port_channel_for_device_id(device_id: int) -> str:
-    raise NotImplementedError
+def next_available_port_channel_for_device_id(
+    netbox: pynetbox.core.api.Api, device_id: int
+) -> str:
+    existing_port_channels = list(
+        netbox.dcim.interfaces.filter(device_id=device_id, name__isw="Port-Channel")
+    )
+    if not existing_port_channels:
+        return "Port-Channel100"
+    existing_port_channel_names = [
+        port_channel["name"] for port_channel in existing_port_channels
+    ]
+    numbers = sorted(
+        int(pc.split("Port-Channel")[1]) for pc in existing_port_channel_names
+    )
+    next_number = numbers[0]
+    for number in numbers:
+        if number != next_number:
+            break
+        next_number += 1
+    return f"Port-Channel{next_number}"
 
 
-def netbox_client(operator_config) -> pynetbox.core.api.API:
+def netbox_client(operator_config) -> pynetbox.core.api.Api:
     return pynetbox.api(
         operator_config["netbox_api_endpoint"], token=operator_config["netbox_api_key"]
     )
@@ -222,7 +292,7 @@ if __name__ == "__main__":
     # Check for shared config
     OPERATOR_CONFIG_FILE = "/opt/sfmix/operator_config.yaml"
     with open(OPERATOR_CONFIG_FILE) as f:
-        operator_config = yaml.load(f)
+        operator_config = yaml.safe_load(f)
     for required_config in [
         "netbox_api_endpoint",
         "netbox_api_key",
@@ -246,7 +316,7 @@ if __name__ == "__main__":
         sys.exit("That speed doesn't appear to be an integer")
     desired_interface_speed_bps = port_speed_gbps * 1e9
     # Find applicable sites
-    existing_sites = existing_peering_sites()
+    existing_sites = existing_peering_sites(operator_config=operator_config)
     print("Existing peering sites are: ")
     for site in existing_sites:
         print("    ", site)
