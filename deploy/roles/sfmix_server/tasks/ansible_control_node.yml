@@ -17,6 +17,15 @@
     group: sfmix
     mode: ug=r,o=
 
+- name: Place operator_config.yaml
+  become: true
+  ansible.builtin.template:
+    src: operator_config.yaml.j2
+    dest: /opt/sfmix/operator_config.yaml
+    owner: sfmix
+    group: sfmix
+    mode: ug=r,o=
+
 - name: Install build-essential
   become: true
   ansible.builtin.apt:
