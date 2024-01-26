@@ -174,7 +174,6 @@ def main(
     # Update interface description
     # Enable Interface
     peering_port = netbox.dcim.interfaces.get(selected_port["id"])
-    peering_port.tags = [{"slug": "peering_port"}, {"slug": "ixp_participant"}]
     peering_port.enabled = True
     peering_port.lag = port_channel_interface.id
     peering_port.description = (
