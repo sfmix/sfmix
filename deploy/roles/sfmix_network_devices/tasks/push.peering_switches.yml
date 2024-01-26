@@ -51,3 +51,7 @@
     before: "default router ospf 1"
     match: none
     replace: block
+
+- name: "Save config"
+  arista.eos.eos_config:
+    save_when: always
