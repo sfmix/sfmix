@@ -31,10 +31,7 @@ def main(
     netbox = netbox_client(operator_config=operator_config)
     netbox_graphql = graphql_endpoint(operator_config=operator_config)
     netbox_port_speed = int(desired_interface_speed_bps / 1_000)
-    # Create Netbox Tenant by ASN
-    if netbox.tenancy.tenants.filter(slug=f"as{new_participant_asn}"):
-        sys.exit(f"Netbox Tenant AS{new_participant_asn} already exists!")
-    ## Lookup ASN Name in PeeringDB
+    # Lookup ASN Name in PeeringDB
     peeringdb_asn_response = requests.get(
         "https://www.peeringdb.com/api/net",
         params={"asn": new_participant_asn},
@@ -51,13 +48,19 @@ def main(
         )
     peeringdb_asn_data = peeringdb_asn_response.json()["data"][0]
     peeringdb_asn_name = peeringdb_asn_data["name"]
-    netbox_tenant = netbox.tenancy.tenants.create(
-        name=f"AS{new_participant_asn}",
-        slug=f"as{new_participant_asn}",
-        description=peeringdb_asn_name,
-        custom_fields={"participant_type": "Member", "as_number": int(new_participant_asn)},
-    )
-    print("New Netbox Tenant Created: ", netbox_tenant["url"])
+    # Search for existing Tenant or create one
+    existing_netbox_tenants = list(netbox.tenancy.tenants.filter(slug=f"as{new_participant_asn}"))
+    if existing_netbox_tenants:
+        netbox_tenant = existing_netbox_tenants[0]
+        print(f"Using existing Netbox Tenant: {netbox_tenant.url}")
+    else:
+        netbox_tenant = netbox.tenancy.tenants.create(
+            name=f"AS{new_participant_asn}",
+            slug=f"as{new_participant_asn}",
+            description=peeringdb_asn_name,
+            custom_fields={"participant_type": "Member", "as_number": int(new_participant_asn)},
+        )
+        print("New Netbox Tenant Created: ", netbox_tenant["url"])
 
     # Find pre-patched interfaces in the site
     peering_switches_at_site = netbox.dcim.devices.filter(
@@ -73,6 +76,9 @@ def main(
             name
             description
             speed
+            lag {
+                id
+            }
             device {
                 id
                 name
@@ -100,6 +106,9 @@ def main(
     for port in peering_switches_ports["data"]["interface_list"]:
         if port["custom_fields"].get("participant"):
             # Already assigned
+            continue
+        if port["lag"]:
+            # Already in a LAG
             continue
         if not port["cable"]:
             # Not patched
