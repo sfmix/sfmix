@@ -210,6 +210,31 @@ def main(
     )
     print(f"Allocated IPv6 Address: {ipv6_address.address} - {ipv6_address.url}")
 
+    print(f"Tracing patching for LOA Landing information...")
+    cable_trace_info = peering_port.trace()
+    for location in reversed(peering_port.trace()):
+        if not location:
+            continue
+        is_patch_panel_location = False
+        patch_panel_device = None
+        if not isinstance(location, list):
+            location = [location]
+        for sub_location in location:
+            if '/api/dcim/front-ports/' in sub_location.url or '/api/dcim/rear-ports/' in sub_location.url:
+                maybe_patch_panel_device = netbox.dcim.devices.get(sub_location.device.id)
+                if maybe_patch_panel_device.role.slug == "patch_panel":
+                    is_patch_panel_location = True
+                    patch_panel_device = maybe_patch_panel_device
+                    break
+        if is_patch_panel_location:
+            print("Most distal patch panel location to land at: ")
+            print(f"  Rack: {patch_panel_device.rack.display}, Unit {patch_panel_device.position}")
+            print(f"  Patch Panel: {patch_panel_device.name}")
+            print(f"  Ports: {' & '.join([sub_location['name'] for sub_location in location])}")
+            break
+
+
+
 
 def apply_ipv6_mask(ipv6_addr, offset, hex_byte):
     # Convert IPv6 address to integer
