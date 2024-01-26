@@ -101,7 +101,8 @@ member_list:
           ipv4:
             address: {{ ip_address.address | ansible.utils.ipaddr('address') }}
             {% if ip_address.custom_fields.participant_mac_address %}
-            mac_address: "{{ ip_address.custom_fields.participant_mac_address }}"
+            mac_addresses:
+              - "{{ ip_address.custom_fields.participant_mac_address }}"
             {% endif %}
           {% endif %}
           {% if vlan_id in vlan_map.ipv6 %}
@@ -109,7 +110,8 @@ member_list:
           ipv6:
             address: {{ ip_address.address | ansible.utils.ipaddr('address') }}
             {% if ip_address.custom_fields.participant_mac_address %}
-            mac_address: "{{ ip_address.custom_fields.participant_mac_address }}"
+            mac_addresses:
+              - "{{ ip_address.custom_fields.participant_mac_address }}"
             {% endif %}
           {% endif %}
         {% endfor %}
