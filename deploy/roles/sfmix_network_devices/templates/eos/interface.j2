@@ -52,8 +52,15 @@ interface {{ interface.name }}
    switchport
    channel-group {{ interface.lag.name | replace("Port-Channel", "") }} mode {{ interface.custom_fields.lacp_mode }}
 {% endif %}
-{% if 'peering_port' in interface.tags %}
+{% if interface.lag %}
+{%   if interface.lag.id in netbox_peering_port_interfaces %}
    no lldp transmit
+{%   endif %}
+{% endif %}
+{% if 'peering_port' in interface.tags %}
+{%   if interface.lag is not defined %}
+   no lldp transmit
+{%   endif %}
 {%  if 'encapsulating_peering_port' in interface.tags %}
    storm-control broadcast level 0.01
    storm-control multicast level 0.01
