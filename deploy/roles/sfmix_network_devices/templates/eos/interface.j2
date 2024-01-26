@@ -52,6 +52,9 @@ interface {{ interface.name }}
    switchport
    channel-group {{ interface.lag.name | replace("Port-Channel", "") }} mode {{ interface.custom_fields.lacp_mode }}
 {% endif %}
+{% if interface.custom_fields.rate_limit_bps %}
+   shape rate {{ (interface.custom_fields.rate_limit_bps / 1000) | int }}
+{% endif %}
 {% if interface.lag %}
 {%   if interface.lag.id in netbox_peering_port_interfaces %}
    no lldp transmit
