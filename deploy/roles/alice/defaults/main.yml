@@ -1,3 +1,4 @@
 ---
 alice_git_repo_version: "6.0.0"
-alice_nodejs_version: "21.x"
+alice_domain: alice.sfmix.org
+alice_config_file: /opt/alice/alice.conf

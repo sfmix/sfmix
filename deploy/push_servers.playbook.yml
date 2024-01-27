@@ -128,10 +128,20 @@
         name: sfmix_arouteserver
         tasks_from: publish_as_set.yml
 
+- name: "Route Servers: Install Redis"
+  become: true
+  hosts: rs_linux
+  tags:
+    - route_servers
+    - redis
+  roles:
+    - DavidWittman.redis
+
 - name: "Route Servers: Configure Linux/BIRD"
   hosts: rs_linux
   tags:
     - route_servers
+    - bird
   roles:
     - sfmix_route_server_linux
 
@@ -155,14 +165,6 @@
     # FIXME: Migrate usage of participants.json to Alice
     # Currently used by sfmix.org/participants/
     - participants_json
-
-- name: "Alice Looking Glass: Install postgresql"
-  become: true
-  hosts: alice
-  tags:
-    - alice
-  roles:
-    - geerlingguy.postgresql
 
 - name: "Alice Looking Glass: Install alice"
   hosts: alice

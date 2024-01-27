@@ -3,3 +3,10 @@ sfmix_server_ufw_enabled: false
 router_id: 206.197.187.253
 daemon: bird
 daemon_version: 2.0.8
+# FIXME: Overridden, pending merging this PR: https://github.com/alice-lg/birdwatcher/pull/54
+sfmix_route_server_linux_birdwatcher_repo: "https://github.com/jof/birdwatcher.git"
+sfmix_route_server_linux_birdwatcher_release: "jof/fix-dockerfile"
+# sfmix_route_server_linux_birdwatcher_release: "2.2.5"
+#
+redis_bind: 127.0.0.1
+redis_version: 6.2.6

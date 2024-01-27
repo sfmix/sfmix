@@ -5,3 +5,11 @@
     state: reloaded
     daemon_reload: true
     name: bird.service
+
+- name: Rebuild birdwatcher docker container
+  become: true
+  community.docker.docker_image:
+    name: birdwatcher
+    build:
+      path: "{{ sfmix_route_server_linux_birdwatcher_directory }}/repo"
+    source: build

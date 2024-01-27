@@ -1,5 +1,5 @@
 ---
-sfmix_server_ufw_enabled: false
+sfmix_server_ufw_enabled: true
 postgresql_databases:
   - name: alice
 alice_postgresql_password: !vault |
