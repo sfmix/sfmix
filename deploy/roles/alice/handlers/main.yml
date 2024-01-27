@@ -1,23 +1,16 @@
-- name: Re-build alice
+---
+- name: Re-build alice-lg
   become: true
-  become_user: sfmix
-  community.general.make:
-    chdir: /home/sfmix/go/src/github.com/alice-lg/alice-lg
-    target: all
-  notify: Copy alice binary into place
-
-- name: Copy alice binary into place
-  become: true
-  ansible.builtin.copy:
-    src: /home/sfmix/go/src/github.com/alice-lg/alice-lg/bin/alice-lg-linux-amd64
-    dest: /opt/alice/alice
-    owner: root
-    group: root
-    mode: ug=rwx,o=rx
-    remote_src: true
+  community.docker.docker_image:
+    build:
+      path: /opt/alice/alice-lg
+    name: alice-lg
+    tag: latest
+    source: build
 
 - name: Restart alice
   become: true
-  ansible.builtin.service:
+  community.docker.docker_container:
     name: alice
-    state: restarted
+    restart: true
+    state: started

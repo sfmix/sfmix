@@ -14,7 +14,7 @@ enable_neighbors_status_refresh = false
 # filtering evaluation with large BGP communities
 asn = {{ rs_asn }}
 
-store_backend = postgres
+store_backend = memory
 
 # how many route servers will be refreshed at the same time
 # if set to 0 (or for the matter of fact 1), refresh will be
@@ -28,10 +28,10 @@ neighbors_store_refresh_parallelism = 10000
 routes_store_refresh_interval = 5
 neighbors_store_refresh_interval = 5
 
-[postgres]
-url = "postgres://alice:{{ alice_postgresql_password }}@localhost:5432/alice"
-min_connections = 2
-max_connections = 128
+# [postgres]
+# url = "postgres://alice:{{ alice_postgresql_password }}@localhost:5432/alice"
+# min_connections = 2
+# max_connections = 128
 
 [housekeeping]
 # Interval for the housekeeping routine in minutes
@@ -76,8 +76,8 @@ routes_not_exported_page_size = 250
 #
 # Optional: Define communities which might be filtered
 #           in the future.
-# [rejection_candidates]
-# communities = 6695:1102:14, 6695:1102:15, 23:42:46
+[rejection_candidates]
+communities = {{ rs_asn }}:65534:65535
 
 [noexport]
 load_on_demand = true # Default: false
@@ -171,6 +171,15 @@ routeserver.name = RS
 
 
 # Routeservers
+[source.rs-linux]
+name = rs-linux.sfmix.org
+[source.rs-linux.birdwatcher]
+api = http://mgmt.rs-linux.sfmix.org:29184/
+type = multi_table
+show_last_reboot = true
+peer_table_prefix = T
+pipe_protocol_prefix = M
+
 # Birdwatcher Example
 # [source.rs0-example-v4]
 # name = rs1.example.com (IPv4)
