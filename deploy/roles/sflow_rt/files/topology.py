@@ -20,6 +20,7 @@ SWITCHES = [
     "switch02.sjc01.sfmix.org",
     "switch01.scl01.sfmix.org",
     "switch01.scl02.sfmix.org",
+    "switch01.scl04.sfmix.org",
 ]
 
 # sFlow-RT REST API
