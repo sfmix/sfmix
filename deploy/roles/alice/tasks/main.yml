@@ -1,124 +1,90 @@
 ---
-- name: "Nodesource: Add apt key"
-  become: true
-  ansible.builtin.get_url:
-    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
-    dest: /etc/apt/keyrings/nodesource.asc
-    mode: ug=rw,o=r
-    force: true
-
-- name: "Nodesource: add apt repo"
-  become: true
-  ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/nodesource.asc] https://deb.nodesource.com/node_{{ alice_nodejs_version }} nodistro main"
-    state: present
-    filename: nodesource
-
-- name: "Nodesource: nsolid apt preferences"
-  become: true
-  ansible.builtin.copy:
-    dest: /etc/apt/preferences.d/nsolid
-    owner: root
-    group: root
-    mode: ug=rw,o=r
-    content: |
-      # N|solid Config
-      Package: nsolid
-      Pin: origin deb.nodesource.com
-      Pin-Priority: 600
-
-- name: "Nodesource: nodejs apt preferences"
-  become: true
-  ansible.builtin.copy:
-    dest: /etc/apt/preferences.d/nodejs
-    owner: root
-    group: root
-    mode: ug=rw,o=r
-    content: |
-      # nodejs Config
-      Package: nodejs
-      Pin: origin deb.nodesource.com
-      Pin-Priority: 600
-
-- name: Install requisite packages
-  become: true
-  ansible.builtin.apt:
-    name: "{{ item }}"
-    update_cache: true
-  with_items:
-    - nodejs
-    - acl
-    - git
-    - make
-
-- name: Install golang
-  become: true
-  community.general.snap:
-    name: go
-    classic: true
-
-- name: Install yarn
-  become: true
-  community.general.npm:
-    name: yarn
-    global: true
-
-- name: Create alice golang directories
+- name: Ensure alice directory
   become: true
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: /opt/alice
     state: directory
     owner: sfmix
     group: sfmix
     mode: ug=rwx,o=rx
-  with_items:
-    - /home/sfmix/go
-    - /home/sfmix/go/bin
-    - /home/sfmix/go/pkg
-    - /home/sfmix/go/src
-    - /home/sfmix/go/src/github.com
-    - /home/sfmix/go/src/github.com/alice-lg
 
 - name: Clone alice-lg/alice-lg repo
   become: true
   become_user: sfmix
   ansible.builtin.git:
     repo: https://github.com/alice-lg/alice-lg.git
-    dest: /home/sfmix/go/src/github.com/alice-lg/alice-lg
+    dest: /opt/alice/alice-lg
     version: "{{ alice_git_repo_version }}"
-  notify: Re-build alice
+  notify: Re-build alice-lg
 
-- name: Ensure alice directory
+- name: "Template {{ alice_config_file }}"
   become: true
-  ansible.builtin.file:
-    path: /opt/alice
-    state: directory
-    owner: root
-    group: root
-    mode: ug=rwx,o=rx
-
-- name: Template alice-lg config
-  become: true
+  notify: Restart alice
   ansible.builtin.template:
     src: alice.conf.j2
-    dest: /opt/alice/alice.conf
+    dest: "{{ alice_config_file }}"
     owner: root
     group: root
     mode: ug=rw,o=r
 
-- name: Template alice.service systemd unit
+- name: "Run alice-lg docker container"
   become: true
-  ansible.builtin.template:
-    src: alice.service.j2
-    dest: /etc/systemd/system/alice.service
-    owner: root
-    group: root
-    mode: ug=rw,o=r
-
-- name: Enable/start systemd unit for alice
-  notify: Restart alice
-  become: true
-  ansible.builtin.service:
+  community.docker.docker_container:
     name: alice
-    enabled: true
-    state: started
+    image: alice-lg:latest
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "{{ alice_config_file }}:{{ alice_config_file }}"
+    user: nobody
+    command: "alice-lg -config {{ alice_config_file }}"
+
+- name: "Create a dhparams file"
+  become: true
+  community.crypto.openssl_dhparam:
+    path: /etc/ssl/certs/dhparam.pem
+    size: 2048
+
+- name: "Firewall: Allow HTTP(S)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+  loop:
+    - http
+    - https
+
+- name: "Install HTTPS/Nginx Reverse Proxy"
+  become: true
+  block:
+    - name: "Install certbox and nginx"
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+      loop:
+        - geerlingguy.certbot
+        - geerlingguy.nginx
+      vars:
+        certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+        certbot_create_if_missing: true
+        certbot_create_standalone_stop_services: ["nginx.service"]
+        certbot_certs:
+          - domains:
+              - "{{ alice_domain }}"
+        nginx_remove_default_vhost: true
+        nginx_vhosts:
+          - listen: "80"
+            server_name: "_"
+            return: "301 https://$host$request_uri"
+          - listen: "443 ssl http2"
+            server_name: "{{ alice_domain }}"
+            extra_parameters: |
+              ssl_certificate /etc/letsencrypt/live/{{ alice_domain }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ alice_domain }}/privkey.pem;
+              ssl_dhparam /etc/ssl/certs/dhparam.pem;
+              location / {
+                proxy_pass http://127.0.0.1:7340;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
