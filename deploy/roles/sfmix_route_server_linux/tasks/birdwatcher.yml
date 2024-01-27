@@ -1,0 +1,38 @@
+---
+- name: Ensure birdwatcher directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ sfmix_route_server_linux_birdwatcher_directory }}"
+    state: directory
+    mode: ug=rwx,o=rx
+
+- name: Clone birdwatcher repo
+  become: true
+  ansible.builtin.git:
+    repo: "{{ sfmix_route_server_linux_birdwatcher_repo }}"
+    dest: "{{ sfmix_route_server_linux_birdwatcher_directory }}/repo"
+    version: "{{ sfmix_route_server_linux_birdwatcher_release }}"
+    force: true
+  notify: Rebuild birdwatcher docker container
+
+- name: Trigger birdwatcher rebuild
+  ansible.builtin.meta: flush_handlers
+
+- name: Place birdwatcher.conf
+  become: true
+  ansible.builtin.template:
+    src: birdwatcher.conf.j2
+    dest: "{{ sfmix_route_server_linux_birdwatcher_directory }}/birdwatcher.conf"
+    mode: ug=rw,o=r
+
+- name: Run birdwatcher
+  become: true
+  community.docker.docker_container:
+    name: birdwatcher
+    image: birdwatcher
+    state: started
+    network_mode: host
+    log_driver: local
+    volumes:
+      - /run/bird/bird.ctl:/run/bird/bird.ctl
+      - "{{ sfmix_route_server_linux_birdwatcher_directory }}/birdwatcher.conf:/etc/birdwatcher/birdwatcher.conf"
