@@ -1,0 +1,4 @@
+---
+sfmix_route_server_linux_birdwatcher_directory: "/opt/birdwatcher"
+sfmix_route_server_linux_birdwatcher_repo: "https://github.com/alice-lg/birdwatcher"
+sfmix_route_server_linux_birdwatcher_release: "master"
