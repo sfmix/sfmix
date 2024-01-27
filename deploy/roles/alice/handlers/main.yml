@@ -7,6 +7,8 @@
     name: alice-lg
     tag: latest
     source: build
+    force_source: true
+  notify: Restart alice
 
 - name: Restart alice
   become: true
