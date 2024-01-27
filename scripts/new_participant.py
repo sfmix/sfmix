@@ -58,6 +58,7 @@ def main(
             name=f"AS{new_participant_asn}",
             slug=f"as{new_participant_asn}",
             description=peeringdb_asn_name,
+            tags=[{"slug": "ixp_participant"}],
             custom_fields={"participant_type": "Member", "as_number": int(new_participant_asn)},
         )
         print("New Netbox Tenant Created: ", netbox_tenant["url"])
