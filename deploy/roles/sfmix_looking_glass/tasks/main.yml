@@ -39,6 +39,21 @@
     - httpd
     - slowcgi
 
+- name: Enable bgplgd
+  become: true
+  ansible.builtin.service:
+    name: bgplgd
+    enabled: true
+    state: started
+
+- name: Set bgplgd options
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/rc.conf.local
+    regexp: '^bgplgd_flags='
+    line: 'bgplgd_flags="-S /var/www/run/bgpd.rsock"'
+  notify: Restart bgplgd
+
 - name: Check for /etc/ssl/lg.sfmix.org.fullchain.pem
   become: true
   ansible.builtin.stat:
