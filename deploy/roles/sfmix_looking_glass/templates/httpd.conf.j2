@@ -27,6 +27,10 @@ server "lg.sfmix.org" {
                 fastcgi
                 root "/"
         }
+        location "/api/*" {
+                fastcgi socket "/run/bgplgd.sock"
+                request strip 1
+        }
         location "/" {
                 block return 301 "https://$HTTP_HOST/cgi-bin/bgplg?cmd=show+ip+bgp+summary&req="
         }
