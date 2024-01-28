@@ -6,10 +6,25 @@ participants:
     member_type: {{ participant.custom_fields.participant_type }}
     name: {{ participant.description }}
     peering_ports:
+      {# SFMIX/12276 is a special case, as it current shares a fabric port with the route servers (AS 63055) #}
+      {# This could be removed once the looking glass is on its own port and the edge router is on its own port #}
+      {% if participant.custom_fields.as_number == 12276 %}
+      - speed: 1 Gbit/s
+        location: Digital Realty SFO10
+        ipv4: 206.197.187.1
+        ipv6: 2001:504:30::ba01:2276:1
+      - speed: 1 Gbit/s
+        location: Digital Realty SFO10
+        ipv4: 206.197.187.2
+        ipv6: 2001:504:30::ba01:2276:2
+      {% else %}
         {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
         {%   if peering_port.custom_fields.participant.id == participant_id %}
+        {%     if peering_port.custom_fields.rate_limit_bps %}
+        - speed: {{ (peering_port.custom_fields.rate_limit_bps / 1000000000) | int }} Gbit/s
+        {%     else %}
         - speed: {{ (peering_port.speed / 1000000) | int }} Gbit/s
-        {# - speed: {{ peering_port.speed }} Gbit/s #}
+        {%     endif %}
           location: {{ netbox_sites[netbox_devices[peering_port.device.id].site.id].facility }}
           {% set ip_map = namespace(ipv4=null, ipv6 = null) %}
           {% for ip_address in netbox_participant_ip_addresses.values() %}
@@ -27,4 +42,5 @@ participants:
           ipv6: {{ ip_map.ipv6 | default("Pending") }}
         {%   endif %}
         {% endfor %}
+      {% endif %}
 {% endfor %}

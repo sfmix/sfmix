@@ -22,6 +22,18 @@
         ansible.builtin.to_json(indent=4, sort_keys=True)
       }}
 
+- name: Locally template participants.yaml for debugging
+  delegate_to: localhost
+  ansible.builtin.template:
+    src: participants.yaml.j2
+    dest: /tmp/participants.yaml
+
+- name: Locally template participants.json for debugging
+  delegate_to: localhost
+  ansible.builtin.copy:
+    dest: /tmp/participants.json
+    content: "{{ participants_json_string }}"
+
 - name: Validate participants.json
   ansible.utils.validate:
     data: "{{ participants_json_string }}"
