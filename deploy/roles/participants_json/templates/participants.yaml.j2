@@ -59,14 +59,39 @@ member_list:
     member_type: {{ participant_type }}
     name: {{ participant.description }}
     connection_list:
+      {# SFMIX/12276 is a special case, as it current shares a fabric port with the route servers (AS 63055) #}
+      {# This could be removed once the looking glass is on its own port and the edge router is on its own port #}
+      {% if participant.custom_fields.as_number == 12276 %}
+      - ixp_id: 155
+        state: active
+        if_list:
+          - switch_id: 59
+            if_speed: 1000
+        vlan_list:
+          - vlan_id: 1
+            ipv4:
+              address: "206.197.187.1"
+            ipv6:
+              address: "2001:504:30::ba01:2276:1"
+          - vlan_id: 1
+            ipv4:
+              address: "206.197.187.2"
+            ipv6:
+              address: "2001:504:30::ba01:2276:2"
+      {% else %}
+
       {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
       {%   if peering_port.custom_fields.participant.id == participant_id %}
       - ixp_id: 155
         state: active
         if_list:
           - switch_id: {{ peering_port.device.id }}
-            {% if peering_port.speed %}
+            {% if peering_port.custom_fields.rate_limit_bps %}
+            if_speed: {{ (peering_port.custom_fields.rate_limit_bps / 1000000) | int }}
+            {% else %}
+            {%   if peering_port.speed %}
             if_speed: {{ (peering_port.speed / 1000) | int }}
+            {%   endif %}
             {% endif %}
         {% set vlan_map = namespace(vlan_ids={}, ipv4={}, ipv6 = {}) %}
         {% for ip_address in netbox_participant_ip_addresses.values() %}
@@ -117,4 +142,6 @@ member_list:
         {% endfor %}
       {%   endif %}
       {% endfor %}
+
+      {% endif %}
 {% endfor %}
