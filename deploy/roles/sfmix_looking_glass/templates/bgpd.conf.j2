@@ -1,7 +1,8 @@
 
 AS {{ sfmix_looking_glass_asn | mandatory }}
 fib-update no
-listen on {{ sfmix_looking_glass_router_id | mandatory }}
+listen on {{ sfmix_looking_glass_v4_bind_address | mandatory }}
+listen on {{ sfmix_looking_glass_v6_bind_address | mandatory }}
 router-id {{ sfmix_looking_glass_router_id | mandatory }}
 
 socket "/var/www/run/bgpd.rsock" restricted
