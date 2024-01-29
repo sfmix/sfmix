@@ -2,7 +2,15 @@
 - name: "Push: General"
   when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('general' in ansible_run_tags) or ('general' not in ansible_skip_tags and ('general' in ansible_run_tags or ansible_run_tags == ['all']))
   arista.eos.eos_config:
-    src: "{{ config_parts_dir }}/general.eos_config.txt"
+    lines: >
+      {{
+        lookup('file', (config_parts_dir ~ "/general.eos_config.txt")) |
+        split('\n') |
+        select('string') |
+        list
+      }}
+    match: none
+    replace: block
 
 - name: "Push: VLANs"
   when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('vlans' in ansible_run_tags) or ('vlans' not in ansible_skip_tags and ('vlans' in ansible_run_tags or ansible_run_tags == ['all']))

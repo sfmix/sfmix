@@ -3,6 +3,7 @@
   hosts: peering_switch
   gather_facts: false
   tags:
+    - general
     - interfaces
     - ospf
     - vlans
