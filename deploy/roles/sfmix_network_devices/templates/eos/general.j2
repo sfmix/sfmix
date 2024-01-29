@@ -3,7 +3,7 @@ no aaa root
 {# hardware counter feature subinterface out layer2 #}
 {# hardware counter feature subinterface in layer2 #}
 !
-prompt {{ '{{ "%H[%D{%T}]%p" }}' }}
+prompt {{ '%H[%D{%T}]%p' }}
 
 !
 switchport default mode routed
@@ -196,3 +196,18 @@ hardware tcam
          packet ipv4 vxlan forwarding bridged decap
    system profile bridged-subintf
 {% endif %}
+!
+ip access-list DROP_BGP_BCP214_RFC8327_V4
+   5 remark !! BGP Culling according to RFC8327
+   10 deny tcp 206.197.187.0/24 206.197.187.0/24 eq bgp
+   20 deny tcp 206.197.187.0/24 eq bgp 206.197.187.0/24
+   25 remark !! Allow remaining IPv4 traffic
+   30 permit ip any any
+!
+ipv6 access-list DROP_BGP_BCP214_RFC8327_V6
+   5 remark !! BGP Culling according to RFC8327
+   10 deny tcp 2001:504:30::/64 2001:504:30::/64 eq bgp
+   20 deny tcp 2001:504:30::/64 eq bgp 2001:504:30::/64
+   25 remark !! Allow remaining IPv6 traffic
+   30 permit ipv6 any any
+!
