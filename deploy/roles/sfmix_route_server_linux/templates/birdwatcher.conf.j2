@@ -86,13 +86,13 @@ ttl = 5 # time to live (in minutes) for caching of cli output
 filter_fields = []
 
 [cache]
-use_redis = true # if not using redis cache, activate housekeeping to save memory! 
-redis_server = "localhost:6379"
-redis_db = 0
+# use_redis = true # if not using redis cache, activate housekeeping to save memory! 
+# redis_server = "localhost:6379"
+# redis_db = 0
 
 # Maximum numbers of keys in the cache, if the
 # memory cache is used. Does not apply to redis.
-# max_keys = 60
+max_keys = 60
 
 # Housekeeping expires old cache entries (memory cache backend) and performs a GC/SCVG run if configured.
 [housekeeping]
