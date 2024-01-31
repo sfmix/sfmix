@@ -33,6 +33,7 @@ sfmix_reverse_zones:
   - "255.33.192.in-addr.arpa"
   - "5.112.149.in-addr.arpa"
   - "64.100.in-addr.arpa"
+  - "10.in-addr.arpa"
 bind_acls:
   - name: sfmix
     match_list:
