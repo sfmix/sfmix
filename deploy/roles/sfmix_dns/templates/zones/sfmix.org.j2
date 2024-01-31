@@ -41,6 +41,63 @@ ns3		IN	AAAA	2001:67c:1b43:100::100
 ;   challenge; this enables creating a wildcard *.<subdomain>.sfmix.org certificate
 teleport	IN	NS	ns1.sfmix.org.
 
+; SFMIX Public Services -- 192.33.255.0/24
+gw.sfo01	IN	A	192.33.255.20
+gw.sfo01	IN	AAAA	2620:11A:B000:100::4
+;; PUBLIC-SFO02/VLAN 101: 192.33.255.0/28 / 2620:11A:B000::/64
+gw.sfo02			IN	CNAME	vlan101.gw.sfo02
+vlan101.gw.sfo02		IN	A	192.33.255.1
+vlan101.gw.sfo02		IN	AAAA	2620:11A:B000::1
+ns1				IN	A	192.33.255.3
+ns1				IN	AAAA	2620:11A:B000::3
+monitor.sfo02			IN	A	192.33.255.4
+monitor.sfo02			IN	AAAA	2620:11A:B000::4
+monitor.sfo02			IN	SSHFP 1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+monitor.sfo02			IN	SSHFP 1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+monitor.sfo02			IN	SSHFP 2 1 99466d885d3bc1483613345636a1913fbed21e3b
+monitor.sfo02			IN	SSHFP 2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+monitor.sfo02			IN	SSHFP 3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+monitor.sfo02			IN	SSHFP 3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+netbox.sfo02			IN	A	192.33.255.6
+netbox.sfo02			IN	AAAA	2620:11A:B000::6
+lg				IN	A	192.33.255.7
+lg				IN	AAAA	2620:11A:B000::7
+rs-openbsd			IN	A	192.33.255.8
+rs-openbsd			IN	AAAA	2620:11A:B000::8
+sentry				IN	A	192.33.255.9
+sentry				IN	AAAA	2620:11A:B000::9
+metrics.sfo02			IN	A	192.33.255.10
+metrics.sfo02			IN	AAAA	2620:11A:B000::10
+portal				IN	A	192.33.255.12
+portal				IN	AAAA	2620:11A:B000::12
+bcast-vlan101.gw.sfo02		IN	A	192.33.255.15
+;; PUBLIC-FMT01/VLAN 100: 192.33.255.16/29 / 2620:11A:B000:100::/64
+vlan100.gw.sfo02	IN	A	192.33.255.17
+vlan100.gw.sfo02	IN	AAAA	2620:11A:B000:100::1
+alice			IN	A	192.33.255.18
+alice			IN	AAAA	2620:11A:B000:100::2
+bcast-vlan100.gw.sfo02	IN	A	192.33.255.23
+;; Hosted organizations
+;;; RIPE Atlas Probe/VLAN 102 -- 192.33.255.24/30
+vlan102.gw.sfo02	IN	A	192.33.255.25
+vlan102.gw.sfo02	IN	AAAA	2620:11A:B000:102::1
+ripeprobe.gw.sfo02	IN	A	192.33.255.26
+ripeprobe.gw.sfo02	IN	AAAA	2620:11A:B000:102::2
+bcast-vlan102.gw.sfo02	IN	A	192.33.255.27
+;;; Route Views/VLAN 104 -- 192.33.255.28/30
+vlan104.gw.sfo02	IN	A	192.33.255.29
+vlan104.gw.sfo02	IN	AAAA	2620:11A:B000:104::1
+bcast-vlan104.gw.sfo02	IN	A	192.33.255.31
+;;; Verisign/VLAN 103 -- 192.33.255.32/29
+vlan103.gw.sfo02	IN	A	192.33.255.33
+vlan103.gw.sfo02	IN	AAAA	2620:11A:B000:103::1
+bcast-vlan103.gw.sfo02	IN	A	192.33.255.39
+
+librenms	IN	CNAME	monitor.sfo02
+netbox		IN	CNAME	netbox.sfo02
+metrics		IN	CNAME	metrics.sfo02
+grafana		IN	CNAME	metrics.sfo02
+
 ; sfo01 -- 365 Main
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
 mgmt-gw.sfo01			IN	A	100.64.2.1
@@ -52,17 +109,6 @@ ipmi.proxmox.oob.sfo01		IN	A	100.64.2.5
 proxmox.oob.sfo01		IN	A	100.64.2.6
 ; Confusingly, "rs.sfo01" is now located in sfo02. needs a rename
 rs.sfo01			IN	A	206.197.187.254
-
-gw.sfo01	IN	A	192.33.255.20
-gw.sfo01	IN	AAAA	2620:11A:B000:100::4
-
-lg		IN	A	192.33.255.7
-lg		IN	AAAA	2620:11A:B000::7
-
-sentry		IN	A	192.33.255.9
-sentry		IN	AAAA	2620:11A:B000::9
-
-
 
 ; sfo02 -- 200 Paul Ave
 wan.mgmt-gw.sfo02		IN	A	198.35.53.243
@@ -89,11 +135,6 @@ mgmt.rs-linux			IN	A	100.64.0.18
 pve01-paulave200-sfo		IN	A	100.64.0.21
 pve02-paulave200-sfo		IN	A	100.64.0.23
 
-gw.sfo02			IN	CNAME	vlan101.gw.sfo02
-vlan101.gw.sfo02		IN	A	192.33.255.1
-rs-openbsd			IN	A	192.33.255.8
-bcast-vlan101.gw.sfo02		IN	A	192.33.255.15
-
 gw-telx.sfo02		IN	A	198.35.53.241
 re0.gw.sfo02	 	IN	A	198.35.53.242
 eth0.gw-oob-sfo02	IN	A	198.35.53.243
@@ -107,32 +148,6 @@ rs.sfo02	IN	CNAME	rs-linux
 ;
 rs-linux	IN	A	206.197.187.253
 
-ns1			IN	A	192.33.255.3
-			IN	AAAA	2620:11a:b000::3
-
-librenms	IN	CNAME	monitor.sfo02
-monitor.sfo02	IN	A	192.33.255.4
-		IN	AAAA	2620:11a:b000::4
-monitor.sfo02	IN	SSHFP 1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
-monitor.sfo02	IN	SSHFP 1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
-monitor.sfo02	IN	SSHFP 2 1 99466d885d3bc1483613345636a1913fbed21e3b
-monitor.sfo02	IN	SSHFP 2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
-monitor.sfo02	IN	SSHFP 3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
-monitor.sfo02	IN	SSHFP 3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
-
-netbox		IN	CNAME	netbox.sfo02
-netbox.sfo02	IN	A	192.33.255.6
-netbox.sfo02	IN	AAAA	2620:11a:b000::6
-
-metrics			IN	CNAME	metrics.sfo02
-metrics.sfo02		IN	A	192.33.255.10
-metrics.sfo02		IN	AAAA	2620:11a:b000::10
-
-grafana		IN	CNAME	metrics.sfo02
-
-portal		IN	A	192.33.255.12
-portal		IN	AAAA	2620:11a:b000::12
-
 ; FMT01
 wan.mgmt-gw.fmt01	IN	A		64.71.188.18
 gw.oob.fmt01		IN	A		100.64.1.1
@@ -145,12 +160,8 @@ switch03.fmt01		IN	A		100.64.1.17
 pdu01.oob.fmt01		IN	A		100.64.1.4
 pdu02.oob.fmt01		IN	A		100.64.1.5
 backup1			IN	A		100.64.1.6
+mgmt.alice		IN	A		100.64.1.7
 shell			IN	A		100.64.1.8
-
-alice		IN	A	192.33.255.18
-alice		IN	AAAA	2620:11A:B000:100::2
-mgmt.alice	IN	A	100.64.1.7
-
 
 ; SCL01 (QTS SJC1)
 wan.mgmt-gw.scl01	IN	A		205.234.25.36
@@ -180,17 +191,6 @@ switch01.scl04		IN	A	100.64.7.15
 pdu01.scl04		IN	A	100.64.7.4
 pdu01.scl04		IN	A	100.64.7.5
 
-; Hosted organizations
-gw-vlan100.sfo02	IN	A	192.33.255.17
-			IN	AAAA	2620:11A:B000:100::1
-gw-ripeprobe.gw.sfo02	IN	A	192.33.255.25
-			IN	AAAA	2620:11A:B000:102::1
-ripeprobe.gw.sfo02	IN	A	192.33.255.26
-			IN	AAAA	2620:11A:B000:102::2
-gw-verisign		IN	A	192.33.255.33
-			IN	AAAA	2620:11A:B000:103::1
-gw-routeview		IN	A	192.33.255.29
-			IN	AAAA	2620:11A:B000:104::1
 ; SJC01
 wan.mgmt-gw.sjc01	IN	A		173.243.64.202
 gw.oob.sjc01		IN	A		100.64.5.1
