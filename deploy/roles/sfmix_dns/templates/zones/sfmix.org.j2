@@ -41,9 +41,9 @@ ns3		IN	AAAA	2001:67c:1b43:100::100
 ;   challenge; this enables creating a wildcard *.<subdomain>.sfmix.org certificate
 teleport	IN	NS	ns1.sfmix.org.
 
-; SFMIX Public Services -- 192.33.255.0/24
-gw.sfo01	IN	A	192.33.255.20
-gw.sfo01	IN	AAAA	2620:11A:B000:100::4
+; SFMIX Public Services
+;; ARIN: NetName: SFMIX-V4-MANAGEMENT: 192.33.255.0/24
+;; ARIN: NetName: SFMIX-V6-MANAGEMENT: 2620:11A:B000::/44
 ;; PUBLIC-SFO02/VLAN 101: 192.33.255.0/28 / 2620:11A:B000::/64
 gw.sfo02			IN	CNAME	vlan101.gw.sfo02
 vlan101.gw.sfo02		IN	A	192.33.255.1
@@ -77,6 +77,7 @@ vlan100.gw.sfo02	IN	AAAA	2620:11A:B000:100::1
 alice			IN	A	192.33.255.18
 alice			IN	AAAA	2620:11A:B000:100::2
 bcast-vlan100.gw.sfo02	IN	A	192.33.255.23
+;
 ;; Hosted organizations
 ;;; RIPE Atlas Probe/VLAN 102 -- 192.33.255.24/30
 vlan102.gw.sfo02	IN	A	192.33.255.25
@@ -92,6 +93,30 @@ bcast-vlan104.gw.sfo02	IN	A	192.33.255.31
 vlan103.gw.sfo02	IN	A	192.33.255.33
 vlan103.gw.sfo02	IN	AAAA	2620:11A:B000:103::1
 bcast-vlan103.gw.sfo02	IN	A	192.33.255.39
+;
+; edge-gw.sfo02<>edge-gw.fmt01/VLAN 201
+; Exchange Fabric Edge Router Peering
+; 192.33.255.240/29 / 2620:11A:B000:201::/64
+eth4-201.edge-gw.sfo02	IN	A	192.33.255.241
+eth4-201.edge-gw.fmt01	IN	A	192.33.255.242
+;;if-name.edge-gw.site	IN	A	192.33.255.243
+;;if-name.edge-gw.site	IN	A	192.33.255.244
+;;if-name.edge-gw.site	IN	A	192.33.255.245
+;;if-name.edge-gw.site	IN	A	192.33.255.246
+;;if-name.edge-gw.site	IN	A	193.33.255.247
+; edge-gw.sfo02<>edge-gw.fmt01 Backup Tunnel
+; 192.33.255.248/31 / 2620:11A:B000:FE::/127
+wg0.edge-gw.sfo02	IN	A	192.33.255.248
+wg0.edge-gw.sfo02	IN	AAAA	2620:11A:B000:FE::0
+wg0.edge-gw.fmt01	IN	A	192.33.255.249
+wg0.edge-gw.fmt01	IN	AAAA	2620:11A:B000:FE::1
+;; Edge Router Loopbacks -- 192.33.255.252/30 / 2620:11A:B000:FF::/64
+lo.edge-gw.sfo02	IN	A	192.33.255.252
+lo.edge-gw.sfo02	IN	AAAA	2620:11A:B000:FF::1
+lo.edge-gw.fmt01	IN	A	192.33.255.253
+lo.edge-gw.fmt01	IN	AAAA	2620:11A:B000:FF::2
+;lo.edge-gw		IN	A	192.33.255.254
+;lo.edge-gw		IN	A	192.33.255.255
 
 librenms	IN	CNAME	monitor.sfo02
 netbox		IN	CNAME	netbox.sfo02
