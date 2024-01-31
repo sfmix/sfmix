@@ -94,6 +94,45 @@ vlan103.gw.sfo02	IN	A	192.33.255.33
 vlan103.gw.sfo02	IN	AAAA	2620:11A:B000:103::1
 bcast-vlan103.gw.sfo02	IN	A	192.33.255.39
 ;
+;; SFMIX Public -- Site-spanning Access LAN
+; 192.33.255.64/27 / 2620:11A:B000:110::/64
+br110.edge-gw		IN	A	192.33.255.65
+br110.edge-gw		IN	AAAA	2620:11A:B000:110::1
+br110.edge-gw.sfo02	IN	A	192.33.255.66
+br110.edge-gw.sfo02	IN	AAAA	2620:11A:B000:110::2
+br110.edge-gw.fmt01	IN	A	192.33.255.67
+br110.edge-gw.fmt01	IN	AAAA	2620:11A:B000:110::3
+;br110.edge-gw.site	IN	A	192.33.255.68
+;br110.edge-gw.site	IN	AAAA	2620:11A:B000:110::4
+;br110.edge-gw.site	IN	A	192.33.255.69
+;br110.edge-gw.site	IN	AAAA	2620:11A:B000:110::5
+;host			IN	A	192.33.255.70
+;host			IN	A	192.33.255.71
+;host			IN	A	192.33.255.72
+;host			IN	A	192.33.255.73
+;host			IN	A	192.33.255.74
+;host			IN	A	192.33.255.75
+;host			IN	A	192.33.255.76
+;host			IN	A	192.33.255.77
+;host			IN	A	192.33.255.78
+;host			IN	A	192.33.255.79
+;host			IN	A	192.33.255.80
+;host			IN	A	192.33.255.81
+;host			IN	A	192.33.255.82
+;host			IN	A	192.33.255.83
+;host			IN	A	192.33.255.84
+;host			IN	A	192.33.255.85
+;host			IN	A	192.33.255.86
+;host			IN	A	192.33.255.87
+;host			IN	A	192.33.255.88
+;host			IN	A	192.33.255.89
+;host			IN	A	192.33.255.90
+;host			IN	A	192.33.255.91
+;host			IN	A	192.33.255.92
+;host			IN	A	192.33.255.93
+;host			IN	A	192.33.255.94
+bcast-br110.edge-gw	IN	A	192.33.255.95
+;
 ; edge-gw.sfo02<>edge-gw.fmt01/VLAN 201
 ; Exchange Fabric Edge Router Peering
 ; 192.33.255.240/29 / 2620:11A:B000:201::/64
