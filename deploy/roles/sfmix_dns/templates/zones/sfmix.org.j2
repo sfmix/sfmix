@@ -39,6 +39,8 @@ lists			IN	A	162.55.168.13
 lists			IN	MX	1 lists.sfmix.org.
 lists			IN	TXT	"v=spf1 a mx include:mail.mailman3.com ?all"
 mail._domainkey.lists	IN	TXT	"v=DKIM1; h=sha256; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvd8e91qus7okF77rhJRwaXMajP6cSS5bKbSNYg5wsY5ROhzN3ibhui0iHLqVyuyu1AYxdNTx2Jllk2TbY6n0KsO8/qysaeR4YnMOODGtPGp3jxQ5yzyQDVk3wmQArAS2Ph0HJAl6Zd3Vo6cc0CZrwVX6oeqQu0pdUcHq8mdjW43N5i0hW/5caw/gdhM3Z9W7kvtLwAo4wNHO/kUjF2J09290zk0wrFFEhP8yB9XGn7WqpOfn7Li/gyarVynDQ5AsR30O9z+/oz3f4/6e9dXgkQkKwq0dkLpqIt5klVh6jnXzcWo13FqdLHHOcTSgkLZAQd35IPEjeP43fDxUbutVgQIDAQAB"
+api.lists		IN	A	162.55.168.13
+logs.lists		IN	A	162.55.168.13
 
 ; These use a separate dynamic zone file to support the LetsEncrypt DNS-01
 ;   challenge; this enables creating a wildcard *.<subdomain>.sfmix.org certificate
