@@ -29,13 +29,16 @@ mail			IN	CNAME	ghs.googlehosted.com.
 _dmarc			IN	TXT	"v=DMARC1; p=none; sp=none; rf=afrf; pct=100; ri=86400"
 googlea994b6d001486007	IN	CNAME	google.com.
 google._domainkey	IN	TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArUPk9h1MpfIlTVsIV6DbB" "bw2TkIbR1OCxFY4lBqLB1fv1i0+086g9CNAwVK+mqeNC6OdCoem0tHNVg3PmMuYhnwAwCAYhO0l4qf5Ew44LPZYBAXYwAEN4TQ0P/Y0Z" "zAU6Cz3VP/Y1S52VIwVKEhfFsJh3++8TBL7zePmoUtdZZgpkWbaWE1W7OzlyxhgWF0EoaQ32VPL8K6QmWye6nSmJJ1KqRWGp6jsl4v" "pP0F02mYYKgCHK12SpvgQ03CFwOfxlGoEGdhQE6YSIrvvZCag474WIkI2R4BenGYctDHoY8XhL1TxUnPYIjE8J+QcpszOlXyHwBJMD2T/aVMQmGIN5QIDAQAB"
+
 ; WPEngine Hosted Web Site
 @			IN	A	35.230.26.92
 www			IN	CNAME	sfmix.wpengine.com.
 
-; External
-ns3		IN	A	193.47.147.100
-ns3		IN	AAAA	2001:67c:1b43:100::100
+; Mailman3 hosted listserv
+lists			IN	A	162.55.168.13
+lists			IN	MX	1 lists.sfmix.org.
+lists			IN	TXT	"v=spf1 a mx include:mail.mailman3.com ?all"
+mail._domainkey.lists	IN	TXT	"v=DKIM1; h=sha256; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvd8e91qus7okF77rhJRwaXMajP6cSS5bKbSNYg5wsY5ROhzN3ibhui0iHLqVyuyu1AYxdNTx2Jllk2TbY6n0KsO8/qysaeR4YnMOODGtPGp3jxQ5yzyQDVk3wmQArAS2Ph0HJAl6Zd3Vo6cc0CZrwVX6oeqQu0pdUcHq8mdjW43N5i0hW/5caw/gdhM3Z9W7kvtLwAo4wNHO/kUjF2J09290zk0wrFFEhP8yB9XGn7WqpOfn7Li/gyarVynDQ5AsR30O9z+/oz3f4/6e9dXgkQkKwq0dkLpqIt5klVh6jnXzcWo13FqdLHHOcTSgkLZAQd35IPEjeP43fDxUbutVgQIDAQAB"
 
 ; These use a separate dynamic zone file to support the LetsEncrypt DNS-01
 ;   challenge; this enables creating a wildcard *.<subdomain>.sfmix.org certificate
@@ -166,7 +169,7 @@ netbox		IN	CNAME	netbox.sfo02
 metrics		IN	CNAME	metrics.sfo02
 grafana		IN	CNAME	metrics.sfo02
 
-; sfo01 -- 365 Main
+; SFO01 (365 Main)
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
 mgmt-gw.sfo01			IN	A	100.64.2.1
 switch01.oob.sfo01		IN	CNAME	switch01.sfo01
@@ -178,7 +181,7 @@ proxmox.oob.sfo01		IN	A	100.64.2.6
 ; Confusingly, "rs.sfo01" is now located in sfo02. needs a rename
 rs.sfo01			IN	A	206.197.187.254
 
-; sfo02 -- 200 Paul Ave
+; SFO02 (200 Paul Ave)
 wan.mgmt-gw.sfo02		IN	A	198.35.53.243
 mgmt-gw.sfo02			IN	A	100.64.0.1
 oob-vpn-headend			IN	A	198.35.53.243
@@ -216,7 +219,7 @@ rs.sfo02	IN	CNAME	rs-linux
 ;
 rs-linux	IN	A	206.197.187.253
 
-; FMT01
+; FMT01 (Hurricane Electric)
 wan.mgmt-gw.fmt01	IN	A		64.71.188.18
 gw.oob.fmt01		IN	A		100.64.1.1
 mgmt-gw.fmt01		IN	A		100.64.1.1
@@ -252,7 +255,7 @@ switch01.scl02		IN	A		100.64.6.15
 pdu01.scl02		IN	A		100.64.6.40
 pdu02.scl02		IN	A		100.64.6.39
 
-; scl04 -- OpenColo / Energy Group Networks LLC
+; SCL04 (OpenColo)
 wan.mgmt-gw.scl04	IN	A	166.88.18.186
 mgmt-gw.scl04		IN	A	100.64.7.1
 mgmt-switch.scl04	IN	A	100.64.7.2
@@ -260,7 +263,7 @@ switch01.scl04		IN	A	100.64.7.15
 pdu01.scl04		IN	A	100.64.7.4
 pdu01.scl04		IN	A	100.64.7.5
 
-; SJC01
+; SJC01 (Equinix SV1)
 wan.mgmt-gw.sjc01	IN	A		173.243.64.202
 gw.oob.sjc01		IN	A		100.64.5.1
 mgmt-gw.sjc01		IN	A		100.64.5.1
@@ -270,8 +273,8 @@ switch02.sjc01		IN	A		100.64.5.16
 switch02.oob.sjc01	IN	CNAME		switch02.sjc01
 
 ; Member IPv4 interfaces
-lg.sfo01	IN	A	206.197.187.1	; SFMIX lg
-lg.sfo01	IN	AAAA	2001:504:30::ba01:2276:1	; SFMIX lg
+lg.sfo01	IN	A	206.197.187.1	; SFMIX looking glass
+lg.sfo01	IN	AAAA	2001:504:30::ba01:2276:1	; SFMIX looking glass
 {% for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
 {%   set as_plus_number = 'as' + netbox_participants[ip_address.tenant.id].custom_fields.as_number | string %}
 {%   if ip_address.family.value == 4 %}
