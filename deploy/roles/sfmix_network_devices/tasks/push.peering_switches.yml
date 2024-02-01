@@ -1,6 +1,12 @@
 ---
 - name: "Push: General"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('general' in ansible_run_tags) or ('general' not in ansible_skip_tags and ('general' in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    ('general' in ansible_run_tags) or
+    (
+      'general' not in ansible_skip_tags and
+      ('general' in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   arista.eos.eos_config:
     lines: >
       {{
@@ -13,7 +19,13 @@
     replace: block
 
 - name: "Push: VLANs"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('vlans' in ansible_run_tags) or ('vlans' not in ansible_skip_tags and ('vlans' in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    ('vlans' in ansible_run_tags) or
+    (
+      'vlans' not in ansible_skip_tags and
+      ('vlans' in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   arista.eos.eos_config:
     lines: >
       {{
@@ -27,7 +39,13 @@
     replace: block
 
 - name: "Push: Interfaces"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or (interface_name in ansible_run_tags) or (interface_name not in ansible_skip_tags and (interface_name in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    (interface_name in ansible_run_tags) or
+    (
+      interface_name not in ansible_skip_tags and
+      (interface_name in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   arista.eos.eos_config:
     # What's going on here!?
     # This reads the locally-built config file for each interface
@@ -47,7 +65,13 @@
     loop_var: interface_name
 
 - name: "Push: router ospf 1"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('ospf' in ansible_run_tags) or ('ospf' not in ansible_skip_tags and ('ospf' in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    ('ospf' in ansible_run_tags) or
+    (
+      'ospf' not in ansible_skip_tags and
+      ('ospf' in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   arista.eos.eos_config:
     lines: >
       {{
