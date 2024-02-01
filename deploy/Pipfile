@@ -16,9 +16,9 @@ pytz = "*"
 paramiko = "*"
 pynetbox = "*"
 netaddr = "*"
-ansible-lint = "*"
 
 [dev-packages]
+ansible-lint = "*"
 
 [requires]
 python_version = "3.10"
