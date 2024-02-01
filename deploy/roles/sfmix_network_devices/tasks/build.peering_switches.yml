@@ -28,7 +28,13 @@
       }}
 
 - name: "Template: General"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('general' in ansible_run_tags) or ('general' not in ansible_skip_tags and ('general' in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    ('general' in ansible_run_tags) or
+    (
+      'general' not in ansible_skip_tags and
+      ('general' in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   delegate_to: localhost
   ansible.builtin.template:
     src: eos/general.j2
@@ -37,7 +43,13 @@
 
 - name: "Template: Interfaces"
   delegate_to: localhost
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or (interface_name in ansible_run_tags) or (interface_name not in ansible_skip_tags and (interface_name in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    (interface_name in ansible_run_tags) or
+    (
+      interface_name not in ansible_skip_tags and
+      (interface_name in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   ansible.builtin.template:
     src: eos/interface.j2
     dest: "{{ config_parts_dir }}/interface_{{ interface_name | replace('/', '_') }}.eos_config.txt"
@@ -49,7 +61,13 @@
     loop_var: interface_name
 
 - name: "Template OSPF"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('ospf' in ansible_run_tags) or ('ospf' not in ansible_skip_tags and ('ospf' in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    ('ospf' in ansible_run_tags) or
+    (
+      'ospf' not in ansible_skip_tags and
+      ('ospf' in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   delegate_to: localhost
   ansible.builtin.template:
     src: eos/ospf.j2
@@ -57,7 +75,13 @@
     mode: ug=rw,o=r
 
 - name: "Template VLANs"
-  when: (ansible_run_tags == ['all'] and ansible_skip_tags == []) or ('vlans' in ansible_run_tags) or ('vlans' not in ansible_skip_tags and ('vlans' in ansible_run_tags or ansible_run_tags == ['all']))
+  when: >
+    (ansible_run_tags == ['all'] and ansible_skip_tags == []) or
+    ('vlans' in ansible_run_tags) or
+    (
+      'vlans' not in ansible_skip_tags and
+      ('vlans' in ansible_run_tags or ansible_run_tags == ['all'])
+    )
   delegate_to: localhost
   ansible.builtin.template:
     src: eos/vlans.j2
