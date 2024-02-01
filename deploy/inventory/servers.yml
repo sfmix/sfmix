@@ -16,6 +16,7 @@ all:
         rs_openbsd:
         looking_glass:
         alice:
+        rpki:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -56,3 +57,6 @@ all:
     arouteserver_managed_routeservers:
       children:
         route_servers:
+    rpki:
+      hosts:
+        rpki.sfmix.org:
