@@ -1,0 +1,38 @@
+---
+- name: "Firewall: Allow from SFMIX: RPKI HTTP(8323)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: 8323
+    from_ip: "{{ item }}"
+  loop: "{{ ixp_admin_source_subnets }}"
+
+- name: "Firewall: Allow from SFMIX: RPKI RTR(3323)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: 3323
+    from_ip: "{{ item }}"
+  loop: "{{ ixp_admin_source_subnets }}"
+
+- name: Ensure the /opt/routinator_rpki_cache directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/routinator_rpki_cache
+    owner: root
+    group: root
+    mode: ugo=rwx
+    state: directory
+
+- name: Run routinator container
+  become: true
+  community.general.docker_container:
+    name: routinator
+    network_mode: host
+    image: "nlnetlabs/routinator:{{ routinator_version }}"
+    pull: true
+    mounts:
+      - read_only: false
+        source: /opt/routinator_rpki_cache
+        target: /home/routinator/.rpki-cache
+        type: bind

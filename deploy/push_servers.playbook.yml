@@ -181,3 +181,10 @@
   roles:
     - netbox_data
     - participants_json
+
+- name: RPKI Validator
+  hosts: rpki
+  tags:
+    - rpki
+  roles:
+    - routinator
