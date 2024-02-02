@@ -56,6 +56,7 @@
     src: "zones/{{ item }}.j2"
     dest: "/etc/bind/zones/{{ item }}"
     mode: ug=rw,o=r
+    validate: "named-checkzone -d {{ item }} %s"
   with_items: "{{ sfmix_forward_zones }}"
   notify: Restart named.service
 
@@ -72,6 +73,7 @@
     owner: root
     group: bind
     mode: ug=rw,o=r
+    validate: "named-checkzone -d {{ item.item }} %s"
   loop: "{{ reverse_zone_files_stat.results }}"
   when: "not item.stat.exists"
   notify: Restart named.service
