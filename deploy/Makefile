@@ -15,6 +15,9 @@ diff:
 push:
 	pipenv run ansible-playbook -i inventory --vault-password-file /opt/sfmix/ansible_vault_secret sfmix_network_devices.push.playbook.yml --diff
 
+dns:
+	pipenv run ansible-playbook -i inventory --vault-password-file /opt/sfmix/ansible_vault_secret sfmix_network_devices.push.playbook.yml --diff --limit localhost,dns --tags dns
+
 servers:
 	pipenv run ansible-playbook -i inventory push_servers.playbook.yml --vault-password-file /opt/sfmix/ansible_vault_secret --diff
 
