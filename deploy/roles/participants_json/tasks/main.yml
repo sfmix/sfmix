@@ -27,14 +27,14 @@
   ansible.builtin.template:
     src: participants.yaml.j2
     dest: /tmp/participants.yaml
-    mode: ugw=rw
+    mode: ugo=rw
 
 - name: Locally template participants.json for debugging
   delegate_to: localhost
   ansible.builtin.copy:
     dest: /tmp/participants.json
     content: "{{ participants_json_string }}"
-    mode: ugw=rw
+    mode: ugo=rw
 
 - name: Validate participants.json
   ansible.utils.validate:
@@ -69,8 +69,9 @@
       > {{ participants_json_output_directory }}/participants.json
   changed_when: true
 
-# participants_yaml.json
-- name: "Template participants_table.yaml to a string"
+- name: "Template participants_table.yaml to a JSON string"
+  tags:
+    - participants_table
   ansible.builtin.set_fact:
     participants_table_json_string: |
       {{
@@ -79,7 +80,23 @@
         ansible.builtin.to_json(indent=4, sort_keys=True)
       }}
 
+- name: Locally template participants_table.yaml for debugging
+  delegate_to: localhost
+  ansible.builtin.template:
+    src: participants_table.yaml.j2
+    dest: /tmp/participants_table.yaml
+    mode: ugo=rw
+
+- name: Locally template participants_table.json for debugging
+  delegate_to: localhost
+  ansible.builtin.copy:
+    dest: /tmp/participants_table.json
+    content: "{{ participants_table_json_string }}"
+    mode: ugo=rw
+
 - name: "Template participants_table.min.json"
+  tags:
+    - participants_table
   become: true
   ansible.builtin.copy:
     dest: "{{ participants_json_output_directory }}/participants_table.min.json"
@@ -89,6 +106,8 @@
     mode: ug=rw,o=r
 
 - name: "Prettyify participants_table.min.json into participants_table.json"
+  tags:
+    - participants_table
   become: true
   ansible.builtin.shell:
     cmd: >

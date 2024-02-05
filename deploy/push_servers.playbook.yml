@@ -156,12 +156,19 @@
   hosts: looking_glass
   tags:
     - looking_glass
+  roles:
+    - netbox_data
+    - sfmix_looking_glass
+
+- name: "Looking Glass: Configure OpenBGPD"
+  hosts: looking_glass
+  tags:
+    - looking_glass
     # FIXME: Migrate usage of participants.json to Alice
     # Currently used by sfmix.org/participants/
     - participants_json
   roles:
     - netbox_data
-    - sfmix_looking_glass
     # FIXME: Migrate usage of participants.json to Alice
     # Currently used by sfmix.org/participants/
     - participants_json
