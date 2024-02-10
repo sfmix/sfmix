@@ -1,15 +1,20 @@
 ---
+# In order to support the potential of pushing one of the Route Servers at a
+# time, this is templated out to use the ansible_hostname of the route server.
+# The RPSL is generated once for each route server, but from the same
+# clients.yml configuration, which should result in the same RPSL document.
 - name: Publish as-set AS-SFMIX-RS to ARIN
+  delegate_to: localhost
   tags:
     - publish_as_set
   ansible.builtin.command:
     argv:
       - "{{ playbook_dir }}/roles/sfmix_arouteserver/files/publish_as_set.py"
-      - "{{ arouteserver_dir }}/rs-linux.sfmix.org-irr-as-set.rpsl.txt"
+      - "{{ arouteserver_var }}/{{ ansible_hostname }}.d/{{ ansible_hostname }}-irr-as-set.rpsl.txt"
   register: publish_as_set_result
   changed_when: publish_as_set_result.rc == 0
   environment:
-    # This API key is linked to MPE54-ARIN
+    # This API key is linked to MPE54-ARIN, the POC object for matt@sfmix.org
     ARIN_API_KEY: !vault |
       $ANSIBLE_VAULT;1.1;AES256
       63396664666138623231643762636461316664393566373665306536353466623265396136336433

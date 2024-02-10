@@ -118,7 +118,7 @@
     - pierky.arouteserver
 
 - name: "Route Servers: Publish as-set to ARIN"
-  hosts: localhost
+  hosts: route_servers
   tags:
     - route_servers
     - publish_as_set
@@ -127,6 +127,17 @@
       ansible.builtin.include_role:
         name: sfmix_arouteserver
         tasks_from: publish_as_set.yml
+
+- name: "Looking Glass: Publish Route Server Summary HTML documents"
+  hosts: looking_glass
+  tags:
+    - looking_glass
+    - route_servers
+  tasks:
+    - name: "Publish Route Servers Summary HTML documents"
+      ansible.builtin.include_role:
+        name: sfmix_arouteserver
+        tasks_from: publish_html_summary.yml
 
 - name: "Route Servers: Install Redis"
   become: true
