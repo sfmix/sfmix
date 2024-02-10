@@ -5,5 +5,4 @@ local_networks:
   - 2001:504:30::/48
 arouteserver_generate_html: true
 arouteserver_irr_as_set_generate: true
-arouteserver_templates_dir: "{{ arouteserver_dir }}/sfmix_templates"
 arouteserver_irr_as_set_template: as-set_sfmix-rs.j2

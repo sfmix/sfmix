@@ -149,9 +149,10 @@ bind_teleport_certbot_tsig_key: !vault |
   39626232626562633639396231663235363439663138663934353430343637623166363433626533
   31656665323536383831663564643635313164323962643465316139313633623833666539656664
   3738
-arouteserver_dir: "{{ lookup('env', 'HOME') }}/arouteserver"
 arouteserver_clients_cfg_file: "{{ lookup('env', 'HOME') }}/arouteserver_clients.yml"
-arouteserver_templates_dir: "{{ lookup('env', 'HOME') }}/arouteserver_templates"
+arouteserver_dir: "{{ lookup('env', 'HOME') }}/arouteserver"
+arouteserver_templates_dir: "{{ arouteserver_dir }}/sfmix_templates"
+arouteserver_var: "{{ lookup('env', 'HOME') }}/arouteserver_var"
 rs_asn: 63055
 sfmix_ansible_vault_secret: !vault |
       $ANSIBLE_VAULT;1.1;AES256
