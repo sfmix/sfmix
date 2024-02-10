@@ -1,0 +1,9 @@
+---
+- name: "Publish HTML Sumary built by arouteserver for {{ item }}"
+  ansible.builtin.copy:
+    src: "{{ arouteserver_var }}/{{ item }}.d/{{ item }}.summary.html"
+    dest: "/var/www/htdocs/{{ item }}.summary.html"
+    owner: sfmix
+    group: sfmix
+    mode: ug=rw,o=r
+  with_items: "{{ groups['route_servers'] }}"
