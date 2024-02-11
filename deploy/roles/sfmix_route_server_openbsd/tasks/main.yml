@@ -19,14 +19,6 @@
     - slowcgi
     - bgplgd
 
-- name: Set bgplgd options
-  become: true
-  ansible.builtin.lineinfile:
-    path: /etc/rc.conf.local
-    regexp: '^bgplgd_flags='
-    line: 'bgplgd_flags="-S /var/www/run/bgpd.rsock"'
-  notify: Restart bgplgd
-
 - name: Place generated bgpd.conf into /etc/bgpd.candidate.conf
   become: true
   ansible.builtin.copy:
