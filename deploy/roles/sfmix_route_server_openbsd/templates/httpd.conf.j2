@@ -2,7 +2,7 @@ types {
         application/json        json
         image/png               png
 }
-server "secure-redirect" {
+server "rs-openbsd.sfmix.org" {
         listen on egress port 80
         location "/api/*" {
                 fastcgi socket "/run/bgplgd.sock"
