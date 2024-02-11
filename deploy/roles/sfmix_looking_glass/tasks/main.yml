@@ -38,13 +38,7 @@
     - ntpd
     - httpd
     - slowcgi
-
-- name: Enable bgplgd
-  become: true
-  ansible.builtin.service:
-    name: bgplgd
-    enabled: true
-    state: started
+    - bgplgd
 
 - name: Set bgplgd options
   become: true
