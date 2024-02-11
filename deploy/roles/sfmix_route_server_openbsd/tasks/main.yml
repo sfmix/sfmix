@@ -14,10 +14,10 @@
     enabled: true
     state: started
   with_items:
-     - ntpd
-     - httpd
-     - slowcgi
-     - bgplgd
+    - ntpd
+    - httpd
+    - slowcgi
+    - bgplgd
 
 - name: Set bgplgd options
   become: true
