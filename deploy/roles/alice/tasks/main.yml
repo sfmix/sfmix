@@ -17,9 +17,6 @@
     version: "{{ alice_git_repo_version }}"
   notify: Re-build alice-lg
 
-- name: Re-build alice-lg
-  ansible.builtin.meta: flush_handlers
-
 - name: "Template {{ alice_config_file }}"
   become: true
   notify: Restart alice
