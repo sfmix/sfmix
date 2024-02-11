@@ -151,7 +151,7 @@ bind_teleport_certbot_tsig_key: !vault |
   3738
 arouteserver_clients_cfg_file: "{{ lookup('env', 'HOME') }}/arouteserver_clients.yml"
 arouteserver_dir: "{{ lookup('env', 'HOME') }}/arouteserver"
-arouteserver_templates_dir: "{{ arouteserver_dir }}/sfmix_templates"
+arouteserver_templates_dir: "{{ lookup('env', 'HOME') }}/arouteserver_sfmix_templates"
 arouteserver_var: "{{ lookup('env', 'HOME') }}/arouteserver_var"
 rs_asn: 63055
 sfmix_ansible_vault_secret: !vault |
