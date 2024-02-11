@@ -1,4 +1,32 @@
 ---
+- name: Place httpd.conf
+  become: true
+  ansible.builtin.template:
+    src: httpd.conf.j2
+    dest: /etc/httpd.conf
+    mode: ug=rw,o=r
+  notify: Restart httpd
+
+- name: Enable/start daemons
+  become: true
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  with_items:
+     - ntpd
+     - httpd
+     - slowcgi
+     - bgplgd
+
+- name: Set bgplgd options
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/rc.conf.local
+    regexp: '^bgplgd_flags='
+    line: 'bgplgd_flags="-S /var/www/run/bgpd.rsock"'
+  notify: Restart bgplgd
+
 - name: Place generated bgpd.conf into /etc/bgpd.candidate.conf
   become: true
   ansible.builtin.copy:
