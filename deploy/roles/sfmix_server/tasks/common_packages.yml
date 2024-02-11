@@ -9,6 +9,7 @@
     - zsh
     - kitty-terminfo
     - cron
+    - acl
 
 - name: Install qemu-guest-agent on Linux VMs
   when: ansible_system == "Linux" and ansible_virtualization_role == "guest"
