@@ -55,8 +55,14 @@
 - name: "Install OpenBGPD Config: Take a backup, place new config, and reload"
   when: bgpd_config_test.rc == 0
   block:
+    - name: Check for an existing bgpd config
+      become: true
+      ansible.builtin.stat:
+        path: /etc/bgpd.conf
+      register: existing_bgpd_config
     - name: Backup existing bgpd.conf
       become: true
+      when: existing_bgpd_config.stat.exists
       ansible.builtin.copy:
         src: /etc/bgpd.conf
         dest: "/etc/bgpd_backups/{{ '%Y%m%d-%H%M%S' | strftime }}-bgpd.conf"
