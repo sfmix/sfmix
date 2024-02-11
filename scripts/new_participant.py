@@ -237,8 +237,11 @@ def main(
                     break
         if is_patch_panel_location:
             print("Most distal patch panel location to land at: ")
-            print(f"  Rack: {patch_panel_device.rack.display}, Unit {patch_panel_device.position}")
             print(f"  Patch Panel: {patch_panel_device.name}")
+            if patch_panel_device.rack:
+                print(f"  Rack: {patch_panel_device.rack.display}, Unit {patch_panel_device.position}")
+            else:
+                print(f"  Rack: Unknown! Rack this Patch Panel in Netbox")
             print(f"  Ports: {' & '.join([sub_location['name'] for sub_location in location])}")
             break
 
