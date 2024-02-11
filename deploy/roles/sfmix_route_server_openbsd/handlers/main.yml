@@ -4,3 +4,15 @@
   ansible.builtin.service:
     name: bgpd
     state: reloaded
+
+- name: Restart httpd
+  become: true
+  ansible.builtin.service:
+    name: httpd
+    state: reloaded
+
+- name: Restart bgplgd
+  become: true
+  ansible.builtin.service:
+    name: bgplgd
+    state: restarted
