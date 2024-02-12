@@ -1,0 +1,7 @@
+---
+- name: Place general.yml.j2 into /tmp
+  become: true
+  ansible.builtin.copy:
+    mode: ugo=r
+    src: general.yml.j2
+    dest: /tmp/general.yml.j2
