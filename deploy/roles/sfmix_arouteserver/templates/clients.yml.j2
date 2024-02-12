@@ -3,21 +3,21 @@ clients:
 {% for participant_id, participant in netbox_participants.items() %}
 {%   if participant.custom_fields.as_number != arouteserver_rs_asn %}
 {%     if participant.custom_fields.as_number == 12276 %}
-- asn: 12276
-  description: SFMIX
-  cfg:
-    attach_custom_communities:
-      - "member_type_infrastructure"
-      - "colo_sfo02"
-    filtering:
-      rpki:
-        reject_invalid: True
-      max_prefix:
-        peering_db:
-          enabled: True
-  ip:
-    - "206.197.187.2"
-    - "2001:504:30::ba01:2276:2"
+  - asn: 12276
+    description: SFMIX
+    cfg:
+      attach_custom_communities:
+        - "member_type_infrastructure"
+        - "colo_sfo02"
+      filtering:
+        rpki:
+          reject_invalid: True
+        max_prefix:
+          peering_db:
+            enabled: True
+    ip:
+      - "206.197.187.2"
+      - "2001:504:30::ba01:2276:2"
 {%     else %}
 {%       for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
 {%         if peering_port.custom_fields.participant.id == participant_id %}
