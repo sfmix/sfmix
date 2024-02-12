@@ -24,6 +24,10 @@ ixp_admin_source_subnets:
   - 100.64.0.0/10
   # SFMIX Public Infrastructure
   - 192.33.255.0/24
+  - 2620:11a:b000::/64
+  - 2620:11a:b000:ff::/64
+  - 2620:11a:b000:100::/64
+  - 2620:11a:b000:110::/64
   # Matt Sonic
   - !vault |
     $ANSIBLE_VAULT;1.1;AES256
