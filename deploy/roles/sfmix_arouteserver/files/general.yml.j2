@@ -153,8 +153,8 @@ cfg:
     member_type_exempt:
         lrg: rs_as:2000:2
     ######################
-{% for site in netbox_sites %}
-{%   if site.custom_fields.site_id %}
+{% for site_id, site in netbox_sites.items() %}
+{%   if site.custom_fields.site_id is not none %}
     colo_{{ site.name }}:
         lrg: rs_as:3000:{{ site.custom_fields.site_id }}
 {%   endif %}
