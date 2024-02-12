@@ -153,7 +153,31 @@ arouteserver_clients_cfg_file: "{{ lookup('env', 'HOME') }}/arouteserver_clients
 arouteserver_dir: "{{ lookup('env', 'HOME') }}/arouteserver"
 arouteserver_templates_dir: "{{ lookup('env', 'HOME') }}/arouteserver_sfmix_templates"
 arouteserver_var: "{{ lookup('env', 'HOME') }}/arouteserver_var"
-rs_asn: 63055
+arouteserver_general_cfg_file: /tmp/general.yml.j2
+arouteserver_rs_asn: 63055
+arouteserver_local_networks:
+  - 206.197.187.0/24
+  - 2001:504:30::/48
+arouteserver_varname_local_networks: arouteserver_local_networks
+arouteserver_varname_router_id: arouteserver_router_id
+arouteserver_varname_rs_asn: arouteserver_rs_asn
+arouteserver_varname_daemon: arouteserver_daemon
+arouteserver_varname_daemon_version: arouteserver_daemon_version
+transit_free_asns:
+  - 174
+  - 701
+  - 1299
+  - 2914
+  - 3257
+  - 3320
+  - 3356
+  - 5511
+  - 6453
+  - 6461
+  - 6762
+  - 6830
+  - 7018
+  - 12956
 sfmix_ansible_vault_secret: !vault |
       $ANSIBLE_VAULT;1.1;AES256
       32653837633839616630323133393736393561643364393534376365393634306661333663633933

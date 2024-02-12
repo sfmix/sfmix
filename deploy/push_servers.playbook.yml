@@ -108,7 +108,17 @@
     - bertvv.bind
     - sfmix_dns
 
-- name: "Route Servers/Looking Glass: Generate Configurations"
+- name: "Route Servers: Place general.yml.j2"
+  hosts: localhost
+  tags:
+    - route_servers
+  tasks:
+    - name: "SFMIX arouteserver: Place general.yml.j2"
+      ansible.builtin.include_role:
+        name: sfmix_arouteserver
+        tasks_from: place_general_yml_j2.yml
+
+- name: "Route Servers: Generate Configurations"
   hosts: localhost
   tags:
     - route_servers
@@ -133,6 +143,7 @@
   tags:
     - looking_glass
     - route_servers
+    - route_server_html_summary
   tasks:
     - name: "Publish Route Servers Summary HTML documents"
       ansible.builtin.include_role:
@@ -195,7 +206,6 @@
   hosts: alice
   tags:
     - participants_json
-    - alice
   roles:
     - netbox_data
     - participants_json
