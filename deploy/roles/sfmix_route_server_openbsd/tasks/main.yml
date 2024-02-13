@@ -7,6 +7,28 @@
     mode: ug=rw,o=r
   notify: Restart httpd
 
+# The ARIN TAL is not distributed with rpki-client and OpenBSD, unlike the other
+# RIRs
+- name: Place the ARIN RPKI TAL
+  become: true
+  ansible.builtin.copy:
+    src: arin.tal
+    dest: /etc/rpki/arin.tal
+    owner: root
+    group: wheel
+    mode: ug=rw,o=r
+
+- name: crontab entry for rpki-client
+  become: true
+  ansible.builtin.cron:
+    name: Run rpki-client hourly
+    minute: "~"
+    hour: "*"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    job: "-n -s rpki-client && bgpctl reload"
+
 - name: Enable/start daemons
   become: true
   ansible.builtin.service:
@@ -100,9 +122,16 @@
     state: absent
   loop: "{{ old_bgpd_configs.files }}"
 
-- name: Ensure bgpd is enabled/started
+- name: Set bgpd options
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/rc.conf.local
+    regexp: '^bgpd_flags='
+    line: "bgpd_flags='-f {{ sfmix_route_server_openbsd_bgpd_config_dir }}/bgpd.conf'"
+  notify: Restart bgpd
+
+- name: Start bgpd
   become: true
   ansible.builtin.service:
     name: bgpd
-    enabled: true
     state: started

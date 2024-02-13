@@ -48,6 +48,12 @@
     line: 'bgplgd_flags="-S /var/www/run/bgpd.rsock"'
   notify: Restart bgplgd
 
+- name: Start bgplgd
+  become: true
+  ansible.builtin.service:
+    name: bgplgd
+    state: started
+
 - name: Check for /etc/ssl/lg.sfmix.org.fullchain.pem
   become: true
   ansible.builtin.stat:
