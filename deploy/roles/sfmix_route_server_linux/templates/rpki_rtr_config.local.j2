@@ -1,0 +1,23 @@
+protocol rpki RPKIValidator1 {
+       # These table names are required to be RPKI4/RPKI6
+       roa4 { table RPKI4; };
+       roa6 { table RPKI6; };
+
+       # IP and port of the validator.
+       remote {{ sfmix_route_server_linux_rtr_hostname }};
+       port {{ sfmix_route_server_linux_rtr_port }};
+
+       # More config options.
+       #refresh [keep] <num>;
+       #retry [keep] <num>;
+       #expire [keep] <num>;
+
+       transport tcp;
+
+       # SSHv2 transport options.
+       #transport ssh {
+       #        bird private key "</path/to/id_rsa>";
+       #        remote public key "</path/to/known_host>";
+       #        user "<name>";
+       #};
+}

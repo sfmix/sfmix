@@ -4,6 +4,17 @@
   ansible.builtin.apt:
     name: bird2
 
+# This file is used by the arouteserver-generated BIRD config when
+# rpki_roas.source is set to "rtr" in the general.yml config
+- name: Place /etc/bird/rpki_rtr_config.local
+  become: true
+  ansible.builtin.template:
+    src: rpki_rtr_config.local.j2
+    dest: /etc/bird/rpki_rtr_config.local
+    owner: bird
+    group: bird
+    mode: ug=rw,o=r
+
 - name: Place generated BIRD config candidate
   become: true
   ansible.builtin.copy:
