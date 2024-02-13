@@ -30,6 +30,7 @@
     name: routinator
     network_mode: host
     image: "nlnetlabs/routinator:{{ routinator_version }}"
+    restart_policy: always
     pull: true
     mounts:
       - read_only: false
