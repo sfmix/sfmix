@@ -210,9 +210,9 @@
     - netbox_data
     - participants_json
 
-- name: "RPKI Linux: Validator"
+- name: "RPKI Linux"
   hosts: rpki_linux
   tags:
     - rpki
   roles:
-    - routinator
+    - rpki_linux
