@@ -61,4 +61,4 @@ all:
         route_servers:
     rpki_linux:
       hosts:
-        rpki_linux.sfmix.org:
+        rpki-linux.sfmix.org:
