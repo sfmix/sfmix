@@ -1,0 +1,9 @@
+---
+sfmix_route_server_openbsd_rtr_hostname: rpki-openbsd.sfmix.org
+sfmix_route_server_openbsd_rtr_port: 3323
+
+# Outside of this role, arouteserver uses this directory by default.
+# If you override this, you'll need to make sure that arouteserver gets
+#   --local-files-dir
+# https://github.com/pierky/arouteserver/tree/master/examples/rpki_rtr
+sfmix_route_server_openbsd_bgpd_config_dir: /etc/bgpd
