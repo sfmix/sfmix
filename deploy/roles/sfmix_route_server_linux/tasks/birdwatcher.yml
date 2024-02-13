@@ -33,6 +33,8 @@
     state: started
     network_mode: host
     log_driver: local
+    command: /usr/bin/birdwatcher -config /etc/birdwatcher/birdwatcher.conf
     volumes:
       - /run/bird/bird.ctl:/run/bird/bird.ctl
-      - "{{ sfmix_route_server_linux_birdwatcher_directory }}/birdwatcher.conf:/etc/birdwatcher/birdwatcher.conf"
+      - /etc/bird/bird.conf:/etc/bird.conf:ro
+      - "{{ sfmix_route_server_linux_birdwatcher_directory }}/birdwatcher.conf:/etc/birdwatcher/birdwatcher.conf:ro"
