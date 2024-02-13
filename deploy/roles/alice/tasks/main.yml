@@ -17,6 +17,9 @@
     version: "{{ alice_git_repo_version }}"
   notify: Re-build alice-lg
 
+- name: Trigger alice rebuilt and old container destruction
+  ansible.builtin.meta: flush_handlers
+
 - name: "Template {{ alice_config_file }}"
   become: true
   notify: Restart alice
@@ -31,7 +34,7 @@
   become: true
   community.docker.docker_container:
     name: alice
-    image: alice-lg:latest
+    image: "alice-lg:{{ alice_git_repo_version }}"
     restart_policy: unless-stopped
     network_mode: host
     volumes:
