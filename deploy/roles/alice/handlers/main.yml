@@ -5,10 +5,16 @@
     build:
       path: /opt/alice/alice-lg
     name: alice-lg
-    tag: latest
+    tag: "{{ alice_git_repo_version }}"
     source: build
     force_source: true
-  notify: Restart alice
+  notify: Remove alice container
+
+- name: Remove alice container
+  become: true
+  community.docker.docker_container:
+    name: alice
+    state: absent
 
 - name: Restart alice
   become: true
