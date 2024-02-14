@@ -1,4 +1,10 @@
 ---
+- name: Create /etc/bind
+  become: true
+  ansible.builtin.file:
+    path: /etc/bind
+    state: directory
+
 - name: Place sfmix_zones.conf
   become: true
   notify: Restart named.service
