@@ -77,16 +77,3 @@
   loop: "{{ reverse_zone_files_stat.results }}"
   when: "not item.stat.exists"
   notify: Restart named.service
-
-- name: Place mkrdns
-  become: true
-  ansible.builtin.copy:
-    src: mkrdns
-    dest: /usr/local/bin/mkrdns
-    mode: ug=rwx,o=rx
-
-- name: Run mkrdns
-  become: true
-  ansible.builtin.command: mkrdns
-  register: mkrdns_result
-  changed_when: mkrdns_result.rc == 0
