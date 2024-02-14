@@ -27,7 +27,7 @@
     day: "*"
     month: "*"
     weekday: "*"
-    job: "-n -s rpki-client && bgpctl reload"
+    job: "-ns rpki-client && bgpctl reload"
 
 - name: Enable/start daemons
   become: true
