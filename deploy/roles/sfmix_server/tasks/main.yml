@@ -40,3 +40,10 @@
     file: snmp_agent.yml
   tags:
     - snmp
+
+- name: "SFMIX Server: Linux sysctl"
+  when: ansible_system == "Linux"
+  ansible.builtin.import_tasks:
+    file: linux_sysctl.yml
+  tags:
+    - sysctl
