@@ -13,8 +13,12 @@ roles:
     version: 3.1.4
   - name: geerlingguy.certbot
     version: 5.1.0
+  ## FIXME: Pending merging this PR: https://github.com/bertvv/ansible-role-bind/pull/219
   - name: bertvv.bind
-    version: v5.1.0
+    # version: v5.1.0
+    src: git+https://github.com/jof/ansible-role-bind
+    version: jof/sfmix
+  ##
   - name: pierky.arouteserver
     src: git+https://github.com/pierky/ansible-role-arouteserver.git
 
