@@ -4,7 +4,7 @@ protocol rpki RPKIValidator1 {
        roa6 { table RPKI6; };
 
        # IP and port of the validator.
-       remote {{ sfmix_route_server_linux_rtr_hostname }};
+       remote "{{ sfmix_route_server_linux_rtr_hostname }}";
        port {{ sfmix_route_server_linux_rtr_port }};
 
        # More config options.

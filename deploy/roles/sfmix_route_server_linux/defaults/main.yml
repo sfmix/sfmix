@@ -2,5 +2,5 @@
 sfmix_route_server_linux_birdwatcher_directory: "/opt/birdwatcher"
 sfmix_route_server_linux_birdwatcher_repo: "https://github.com/alice-lg/birdwatcher"
 sfmix_route_server_linux_birdwatcher_release: "master"
-sfmix_route_server_linux_rtr_hostname: rpki-linux.sfmix.org
+sfmix_route_server_linux_rtr_hostname: 192.33.255.13 # rpki-linux.sfmix.org
 sfmix_route_server_linux_rtr_port: 3323
