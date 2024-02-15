@@ -12,7 +12,7 @@
   become: true
   become_user: sfmix
   ansible.builtin.git:
-    repo: https://github.com/alice-lg/alice-lg.git
+    repo: "{{ alice_git_repo_url }}"
     dest: /opt/alice/alice-lg
     version: "{{ alice_git_repo_version }}"
   notify: Re-build alice-lg
