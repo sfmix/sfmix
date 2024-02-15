@@ -278,7 +278,7 @@ routeserver.name = RS
 
 # Routeservers
 [source.rs-linux]
-name = rs-linux.sfmix.org
+name = rs-linux.sfmix.org (BIRD/Linux)
 [source.rs-linux.birdwatcher]
 api = http://mgmt.rs-linux.sfmix.org:29184/
 type = single_table
@@ -361,6 +361,10 @@ servertime_ext = 2006-01-02 15:04:05
 # # [source.rs0-example-bgplgd.openbgpd-bgplgd]
 # # api = http://165.22.27.105:29111/api
 # 
+[source.rs-openbsd]
+name = rs-openbsd.sfmix.org (OpenBGPD/OpenBSD)
+[source.rs-openbsd.openbgpd-bgplgd]
+api = http://100.64.0.7/api/
 [source.looking_glass]
 name = lg.sfmix.org (SFMIX Looking Glass)
 [source.looking_glass.openbgpd-bgplgd]
