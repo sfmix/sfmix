@@ -38,7 +38,6 @@
     - ntpd
     - httpd
     - slowcgi
-    - bgplgd
 
 - name: Set bgplgd options
   become: true
