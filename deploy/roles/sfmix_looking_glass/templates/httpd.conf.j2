@@ -3,8 +3,9 @@ types {
         image/png               png
         text/html               html
 }
-server "secure-redirect" {
+server "lg.sfmix.org-http" {
         listen on egress port 80
+{% if sfmix_looking_glass_web_tls %}
         location "/.well-known/acme-challenge/*" {
                 root "/acme"
                 request strip 2
@@ -12,9 +13,27 @@ server "secure-redirect" {
         location "/*" {
             block return 301 "https://$HTTP_HOST$REQUEST_URI"
         }
+{% else %}
+{%   if sfmix_looking_glass_web_bgplg %}
+        location "/cgi-bin/*" {
+                fastcgi
+                root "/"
+        }
+        location "/" {
+                block return 301 "http://$HTTP_HOST/cgi-bin/bgplg?cmd=show+ip+bgp+summary&req="
+        }
+{%   endif %}
+{%   if sfmix_looking_glass_web_bgplgd %}
+        location "/api/*" {
+                fastcgi socket "/run/bgplgd.sock"
+                request strip 1
+        }
+{%   endif %}
+{% endif %}
 }
 
-server "lg.sfmix.org" {
+{% if sfmix_looking_glass_web_tls %}
+server "lg.sfmix.org-https" {
         listen on * tls port 443
         tls {
                 certificate "/etc/ssl/lg.sfmix.org.fullchain.pem"
@@ -24,15 +43,20 @@ server "lg.sfmix.org" {
                 root "/acme"
                 request strip 2
         }
+{%   if sfmix_looking_glass_web_bgplg %}
         location "/cgi-bin/*" {
                 fastcgi
                 root "/"
         }
+{%   endif %}
+{%   if sfmix_looking_glass_web_bgplgd %}
         location "/api/*" {
                 fastcgi socket "/run/bgplgd.sock"
                 request strip 1
         }
+{%   endif %}
         location "/" {
                 block return 301 "https://$HTTP_HOST/cgi-bin/bgplg?cmd=show+ip+bgp+summary&req="
         }
 }
+{% endif %}

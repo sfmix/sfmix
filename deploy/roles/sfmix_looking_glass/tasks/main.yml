@@ -1,5 +1,6 @@
 ---
 - name: Place httpd.conf
+  when: sfmix_looking_glass_web_enabled
   become: true
   ansible.builtin.template:
     src: httpd.conf.j2
@@ -8,6 +9,7 @@
   notify: Restart httpd
 
 - name: Place acme-client.conf
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
   become: true
   ansible.builtin.template:
     src: acme-client.conf.j2
@@ -15,6 +17,7 @@
     mode: ug=rw,o=r
 
 - name: Place bgplg.head
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg
   become: true
   ansible.builtin.template:
     src: bgplg.head.j2
@@ -22,13 +25,22 @@
     mode: ug=rw,o=r
 
 - name: Place SFMIX logo
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg
   become: true
   ansible.builtin.copy:
     src: sfmix.png
     dest: /var/www/htdocs/sfmix.png
     mode: ug=rw,o=r
 
-- name: Enable/start daemons
+- name: Enable/start ntpd
+  become: true
+  ansible.builtin.service:
+    name: ntpd
+    enabled: true
+    state: started
+
+- name: Enable/start web daemons
+  when: sfmix_looking_glass_web_enabled
   become: true
   ansible.builtin.service:
     name: "{{ item }}"
@@ -40,6 +52,7 @@
     - slowcgi
 
 - name: Set bgplgd options
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplgd
   become: true
   ansible.builtin.lineinfile:
     path: /etc/rc.conf.local
@@ -48,18 +61,21 @@
   notify: Restart bgplgd
 
 - name: Start bgplgd
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplgd
   become: true
   ansible.builtin.service:
     name: bgplgd
     state: started
 
 - name: Check for /etc/ssl/lg.sfmix.org.fullchain.pem
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
   become: true
   ansible.builtin.stat:
     path: /etc/ssl/lg.sfmix.org.fullchain.pem
   register: tls_certificate_stat
 
 - name: Run acme-client initially
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
   become: true
   when: not tls_certificate_stat.stat.exists
   ansible.builtin.command: acme-client lg.sfmix.org
@@ -68,6 +84,7 @@
   notify: Restart httpd
 
 - name: Run acme-client once a day
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
   become: true
   ansible.builtin.cron:
     name: run acme-client
@@ -75,6 +92,28 @@
     minute: "0"
     hour: "2"
     user: root
+
+- name: Make cgi-bins executable
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: ugo=rx
+  with_items:
+    - /var/www/cgi-bin/bgplg
+    - /var/www/bin/bgpctl
+
+- name: Make chroot cgi-bins sticky-executable
+  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: ugo=rx,ugo+s
+  with_items:
+    - /var/www/bin/ping
+    - /var/www/bin/ping6
+    - /var/www/bin/traceroute
+    - /var/www/bin/traceroute6
 
 - name: Enable bgpd
   become: true
@@ -155,23 +194,3 @@
 #   ansible.builtin.service:
 #     name: bgpd
 #     state: started
-
-- name: Make cgi-bins executable
-  become: true
-  ansible.builtin.file:
-    path: "{{ item }}"
-    mode: ugo=rx
-  with_items:
-    - /var/www/cgi-bin/bgplg
-    - /var/www/bin/bgpctl
-
-- name: Make chroot cgi-bins sticky-executable
-  become: true
-  ansible.builtin.file:
-    path: "{{ item }}"
-    mode: ugo=rx,ugo+s
-  with_items:
-    - /var/www/bin/ping
-    - /var/www/bin/ping6
-    - /var/www/bin/traceroute
-    - /var/www/bin/traceroute6

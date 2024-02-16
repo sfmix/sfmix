@@ -1,0 +1,5 @@
+---
+sfmix_looking_glass_web_enabled: true
+sfmix_looking_glass_web_tls: true
+sfmix_looking_glass_web_bgplg: true
+sfmix_looking_glass_web_bgplgd: true

@@ -58,6 +58,9 @@ all:
     looking_glass:
       hosts:
         lg.sfmix.org:
+    quarantine_looking_glass:
+      hosts:
+        quarantine-lg.sfmix.org:
     alice:
       hosts:
         alice.sfmix.org:
