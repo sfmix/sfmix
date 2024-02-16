@@ -2,6 +2,9 @@
 - name: Create /etc/bind
   become: true
   ansible.builtin.file:
+    owner: root
+    group: bind
+    mode: u=rwx,g=rxs,o=rx
     path: /etc/bind
     state: directory
 

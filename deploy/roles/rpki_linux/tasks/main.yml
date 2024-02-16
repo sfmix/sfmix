@@ -29,7 +29,7 @@
   community.general.docker_container:
     name: routinator
     network_mode: host
-    image: "nlnetlabs/routinator:{{ routinator_version }}"
+    image: "nlnetlabs/routinator:{{ rpki_linux_routinator_version }}"
     restart_policy: always
     pull: true
     mounts:

@@ -18,7 +18,7 @@
     group: wheel
     mode: ug=rw,o=r
 
-- name: crontab entry for rpki-client
+- name: Set a crontab entry for rpki-client
   become: true
   ansible.builtin.cron:
     name: Run rpki-client hourly

@@ -75,9 +75,8 @@
   register: tls_certificate_stat
 
 - name: Run acme-client initially
-  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
+  when: (not tls_certificate_stat.stat.exists) and sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
   become: true
-  when: not tls_certificate_stat.stat.exists
   ansible.builtin.command: acme-client lg.sfmix.org
   register: acme_client_command
   changed_when: acme_client_command.rc == 0

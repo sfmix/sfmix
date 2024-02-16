@@ -3,7 +3,7 @@ bogons:
   - prefix: "0.0.0.0"
     length: 0
     comment: "Default route"
-    exact: True
+    exact: true
   - prefix: "0.0.0.0"
     length: 8
     comment: "IANA - Local Identification"
@@ -46,7 +46,7 @@ bogons:
   - prefix: "::"
     length: 0
     comment: "Default route"
-    exact: True
+    exact: true
   - prefix: "0000::"
     length: 8
     comment: "loopback, unspecified, v4-mapped"
