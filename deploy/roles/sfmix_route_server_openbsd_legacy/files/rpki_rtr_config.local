@@ -1,4 +1,0 @@
-rtr 192.33.255.13 {
-       descr MyValidator1
-       port 3323
-}
