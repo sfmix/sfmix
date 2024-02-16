@@ -227,3 +227,9 @@
     - rpki
   roles:
     - rpki_linux
+
+- name: "OpenBSD Route Server: Legacy arouteserver config"
+  hosts: rs_openbsd_legacy
+  roles:
+    - netbox_data
+    - sfmix_route_server_openbsd_legacy
