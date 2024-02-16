@@ -1,0 +1,51 @@
+---
+- name: bogons.yml
+  become: true
+  copy:
+    src: bogons.yml
+    dest: /opt/arouteserver/bogons.new-ansible.yml
+
+- name: general.yml
+  become: true
+  template:
+    src: general.yml.j2
+    dest: /opt/arouteserver/general.new-ansible.yml
+
+- name: Template clients.yml
+  become: true
+  template:
+    src: clients.yml.j2
+    dest: /opt/arouteserver/clients.new-ansible.yml
+
+- name: Create /etc/bgpd
+  become: true
+  file:
+    path: /etc/bgpd
+    state: directory
+
+- name: Place /etc/bgpd/rpki_rtr_config.local
+  become: true
+  copy:
+    src: rpki_rtr_config.local
+    dest: /etc/bgpd/rpki_rtr_config.local
+
+# - name: Build candidate config into /opt/arouteserver/new-openbgpd.new-ansible.conf
+#   become: true
+#   shell: arouteserver openbgpd \
+#           --target-version 7.0 \
+#           --cfg /opt/arouteserver/arouteserver.yml \
+#           --general /opt/arouteserver/general.new-ansible.yml \
+#           --bogons /opt/arouteserver/bogons.new-ansible.yml \
+#           --clients /opt/arouteserver/clients.new-ansible.yml \
+#           --cache-dir /opt/arouteserver/cache \
+#           --output /opt/arouteserver/new-bgpd.new-ansible.conf
+
+# - name: Install candidate config
+#   become: true
+#   shell:
+#     cmd: cp /opt/arouteserver/new-bgpd.new-ansible.conf /etc/bgpd.conf
+
+# - name: Load candidate config
+#   become: true
+#   shell:
+#     cmd: bgpctl reload

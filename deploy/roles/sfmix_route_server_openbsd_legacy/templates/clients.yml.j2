@@ -1,0 +1,46 @@
+---
+clients:
+{% for participant_id, participant in netbox_participants.items() %}
+{%   if participant.custom_fields.as_number != 63055 %}
+{%     if participant.custom_fields.as_number == 12276 %}
+  - asn: 12276
+    description: SFMIX
+    cfg:
+      attach_custom_communities:
+        - "member_type_infrastructure"
+        - "colo_sfo02"
+      filtering:
+        rpki:
+          reject_invalid: True
+        max_prefix:
+          peering_db:
+            enabled: True
+    ip:
+      - "206.197.187.2"
+      - "2001:504:30::ba01:2276:2"
+{%     else %}
+{%       for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
+{%         if peering_port.custom_fields.participant.id == participant_id %}
+  - asn: {{ participant.custom_fields.as_number }}
+    description: {{ participant.description }}
+    cfg:
+      attach_custom_communities:
+        - "member_type_{{ participant.custom_fields.participant_type | lower }}"
+        - "colo_{{ netbox_sites[netbox_devices[peering_port.device.id].site.id].name }}"
+      filtering:
+        rpki:
+          reject_invalid: True
+        max_prefix:
+          peering_db:
+            enabled: True
+    ip:
+{%           for ip_address in netbox_participant_ip_addresses.values() %}
+{%             if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
+      - "{{ ip_address.address | ansible.utils.ipaddr('address') }}"
+{%             endif %}
+{%           endfor %}
+{%         endif %}
+{%       endfor %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
