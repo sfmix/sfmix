@@ -114,7 +114,7 @@
   tags:
     - dns
   tasks:
-    - name: mkrdns
+    - name: Run mkrdns
       ansible.builtin.include_role:
         name: sfmix_dns
         tasks_from: mkrdns.yml
