@@ -8,8 +8,8 @@ authority letsencrypt-staging {
 	account key "/etc/acme/letsencrypt-staging-privkey.pem"
 }
 
-domain lg.sfmix.org {
-	domain key "/etc/ssl/private/lg.sfmix.org.key"
-	domain full chain certificate "/etc/ssl/lg.sfmix.org.fullchain.pem"
+domain {{ sfmix_looking_glass_web_hostname }} {
+	domain key "/etc/ssl/private/{{ sfmix_looking_glass_web_hostname }}.key"
+	domain full chain certificate "/etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem"
 	sign with letsencrypt
 }
