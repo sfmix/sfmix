@@ -67,17 +67,16 @@
     name: bgplgd
     state: started
 
-- name: Check for /etc/ssl/lg.sfmix.org.fullchain.pem
-  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
+- name: "Check for /etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem"
   become: true
   ansible.builtin.stat:
-    path: /etc/ssl/lg.sfmix.org.fullchain.pem
+    path: "/etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem"
   register: tls_certificate_stat
 
 - name: Run acme-client initially
   when: (not tls_certificate_stat.stat.exists) and sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
   become: true
-  ansible.builtin.command: acme-client lg.sfmix.org
+  ansible.builtin.command: "acme-client {{ sfmix_looking_glass_web_hostname }}"
   register: acme_client_command
   changed_when: acme_client_command.rc == 0
   notify: Restart httpd
@@ -87,7 +86,7 @@
   become: true
   ansible.builtin.cron:
     name: run acme-client
-    job: acme-client lg.sfmix.org
+    job: "acme-client {{ sfmix_looking_glass_web_hostname }}"
     minute: "0"
     hour: "2"
     user: root

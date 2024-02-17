@@ -186,7 +186,9 @@
     - sfmix_route_server_openbsd
 
 - name: "Looking Glass: Configure OpenBGPD"
-  hosts: looking_glass
+  hosts:
+    - looking_glass
+    - quarantine_looking_glass
   tags:
     - looking_glass
   roles:

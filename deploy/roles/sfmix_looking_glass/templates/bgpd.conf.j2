@@ -8,6 +8,8 @@ router-id {{ sfmix_looking_glass_router_id | mandatory }}
 socket "/var/www/run/bgpd.rsock" restricted
 
 {% for participant_id, participant in netbox_participants.items() %}
+{# Exclude the Route Servers #}
+{%   if participant.custom_fields.as_number != 63055 %}
 # {{ participant.custom_fields.as_number }}: {{ participant.description }}
 group "{{ participant.description | truncate(31, leeway=0) }}" {
 	remote-as {{ participant.custom_fields.as_number }}
@@ -16,23 +18,24 @@ group "{{ participant.description | truncate(31, leeway=0) }}" {
 
 {%   for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
 {# Skip the Looking Glass IPs and Route Servers #}
-{%     if (
-			ip_address.tenant.id == participant.id)
-			and not (
-				ip_address.address | ansible.utils.ipaddr('address') == "206.197.187.1"
-				or ip_address.address | ansible.utils.ipaddr('address') == "2001:504:30::ba01:2276:1")
-			and not participant.custom_fields.as_number == 63055
+{%       if (
+			  ip_address.tenant.id == participant.id)
+			  and not (
+				  ip_address.address | ansible.utils.ipaddr('address') == "206.197.187.1"
+				  or ip_address.address | ansible.utils.ipaddr('address') == "2001:504:30::ba01:2276:1")
+			  and not participant.custom_fields.as_number == 63055
 		%}
 	neighbor {{ ip_address.address | ansible.utils.ipaddr('address') }} {
-{%       if ip_address.family.value == 4 %}
+{%         if ip_address.family.value == 4 %}
 		descr "{{ participant.description | truncate(18, leeway=0) ~ " (v4)" }}"
-{%       elif ip_address.family.value == 6 %}
+{%         elif ip_address.family.value == 6 %}
 		descr "{{ participant.description | truncate(18, leeway=0) ~ " (v6)" }}"
-{%       endif %}
+{%         endif %}
 	}
-{%     endif %}
-{%   endfor %}
+{%       endif %}
+{%     endfor %}
 }
+{%   endif %}
 {% endfor %}
 
 # See all prefixes, since we want to visibility for a looking glass
