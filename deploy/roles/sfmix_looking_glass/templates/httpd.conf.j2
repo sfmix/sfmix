@@ -3,7 +3,7 @@ types {
         image/png               png
         text/html               html
 }
-server "lg.sfmix.org-http" {
+server "{{ sfmix_looking_glass_web_hostname }}-http" {
         listen on egress port 80
 {% if sfmix_looking_glass_web_tls %}
         location "/.well-known/acme-challenge/*" {
@@ -33,11 +33,11 @@ server "lg.sfmix.org-http" {
 }
 
 {% if sfmix_looking_glass_web_tls %}
-server "lg.sfmix.org-https" {
+server "{{ sfmix_looking_glass_web_hostname }}-https" {
         listen on * tls port 443
         tls {
-                certificate "/etc/ssl/lg.sfmix.org.fullchain.pem"
-                key "/etc/ssl/private/lg.sfmix.org.key"
+                certificate "/etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem"
+                key "/etc/ssl/private/{{ sfmix_looking_glass_web_hostname }}.key"
         }
         location "/.well-known/acme-challenge/*" {
                 root "/acme"
