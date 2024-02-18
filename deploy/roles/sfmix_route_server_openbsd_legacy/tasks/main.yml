@@ -29,7 +29,7 @@
 - name: Build candidate config into /opt/arouteserver/new-openbgpd.new-ansible.conf
   become: true
   ansible.builtin.command: arouteserver openbgpd \
-          --target-version 7.0 \
+          --target-version 7.8 \
           --cfg /opt/arouteserver/arouteserver.yml \
           --general /opt/arouteserver/general.new-ansible.yml \
           --bogons /opt/arouteserver/bogons.new-ansible.yml \
