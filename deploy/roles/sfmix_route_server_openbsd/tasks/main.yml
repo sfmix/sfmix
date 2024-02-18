@@ -4,7 +4,7 @@
   ansible.builtin.template:
     src: httpd.conf.j2
     dest: /etc/httpd.conf
-    mode: ug=rw,o=r
+    mode: u=rw,go=r
   notify: Restart httpd
 
 # The ARIN TAL is not distributed with rpki-client and OpenBSD, unlike the other
@@ -105,7 +105,7 @@
         remote_src: true
         owner: root
         group: wheel
-        mode: ug=rw,o=r
+        mode: u=rw,go=
       notify: Reload bgpd
 
 - name: Find old BGPD config backups more than 52 weeks old
