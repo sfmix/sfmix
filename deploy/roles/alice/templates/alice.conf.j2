@@ -252,8 +252,10 @@ asn = ASN
 state = State
 Uptime = Uptime
 Description = Description
-routes_received = Routes Received
+routes_received = Received
+routes_accepted = Accepted
 routes_filtered = Filtered
+routes_exported = Exported
 
 # 
 
@@ -264,6 +266,7 @@ gateway = Gateway
 # interface = Interface
 metric = Metric
 bgp.as_path = AS Path
+bgp.next_hop = Next Hop
 
 
 [lookup_columns]
@@ -274,6 +277,7 @@ neighbor.asn = ASN
 neighbor.description = Description
 bgp.as_path = AS Path
 routeserver.name = RS
+bgp.next_hop = Next Hop
 
 
 # Routeservers
