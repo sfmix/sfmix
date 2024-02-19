@@ -169,6 +169,8 @@ arouteserver_rs_asn: 63055
 arouteserver_local_networks:
   - 206.197.187.0/24
   - 2001:504:30::/48
+sfmix_sflow_collector_bgp_address: "100.64.0.14"
+sfmix_sflow_collector_bgp_asn: 65432
 arouteserver_varname_local_networks: arouteserver_local_networks
 arouteserver_varname_router_id: arouteserver_router_id
 arouteserver_varname_rs_asn: arouteserver_rs_asn
