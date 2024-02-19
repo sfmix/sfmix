@@ -138,6 +138,16 @@
         ) | items2dict
       }}
 # This sets a dict mapping Netbox Device IDs to Netbox Devices
+    netbox_peering_switches: >
+      {{
+        query('netbox.netbox.nb_lookup',
+          'devices',
+          api_endpoint=ixp_netbox_api_endpoint,
+          api_filter='role=peering_switch',
+          token=ixp_netbox_api_token
+        ) | items2dict
+      }}
+# This sets a dict mapping Netbox Device IDs to Peering Switch devices
     netbox_sites: >
       {{
         query('netbox.netbox.nb_lookup',
