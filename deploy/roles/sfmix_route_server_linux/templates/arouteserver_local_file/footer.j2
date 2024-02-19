@@ -1,11 +1,18 @@
-protocol bgp SFlow-RT {
-    description "BGP to Flow Collector"
+protocol bgp SFlowRT {
+    description "BGP to Flow Collector";
     local as {{ arouteserver_rs_asn }};
     neighbor {{ sfmix_sflow_collector_bgp_address }} as {{ sfmix_sflow_collector_bgp_asn }};
     rs client;
     passive on;
     ttl security off;
-    secondary;
-    import none;
-    export all;
+    ipv4 {
+        secondary;
+        import none;
+        export all;
+    };
+    ipv6 {
+        secondary;
+        import none;
+        export all;
+    };
 }
