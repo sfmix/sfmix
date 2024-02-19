@@ -213,17 +213,15 @@ invalid     = {{ arouteserver_rs_asn }}:1000:4
 64512:53 = RPKI Invalid
 {{ arouteserver_rs_asn }}:1000:4 = RPKI Invalid
 #
-{{ arouteserver_rs_asn }}:1900:0 = Member Type: Infrastructure
-{{ arouteserver_rs_asn }}:1900:1 = Member Type: Member
-{{ arouteserver_rs_asn }}:1900:2 = Member Type: Exempt
+{{ arouteserver_rs_asn }}:1900:0 = Participant Type: Infrastructure
+{{ arouteserver_rs_asn }}:1900:1 = Participant Type: Member
+{{ arouteserver_rs_asn }}:1900:2 = Participant Type: Exempt
 #
-{{ arouteserver_rs_asn }}:1984:0 = Learned from Colo: sfo01
-{{ arouteserver_rs_asn }}:1984:1 = Learned from Colo: sfo02
-{{ arouteserver_rs_asn }}:1984:2 = Learned from Colo: fmt01
-{{ arouteserver_rs_asn }}:1984:3 = Learned from Colo: sjc01
-{{ arouteserver_rs_asn }}:1984:4 = Learned from Colo: scl01
-{{ arouteserver_rs_asn }}:1984:5 = Learned from Colo: scl02
-{{ arouteserver_rs_asn }}:1984:6 = Learned from Colo: scl04
+{% for site_id, site in netbox_sites.items() %}
+{%   if site.custom_fields.site_id is not none %}
+{{ arouteserver_rs_asn }}:1984:{{ site.custom_fields.site_id }} = Learned from Colo: {{ site.name }}
+{%   endif %}
+{% endfor %}
 
 
 #
