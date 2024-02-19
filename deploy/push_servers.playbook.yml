@@ -47,6 +47,7 @@
   tags:
     - metrics
   roles:
+    - netbox_data
     - docker_engine
     - sflow_rt
     - prometheus
