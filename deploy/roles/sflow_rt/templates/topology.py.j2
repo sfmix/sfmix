@@ -10,17 +10,9 @@ NETRC_HOST = "sfmix.org"
 # FIXME / TODO: The set of devices to discover should come from a Source of
 #   Truth, like Netbox
 SWITCHES = [
-    "switch01.sfo01.sfmix.org",
-    "switch02.sfo02.sfmix.org",
-    "switch01.sfo02.sfmix.org",
-    "switch03.fmt01.sfmix.org",
-    "switch02.fmt01.sfmix.org",
-    "switch01.fmt01.sfmix.org",
-    "switch01.sjc01.sfmix.org",
-    "switch02.sjc01.sfmix.org",
-    "switch01.scl01.sfmix.org",
-    "switch01.scl02.sfmix.org",
-    "switch01.scl04.sfmix.org",
+{% for peering_switch in netbox_peering_switches.values() %}
+    "{{ peering_switch.name }}",
+{% endfor %}
 ]
 
 # sFlow-RT REST API
