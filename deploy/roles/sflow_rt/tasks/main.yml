@@ -40,8 +40,8 @@
 
 - name: "Place ~sfmix/topology.py"
   become: true
-  ansible.builtin.copy:
-    src: topology.py
+  ansible.builtin.template:
+    src: topology.py.j2
     dest: /home/sfmix/topology.py
     owner: sfmix
     group: sfmix
@@ -54,4 +54,13 @@
     user: sfmix
     job: "/home/sfmix/topology.py"
     minute: "0"
+    hour: "*/12"
+
+- name: "Import participants.json every 12 hours"
+  become: true
+  ansible.builtin.cron:
+    name: "Import participants.json"
+    user: sfmix
+    job: 'curl https://lg.sfmix.org/participants.json | curl -d @- -X PUT -H "Content-Type: application/json" http://localhost:8008/app/ixp-metrics/scripts/metrics.js/members/json'
+    minute: "30"
     hour: "*/12"
