@@ -4,8 +4,9 @@
   community.docker.docker_image:
     build:
       path: /opt/alice/alice-lg
+      network: host
     name: alice-lg
-    tag: "{{ alice_git_repo_version }}"
+    tag: "{{ alice_git_repo_version | replace('/', '_') }}"
     source: build
     force_source: true
   notify: Remove alice container

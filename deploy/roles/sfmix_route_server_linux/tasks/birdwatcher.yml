@@ -11,11 +11,11 @@
   ansible.builtin.git:
     repo: "{{ sfmix_route_server_linux_birdwatcher_repo }}"
     dest: "{{ sfmix_route_server_linux_birdwatcher_directory }}/repo"
-    version: "{{ sfmix_route_server_linux_birdwatcher_release }}"
+    version: "{{ sfmix_route_server_linux_birdwatcher_version }}"
     force: true
   notify: Rebuild birdwatcher docker container
 
-- name: Trigger birdwatcher rebuild
+- name: Trigger birdwatcher rebuilt and old container destruction
   ansible.builtin.meta: flush_handlers
 
 - name: Place birdwatcher.conf
@@ -24,12 +24,14 @@
     src: birdwatcher.conf.j2
     dest: "{{ sfmix_route_server_linux_birdwatcher_directory }}/birdwatcher.conf"
     mode: ug=rw,o=r
+  notify: Restart birdwatcher
 
 - name: Run birdwatcher
   become: true
   community.docker.docker_container:
     name: birdwatcher
-    image: birdwatcher
+    image: "birdwatcher:{{ sfmix_route_server_linux_birdwatcher_version | replace('/', '_') }}"
+    restart_policy: unless-stopped
     state: started
     network_mode: host
     log_driver: local

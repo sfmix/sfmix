@@ -13,3 +13,10 @@ alice_postgresql_password: !vault |
 postgresql_users:
   - name: alice
     password: "{{ alice_postgresql_password }}"
+
+# FIXME: Remove these overrides once these PRs land:
+## https://github.com/alice-lg/alice-lg/pull/137
+## https://github.com/alice-lg/alice-lg/pull/141
+## https://github.com/alice-lg/alice-lg/pull/143
+alice_git_repo_version: "jof/sfmix"
+alice_git_repo_url: "https://github.com/jof/alice-lg.git"
