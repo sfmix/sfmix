@@ -207,11 +207,13 @@ invalid     = {{ arouteserver_rs_asn }}:1000:4
 {{ arouteserver_rs_asn }}:64512:41 = Route authorized soley because of a client white list entry
 64512:50 = RPKI Origin Validation not performed
 #
+{{ arouteserver_rs_asn }}:1000:1 = RPKI Origin Validation: Valid
+64512:51 = RPKI Origin Validation: Valid
 {{ arouteserver_rs_asn }}:1000:3 = RPKI Origin Validation not performed
-64512:52 = RPKI Unknown
-{{ arouteserver_rs_asn }}:1000:2 = RPKI Unknown
-64512:53 = RPKI Invalid
-{{ arouteserver_rs_asn }}:1000:4 = RPKI Invalid
+64512:52 = RPKI Origin Validation: Unknown
+{{ arouteserver_rs_asn }}:1000:2 = RPKI Origin Validation: Unknown
+64512:53 = RPKI Origin Validation: Invalid
+{{ arouteserver_rs_asn }}:1000:4 = RPKI Origin Validation: Invalid
 #
 {{ arouteserver_rs_asn }}:1900:0 = Participant Type: Infrastructure
 {{ arouteserver_rs_asn }}:1900:1 = Participant Type: Member
