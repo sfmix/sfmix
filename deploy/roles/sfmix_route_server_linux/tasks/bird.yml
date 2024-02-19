@@ -4,16 +4,37 @@
   ansible.builtin.apt:
     name: bird2
 
+- name: "Ensure directory: {{ arouteserver_local_files_dir }}"
+  become: true
+  when: "(arouteserver_use_local_files | default([])) and (arouteserver_local_files_dir is defined)"
+  ansible.builtin.file:
+    path: "{{ arouteserver_local_files_dir }}"
+    state: directory
+    owner: bird
+    group: bird
+    mode: ug=rwx,o=rx
+
 # This file is used by the arouteserver-generated BIRD config when
 # rpki_roas.source is set to "rtr" in the general.yml config
-- name: Place /etc/bird/rpki_rtr_config.local
+- name: "Place {{ arouteserver_local_files_dir | default('/etc/bird') }}/rpki_rtr_config.local" # noqa name[template]
   become: true
   ansible.builtin.template:
     src: rpki_rtr_config.local.j2
-    dest: /etc/bird/rpki_rtr_config.local
+    dest: "{{ arouteserver_local_files_dir | default('/etc/bird') }}/rpki_rtr_config.local"
     owner: bird
     group: bird
     mode: ug=rw,o=r
+
+- name: "Template arouteserver Local File: {{ item }}"
+  become: true
+  when: "(arouteserver_use_local_files | default([])) and (arouteserver_local_files_dir is defined)"
+  ansible.builtin.template:
+    src: "arouteserver_local_file/{{ item }}.j2"
+    dest: "{{ arouteserver_local_files_dir }}/{{ item }}.local"
+    owner: bird
+    group: bird
+    mode: ug=rw,o=r
+  loop: "{{ arouteserver_use_local_files }}"
 
 - name: Place generated BIRD config candidate
   become: true

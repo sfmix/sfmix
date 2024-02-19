@@ -19,7 +19,9 @@ roles:
     src: git+https://github.com/jof/ansible-role-bind
     version: jof/sfmix
   ##
-  ## FIXME: Pending merging this PR: https://github.com/pierky/ansible-role-arouteserver/pull/8
+  ## FIXME: Pending merging these PRs:
+  ## https://github.com/pierky/ansible-role-arouteserver/pull/8
+  ## https://github.com/pierky/ansible-role-arouteserver/pull/9
   - name: pierky.arouteserver
     # src: git+https://github.com/pierky/ansible-role-arouteserver.git
     src: git+https://github.com/jof/ansible-role-arouteserver.git

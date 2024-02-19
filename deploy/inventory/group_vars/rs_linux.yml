@@ -12,3 +12,6 @@ sfmix_route_server_linux_birdwatcher_version: "jof/sfmix"
 redis_bind: 127.0.0.1
 redis_version: 6.2.6
 arouteserver_perform_graceful_shutdown: false
+arouteserver_local_files_dir: "/opt/arouteserver/local_files"
+arouteserver_use_local_files:
+  - footer
