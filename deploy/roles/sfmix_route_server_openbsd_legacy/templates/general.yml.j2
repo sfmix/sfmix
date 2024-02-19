@@ -147,15 +147,15 @@ cfg:
   custom_communities:
     ######################
     member_type_infrastructure:
-        lrg: rs_as:2000:0
+        lrg: rs_as:1900:0
     member_type_member:
-        lrg: rs_as:2000:1
+        lrg: rs_as:1900:1
     member_type_exempt:
-        lrg: rs_as:2000:2
+        lrg: rs_as:1900:2
     ######################
 {% for site_id, site in netbox_sites.items() %}
 {%   if site.custom_fields.site_id is not none %}
     colo_{{ site.name }}:
-        lrg: rs_as:3000:{{ site.custom_fields.site_id }}
+        lrg: rs_as:1984:{{ site.custom_fields.site_id }}
 {%   endif %}
 {% endfor %}
