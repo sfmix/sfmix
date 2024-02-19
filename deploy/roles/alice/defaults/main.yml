@@ -5,7 +5,8 @@
 # FIXME: Set this back to upstream once these PRs land:
 ## https://github.com/alice-lg/alice-lg/pull/137
 ## https://github.com/alice-lg/alice-lg/pull/141
-alice_git_repo_version: "7f66af007f124ac9dfcbcba773c1b74c6bb82f5d"
+## https://github.com/alice-lg/alice-lg/pull/143
+alice_git_repo_version: "ca24c0979a455de2c4f05b6cd3df06e678a82a0d"
 alice_git_repo_url: "https://github.com/jof/alice-lg.git"
 
 alice_domain: alice.sfmix.org
