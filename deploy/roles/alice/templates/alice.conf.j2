@@ -287,92 +287,22 @@ name = rs-linux.sfmix.org (BIRD/Linux)
 api = http://mgmt.rs-linux.sfmix.org:29184/
 type = single_table
 show_last_reboot = true
-
+hidden_neighbors = 100.64.0.0/10
 servertime = 2006-01-02T15:04:05Z07:00
 servertime_short = 2006-01-02 15:04:05
 servertime_ext = 2006-01-02 15:04:05
 
-# Birdwatcher Example
-# [source.rs0-example-v4]
-# name = rs1.example.com (IPv4)
-# # Optional: a group for the routeservers list
-# group = FRA
-# blackholes = 10.23.6.666, 10.23.6.665
-# 
-# [source.rs0-example-v4.birdwatcher]
-# api = http://rs1.example.com:29184/
-# # single_table / multi_table
-# type = multi_table
-# 
-# main_table = master4 # default is master in bird1x
-# peer_table_prefix = T
-# pipe_protocol_prefix = M
-# # Timeout in seconds to wait for the status data (only required if enable_neighbors_status_refresh is true)
-# neighbors_refresh_timeout = 2
-# 
-# # Optional:
-# show_last_reboot = true
-# 
-# [source.rs1-example-v6]
-# name = rs1.example.com (IPv6)
-# [source.rs1-example-v6.birdwatcher]
-# timezone = Europe/Brussels
-# api = http://rs1.example.com:29186/
-# # single_table / multi_table
-# type = multi_table
-# peer_table_prefix = T
-# pipe_protocol_prefix = M
-# 
-# # Configure optional alternative pipes
-# # alt_pipe_protocol_prefix = "C"
-# # alt_pipe_protocol_suffix = "_lg"
-# 
-# # Timeout in seconds to wait for the status data (only required if enable_neighbors_status_refresh is true)
-# neighbors_refresh_timeout = 2
-# 
-# # Optional: Examples for time format
-# # Please see https://golang.org/pkg/time/#pkg-constants for an
-# # explanation on how time parsing in go works.
-# servertime = 2006-01-02T15:04:05Z07:00
-# servertime_short = 02.01.2006
-# servertime_ext = Mon, 02 Jan 2006 15:04:05 -0700
-# 
-# 
-# # Routeservers
-# # GoBGP Example
-# # [source.rs2-example]
-# # name = rs2.example.com
-# # group = AMS
-# # [source.rs2-example.gobgp]
-# # host is the IP (or DNS name) and port for the remote GoBGP daemon
-# # host = rs2.example.com:50051
-# # Optional: processing_timeout is a timeout in seconds
-# #   configured per gRPC call to a given GoBGP daemon.
-# #   Default: 300
-# # processing_timeout = 300
-# 
-# # [source.rs0-example]
-# # name = rs-example.openbgpd-state-server
-# # [source.rs0-example.openbgpd-state-server]
-# # api = http://165.22.27.105:29111/api
-# 
-# # Cache results from openbgpd for n seconds, 0 disables the cache.
-# # cache_ttl = 30
-# # routes_cache_size = 1024 # Neighbors
-# 
-# # [source.rs0-example-bgplgd]
-# # name = rs-example.bgplgd
-# # [source.rs0-example-bgplgd.openbgpd-bgplgd]
-# # api = http://165.22.27.105:29111/api
-# 
 [source.rs-openbsd]
 name = rs-openbsd.sfmix.org (OpenBGPD/OpenBSD)
+hidden_neighbors = 100.64.0.0/10
 [source.rs-openbsd.openbgpd-bgplgd]
 api = http://100.64.0.7/api/
+
 [source.looking_glass]
 name = lg.sfmix.org (SFMIX Looking Glass)
 [source.looking_glass.openbgpd-bgplgd]
 api = https://lg.sfmix.org/api/
+
 [source.quarantine_looking_glass]
 name = quarantine-lg.sfmix.org (SFMIX Quarantine VLAN Looking Glass)
 [source.quarantine_looking_glass.openbgpd-bgplgd]
