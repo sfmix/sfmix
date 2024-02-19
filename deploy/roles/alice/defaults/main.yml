@@ -1,13 +1,6 @@
 ---
-# alice_git_repo_version: "6.0.0"
-# alice_git_repo_url: "https://github.com/alice-lg/alice-lg.git"
-
-# FIXME: Set this back to upstream once these PRs land:
-## https://github.com/alice-lg/alice-lg/pull/137
-## https://github.com/alice-lg/alice-lg/pull/141
-## https://github.com/alice-lg/alice-lg/pull/143
-alice_git_repo_version: "ca24c0979a455de2c4f05b6cd3df06e678a82a0d"
-alice_git_repo_url: "https://github.com/jof/alice-lg.git"
+alice_git_repo_version: "6.0.0"
+alice_git_repo_url: "https://github.com/alice-lg/alice-lg.git"
 
 alice_domain: alice.sfmix.org
 alice_config_file: /opt/alice/alice.conf
