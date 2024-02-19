@@ -283,11 +283,11 @@ bgp.next_hop = Next Hop
 # Routeservers
 [source.rs-linux]
 name = rs-linux.sfmix.org (BIRD/Linux)
+hidden_neighbors = 100.64.0.0/10
 [source.rs-linux.birdwatcher]
 api = http://mgmt.rs-linux.sfmix.org:29184/
 type = single_table
 show_last_reboot = true
-hidden_neighbors = 100.64.0.0/10
 servertime = 2006-01-02T15:04:05Z07:00
 servertime_short = 2006-01-02 15:04:05
 servertime_ext = 2006-01-02 15:04:05
