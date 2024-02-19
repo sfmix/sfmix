@@ -12,4 +12,21 @@
     name: birdwatcher
     build:
       path: "{{ sfmix_route_server_linux_birdwatcher_directory }}/repo"
+      network: host
     source: build
+    tag: "{{ sfmix_route_server_linux_birdwatcher_version | replace('/', '_') }}"
+    force_source: true
+  notify: Remove birdwatcher container
+
+- name: Remove birdwatcher container
+  become: true
+  community.docker.docker_container:
+    name: birdwatcher
+    state: absent
+
+- name: Restart birdwatcher
+  become: true
+  community.docker.docker_container:
+    name: birdwatcher
+    restart: true
+    state: started

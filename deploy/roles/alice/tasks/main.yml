@@ -34,7 +34,7 @@
   become: true
   community.docker.docker_container:
     name: alice
-    image: "alice-lg:{{ alice_git_repo_version }}"
+    image: "alice-lg:{{ alice_git_repo_version | replace('/', '_') }}"
     restart_policy: unless-stopped
     network_mode: host
     volumes:

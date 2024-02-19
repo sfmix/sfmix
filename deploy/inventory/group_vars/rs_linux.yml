@@ -6,8 +6,8 @@ arouteserver_daemon_version: 2.0.8
 # FIXME: Overridden, pending merging this PR: https://github.com/alice-lg/birdwatcher/pull/54
 # FIXME: Overridden, pending merging this PR: https://github.com/alice-lg/birdwatcher/pull/56
 sfmix_route_server_linux_birdwatcher_repo: "https://github.com/jof/birdwatcher.git"
-sfmix_route_server_linux_birdwatcher_release: "jof/sfmix"
-# sfmix_route_server_linux_birdwatcher_release: "2.2.5"
+sfmix_route_server_linux_birdwatcher_version: "jof/sfmix"
+# sfmix_route_server_linux_birdwatcher_version: "2.2.5"
 #
 redis_bind: 127.0.0.1
 redis_version: 6.2.6

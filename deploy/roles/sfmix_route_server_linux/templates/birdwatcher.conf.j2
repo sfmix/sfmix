@@ -5,7 +5,9 @@
 [server]
 # Restrict access to certain IPs. Leave empty to allow from all.
 allow_from = [
-    "100.64.1.7", # alice
+{% for subnet in ixp_admin_source_subnets %}
+    "{{ subnet }}",
+{% endfor %}
 ]
 # Allow queries that bypass the cache
 allow_uncached = false
@@ -75,12 +77,6 @@ config = "/etc/bird.conf"
 birdc  = "birdc"
 ttl = 5 # time to live (in minutes) for caching of cli output
 dualstack = true
-
-# [bird6]
-# listen = "0.0.0.0:29186"
-# config = "/etc/bird.conf"
-# birdc  = "birdc"
-# ttl = 5 # time to live (in minutes) for caching of cli output
 
 [parser]
 # Remove fields e.g. interface
