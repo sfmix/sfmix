@@ -213,6 +213,7 @@
   tags:
     - alice
   roles:
+    - netbox_data
     - alice
 
 - name: "Alice Looking Glass: participants.json"

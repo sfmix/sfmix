@@ -25,7 +25,7 @@ clients:
     description: {{ participant.description }}
     cfg:
       attach_custom_communities:
-        - "member_type_{{ participant.custom_fields.participant_type | lower }}"
+        - "participant_type_{{ participant.custom_fields.participant_type | lower }}"
         - "colo_{{ netbox_sites[netbox_devices[peering_port.device.id].site.id].name }}"
       filtering:
         rpki:
