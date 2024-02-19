@@ -67,7 +67,7 @@
     name: bgplgd
     state: started
 
-- name: "Check for /etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem"
+- name: "Check for /etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem" # noqa name[template]
   become: true
   ansible.builtin.stat:
     path: "/etc/ssl/{{ sfmix_looking_glass_web_hostname }}.fullchain.pem"
