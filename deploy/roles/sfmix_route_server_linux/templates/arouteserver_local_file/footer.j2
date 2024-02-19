@@ -3,7 +3,7 @@ protocol bgp SFlowRT {
     local as {{ arouteserver_rs_asn }};
     neighbor {{ sfmix_sflow_collector_bgp_address }} as {{ sfmix_sflow_collector_bgp_asn }};
     rs client;
-    passive on;
+    passive off;
     ttl security off;
     ipv4 {
         secondary;
