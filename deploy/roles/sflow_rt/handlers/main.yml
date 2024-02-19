@@ -1,0 +1,7 @@
+---
+- name: Restart sflow-rt
+  become: true
+  community.docker.docker_container:
+    name: sflow-rt
+    restart: true
+    state: started
