@@ -14,7 +14,7 @@ config_context: false
 group_by:
   - device_roles
 query_filters:
-  - role: management-router
+  - role: management_router
 group_names_raw: true
 interfaces: true
 site_data: true
