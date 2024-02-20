@@ -6,12 +6,14 @@ protocol bgp SFlowRT {
     passive off;
     ttl security off;
     ipv4 {
-        secondary;
+        secondary on;
+        add paths tx;
         import none;
         export all;
     };
     ipv6 {
-        secondary;
+        secondary on;
+        add paths tx;
         import none;
         export all;
     };
