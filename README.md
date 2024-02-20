@@ -8,6 +8,12 @@ More information is at https://sfmix.org/
 
 Deployment tools and configuration with ansible
 
+## `documentation/`
+
+Public SFMIX documentation information.
+
+Private documentation is in the private repo https://github.com/sfmix/documentation
+
 ## `scripts/`
 * `new_participant.py`
   * Creates a new Internet Exchange participant inside of Netbox, interactively
