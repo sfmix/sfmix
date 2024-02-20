@@ -82,9 +82,9 @@
           - domains:
               - "{{ alice_domain }}"
         nginx_remove_default_vhost: true
+        nginx_server_tokens: "off"
         nginx_extra_http_options: |
           limit_req_zone $binary_remote_addr zone=ip:10m rate=5r/s;
-          server_tokens off;
         nginx_vhosts:
           - listen: "80"
             server_name: "_"
