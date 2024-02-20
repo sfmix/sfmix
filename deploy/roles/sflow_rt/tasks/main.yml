@@ -17,17 +17,6 @@
     mode: u=rwx,go=rx
   with_items:
     - "{{ sflow_rt_store_dir }}"
-    - "{{ sflow_rt_etc_dir }}"
-
-- name: "Sflow-rt: Place bgp.js"
-  become: true
-  ansible.builtin.template:
-    src: bgp.js.j2
-    dest: "{{ sflow_rt_etc_dir }}/bgp.js"
-    owner: root
-    group: root
-    mode: ug=rw,o=r
-  notify: Restart sflow-rt
 
 - name: "Sflow-rt: run container: {{ sflow_rt_docker_container }}"
   community.docker.docker_container:
@@ -36,10 +25,15 @@
     restart_policy: unless-stopped
     network_mode: host
     user: nobody
-    command: "-Dscript.file=/sflow-rt/etc/bgp.js -Dbgp.start=yes"
+    command: >-
+      -Dixp.bogons=yes
+      -Dixp.bgp.router=100.64.0.18
+      -Dixp.bgp.as={{ sfmix_sflow_collector_bgp_asn }}
+      -Dixp.bgp.id={{ sfmix_sflow_collector_bgp_address }}
+      -Dixp.bgp.multipath=yes
+      -Dbgp.start=yes
     volumes:
       - "{{ sflow_rt_store_dir }}:/sflow-rt/store"
-      - "{{ sflow_rt_etc_dir }}:/sflow-rt/etc:ro"
 
 - name: "Install ~/sfmix/topology.py requirements"
   become: true
