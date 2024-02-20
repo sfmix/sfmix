@@ -1,4 +1,0 @@
-[submodule "libreixp"]
-	path = libreixp
-	url = git@github.com:sfmix/libreixp.git
-	branch = main
