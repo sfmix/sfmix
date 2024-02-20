@@ -1,4 +1,3 @@
 ---
 sflow_rt_store_dir: /opt/sflow-rt/store
-sflow_rt_etc_dir: /opt/sflow-rt/etc
 sflow_rt_docker_container: sflow/ixp-metrics
