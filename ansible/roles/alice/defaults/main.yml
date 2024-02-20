@@ -4,3 +4,6 @@ alice_git_repo_url: "https://github.com/alice-lg/alice-lg.git"
 
 alice_domain: alice.sfmix.org
 alice_config_file: /opt/alice/alice.conf
+alice_theme_directory: /opt/alice/theme
+alice_theme_repo_url: https://github.com/alice-lg/alice-theme-example
+alice_theme_repo_version: master

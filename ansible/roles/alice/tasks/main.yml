@@ -13,12 +13,19 @@
   become_user: sfmix
   ansible.builtin.git:
     repo: "{{ alice_git_repo_url }}"
-    dest: /opt/alice/alice-lg
     version: "{{ alice_git_repo_version }}"
+    dest: /opt/alice/alice-lg
   notify: Re-build alice-lg
 
 - name: Trigger alice rebuilt and old container destruction
   ansible.builtin.meta: flush_handlers
+
+- name: "Checkout Alice Theme Repository"
+  become: true
+  ansible.builtin.git:
+    repo: "{{ alice_theme_repo_url }}"
+    version: "{{ alice_theme_repo_version }}"
+    dest: "{{ alice_theme_directory }}"
 
 - name: "Template {{ alice_config_file }}"
   become: true
@@ -39,6 +46,7 @@
     network_mode: host
     volumes:
       - "{{ alice_config_file }}:{{ alice_config_file }}"
+      - "{{ alice_theme_directory }}:{{ alice_theme_directory }}"
     user: nobody
     command: "alice-lg -config {{ alice_config_file }}"
 
