@@ -39,10 +39,10 @@ interval = 5
 # Try to release memory via a forced GC/SCVG run on every housekeeping run
 force_release_memory = true
 
-# [theme]
-# path = /path/to/my/alice/theme/files
-# Optional:
-# url_base = /theme
+[theme]
+path = {{ alice_theme_directory }}
+Optional:
+url_base = /theme
 
 [pagination]
 # Routes tables can be paginated, which comes in handy with
@@ -221,7 +221,7 @@ invalid     = {{ arouteserver_rs_asn }}:1000:4
 #
 {% for site_id, site in netbox_sites.items() %}
 {%   if site.custom_fields.site_id is not none %}
-{{ arouteserver_rs_asn }}:1984:{{ site.custom_fields.site_id }} = Learned from Colo: {{ site.name }}
+{{ arouteserver_rs_asn }}:1984:{{ site.custom_fields.site_id }} = Learned from Colo: {{ site.name }} ({{ site.description }})
 {%   endif %}
 {% endfor %}
 
@@ -282,7 +282,7 @@ bgp.next_hop = Next Hop
 
 # Routeservers
 [source.rs-linux]
-name = rs-linux.sfmix.org (BIRD/Linux)
+name = BIRD/Linux Route Server
 hidden_neighbors = 100.64.0.0/10
 [source.rs-linux.birdwatcher]
 api = http://mgmt.rs-linux.sfmix.org:29184/
@@ -293,17 +293,17 @@ servertime_short = 2006-01-02 15:04:05
 servertime_ext = 2006-01-02 15:04:05
 
 [source.rs-openbsd]
-name = rs-openbsd.sfmix.org (OpenBGPD/OpenBSD)
+name = OpenBGPD/OpenBSD Route Server
 hidden_neighbors = 100.64.0.0/10
 [source.rs-openbsd.openbgpd-bgplgd]
 api = http://100.64.0.7/api/
 
 [source.looking_glass]
-name = lg.sfmix.org (SFMIX Looking Glass)
+name = Looking Glass Service
 [source.looking_glass.openbgpd-bgplgd]
 api = https://lg.sfmix.org/api/
 
 [source.quarantine_looking_glass]
-name = quarantine-lg.sfmix.org (SFMIX Quarantine VLAN Looking Glass)
+name = Quarantine VLAN Looking Glass
 [source.quarantine_looking_glass.openbgpd-bgplgd]
 api = http://mgmt.quarantine-lg.sfmix.org/api/
