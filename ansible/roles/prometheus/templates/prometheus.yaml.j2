@@ -36,6 +36,7 @@ scrape_configs:
         key: ['udpsourceport', 'udpdestinationport']
         label: ['udp_source_port', 'udp_destination_port']
         value: ['frames']
+        aggMode: ['edge']
         filter: ['udpsourceport=80,443,udpdestinationport=17,19,123,123,389,11211']
         # This should at least be sized at the product of the source and destination ports
         maxFlows: ['100']
