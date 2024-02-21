@@ -68,6 +68,9 @@
   ansible.builtin.cron:
     name: "Import participants.json"
     user: sfmix
-    job: 'curl https://lg.sfmix.org/participants.json | curl -d @- -X PUT -H "Content-Type: application/json" http://localhost:8008/app/ixp-metrics/scripts/metrics.js/members/json'
+    job: >
+      curl https://lg.sfmix.org/participants.json |
+      curl -d @- -X PUT -H "Content-Type: application/json"
+      http://localhost:8008/app/ixp-metrics/scripts/metrics.js/members/json
     minute: "30"
     hour: "*/12"
