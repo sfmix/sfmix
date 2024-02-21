@@ -23,6 +23,22 @@ scrape_configs:
       static_configs:
       - targets:
           - metrics.sfo02.sfmix.org:8008
+    - job_name: sflow-rt-pre-amp
+      metrics_path: /app/prometheus/scripts/export.js/flows/ALL/txt
+      scheme: http
+      scrape_interval: 10s
+      scrape_timeout: 4s
+      static_configs:
+        - targets:
+          - metrics.sfo02.sfmix.org:8008
+      params:
+        metric: ["pre_amp_suspect_frames"]
+        key: ['udpsourceport', 'udpdestinationport']
+        label: ['udp_source_port', 'udp_destination_port']
+        value: ['frames']
+        filter: ['udpsourceport=80,443,udpdestinationport=17,19,123,123,389,11211']
+        # This should at least be sized at the product of the source and destination ports
+        maxFlows: ['100']
     - job_name: netbox
       scheme: https
       scrape_interval: 10s
