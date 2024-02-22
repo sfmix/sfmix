@@ -35,6 +35,7 @@ ch.setFormatter(CustomFormatter())
 logger.addHandler(ch)
 
 def discover_ip_map(peering_lan: str) -> dict[str, str]:
+    logger.debug(f"Discovering an IP Map for {peering_lan}")
     lookup_server = lookup_server_for_peering_lan(peering_lan)
 
     peering_lan_routes_json = subprocess.check_output(
@@ -47,6 +48,7 @@ def discover_ip_map(peering_lan: str) -> dict[str, str]:
     peering_lan_route = peering_lan_routes[0]
     peering_lan_device = peering_lan_route["dev"]
 
+    logger.debug(f"Scanning IPs in {peering_lan}")
     peering_lan_neighbors_json = subprocess.check_output(
         f"ssh {lookup_server} '"
         f"  fping -c 1 {' '.join(list_ips_for_peering_lan(peering_lan))} --quiet >/dev/null 2>&1; "
@@ -106,6 +108,7 @@ def list_peering_lans() -> List[str]:
     List the Peering LAN VLANs in Netbox, and return a listing of the associated
     peering LAN IP prefixes
     """
+    logger.debug("Listing all Peering LANs from Netbox")
     netbox = netbox_api_client()
     peering_lans = []
     for vlan in netbox.ipam.vlans.filter(tag="peering_lan"):
@@ -133,7 +136,6 @@ def netbox_api_client() -> pynetbox.core.api.Api:
 
 
 if __name__ == "__main__":
-
     ip_mac_map: Dict[str, str] = dict()
     for peering_lan in list_peering_lans():
         ip_mac_map.update(discover_ip_map(peering_lan))
