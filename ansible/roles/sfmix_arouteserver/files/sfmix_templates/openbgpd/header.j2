@@ -1,6 +1,8 @@
 AS {{ cfg.rs_as }}
 router-id {{ cfg.router_id }}
 
+socket "/var/run/bgpd.rsock" restricted
+
 fib-update no
 {% if not "logging" is used_local_file %}
 log updates
