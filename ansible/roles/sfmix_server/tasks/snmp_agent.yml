@@ -31,5 +31,5 @@
     dest: /etc/snmpd.conf
     owner: root
     group: wheel
-    mode: ug=rw,o=
+    mode: u=rw,go=
   notify: Restart snmpd
