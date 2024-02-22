@@ -99,8 +99,7 @@ def lookup_server_for_peering_lan(peering_lan: str) -> str:
     For now, we just have the one Linux box and a single peering LAN, but this
     method could be extended in the future to support multiple Peering LANs
     """
-    # return "mgmt.rs-linux.sfmix.org"
-    return "rs-linux.teleport.sfmix.org"
+    return "mgmt.rs-linux.sfmix.org"
 
 
 def list_peering_lans() -> List[str]:
