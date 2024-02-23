@@ -37,7 +37,7 @@ scrape_configs:
         label: ['udp_source_port', 'udp_destination_port']
         value: ['frames']
         aggMode: ['edge']
-        filter: ['udpsourceport=80,443,udpdestinationport=17,19,123,123,389,11211']
+        filter: ['udpsourceport=80,443&udpdestinationport=17,19,53,111,123,161,389,520,1900,11211']
         # This should at least be sized at the product of the source and destination ports
         maxFlows: ['100']
     - job_name: netbox
