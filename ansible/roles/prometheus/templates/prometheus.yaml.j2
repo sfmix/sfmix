@@ -33,13 +33,13 @@ scrape_configs:
           - metrics.sfo02.sfmix.org:8008
       params:
         metric: ["pre_amp_suspect_frames"]
-        key: ['udpsourceport', 'udpdestinationport']
-        label: ['udp_source_port', 'udp_destination_port']
-        value: ['frames']
-        aggMode: ['edge']
-        filter: ['udpsourceport=80,443&udpdestinationport=17,19,53,111,123,161,389,520,1900,11211']
+        key: ["udpsourceport", "udpdestinationport"]
+        label: ["udp_source_port", "udp_destination_port"]
+        value: ["frames"]
+        aggMode: ["edge"]
+        filter: ["udpsourceport=80,443&udpdestinationport=17,19,53,111,123,161,389,520,1900,11211"]
         # This should at least be sized at the product of the source and destination ports
-        maxFlows: ['100']
+        maxFlows: ["100"]
     - job_name: netbox
       scheme: https
       scrape_interval: 10s
