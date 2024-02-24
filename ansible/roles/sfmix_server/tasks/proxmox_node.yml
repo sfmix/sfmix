@@ -1,0 +1,19 @@
+---
+- name: Install common packages for Proxmox Hypervisors
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    state: present
+  loop:
+    - ethtool
+    - freeipmi-tools
+    - ifupdown2
+    - ipmitool
+    - lldpd
+    - locate
+    - net-tools
+    - ntp
+    - sysstat
+    - traceroute
+    - vim
