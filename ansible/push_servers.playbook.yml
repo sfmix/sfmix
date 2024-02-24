@@ -237,3 +237,17 @@
   roles:
     - netbox_data
     - sfmix_route_server_openbsd_legacy
+
+- name: "Proxmox Hypervisors"
+  hosts: proxmox_hypervisors
+  tasks:
+    - name: Apply scoped sfmix_server tasks
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: "{{ item }}"
+      loop:
+        - proxmox_node.yml
+        - snmp_agent.yml
+        - docker.yml
+        - users.yml
+        - sfmix_user.yml
