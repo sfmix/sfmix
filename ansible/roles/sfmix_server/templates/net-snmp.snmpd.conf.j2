@@ -17,9 +17,7 @@ iquerySecName   internalUser
 rouser          internalUser
 defaultMonitors          yes
 linkUpDownNotifications  yes
- extend    test1   /bin/echo  Hello, world!
- extend-sh test2   echo Hello, world! ; echo Hi there ; exit 35
- master          agentx
+master          agentx
 extend proxmox /usr/bin/sudo /usr/local/bin/proxmox
 extend smart /usr/bin/sudo /etc/snmp/smart
 extend zfs /etc/snmp/zfs
