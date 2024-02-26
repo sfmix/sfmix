@@ -248,6 +248,3 @@
       loop:
         - proxmox_node.yml
         - snmp_agent.yml
-        - docker.yml
-        - users.yml
-        - sfmix_user.yml
