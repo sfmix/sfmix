@@ -1,0 +1,85 @@
+---
+- name: Install common packages for Proxmox Hypervisors
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    state: present
+  loop:
+    - cpanminus
+    - ethtool
+    - freeipmi-tools
+    - ifupdown2
+    - ipmitool
+    - libpve-apiclient-perl
+    - lldpd
+    - locate
+    - net-tools
+    - ntp
+    - smartmontools
+    - sysstat
+    - traceroute
+    - vim
+    - zlib1g-dev
+
+- name: "Place /usr/local/bin/proxmox"
+  become: true
+  ansible.builtin.copy:
+    src: proxmox
+    dest: /usr/local/bin/proxmox
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+
+- name: "CPAN: Install {{ item }}"
+  become: true
+  community.general.cpanm:
+    name: "{{ item }}"
+  loop:
+    - JSON
+    - MIME::Base64
+
+- name: "Place /etc/snmp/smart"
+  become: true
+  ansible.builtin.copy:
+    src: smart
+    dest: /etc/snmp/smart
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+
+- name: "CPAN: Install {{ item }}"
+  become: true
+  community.general.cpanm:
+    name: "{{ item }}"
+  loop:
+    - Gzip::Faster
+    - JSON
+    - MIME::Base64
+
+- name: "Place /etc/snmp/zfs"
+  become: true
+  ansible.builtin.copy:
+    src: zfs
+    dest: /etc/snmp/zfs
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+
+- name: "Debian-snmp: Allow proxmox"
+  become: true
+  community.general.sudoers:
+    name: sudoers
+    user: Debian-snmp
+    nopassword: true
+    commands: /usr/local/bin/proxmox
+
+- name: "Debian-snmp: Allow smart/smartctl"
+  become: true
+  community.general.sudoers:
+    name: sudoers
+    user: Debian-snmp
+    nopassword: true
+    commands:
+      - /etc/snmp/smart
+      - /usr/bin/env smartctl
