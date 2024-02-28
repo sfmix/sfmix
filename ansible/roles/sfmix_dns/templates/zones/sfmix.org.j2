@@ -233,9 +233,11 @@ backup1					IN	A		100.64.1.6
 mgmt.alice				IN	A		100.64.1.7
 shell					IN	A		100.64.1.8
 mgmt.librenms				IN	A		100.64.1.9
-vmbr10.pve01-warmspringsblvd48233-fmt	IN	A		100.64.1.10
+vmbr0.pve01-warmspringsblvd48233-fmt	IN	A		100.64.1.10
+pve01-warmspringsblvd48233-fmt		IN	CNAME		vmbr0.pve01-warmspringsblvd48233-fmt
 ipmi.pve01-warmspringsblvd48233-fmt	IN	A		100.64.1.11
 vmbr0.pve02-warmspringsblvd48233-fmt	IN	A		100.64.1.12
+pve02-warmspringsblvd48233-fmt		IN	CNAME		vmbr0.pve02-warmspringsblvd48233-fmt
 ipmi.pve02-warmspringsblvd48233-fmt	IN	A		100.64.1.13
 mgmt.rs-openbsd				IN	A		100.64.1.14
 mgmt.quarantine-lg			IN	A		100.64.1.25

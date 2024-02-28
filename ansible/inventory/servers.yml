@@ -70,3 +70,9 @@ all:
     rpki_linux:
       hosts:
         rpki-linux.sfmix.org:
+    proxmox_hypervisors:
+      hosts:
+        pve01-paulave200-sfo.sfmix.org:
+        pve02-paulave200-sfo.sfmix.org:
+        pve01-warmspringsblvd48233-fmt.sfmix.org:
+        pve02-warmspringsblvd48233-fmt.sfmix.org:
