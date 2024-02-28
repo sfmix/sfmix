@@ -5,3 +5,20 @@ agentaddress udp:161,udp6:161
 rocommunity  {{ sfmix_server_snmp_community }} {{ subnet }}
 rocommunity6 {{ sfmix_server_snmp_community }} {{ subnet }}
 {% endfor %}
+{% if 'proxmox_hypervisors' in group_names %}
+proc  mountd
+proc  ntalkd    4
+proc  sendmail 10 1
+disk       /     10000
+disk       /var  5%
+includeAllDisks  10%
+load   12 10 5
+iquerySecName   internalUser
+rouser          internalUser
+defaultMonitors          yes
+linkUpDownNotifications  yes
+master          agentx
+extend proxmox /usr/bin/sudo /usr/local/bin/proxmox
+extend smart /usr/bin/sudo /etc/snmp/smart
+extend zfs /etc/snmp/zfs
+{% endif %}
