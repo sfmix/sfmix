@@ -16,6 +16,7 @@ pytz = "*"
 paramiko = "*"
 pynetbox = "*"
 netaddr = "*"
+jsonschema = "*"
 
 [dev-packages]
 ansible-lint = "*"
