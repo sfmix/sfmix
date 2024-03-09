@@ -10,3 +10,9 @@
   ansible.builtin.service:
     name: sshd
     state: restarted
+
+- name: Restart docker
+  become: true
+  ansible.builtin.service:
+    name: docker
+    state: restarted

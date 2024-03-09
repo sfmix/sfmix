@@ -6,6 +6,13 @@
     state: present
     update_cache: true
 
+- name: "Configure docker engine"
+  become: true
+  ansible.builtin.copy:
+    src: docker.daemon.json
+    dest: /etc/docker/daemon.json
+  notify: Restart docker
+
 - name: Add SFMIX users to docker group
   become: true
   ansible.builtin.user:
