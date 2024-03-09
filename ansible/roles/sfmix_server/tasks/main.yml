@@ -12,6 +12,8 @@
   when: ansible_system == "Linux"
   ansible.builtin.import_tasks:
     file: docker.yml
+  tags:
+    - docker
 
 - name: "SFMIX Server: sfmix User"
   ansible.builtin.import_tasks: sfmix_user.yml
