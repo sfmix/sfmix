@@ -50,11 +50,6 @@ all:
       hosts:
         rs-openbsd.sfmix.org:
           ansible_host: mgmt.new-rs-openbsd.sfmix.org
-    rs_openbsd_legacy:
-      hosts:
-        rs-openbsd-legacy.sfmix.org:
-          ansible_host: 192.33.255.8
-          ansible_become_method: doas
     looking_glass:
       hosts:
         lg.sfmix.org:
