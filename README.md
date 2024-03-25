@@ -24,4 +24,6 @@ Private documentation is in the private repo https://github.com/sfmix/documentat
     Route Server, this compares the session states between these Route Servers
     to find participant router-IPs that do not have session parity between the
     two Route Servers
-  
+* `mac_discovery.py`
+  * Using ARP and ICMPv6 Neighbor Discovery, search for the current MAC address
+    bindings for participants and update Netbox with the current values. 
