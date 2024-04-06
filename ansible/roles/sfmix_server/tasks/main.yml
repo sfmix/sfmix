@@ -18,6 +18,9 @@
 - name: "SFMIX Server: sfmix User"
   ansible.builtin.import_tasks: sfmix_user.yml
 
+- name: "SFMIX Server: oxidized User"
+  ansible.builtin.import_tasks: oxidized_user.yml
+
 - name: "SFMIX Server: Users"
   ansible.builtin.import_tasks: users.yml
 

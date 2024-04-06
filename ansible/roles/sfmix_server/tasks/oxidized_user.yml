@@ -1,0 +1,41 @@
+---
+- name: Create "oxidized" user (Linux)
+  when: ansible_system == "Linux"
+  become: true
+  ansible.builtin.user:
+    name: oxidized
+    state: present
+    groups:
+      - sudo
+      - docker
+    append: true
+    shell: /usr/sbin/nologin
+
+- name: Create "oxidized" user (OpenBSD)
+  when: ansible_system == "OpenBSD"
+  become: true
+  ansible.builtin.user:
+    name: oxidized
+    state: present
+    groups:
+      - wheel
+    append: true
+    shell: /sbin/nologin
+
+- name: Create ~oxidized/.ssh/
+  become: true
+  ansible.builtin.file:
+    path: /home/oxidized/.ssh
+    owner: oxidized
+    group: oxidized
+    mode: u=rwx,go=rx
+    state: directory
+
+- name: Template ~oxidized/.ssh/authorized_keys
+  become: true
+  ansible.builtin.template:
+    src: oxidized.authorized_keys.j2
+    dest: /home/oxidized/.ssh/authorized_keys
+    owner: oxidized
+    group: oxidized
+    mode: u=rw,go=r
