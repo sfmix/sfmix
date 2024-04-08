@@ -55,7 +55,7 @@ bind_acls:
       # mgmt-gw.scl02
       - 66.128.149.4
       # mgmt-gw.scl04
-      - 166.88.18.186
+      - 50.117.26.130
   - name: secondaries
     match_list:
       # ns1.he.net
