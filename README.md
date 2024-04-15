@@ -27,3 +27,6 @@ Private documentation is in the private repo https://github.com/sfmix/documentat
 * `mac_discovery.py`
   * Using ARP and ICMPv6 Neighbor Discovery, search for the current MAC address
     bindings for participants and update Netbox with the current values. 
+* `participant_speeds.py`
+  * Using the public `participants.json` file, create a reporting of ports
+    speeds by site, and in total.
