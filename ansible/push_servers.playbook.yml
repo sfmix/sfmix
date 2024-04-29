@@ -11,6 +11,8 @@
 
 - name: SFMIX Servers
   hosts: servers
+  tags:
+    - sfmix_server
   roles:
     - sfmix_server
 
