@@ -128,6 +128,8 @@ sfmix_admin_users:
     github_username: xenith
   - username: igloo
     github_username: igloo22225
+  - username: richgibson
+    github_username: RichGibson
 sfmix_host_local_users: []
 sfmix_host_local_admin_source_subnets: []
 grafana_sfmix_admin: !vault |
