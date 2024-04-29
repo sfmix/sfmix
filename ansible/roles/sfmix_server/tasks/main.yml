@@ -23,6 +23,8 @@
 
 - name: "SFMIX Server: Users"
   ansible.builtin.import_tasks: users.yml
+  tags:
+    - sfmix_server_users
 
 - name: "SFMIX Server: common packages"
   ansible.builtin.import_tasks: common_packages.yml
@@ -31,7 +33,8 @@
   when: ansible_system == "Linux"
   ansible.builtin.import_tasks:
     file: ufw.yml
-  tags: ufw
+  tags:
+    - ufw
 
 - name: "SFMIX Server: DNS"
   when: ansible_system == "Linux"
