@@ -15,6 +15,7 @@ all:
         rs_linux:
         rs_openbsd:
         looking_glass:
+        quarantine_looking_glass:
         alice:
         rpki_linux:
     netbox:
