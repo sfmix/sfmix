@@ -1,3 +1,4 @@
 ---
 ansible_connection: ansible.netcommon.network_cli
 ansible_network_os: vyos.vyos.vyos
+ansible_python_interpreter: auto_silent # don't issue warning about auto-detected ansible_python_interpreter under VyOS
