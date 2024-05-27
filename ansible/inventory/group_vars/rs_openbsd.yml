@@ -3,3 +3,4 @@ arouteserver_router_id: 206.197.187.254
 arouteserver_daemon: openbgpd
 arouteserver_daemon_version: 8.3
 arouteserver_perform_graceful_shutdown: false
+ansible_python_interpreter: auto_silent # don't issue warning about auto-detected ansible_python_interpreter under OpenBSD
