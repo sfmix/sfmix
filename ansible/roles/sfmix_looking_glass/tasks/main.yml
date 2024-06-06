@@ -100,6 +100,10 @@
   with_items:
     - /var/www/cgi-bin/bgplg
     - /var/www/bin/bgpctl
+    - /var/www/bin/ping
+    - /var/www/bin/ping6
+    - /var/www/bin/traceroute
+    - /var/www/bin/traceroute6
 
 - name: Make chroot cgi-bins sticky-executable
   when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg
