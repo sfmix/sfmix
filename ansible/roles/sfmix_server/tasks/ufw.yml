@@ -18,3 +18,5 @@
   with_items:
     - "{{ ixp_admin_source_subnets }}"
     - "{{ sfmix_host_local_admin_source_subnets }}"
+  tags:
+    - firewall

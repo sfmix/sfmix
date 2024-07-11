@@ -6,6 +6,8 @@
     port: 8323
     from_ip: "{{ item }}"
   loop: "{{ ixp_admin_source_subnets }}"
+  tags:
+    - firewall
 
 - name: "Firewall: Allow from SFMIX: RPKI RTR(3323)"
   become: true
@@ -14,6 +16,8 @@
     port: 3323
     from_ip: "{{ item }}"
   loop: "{{ ixp_admin_source_subnets }}"
+  tags:
+    - firewall
 
 - name: Ensure the /opt/routinator_rpki_cache directory
   become: true
