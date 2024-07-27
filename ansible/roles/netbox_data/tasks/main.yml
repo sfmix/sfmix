@@ -143,7 +143,7 @@
         query('netbox.netbox.nb_lookup',
           'devices',
           api_endpoint=ixp_netbox_api_endpoint,
-          api_filter='role=peering_switch',
+          api_filter='status=active role=peering_switch',
           token=ixp_netbox_api_token
         ) | items2dict
       }}
