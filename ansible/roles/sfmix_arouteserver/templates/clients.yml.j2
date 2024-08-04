@@ -18,6 +18,21 @@ clients:
     ip:
       - "206.197.187.2"
       - "2001:504:30::ba01:2276:2"
+  - asn: 12276
+    description: SFMIX
+    cfg:
+      attach_custom_communities:
+        - "participant_type_infrastructure"
+        - "colo_fmt01"
+      filtering:
+        rpki:
+          reject_invalid: True
+        max_prefix:
+          peering_db:
+            enabled: True
+    ip:
+      - "206.197.187.3"
+      - "2001:504:30::ba01:2276:3"
 {%     else %}
 {%       for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
 {%         if peering_port.custom_fields.participant.id == participant_id %}
