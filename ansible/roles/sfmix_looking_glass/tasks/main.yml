@@ -86,7 +86,7 @@
   become: true
   ansible.builtin.cron:
     name: run acme-client
-    job: "acme-client {{ sfmix_looking_glass_web_hostname }}"
+    job: "acme-client {{ sfmix_looking_glass_web_hostname }} && rcctl reload httpd"
     minute: "0"
     hour: "2"
     user: root
