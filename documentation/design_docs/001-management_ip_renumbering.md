@@ -43,8 +43,6 @@ In order to leave some room for those public services to grow, we should number 
 
 A /16 of space from the management network /11 will be assigned to each site, and a /24 of that site-specific /16 will be assigned to the management LAN.
 
-
-
 | LAN   | Location ID number | Current IP Space | Proposed IP Space |
 |-------|--------------------|------------------|-------------------|
 | sfo01 | 0                  | 100.64.2.0/24    | 10.0.1.0/24       |
