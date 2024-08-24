@@ -40,6 +40,22 @@ scrape_configs:
         filter: ["udpsourceport=80,443&udpdestinationport=17,19,53,111,123,161,389,520,1900,11211"]
         # This should at least be sized at the product of the source and destination ports
         maxFlows: ["100"]
+    - job_name: sflow-rt-drops
+      metrics_path: /app/prometheus/scripts/export.js/flows/ALL/txt
+      scheme: http
+      scrape_interval: 10s
+      scrape_timeout: 4s
+      static_configs:
+        - targets:
+          - metrics.sfo02.sfmix.org:8008
+      params:
+        metric: ["dropped_packets"]
+        key: ["node:inputifindex","ifname:inputifindex","reason","stack","macsource","macdestination","null:vlan:untagged","null:[or:ipsource:ip6source]:none","null:[or:ipdestination:ip6destination]:none","null:[or:icmptype:icmp6type:ipprotocol:ip6nexthdr]:none"]
+        label: ["switch","port","reason","stack","macsource","macdestination","vlan","src","dst","protocol"]
+        value: ["frames"]
+        dropped: ["true"]
+        maxFlows: ["20"]
+        minValue: ["0.001"]
     - job_name: netbox
       scheme: https
       scrape_interval: 10s
