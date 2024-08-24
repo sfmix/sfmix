@@ -1,0 +1,42 @@
+@version: 4.8
+@include "scl.conf"
+
+options {
+    time-reap(30);
+    mark-freq(0);
+    keep-hostname(no);
+    use-dns(yes);
+    use-fqdn(yes);
+    dns-cache(yes);
+    dns-cache-expire(86400);
+    create-dirs(yes);
+    ts-format(iso);
+};
+
+source s_net_udp {
+    udp(
+        ip(0.0.0.0)
+        port(514)
+        use-dns(yes)
+        use-fqdn(yes)
+    );
+};
+
+source s_net_tcp {
+    tcp(
+        ip(0.0.0.0)
+        port(514)
+        use-dns(yes)
+        use-fqdn(yes)
+    );
+};
+
+destination d_loki {
+    syslog("localhost" transport("tcp") port(1514));
+};
+
+log {
+    source(s_net_udp);
+    source(s_net_tcp);
+    destination(d_loki);
+};
