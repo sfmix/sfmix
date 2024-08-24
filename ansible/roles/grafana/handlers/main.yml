@@ -1,0 +1,18 @@
+- name: "Restart syslog-ng docker container"
+  become: true
+  community.docker.docker_container:
+    name: syslog-ng
+    state: started
+    restart: yes
+- name: "Restart loki docker container"
+  become: true
+  community.docker.docker_container:
+    name: loki
+    state: started
+    restart: yes
+- name: "Restart promtail docker container"
+  become: true
+  community.docker.docker_container:
+    name: promtail
+    state: started
+    restart: yes

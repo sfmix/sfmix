@@ -1,5 +1,5 @@
 ---
-grafana_sfmix_admin: !vault |
+grafana_admin_password: !vault |
   $ANSIBLE_VAULT;1.1;AES256
   35663439356162623465646164346565373566343639633339363430373933376461646437326562
   3132626335303530613663343462346536313337383439640a636261316134313430333662656331
@@ -7,3 +7,6 @@ grafana_sfmix_admin: !vault |
   6132333739616435310a666638363864363261356663633236626562396337373436346636616635
   6363
 grafana_domain: grafana.sfmix.org
+grafana_loki_image: grafana/loki:3.0.0
+grafana_promtail_image: grafana/promtail:3.0.0
+grafana_syslog_ng_image: balabit/syslog-ng:4.8.0

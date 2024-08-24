@@ -69,8 +69,73 @@
     env:
       GF_INSTALL_PLUGINS: "esnet-matrix-panel,knightss27-weathermap-panel"
       GF_LIVE_ALLOWED_ORIGINS: "https://{{ grafana_domain }}"
-      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_sfmix_admin }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
       GF_SECURITY_ADMIN_USER: admin
       GF_SERVER_DOMAIN: "{{ grafana_domain }}"
       GF_SERVER_HTTP_PORT: "3000"
       GF_SERVER_ROOT_URL: "https://{{ grafana_domain }}"
+
+- name: "Grafana Loki: Create directory"
+  become: true
+  ansible.builtin.file:
+    path: /opt/loki
+    state: directory
+    owner: 10001
+    group: 10001
+    mode: ug=rwx,o=rx
+- name: "Grafana Loki: Template loki-config.yaml"
+  become: true
+  ansible.builtin.template:
+    src: loki-config.yaml.j2
+    dest: /opt/loki/loki-config.yaml
+    owner: 10001
+    group: 10001
+    mode: ug=rw,o=r
+  notify: "Restart loki docker container"
+- name: "Grafana Loki: Template promtail-config.yaml"
+  become: true
+  ansible.builtin.template:
+    src: promtail-config.yaml.j2
+    dest: /opt/loki/promtail-config.yaml
+    owner: 10001
+    group: 10001
+    mode: ug=rw,o=r
+  notify: "Restart promtail docker container"
+- name: "Grafana Loki: Template syslog-ng.conf"
+  become: true
+  ansible.builtin.template:
+    src: syslog-ng.conf.j2
+    dest: /opt/loki/syslog-ng.conf
+    owner: root
+    group: root
+    mode: ug=rw,o=r
+  notify: "Restart syslog-ng docker container"
+- name: "Grafana Loki: Run loki"
+  become: true
+  community.docker.docker_container:
+    name: loki
+    image: "{{ grafana_loki_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/loki:/opt/loki
+    command: "-config.file=/opt/loki/loki-config.yaml"
+- name: "Grafana Loki: Run promtail"
+  become: true
+  community.docker.docker_container:
+    name: promtail
+    image: "{{ grafana_promtail_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/loki:/opt/loki
+    command: "-config.file=/opt/loki/promtail-config.yaml"
+- name: "Grafana Loki: Run syslog-ng"
+  become: true
+  community.docker.docker_container:
+    name: syslog-ng
+    image: "{{ grafana_syslog_ng_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/loki/syslog-ng.conf:/etc/syslog-ng/syslog-ng.conf

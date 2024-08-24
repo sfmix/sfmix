@@ -140,7 +140,7 @@ sfmix_admin_users:
     github_username: RichGibson
 sfmix_host_local_users: []
 sfmix_host_local_admin_source_subnets: []
-grafana_sfmix_admin: !vault |
+grafana_admin_password: !vault |
   $ANSIBLE_VAULT;1.1;AES256
   30366430373363343539646261633432666364356334653533303466396532353462333937376336
   3235306639636438323039303430353733613333343936620a353434646465613232653238343566
