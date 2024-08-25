@@ -43,15 +43,15 @@ In order to leave some room for those public services to grow, we should number 
 
 A /16 of space from the management network /11 will be assigned to each site, and a /24 of that site-specific /16 will be assigned to the management LAN.
 
-| LAN   | Location ID number | Current IP Space | Proposed IP Space |
-|-------|--------------------|------------------|-------------------|
-| sfo01 | 0                  | 100.64.2.0/24    | 10.0.1.0/24       |
-| sfo02 | 1                  | 100.64.0.0/24    | 10.1.1.0/24       |
-| fmt01 | 2                  | 100.64.1.0/24    | 10.2.1.0/24       |
-| sjc01 | 3                  | 100.64.5.0/24    | 10.3.1.0/24       |
-| scl01 | 4                  | 100.64.4.0/24    | 10.4.1.0/24       |
-| scl02 | 5                  | 100.64.6.0/24    | 10.5.1.0/24       |
-| scl04 | 6                  | 100.64.7.0/24    | 10.6.1.0/24       |
+| LAN   | Location ID number | Current Management LAN IP Space | Proposed Management LAN IP Space | Proposed Loopback/Service IPs/PTP Space |
+|-------|--------------------|---------------------------------|----------------------------------|-----------------------------------------|
+| sfo01 | 0                  | 100.64.2.0/24                   | 10.0.1.0/24                      | 10.0.0.0/24                             |
+| sfo02 | 1                  | 100.64.0.0/24                   | 10.1.1.0/24                      | 10.1.0.0/24                             |
+| fmt01 | 2                  | 100.64.1.0/24                   | 10.2.1.0/24                      | 10.2.0.0/24                             |
+| sjc01 | 3                  | 100.64.5.0/24                   | 10.3.1.0/24                      | 10.3.0.0/24                             |
+| scl01 | 4                  | 100.64.4.0/24                   | 10.4.1.0/24                      | 10.4.0.0/24                             |
+| scl02 | 5                  | 100.64.6.0/24                   | 10.5.1.0/24                      | 10.5.0.0/24                             |
+| scl04 | 6                  | 100.64.7.0/24                   | 10.6.1.0/24                      | 10.6.0.0/24                             |
 
 ### IPv6
 
@@ -61,15 +61,15 @@ A /56 of space from the management network /48 will be assigned to each site, an
 
 The site location numerical identifiers will be encoded in a decimalized form in 7th byte (bits 48-56), and then site-specific LAN /64s can be numbered in the 8th byte (bits 56-64).
 
-| LAN   | Location ID number | Proposed IP Space       |
-|-------|--------------------|-------------------------|
-| sfo01 | 0                  | 2620:11a:b00f:0001::/64 |
-| sfo02 | 1                  | 2620:11a:b00f:0101::/64 |
-| fmt01 | 2                  | 2620:11a:b00f:0201::/64 |
-| sjc01 | 3                  | 2620:11a:b00f:0301::/64 |
-| scl01 | 4                  | 2620:11a:b00f:0401::/64 |
-| scl02 | 5                  | 2620:11a:b00f:0501::/64 |
-| scl04 | 6                  | 2620:11a:b00f:0601::/64 |
+| LAN   | Location ID number | Proposed Management LAN IP Space | Proposed Loopback/Service IPs/PTP Space |
+|-------|--------------------|----------------------------------|-----------------------------------------|
+| sfo01 | 0                  | 2620:11a:b00f:0001::/64          | 2620:11a:b00f:0000::/64                 |
+| sfo02 | 1                  | 2620:11a:b00f:0101::/64          | 2620:11a:b00f:0100::/64                 |
+| fmt01 | 2                  | 2620:11a:b00f:0201::/64          | 2620:11a:b00f:0200::/64                 |
+| sjc01 | 3                  | 2620:11a:b00f:0301::/64          | 2620:11a:b00f:0300::/64                 |
+| scl01 | 4                  | 2620:11a:b00f:0401::/64          | 2620:11a:b00f:0400::/64                 |
+| scl02 | 5                  | 2620:11a:b00f:0501::/64          | 2620:11a:b00f:0500::/64                 |
+| scl04 | 6                  | 2620:11a:b00f:0601::/64          | 2620:11a:b00f:0600::/64                 |
 
 ## Proposed Rollout Plan
 
