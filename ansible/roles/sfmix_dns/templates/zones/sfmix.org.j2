@@ -183,25 +183,18 @@ pdu02.sfo01			IN	A	100.64.2.4
 
 ; SFO02 (200 Paul Ave)
 wan.mgmt-gw.sfo02		IN	A	198.35.53.243
-mgmt-gw.sfo02			IN	A	100.64.0.1
+mgmt-gw.sfo02			IN	A	10.1.0.0
 switch01.sfo02			IN	A	100.64.0.15
 switch01.oob.sfo02		IN	CNAME	switch01.sfo02
 switch02.sfo02			IN	A	100.64.0.16
 switch02.oob.sfo02		IN	CNAME	switch02.sfo02
-pdu01.sfo02			IN	A	100.64.0.3
-pdu02.sfo02			IN	A	100.64.0.4
+pdu01.sfo02			IN	A	10.1.1.3
+pdu02.sfo02			IN	A	10.1.1.4
 ipmi.proxmox.oob.sfo02		IN	A	100.64.0.5
-gw-sfo02			IN	A	100.64.0.6
-mgmt.old-rs-openbsd		IN	A	100.64.0.7
-vlan20.gw.oob.sfo02		IN	A	100.64.0.8
-monitor.oob.sfo02		IN	A	100.64.0.9
-;old-mgmt-switch.sfo02		IN	A	100.64.0.11
-mgmt-switch.sfo02		IN	A	100.64.0.10
-wan-switch.sfo02		IN	A	100.64.0.12
+mgmt-switch.sfo02		IN	A	10.1.1.10
 netbox.oob.sfo02		IN	A	100.64.0.13
 metrics.oob.sfo02		IN	A	100.64.0.14
 eth3.edge-gw.sfo02		IN	A	100.64.0.30
-portal2.sfo02			IN	A	100.64.0.17
 mgmt.rs-linux			IN	A	100.64.0.18
 pve01-paulave200-sfo		IN	A	100.64.0.21
 pve02-paulave200-sfo		IN	A	100.64.0.23
