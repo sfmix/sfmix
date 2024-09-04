@@ -5,7 +5,7 @@
   ansible.builtin.template:
     src: httpd.conf.j2
     dest: /etc/httpd.conf
-    mode: ug=rw,o=r
+    mode: u=rw,go=r
   notify: Restart httpd
 
 - name: Place acme-client.conf
@@ -14,7 +14,7 @@
   ansible.builtin.template:
     src: acme-client.conf.j2
     dest: /etc/acme-client.conf
-    mode: ug=rw,o=r
+    mode: u=rw,go=r
 
 - name: Place bgplg.head
   when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg
@@ -58,6 +58,9 @@
     path: /etc/rc.conf.local
     regexp: '^bgplgd_flags='
     line: 'bgplgd_flags="-S /var/www/run/bgpd.rsock"'
+    owner: root
+    group: wheel
+    mode: u=rw,go=r
   notify: Restart bgplgd
 
 - name: Start bgplgd
@@ -130,7 +133,7 @@
     dest: /etc/bgpd.candidate.conf
     owner: root
     group: wheel
-    mode: ug=rw,o=r
+    mode: u=rw,go=r
 
 - name: Test candidate bgpd candidate config
   become: true
@@ -165,7 +168,7 @@
         remote_src: true
         owner: root
         group: wheel
-        mode: ug=rw,o=r
+        mode: u=rw,go=r
     - name: Install new bgpd config
       become: true
       ansible.builtin.copy:
@@ -174,7 +177,7 @@
         remote_src: true
         owner: root
         group: wheel
-        mode: ug=rw,o=r
+        mode: u=rw,go=r
       notify: Reload bgpd
 
 - name: Find old bgpd config backups more than 52 weeks old
