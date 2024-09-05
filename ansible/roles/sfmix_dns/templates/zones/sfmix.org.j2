@@ -230,18 +230,17 @@ mgmt.rs-openbsd				IN	A		100.64.1.14
 mgmt.quarantine-lg			IN	A		100.64.1.25
 mgmt.alice				IN	A		100.64.1.26
 
-; Transit: Arelion via Cofractal
+; fmt01 Transit: Arelion via Cofractal
 eth5.edge-gw.fmt01	IN	A	62.115.146.167
 eth5.edge-gw.fmt01	IN	AAAA	2001:2035:0:a9f::2
 
 ; SCL01 (QTS SJC1)
 wan.mgmt-gw.scl01	IN	A		205.234.25.36
-mgmt-gw.scl01		IN	A		100.64.4.1
-mgmt-switch.scl01	IN	A		100.64.4.2
-switch01.oob.scl01	IN	CNAME		switch01.scl01
-switch01.scl01		IN	A		100.64.4.15
-pdu01.scl01		IN	A		100.64.4.4
-pdu02.scl01		IN	A		100.64.4.5
+mgmt-gw.scl01		IN	A		10.4.1.1
+mgmt-switch.scl01	IN	A		10.4.1.2
+switch01.scl01		IN	A		10.4.1.15
+pdu01.scl01		IN	A		10.4.1.4
+pdu02.scl01		IN	A		10.4.1.5
 
 ; SCL02 (CoreSite SV4)
 wan.mgmt-gw.scl02	IN	A		66.128.149.4
