@@ -275,12 +275,13 @@ pdu02.scl02		IN	A		10.5.1.5
 
 ; SCL04 (OpenColo) / Site ID 6
 wan.mgmt-gw.scl04	IN	A	50.117.26.130
-mgmt-gw.scl04		IN	A	100.64.7.1
-mgmt-switch.scl04	IN	A	100.64.7.2
-switch01.scl04		IN	A	100.64.7.15
+mgmt-gw.scl04		IN	A	10.6.0.0
+eth2.mgmt-gw.scl04	IN	A	10.6.1.1
+mgmt-switch.scl04	IN	A	10.6.1.2
+switch01.scl04		IN	A	10.6.1.15
 lo0.switch01.scl04	IN	A	100.64.110.1
-pdu01.scl04		IN	A	100.64.7.4
-pdu02.scl04		IN	A	100.64.7.5
+pdu01.scl04		IN	A	10.6.1.4
+pdu02.scl04		IN	A	10.6.1.5
 
 ; Member IPv4 interfaces
 lg.sfo01	IN	A	206.197.187.1	; SFMIX looking glass
