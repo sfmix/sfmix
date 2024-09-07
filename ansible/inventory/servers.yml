@@ -19,6 +19,7 @@ all:
         alice:
         rpki_linux:
         tailscale:
+        obscreen:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -76,3 +77,6 @@ all:
         pve02-paulave200-sfo.sfmix.org:
         pve01-warmspringsblvd48233-fmt.sfmix.org:
         pve02-warmspringsblvd48233-fmt.sfmix.org:
+    obscreen:
+      hosts:
+        obscreen.sfmix.org:

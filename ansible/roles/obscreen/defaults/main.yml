@@ -1,0 +1,7 @@
+---
+obscreen:
+  directory: /opt/obscreen
+  user: nobody
+  group: nogroup
+  docker_compose_url: https://raw.githubusercontent.com/jr-k/obscreen/master/docker-compose.yml
+  domain: obscreen.sfmix.org
