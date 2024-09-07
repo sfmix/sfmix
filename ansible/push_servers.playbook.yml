@@ -244,3 +244,8 @@
       loop:
         - proxmox_node.yml
         - snmp_agent.yml
+
+- name: "Tailscale"
+  hosts: tailscale
+  roles:
+    - tailscale
