@@ -22,6 +22,7 @@ ixp_admin_source_subnets:
   - 127.0.0.0/8
   # SFMIX Internal
   - 100.64.0.0/10
+  - 10.0.0.0/8
   # SFMIX Public Infrastructure
   - 192.33.255.0/28
   - 192.33.255.16/29
