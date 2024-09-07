@@ -18,6 +18,7 @@ all:
         quarantine_looking_glass:
         alice:
         rpki_linux:
+        tailscale:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -66,6 +67,9 @@ all:
     rpki_linux:
       hosts:
         rpki-linux.sfmix.org:
+    tailscale:
+      hosts:
+        tailscale.sfo02.sfmix.org:
     proxmox_hypervisors:
       hosts:
         pve01-paulave200-sfo.sfmix.org:
