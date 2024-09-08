@@ -249,3 +249,8 @@
   hosts: tailscale
   roles:
     - tailscale
+
+- name: "Obscreen"
+  hosts: obscreen
+  roles:
+    - obscreen
