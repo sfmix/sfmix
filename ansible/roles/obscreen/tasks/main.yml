@@ -1,4 +1,10 @@
 ---
+- name: "Obscreen: Install the docker-compose-v2 apt package"
+  become: true
+  ansible.builtin.apt:
+    name: docker-compose-v2
+    state: present
+
 - name: "Obscreen: Create directory: {{ obscreen.directory }}"
   become: true
   ansible.builtin.file:
