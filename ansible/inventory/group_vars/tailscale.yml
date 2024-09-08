@@ -1,0 +1,5 @@
+sfmix_server_sysctls:
+  - { name: 'net.ipv4.conf.all.forwarding', value: '1' }
+  - { name: 'net.ipv4.conf.default.forwarding', value: '1' }
+  - { name: 'net.ipv6.conf.all.forwarding', value: '1' }
+  - { name: 'net.ipv6.conf.default.forwarding', value: '1' }
