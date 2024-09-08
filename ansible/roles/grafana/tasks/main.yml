@@ -71,6 +71,7 @@
       GF_LIVE_ALLOWED_ORIGINS: "https://{{ grafana_domain }}"
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
       GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ALLOW_EMBEDDING: true
       GF_SERVER_DOMAIN: "{{ grafana_domain }}"
       GF_SERVER_HTTP_PORT: "3000"
       GF_SERVER_ROOT_URL: "https://{{ grafana_domain }}"
