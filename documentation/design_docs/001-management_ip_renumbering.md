@@ -56,6 +56,8 @@ A /16 of space from the management network /11 will be assigned to each site, an
 
 10.255.0.0/16 will be used for non-site-specific management network service IPs and peering LANs.
 
+10.255.10.0/23 will be used as a non-site-specific, site-spanning access LAN on the management network. This way, VMs can be exported and imported across sites and compute clusters, and they can be booted up with the same IP addressing working in a new site.
+
 10.255.255.0/24 will be used for the management network service IPs.
 
 10.255.200.0/24 will be used for the "in-band" management network peering LAN over the exchange fabric
