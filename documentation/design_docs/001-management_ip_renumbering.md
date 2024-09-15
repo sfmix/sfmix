@@ -86,6 +86,8 @@ The site location numerical identifiers will be encoded in a decimalized form in
 
 2620:11a:b00f:fffe::/64 will be used for the "in-band" management network peering LAN over the exchange fabric
 
+2620:11a:b00f:fffd::/64 will be used for the non-site-specific, site-spanning access LAN on the management network.
+
 ## Proposed Rollout Plan
 
 The renumbering could happen in phases:
