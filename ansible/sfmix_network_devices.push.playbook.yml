@@ -18,7 +18,7 @@
         tasks_from: push.peering_switches.yml
 
 - name: Push management router configs
-  hosts: management_routers
+  hosts: management_router
   gather_facts: false
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
@@ -26,4 +26,4 @@
     - name: Diff/Push Configs
       ansible.builtin.include_role:
         name: sfmix_network_devices
-        tasks_from: push.management_routers.yml
+        tasks_from: push.management_router.yml

@@ -26,8 +26,8 @@
 
 - name: Build management router configs
   tags:
-    - management_routers
-  hosts: management_routers
+    - management_router
+  hosts: management_router
   gather_facts: false
   vars:
     config_parts_dir: "{{ (playbook_dir ~ '/sfmix_network_devices.configs/' ~ inventory_hostname) | realpath }}"
@@ -42,4 +42,4 @@
     - name: Build configs
       ansible.builtin.include_role:
         name: sfmix_network_devices
-        tasks_from: build.management_routers.yml
+        tasks_from: build.management_router.yml
