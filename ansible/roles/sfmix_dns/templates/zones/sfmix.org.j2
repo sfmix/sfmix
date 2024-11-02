@@ -185,6 +185,48 @@ netbox		IN	CNAME	netbox.sfo02
 metrics		IN	CNAME	metrics.sfo02
 grafana		IN	CNAME	metrics.sfo02
 
+;; AS40271 Partial Routes, /31's Point to Point
+;;; Netskrt cache @ SJC02
+gw-netskrt.sjc02		IN	A	149.112.115.0
+netskrt-cache.sjc02		IN	A	149.112.115.1
+;;; Google VPP @ SJC01
+gw-googlevpp.sjc01		IN	A	149.112.115.2
+googlevpp.sjc01			IN	A	149.112.115.3
+;;; Google VPP @ SCL02 - provided by Google
+gw-googlevpp.scl02		IN	A	173.194.120.204
+gogglevpp.scl02			IN	A	173.194.120.205
+;;; Monkeybrains
+gw-as32329.vrf-dfz		IN	A	149.112.115.4
+as32329.vrf-dfz			IN	A	149.112.115.5
+;;; Tekify
+gw-as46886.vrf-dfz		IN	A	149.112.115.6
+as46886.vrf-dfz			IN	A	149.112.115.7
+;;; Two P
+gw-as6140.vrf-dfz		IN	A	149.112.115.8
+as6140.vrf-dfz			IN	A	149.112.115.9
+;;; Kerfuffle
+gw-as35008.vrf-dfz		IN	A	149.112.115.10
+as35008.vrf-dfz			IN	A	149.112.115.11
+;;; Softcom
+gw-as13427.vrf-dfz		IN	A	149.112.115.12
+as13427.vrf-dfz			IN	A	149.112.115.13
+
+;;; Transit VRF Point to Points
+
+;;; Transit VRF Loopbacks - 149.112.115.224/27
+lo.vrf-dfz.switch01.sjc02	IN	A	149.112.115.244
+lo.vrf-dfz.switch01.scl04	IN	A	149.112.115.245
+lo.vrf-dfz.switch01.scl02	IN	A	149.112.115.246
+lo.vrf-dfz.switch01.scl01	IN	A	149.112.115.247
+lo.vrf-dfz.switch02.sjc01	IN	A	149.112.115.248
+lo.vrf-dfz.switch01.sjc01	IN	A	149.112.115.249
+lo.vrf-dfz.switch03.fmt01	IN	A	149.112.115.250
+lo.vrf-dfz.switch02.fmt01	IN	A	149.112.115.251
+lo.vrf-dfz.switch01.fmt01	IN	A	149.112.115.252
+lo.vrf-dfz.switch02.sfo02	IN	A	149.112.115.253
+lo.vrf-dfz.switch01.sfo02	IN	A	149.112.115.254
+lo.vrf-dfz.switch01.sfo01	IN	A	149.112.115.255
+
 ; SFO01 (365 Main) / Site ID 0
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
 mgmt-gw.sfo01			IN	A	10.0.0.0
@@ -265,7 +307,6 @@ switch01.sjc01		IN	A		10.3.1.15
 lo0.switch01.sjc01	IN	A		100.64.105.1
 switch02.sjc01		IN	A		10.3.1.16
 lo0.switch02.sjc01	IN	A		100.64.102.1
-
 
 ; SCL01 (QTS SJC1) / Site ID 4
 wan.mgmt-gw.scl01	IN	A		205.234.25.36
