@@ -190,42 +190,56 @@ grafana		IN	CNAME	metrics.sfo02
 gw-netskrt.sjc02		IN	A	149.112.115.0
 netskrt-cache.sjc02		IN	A	149.112.115.1
 ;;; Google VPP @ SJC01
-gw-googlevpp.sjc01		IN	A	149.112.115.2
+googlevpp.sjc01			IN	A	149.112.115.2
 googlevpp.sjc01			IN	A	149.112.115.3
 ;;; Google VPP @ SCL02 - provided by Google
-gw-googlevpp.scl02		IN	A	173.194.120.204
+googlevpp.scl02			IN	A	173.194.120.204
 gogglevpp.scl02			IN	A	173.194.120.205
 ;;; Monkeybrains
-gw-as32329.vrf-dfz		IN	A	149.112.115.4
-as32329.vrf-dfz			IN	A	149.112.115.5
+as32329.transit			IN	A	149.112.115.4
+as32329.transit			IN	A	149.112.115.5
 ;;; Tekify
-gw-as46886.vrf-dfz		IN	A	149.112.115.6
-as46886.vrf-dfz			IN	A	149.112.115.7
+as46886.transit			IN	A	149.112.115.6
+as46886.transit			IN	A	149.112.115.7
 ;;; Two P
-gw-as6140.vrf-dfz		IN	A	149.112.115.8
-as6140.vrf-dfz			IN	A	149.112.115.9
+as6140.transit			IN	A	149.112.115.8
+as6140.transit			IN	A	149.112.115.9
 ;;; Kerfuffle
-gw-as35008.vrf-dfz		IN	A	149.112.115.10
-as35008.vrf-dfz			IN	A	149.112.115.11
+as35008.transit			IN	A	149.112.115.10
+as35008.transit			IN	A	149.112.115.11
 ;;; Softcom
-gw-as13427.vrf-dfz		IN	A	149.112.115.12
-as13427.vrf-dfz			IN	A	149.112.115.13
+as13427.transit			IN	A	149.112.115.12
+as13427.transit			IN	A	149.112.115.13
 
 ;;; Transit VRF Point to Points
 
+;; Transit VRF Peering LAN (VLAN 1000) - 149.112.115.192/27
+vl1000.transit.switch01.sjc02	IN	A	149.112.115.211
+vl1000.transit.switch01.scl04	IN	A	149.112.115.212
+vl1000.transit.switch01.scl02	IN	A	149.112.115.213
+vl1000.transit.switch01.scl01	IN	A	149.112.115.214
+vl1000.transit.switch02.sjc01	IN	A	149.112.115.215
+vl1000.transit.switch01.sjc01	IN	A	149.112.115.216
+vl1000.transit.switch03.fmt01	IN	A	149.112.115.217
+vl1000.transit.switch02.fmt01	IN	A	149.112.115.218
+vl1000.transit.switch01.fmt01	IN	A	149.112.115.219
+vl1000.transit.switch02.sfo02	IN	A	149.112.115.220
+vl1000.transit.switch01.sfo02	IN	A	149.112.115.221
+vl1000.transit.switch01.sfo01	IN	A	149.112.115.222
+
 ;;; Transit VRF Loopbacks - 149.112.115.224/27
-lo.vrf-dfz.switch01.sjc02	IN	A	149.112.115.244
-lo.vrf-dfz.switch01.scl04	IN	A	149.112.115.245
-lo.vrf-dfz.switch01.scl02	IN	A	149.112.115.246
-lo.vrf-dfz.switch01.scl01	IN	A	149.112.115.247
-lo.vrf-dfz.switch02.sjc01	IN	A	149.112.115.248
-lo.vrf-dfz.switch01.sjc01	IN	A	149.112.115.249
-lo.vrf-dfz.switch03.fmt01	IN	A	149.112.115.250
-lo.vrf-dfz.switch02.fmt01	IN	A	149.112.115.251
-lo.vrf-dfz.switch01.fmt01	IN	A	149.112.115.252
-lo.vrf-dfz.switch02.sfo02	IN	A	149.112.115.253
-lo.vrf-dfz.switch01.sfo02	IN	A	149.112.115.254
-lo.vrf-dfz.switch01.sfo01	IN	A	149.112.115.255
+lo.transit.switch01.sjc02	IN	A	149.112.115.244
+lo.transit.switch01.scl04	IN	A	149.112.115.245
+lo.transit.switch01.scl02	IN	A	149.112.115.246
+lo.transit.switch01.scl01	IN	A	149.112.115.247
+lo.transit.switch02.sjc01	IN	A	149.112.115.248
+lo.transit.switch01.sjc01	IN	A	149.112.115.249
+lo.transit.switch03.fmt01	IN	A	149.112.115.250
+lo.transit.switch02.fmt01	IN	A	149.112.115.251
+lo.transit.switch01.fmt01	IN	A	149.112.115.252
+lo.transit.switch02.sfo02	IN	A	149.112.115.253
+lo.transit.switch01.sfo02	IN	A	149.112.115.254
+lo.transit.switch01.sfo01	IN	A	149.112.115.255
 
 ; SFO01 (365 Main) / Site ID 0
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
