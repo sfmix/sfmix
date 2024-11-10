@@ -31,6 +31,7 @@ sfmix_reverse_zones:
   - "0.3.0.0.4.0.5.0.1.0.0.2.ip6.arpa"
   - "187.197.206.in-addr.arpa"
   - "255.33.192.in-addr.arpa"
+  - "115.112.149.in-addr.arpa"
   - "5.112.149.in-addr.arpa"
   - "64.100.in-addr.arpa"
   - "10.in-addr.arpa"
