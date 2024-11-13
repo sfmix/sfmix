@@ -82,6 +82,9 @@ def update_netbox_ip_macs(ip_mac_map: Dict[str, str]) -> None:
             logger.critical(f"Possible duplicate IP: {ip}")
             raise e
         if not existing_ip:
+            if ip == "2001:504:30::ba04:7787:1":
+                print("Edgoo special case")
+                continue
             raise RuntimeError(
                 f"IP {ip} was initially detected, but is now missing from Netbox"
             )
