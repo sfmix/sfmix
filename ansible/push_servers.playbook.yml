@@ -9,6 +9,13 @@
         name: sfmix_server
         tasks_from: download_ssh_keys_from_github.yml
 
+- name: Gather Facts
+  hosts: all
+  gather_facts: true
+  tags:
+    - always
+  tasks: []
+
 - name: SFMIX Servers
   hosts: servers
   tags:
