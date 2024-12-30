@@ -6,3 +6,9 @@
   tags:
     - birdwatcher
   ansible.builtin.import_tasks: birdwatcher.yml
+
+# Install fping, as a place to discover MACs from
+- name: "Install fping"
+  ansible.builtin.apt:
+    name: fping
+    state: present

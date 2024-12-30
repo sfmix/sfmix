@@ -241,11 +241,9 @@ def main(
             if patch_panel_device.rack:
                 print(f"  Rack: {patch_panel_device.rack.display}, Unit {patch_panel_device.position}")
             else:
-                print(f"  Rack: Unknown! Rack this Patch Panel in Netbox")
+                print("  Rack: Unknown! Rack this Patch Panel in Netbox")
             print(f"  Ports: {' & '.join([sub_location['name'] for sub_location in location])}")
             break
-
-
 
 
 def apply_ipv6_mask(ipv6_addr, offset, hex_byte):

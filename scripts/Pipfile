@@ -8,6 +8,7 @@ sgqlc = "*"
 pyyaml = "*"
 urwid = "*"
 pynetbox = "*"
+pyeapi = "*"
 
 [dev-packages]
 black = "*"
