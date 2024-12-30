@@ -24,9 +24,11 @@ Private documentation is in the private repo https://github.com/sfmix/documentat
     Route Server, this compares the session states between these Route Servers
     to find participant router-IPs that do not have session parity between the
     two Route Servers
-* `mac_discovery.py`
+* `discovery.py`
   * Using ARP and ICMPv6 Neighbor Discovery, search for the current MAC address
     bindings for participants and update Netbox with the current values. 
+  * Collect VLAN/MAC->Interface mappings from devices
+  * Updates Peering LAN IPs with `participant_lag` custom field values
 * `participant_speeds.py`
   * Using the public `participants.json` file, create a reporting of ports
     speeds by site, and in total.
