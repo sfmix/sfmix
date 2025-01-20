@@ -35,7 +35,7 @@ clients:
       - "2001:504:30::ba01:2276:3"
 {%     else %}
 {%       for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
-{%         if peering_port.custom_fields.participant.id == participant_id %}
+{%         if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
   - asn: {{ participant.custom_fields.as_number }}
     description: {{ participant.description }}
     cfg:
