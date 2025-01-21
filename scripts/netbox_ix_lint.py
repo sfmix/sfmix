@@ -128,8 +128,8 @@ def netbox_lint(operator_config: Dict[str, str]) -> None:
     check_peering_vlan_ports(netbox=netbox)
     check_peering_port_custom_field_participant(netbox=netbox)
     check_peering_port_participant_matches_description_asn(netbox=netbox)
-    # For each Device tagged "peering_switch",
-    # Using eAPI, query all the interface descriptions and compare them against Netbox
+    # TODO
+    # Check for ixp_participant Tenants with no active ports
 
 
 if __name__ == "__main__":
