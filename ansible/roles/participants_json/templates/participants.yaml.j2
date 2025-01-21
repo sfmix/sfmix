@@ -78,10 +78,29 @@ member_list:
               address: "206.197.187.2"
             ipv6:
               address: "2001:504:30::ba01:2276:2"
+      {% elif participant.custom_fields.as_number == 63055 %}
+      - ixp_id: 155
+        state: active
+        if_list:
+          - switch_id: 59
+            if_speed: 1000
+          - switch_id: 63
+            if_speed: 1000
+        vlan_list:
+          - vlan_id: 1
+            ipv4:
+              address: "206.197.187.253"
+            ipv6:
+              address: "2001:504:30::ba06:3055:1"
+          - vlan_id: 1
+            ipv4:
+              address: "206.197.187.254"
+            ipv6:
+              address: "2001:504:30::ba06:3055:2"
       {% else %}
 
       {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
-      {%   if peering_port.custom_fields.participant.id == participant_id %}
+      {%   if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
       - ixp_id: 155
         state: active
         if_list:
