@@ -281,10 +281,9 @@ def discover_hardware_interfaces(device_hostname: str) -> None:
             # netbox_interface.delete()
 
     # Create/Update Interfaces
+    netbox_interface_type = None
     for interface_name, interface_details in interfaces_response.items():
         if interface_name == "defaults":
-            continue
-        if interface_details["bandwidth"] == 0:
             continue
         eapi_interface_type = interface_details["hardware"]
         if eapi_interface_type in ["generic", "vxlan", "vlan"]:
@@ -308,8 +307,6 @@ def discover_hardware_interfaces(device_hostname: str) -> None:
                     netbox_interface_type = "1000base-t"
                 elif interface_details["bandwidth"] == 1_000_000_000:
                     netbox_interface_type = "1000base-x-sfp"
-                else:
-                    raise Exception("Unknown interface type")
             elif model == "DCS-7280CR3-36S-F":
                 if interface_details["bandwidth"] == 400_000_000_000:
                     netbox_interface_type = "400gbase-x-qsfpdd"
@@ -326,12 +323,8 @@ def discover_hardware_interfaces(device_hostname: str) -> None:
                     netbox_interface_type = "1000base-t"
                 elif interface_details["bandwidth"] == 1_000_000_000:
                     netbox_interface_type = "1000base-x-sfp"
-                else:
-                    raise Exception("Unknown interface type")
-            else:
-                raise Exception("Unknown model: ", model)
         else:
-            raise RuntimeError(f"Unknown eAPI Interface type: {eapi_interface_type!r}")
+            logger.warning(f"Unknown eAPI Interface type: {eapi_interface_type!r} for {device_hostname} / {interface_name}")
         netbox_interface_speed = int(interface_details["bandwidth"] / 1_000)
         interface_description = interface_details["description"]
 
@@ -366,13 +359,14 @@ def discover_hardware_interfaces(device_hostname: str) -> None:
             netbox.dcim.interfaces.filter(device=device_hostname, name=interface_name)
         )
         if not existing_interfaces:
-            logger.info(f"Creating interface: {device_hostname} / {interface_name}")
-            netbox.dcim.interfaces.create(
-                device={"name": device_hostname},
-                name=interface_name,
-                type=netbox_interface_type,
-                speed=netbox_interface_speed,
-            )
+            if netbox_interface_type and netbox_interface_speed:
+                logger.info(f"Creating interface: {device_hostname} / {interface_name}")
+                netbox.dcim.interfaces.create(
+                    device={"name": device_hostname},
+                    name=interface_name,
+                    type=netbox_interface_type,
+                    speed=netbox_interface_speed,
+                )
         else:
             logger.debug(f"Examining Interface: {device_hostname} / {interface_name}:")
             existing_interface = existing_interfaces[0]
@@ -448,17 +442,17 @@ def update_netbox_peering_port_tags_by_vlan() -> None:
                     logger.info(
                         f"Adding {tag_slug} tag to {interface.device.name} / {interface.name}"
                     )
-                    interface.tags = [{"slug": tag.slug} for tag in interface.tags] + [
+                    interface.tags = [{"slug": tag["slug"]} for tag in interface.tags] + [
                         {"slug": tag_slug}
                     ]
                     interface.save()
             continue
         for tag_slug in ("peering_port", "ixp_participant"):
-            if tag_slug not in [tag.slug for tag in interface.tags]:
+            if tag_slug not in [tag["slug"] for tag in interface.tags]:
                 logger.info(
                     f"Adding {tag_slug} tag to {interface.device.name} / {interface.name}"
                 )
-                interface.tags = [{"slug": tag.slug} for tag in interface.tags] + [
+                interface.tags = [{"slug": tag["slug"]} for tag in interface.tags] + [
                     {"slug": tag_slug}
                 ]
                 interface.save()
@@ -472,7 +466,7 @@ def update_netbox_peering_port_tags_by_vlan() -> None:
                 f"Removing peering_port tag from {interface.device.name} / {interface.name}"
             )
             interface.tags = [
-                {"slug": tag.slug}
+                {"slug": tag["slug"]}
                 for tag in interface.tags
                 if tag.slug != "peering_port"
             ]
