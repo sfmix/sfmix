@@ -25,7 +25,7 @@ participants:
         ipv6_integer: {{ ('2001:504:30::ba01:2276:2/64' | ansible.utils.ipaddr('address') | ansible.utils.ipaddr('int')) - ("2001:504:30::ba01:2276:2/64" | ansible.utils.ipaddr('network') | ansible.utils.ipaddr('int')) }}
       {% else %}
         {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
-        {%   if peering_port.custom_fields.participant.id == participant_id %}
+        {%   if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
         {%     if peering_port.custom_fields.rate_limit_bps %}
       - speed: {{ (peering_port.custom_fields.rate_limit_bps / 1000000000) | int }} Gbit/s
         speed_bps: {{ peering_port.custom_fields.rate_limit_bps | int }}
