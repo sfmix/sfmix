@@ -272,7 +272,7 @@ def next_available_port_channel_for_device_id(
     netbox: pynetbox.core.api.Api, device_id: int
 ) -> str:
     existing_port_channels = list(
-        netbox.dcim.interfaces.filter(device_id=device_id, name__isw="Port-Channel")
+        netbox.dcim.interfaces.filter(device_id=device_id, name__isw="Port-Channel", name__nic=".")
     )
     if not existing_port_channels:
         return "Port-Channel100"
