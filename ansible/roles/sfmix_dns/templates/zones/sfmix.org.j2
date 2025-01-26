@@ -193,28 +193,28 @@ grafana		IN	CNAME	metrics.sfo02
 ; gw-netskrt.sjc02		IN	A	149.112.115.0
 ; netskrt-cache.sjc02		IN	A	149.112.115.1
 ;;; Google/AS15169 VPP @ SJC01
-google.as15169-as40271.transit.sjc01	IN	A	149.112.115.2
-google.as15169-as40271.transit.sjc01	IN	AAAA	2620:11A:B002::2
-sfmix.as15169-as40271.transit.sjc01	IN	A	149.112.115.3
-sfmix.as15169-as40271.transit.sjc01	IN	AAAA	2620:11A:B002::3
+google.as15169-as40271.sjc01.transit	IN	A	149.112.115.2
+google.as15169-as40271.sjc01.transit	IN	AAAA	2620:11A:B002::2
+sfmix.as15169-as40271.sjc01.transit	IN	A	149.112.115.3
+sfmix.as15169-as40271.sjc01.transit	IN	AAAA	2620:11A:B002::3
 ;;; Google/AS15169 VPP @ SCL02 - provided by Google
 google.as15169-as40271.scl02	IN	A	173.194.120.204
 google.as15169-as40271.scl02	IN	AAAA	2001:4860:1:1::35ba
 sfmix.as15169-as40271.scl02	IN	A	173.194.120.205
 sfmix.as15169-as40271.scl02	IN	AAAA	2001:4860:1:1::35bb
 ;;; Monkeybrains/AS32329
-monkeybrains.as32329-as40271.transit.sfo02	IN	A	149.112.115.4
-monkeybrains.as32329-as40271.transit.sfo02	IN	AAAA	2620:11A:B002::4
-sfmix.as32329-as40271.transit.sfo02		IN	A	149.112.115.5
-sfmix.as32329-as40271.transit.sfo02		IN	AAAA	2620:11A:B002::5
+monkeybrains.as32329-as40271.sfo02.transit	IN	A	149.112.115.4
+monkeybrains.as32329-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::4
+sfmix.as32329-as40271.sfo02.transit		IN	A	149.112.115.5
+sfmix.as32329-as40271.sfo02.transit		IN	AAAA	2620:11A:B002::5
 ;;; Tekify/AS46886
 ; as46886.transit		IN	A	149.112.115.6
 ; as46886.transit		IN	A	149.112.115.7
 ;;; Two P/AS6140
-twop.as6140-as40271.transit.fmt01	IN	A	149.112.115.8
-twop.as6140-as40271.transit.fmt01	IN	AAAA	2620:11A:B002::8
-sfmix.as6140-as40271.transit.fmt01	IN	A	149.112.115.9
-sfmix.as6140-as40271.transit.fmt01	IN	AAAA	2620:11A:B002::9
+twop.as6140-as40271.fmt01.transit	IN	A	149.112.115.8
+twop.as6140-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::8
+sfmix.as6140-as40271.fmt01.transit	IN	A	149.112.115.9
+sfmix.as6140-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::9
 ;;; Kerfuffle/AS35008
 ; as35008.transit		IN	A	149.112.115.10
 ; as35008.transit		IN	A	149.112.115.11
@@ -222,65 +222,65 @@ sfmix.as6140-as40271.transit.fmt01	IN	AAAA	2620:11A:B002::9
 ; as13427.transit		IN	A	149.112.115.12
 ; as13427.transit		IN	A	149.112.115.13
 ;;; SFMIX/AS12276
-sfmix-mgmt.as12276-as40271.transit.sfo02	IN	A	149.112.115.14
-sfmix-mgmt.as12276-as40271.transit.sfo02	IN	AAAA	2620:11A:B002::14
-sfmix-transit.as12276-as40271.transit.sfo02	IN	A	149.112.115.15
-sfmix-transit.as12276-as40271.transit.sfo02	IN	AAAA	2620:11A:B002::15
+sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.115.14
+sfmix-mgmt.as12276-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::14
+sfmix-transit.as12276-as40271.sfo02.transit	IN	A	149.112.115.15
+sfmix-transit.as12276-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::15
 
 
 ;;; Transit VRF Point to Points
 
 ;; Transit VRF Peering LAN (VLAN 1000) - 149.112.115.192/27 / 2620:11A:B002:1000::/64
-vl1000.transit.switch01.sjc02	IN	A	149.112.115.211
-vl1000.transit.switch01.sjc02	IN	AAAA	2620:11A:B002:1000::211
-vl1000.transit.switch01.scl04	IN	A	149.112.115.212
-vl1000.transit.switch01.scl04	IN	AAAA	2620:11A:B002:1000::212
-vl1000.transit.switch01.scl02	IN	A	149.112.115.213
-vl1000.transit.switch01.scl02	IN	AAAA	2620:11A:B002:1000::213
-vl1000.transit.switch01.scl01	IN	A	149.112.115.214
-vl1000.transit.switch01.scl01	IN	AAAA	2620:11A:B002:1000::214
-vl1000.transit.switch02.sjc01	IN	A	149.112.115.215
-vl1000.transit.switch02.sjc01	IN	AAAA	2620:11A:B002:1000::215
-vl1000.transit.switch01.sjc01	IN	A	149.112.115.216
-vl1000.transit.switch01.sjc01	IN	AAAA	2620:11A:B002:1000::216
-vl1000.transit.switch03.fmt01	IN	A	149.112.115.217
-vl1000.transit.switch03.fmt01	IN	AAAA	2620:11A:B002:1000::217
-vl1000.transit.switch02.fmt01	IN	A	149.112.115.218
-vl1000.transit.switch02.fmt01	IN	AAAA	2620:11A:B002:1000::218
-vl1000.transit.switch01.fmt01	IN	A	149.112.115.219
-vl1000.transit.switch01.fmt01	IN	AAAA	2620:11A:B002:1000::219
-vl1000.transit.switch02.sfo02	IN	A	149.112.115.220
-vl1000.transit.switch02.sfo02	IN	AAAA	2620:11A:B002:1000::220
-vl1000.transit.switch01.sfo02	IN	A	149.112.115.221
-vl1000.transit.switch01.sfo02	IN	AAAA	2620:11A:B002:1000::221
-vl1000.transit.switch01.sfo01	IN	A	149.112.115.222
-vl1000.transit.switch01.sfo01	IN	AAAA	2620:11A:B002:1000::222
+vl1000.switch01.sjc02.transit	IN	A	149.112.115.211
+vl1000.switch01.sjc02.transit	IN	AAAA	2620:11A:B002:1000::211
+vl1000.switch01.scl04.transit	IN	A	149.112.115.212
+vl1000.switch01.scl04.transit	IN	AAAA	2620:11A:B002:1000::212
+vl1000.switch01.scl02.transit	IN	A	149.112.115.213
+vl1000.switch01.scl02.transit	IN	AAAA	2620:11A:B002:1000::213
+vl1000.switch01.scl01.transit	IN	A	149.112.115.214
+vl1000.switch01.scl01.transit	IN	AAAA	2620:11A:B002:1000::214
+vl1000.switch02.sjc01.transit	IN	A	149.112.115.215
+vl1000.switch02.sjc01.transit	IN	AAAA	2620:11A:B002:1000::215
+vl1000.switch01.sjc01.transit	IN	A	149.112.115.216
+vl1000.switch01.sjc01.transit	IN	AAAA	2620:11A:B002:1000::216
+vl1000.switch03.fmt01.transit	IN	A	149.112.115.217
+vl1000.switch03.fmt01.transit	IN	AAAA	2620:11A:B002:1000::217
+vl1000.switch02.fmt01.transit	IN	A	149.112.115.218
+vl1000.switch02.fmt01.transit	IN	AAAA	2620:11A:B002:1000::218
+vl1000.switch01.fmt01.transit	IN	A	149.112.115.219
+vl1000.switch01.fmt01.transit	IN	AAAA	2620:11A:B002:1000::219
+vl1000.switch02.sfo02.transit	IN	A	149.112.115.220
+vl1000.switch02.sfo02.transit	IN	AAAA	2620:11A:B002:1000::220
+vl1000.switch01.sfo02.transit	IN	A	149.112.115.221
+vl1000.switch01.sfo02.transit	IN	AAAA	2620:11A:B002:1000::221
+vl1000.switch01.sfo01.transit	IN	A	149.112.115.222
+vl1000.switch01.sfo01.transit	IN	AAAA	2620:11A:B002:1000::222
 
 ;;; Transit VRF Loopbacks - 149.112.115.224/27 / 2620:11A:B002:2000::/64
-lo.transit.switch01.sjc02	IN	A	149.112.115.244
-lo.transit.switch01.sjc02	IN	AAAA	2620:11A:B002:2000::244
-lo.transit.switch01.scl04	IN	A	149.112.115.245
-lo.transit.switch01.scl04	IN	AAAA	2620:11A:B002:2000::245
-lo.transit.switch01.scl02	IN	A	149.112.115.246
-lo.transit.switch01.scl02	IN	AAAA	2620:11A:B002:2000::246
-lo.transit.switch01.scl01	IN	A	149.112.115.247
-lo.transit.switch01.scl01	IN	AAAA	2620:11A:B002:2000::247
-lo.transit.switch02.sjc01	IN	A	149.112.115.248
-lo.transit.switch02.sjc01	IN	AAAA	2620:11A:B002:2000::248
-lo.transit.switch01.sjc01	IN	A	149.112.115.249
-lo.transit.switch01.sjc01	IN	AAAA	2620:11A:B002:2000::249
-lo.transit.switch03.fmt01	IN	A	149.112.115.250
-lo.transit.switch03.fmt01	IN	AAAA	2620:11A:B002:2000::250
-lo.transit.switch02.fmt01	IN	A	149.112.115.251
-lo.transit.switch02.fmt01	IN	AAAA	2620:11A:B002:2000::251
-lo.transit.switch01.fmt01	IN	A	149.112.115.252
-lo.transit.switch01.fmt01	IN	AAAA	2620:11A:B002:2000::252
-lo.transit.switch02.sfo02	IN	A	149.112.115.253
-lo.transit.switch02.sfo02	IN	AAAA	2620:11A:B002:2000::253
-lo.transit.switch01.sfo02	IN	A	149.112.115.254
-lo.transit.switch01.sfo02	IN	AAAA	2620:11A:B002:2000::254
-lo.transit.switch01.sfo01	IN	A	149.112.115.255
-lo.transit.switch01.sfo01	IN	AAAA	2620:11A:B002:2000::255
+lo.switch01.sjc02.transit	IN	A	149.112.115.244
+lo.switch01.sjc02.transit	IN	AAAA	2620:11A:B002:2000::244
+lo.switch01.scl04.transit	IN	A	149.112.115.245
+lo.switch01.scl04.transit	IN	AAAA	2620:11A:B002:2000::245
+lo.switch01.scl02.transit	IN	A	149.112.115.246
+lo.switch01.scl02.transit	IN	AAAA	2620:11A:B002:2000::246
+lo.switch01.scl01.transit	IN	A	149.112.115.247
+lo.switch01.scl01.transit	IN	AAAA	2620:11A:B002:2000::247
+lo.switch02.sjc01.transit	IN	A	149.112.115.248
+lo.switch02.sjc01.transit	IN	AAAA	2620:11A:B002:2000::248
+lo.switch01.sjc01.transit	IN	A	149.112.115.249
+lo.switch01.sjc01.transit	IN	AAAA	2620:11A:B002:2000::249
+lo.switch03.fmt01.transit	IN	A	149.112.115.250
+lo.switch03.fmt01.transit	IN	AAAA	2620:11A:B002:2000::250
+lo.switch02.fmt01.transit	IN	A	149.112.115.251
+lo.switch02.fmt01.transit	IN	AAAA	2620:11A:B002:2000::251
+lo.switch01.fmt01.transit	IN	A	149.112.115.252
+lo.switch01.fmt01.transit	IN	AAAA	2620:11A:B002:2000::252
+lo.switch02.sfo02.transit	IN	A	149.112.115.253
+lo.switch02.sfo02.transit	IN	AAAA	2620:11A:B002:2000::253
+lo.switch01.sfo02.transit	IN	A	149.112.115.254
+lo.switch01.sfo02.transit	IN	AAAA	2620:11A:B002:2000::254
+lo.switch01.sfo01.transit	IN	A	149.112.115.255
+lo.switch01.sfo01.transit	IN	AAAA	2620:11A:B002:2000::255
 
 ; SFO01 (365 Main) / Site ID 0
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
