@@ -189,9 +189,11 @@ metrics		IN	CNAME	metrics.sfo02
 grafana		IN	CNAME	metrics.sfo02
 
 ;; AS40271 Partial Routes, /31's Point to Point / 2620:11A:B002::/64
-;;; Netskrt cache @ SJC02
-; gw-netskrt.sjc02		IN	A	149.112.115.0
-; netskrt-cache.sjc02		IN	A	149.112.115.1
+;;; Netskrt cache @ SCL02
+gw-netskrt.scl02		IN	A	149.112.115.0
+gw-netskrt.scl02		IN	AAAA	2620:11A:B002::0
+netskrt-cache.scl02		IN	A	149.112.115.1
+netskrt-cache.scl02		IN	AAAA	2620:11A:B002::1
 ;;; Google/AS15169 VPP @ SJC01
 google.as15169-as40271.sjc01.transit	IN	A	149.112.115.2
 google.as15169-as40271.sjc01.transit	IN	AAAA	2620:11A:B002::2
