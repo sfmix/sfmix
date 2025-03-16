@@ -11,3 +11,4 @@
   ansible.builtin.command: mkrdns
   register: mkrdns_result
   changed_when: mkrdns_result.rc == 0
+  notify: Restart named.service
