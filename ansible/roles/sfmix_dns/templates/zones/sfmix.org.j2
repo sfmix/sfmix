@@ -277,7 +277,6 @@ apple-edge-cache.transit		IN	A	149.112.115.189
 apple-edge-cache.transit		IN	A	149.112.115.190
 apple-edge-cache.transit		IN	A	149.112.115.191
 
-
 ;; Transit VRF Peering LAN (VLAN 1000) - 149.112.115.192/27 / 2620:11A:B002:1000::/64
 vl1000.switch01.sjc02.transit	IN	A	149.112.115.211
 vl1000.switch01.sjc02.transit	IN	AAAA	2620:11A:B002:1000::211
@@ -334,21 +333,46 @@ lo.switch01.sfo01.transit	IN	AAAA	2620:11A:B002:2000::255
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
 mgmt-gw.sfo01			IN	A	10.0.0.0
 eth1.mgmt-gw.sfo01		IN	A	10.0.1.1
-switch01.sfo01			IN	A	10.0.1.15
-lo0.switch01.sfo01		IN	A	100.64.103.1
 pdu01.sfo01			IN	A	10.0.1.3
 pdu02.sfo01			IN	A	10.0.1.4
+switch01.sfo01			IN	A	10.0.1.15
+lo0.switch01.sfo01		IN	A	100.64.103.1
+switch01.sfo01 			IN 	SSHFP   1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.sfo01 			IN 	SSHFP   1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.sfo01 			IN 	SSHFP   2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.sfo01 			IN 	SSHFP   2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.sfo01 			IN 	SSHFP   3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.sfo01 			IN 	SSHFP   3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.sfo01 			IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.sfo01 			IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 
 ; SFO02 (200 Paul Ave) / Site ID 1
 wan.mgmt-gw.sfo02		IN	A	198.35.53.243
 mgmt-gw.sfo02			IN	A	10.1.0.0
 eth2.mgmt-gw.sfo02		IN	A	10.1.1.1
-switch01.sfo02			IN	A	10.1.1.15
-lo0.switch01.sfo02		IN	A	100.64.100.1
-switch02.sfo02			IN	A	10.1.1.16
-lo0.switch02.sfo02		IN	A	100.64.107.1
 pdu01.sfo02			IN	A	10.1.1.3
 pdu02.sfo02			IN	A	10.1.1.4
+switch01.sfo02			IN	A	10.1.1.15
+lo0.switch01.sfo02		IN	A	100.64.100.1
+switch01.sfo02 			IN 	SSHFP   1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.sfo02 			IN 	SSHFP   1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.sfo02 			IN 	SSHFP   2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.sfo02 			IN 	SSHFP   2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.sfo02 			IN 	SSHFP   3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.sfo02 			IN 	SSHFP   3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.sfo02 			IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.sfo02 			IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
+switch02.sfo02			IN	A	10.1.1.16
+lo0.switch02.sfo02		IN	A	100.64.107.1
+switch02.sfo02 			IN 	SSHFP   1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch02.sfo02 			IN 	SSHFP   1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch02.sfo02 			IN 	SSHFP   2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch02.sfo02 			IN 	SSHFP   2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch02.sfo02 			IN 	SSHFP   3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch02.sfo02 			IN 	SSHFP   3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch02.sfo02 			IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch02.sfo02 			IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
+
 mgmt-switch.sfo02		IN	A	10.1.1.10
 netbox.oob.sfo02		IN	A	10.1.1.13
 metrics.oob.sfo02		IN	A	10.1.1.14
@@ -373,17 +397,42 @@ wan.mgmt-gw.fmt01			IN	A		64.71.188.18
 mgmt-gw.fmt01				IN	A		10.2.0.0
 eth2.mgmt-gw.fmt01			IN	A		10.2.1.1
 mgmt-switch.fmt01			IN	A		10.2.1.3
-switch01.fmt01				IN	A		10.2.1.15
-lo0.switch01.fmt01			IN	A		100.64.101.1
-switch02.fmt01				IN	A		10.2.1.16
-lo0.switch02.fmt01			IN	A		100.64.106.1
-switch03.fmt01				IN	A		10.2.1.17
-lo0.switch03.fmt01			IN	A		100.64.109.1
-vmbr0.pve01-warmspringsblvd48233-fmt	IN	A		100.64.1.10
 pdu01.fmt01				IN	A		10.2.1.4
 pdu02.fmt01				IN	A		10.2.1.5
 pdu03.fmt01				IN	A		10.2.1.6
 pdu04.fmt01				IN	A		10.2.1.7
+switch01.fmt01				IN	A		10.2.1.15
+lo0.switch01.fmt01			IN	A		100.64.101.1
+switch01.fmt01 				IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.fmt01 				IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.fmt01 				IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.fmt01 				IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.fmt01 				IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.fmt01 				IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.fmt01 				IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.fmt01 				IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
+switch02.fmt01				IN	A		10.2.1.16
+lo0.switch02.fmt01			IN	A		100.64.106.1
+switch02.fmt01 				IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch02.fmt01 				IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch02.fmt01 				IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch02.fmt01 				IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch02.fmt01 				IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch02.fmt01 				IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch02.fmt01 				IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch02.fmt01 				IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
+switch03.fmt01				IN	A		10.2.1.17
+lo0.switch03.fmt01			IN	A		100.64.109.1
+switch03.fmt01 				IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch03.fmt01 				IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch03.fmt01 				IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch03.fmt01 				IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch03.fmt01 				IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch03.fmt01 				IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch03.fmt01 				IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch03.fmt01 				IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
+vmbr0.pve01-warmspringsblvd48233-fmt	IN	A		100.64.1.10
+
 shell					IN	A		10.2.1.8
 mgmt.librenms				IN	A		10.2.1.9
 pve01-warmspringsblvd48233-fmt		IN	CNAME		vmbr0.pve01-warmspringsblvd48233-fmt
@@ -410,28 +459,60 @@ pdu01.sjc01		IN	A		10.3.1.4
 pdu02.sjc01		IN	A		10.3.1.5
 switch01.sjc01		IN	A		10.3.1.15
 lo0.switch01.sjc01	IN	A		100.64.105.1
+switch01.sjc01 		IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.sjc01 		IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.sjc01 		IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.sjc01 		IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.sjc01 		IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.sjc01 		IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.sjc01 		IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.sjc01 		IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 switch02.sjc01		IN	A		10.3.1.16
 lo0.switch02.sjc01	IN	A		100.64.102.1
+switch02.sjc01 		IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch02.sjc01 		IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch02.sjc01 		IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch02.sjc01 		IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch02.sjc01 		IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch02.sjc01 		IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch02.sjc01 		IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch02.sjc01 		IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 
 ; SCL01 (QTS SJC1) / Site ID 4
 wan.mgmt-gw.scl01	IN	A		205.234.25.36
 mgmt-gw.scl01		IN	A		10.4.0.0
 eth2.mgmt-gw.scl01	IN	A		10.4.1.1
 mgmt-switch.scl01	IN	A		10.4.1.2
-switch01.scl01		IN	A		10.4.1.15
-lo0.switch01.scl01	IN	A		100.64.104.1
 pdu01.scl01		IN	A		10.4.1.4
 pdu02.scl01		IN	A		10.4.1.5
+switch01.scl01		IN	A		10.4.1.15
+lo0.switch01.scl01	IN	A		100.64.104.1
+switch01.scl01 		IN 	SSHFP   1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.scl01 		IN 	SSHFP   1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.scl01 		IN 	SSHFP   2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.scl01 		IN 	SSHFP   2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.scl01 		IN 	SSHFP   3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.scl01 		IN 	SSHFP   3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.scl01 		IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.scl01 		IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 
 ; SCL02 (CoreSite SV4) / Site ID 5
 wan.mgmt-gw.scl02	IN	A		66.128.149.4
 mgmt-gw.scl02		IN	A		10.5.0.0
 eth2.mgmt-gw.scl02	IN	A		10.5.1.1
 mgmt-switch.scl02	IN	A		10.5.1.2
-switch01.scl02		IN	A		10.5.1.15
-lo0.switch01.scl02	IN	A		100.64.108.1
 pdu01.scl02		IN	A		10.5.1.4
 pdu02.scl02		IN	A		10.5.1.5
+switch01.scl02		IN	A		10.5.1.15
+lo0.switch01.scl02	IN	A		100.64.108.1
+switch01.scl02 		IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.scl02 		IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.scl02 		IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.scl02 		IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.scl02 		IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.scl02 		IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.scl02 		IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.scl02 		IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 cr1.scl02.transit	IN	CNAME		fxp0.cr1.scl02.transit
 fxp0.cr1.scl02.transit	IN	A		10.5.1.30
 
@@ -440,20 +521,36 @@ wan.mgmt-gw.scl04	IN	A	50.117.26.130
 mgmt-gw.scl04		IN	A	10.6.0.0
 eth2.mgmt-gw.scl04	IN	A	10.6.1.1
 mgmt-switch.scl04	IN	A	10.6.1.2
-switch01.scl04		IN	A	10.6.1.15
-lo0.switch01.scl04	IN	A	100.64.110.1
 pdu01.scl04		IN	A	10.6.1.4
 pdu02.scl04		IN	A	10.6.1.5
+switch01.scl04		IN	A	10.6.1.15
+lo0.switch01.scl04	IN	A	100.64.110.1
+switch01.scl04 		IN 	SSHFP   1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.scl04 		IN 	SSHFP   1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.scl04 		IN 	SSHFP   2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.scl04 		IN 	SSHFP   2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.scl04 		IN 	SSHFP   3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.scl04 		IN 	SSHFP   3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.scl04 		IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.scl04 		IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 
 ; SJC02 (CoreSite SV1) / Site ID 14
 wan.mgmt-gw.sjc02       IN      A       66.128.149.164
 mgmt-gw.sjc02           IN      A       10.7.0.0
 eth2.mgmt-gw.sjc02      IN      A       10.7.1.1
 mgmt-switch.sjc02       IN      A       10.7.1.2
-switch01.sjc02          IN      A       10.7.1.15
-lo0.switch01.sjc02      IN      A       100.64.111.1
 pdu01.sjc02             IN      A       10.7.1.4
 pdu02.sjc02             IN      A       10.7.1.5
+switch01.sjc02          IN      A       10.7.1.15
+lo0.switch01.sjc02      IN      A       100.64.111.1
+switch01.sjc02 		IN 	SSHFP   1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.sjc02 		IN 	SSHFP   1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.sjc02 		IN 	SSHFP   2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.sjc02 		IN 	SSHFP   2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.sjc02 		IN 	SSHFP   3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.sjc02 		IN 	SSHFP   3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.sjc02 		IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.sjc02 		IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 
 ; Member IPv4 interfaces
 lg.sfo01	IN	A	206.197.187.1	; SFMIX looking glass
