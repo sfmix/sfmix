@@ -394,6 +394,8 @@ ipmi.pve02-warmspringsblvd48233-fmt	IN	A		10.2.1.13
 mgmt.rs-openbsd				IN	A		10.2.1.14
 mgmt.quarantine-lg			IN	A		10.2.1.25
 mgmt.alice				IN	A		10.2.1.26
+cr1.fmt01.transit			IN	CNAME		fxp0.cr1.fmt01
+fxp0.cr1.fmt01.transit			IN	A		10.2.1.30
 
 ; fmt01 Transit: Arelion via Cofractal
 eth5.edge-gw.fmt01	IN	A	62.115.146.167
@@ -430,6 +432,8 @@ switch01.scl02		IN	A		10.5.1.15
 lo0.switch01.scl02	IN	A		100.64.108.1
 pdu01.scl02		IN	A		10.5.1.4
 pdu02.scl02		IN	A		10.5.1.5
+cr1.scl02.transit	IN	CNAME		fxp0.cr1.scl02.transit
+fxp0.cr1.scl02.transit	IN	A		10.5.1.30
 
 ; SCL04 (OpenColo) / Site ID 6
 wan.mgmt-gw.scl04	IN	A	50.117.26.130
