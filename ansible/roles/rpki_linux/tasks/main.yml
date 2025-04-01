@@ -34,6 +34,7 @@
     name: routinator
     network_mode: host
     image: "nlnetlabs/routinator:{{ rpki_linux_routinator_version }}"
+    image_name_mismatch: recreate
     restart_policy: always
     pull: true
     mounts:
