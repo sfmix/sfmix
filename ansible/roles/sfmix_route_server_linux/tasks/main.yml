@@ -9,6 +9,7 @@
 
 # Install fping, as a place to discover MACs from
 - name: "Install fping"
+  become: true
   ansible.builtin.apt:
     name: fping
     state: present
