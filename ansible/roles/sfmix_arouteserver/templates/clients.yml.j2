@@ -38,6 +38,12 @@ clients:
 {%         if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
   - asn: {{ participant.custom_fields.as_number }}
     description: {{ participant.description }}
+    ip:
+{%           for ip_address in netbox_participant_ip_addresses.values() %}
+{%             if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
+      - "{{ ip_address.address | ansible.utils.ipaddr('address') }}"
+{%             endif %}
+{%           endfor %}
     cfg:
       attach_custom_communities:
         - "participant_type_{{ participant.custom_fields.participant_type | lower }}"
@@ -48,12 +54,6 @@ clients:
         max_prefix:
           peering_db:
             enabled: True
-    ip:
-{%           for ip_address in netbox_participant_ip_addresses.values() %}
-{%             if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
-      - "{{ ip_address.address | ansible.utils.ipaddr('address') }}"
-{%             endif %}
-{%           endfor %}
 {%         endif %}
 {%       endfor %}
 {%     endif %}
