@@ -20,6 +20,7 @@ all:
         rpki_linux:
         tailscale:
         obscreen:
+        librenms:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -80,3 +81,6 @@ all:
     obscreen:
       hosts:
         obscreen.sfmix.org:
+    librenms:
+      hosts:
+        librenms.sfmix.org:
