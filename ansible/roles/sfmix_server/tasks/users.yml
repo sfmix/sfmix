@@ -9,6 +9,7 @@
       - sfmix
     append: true
     state: present
+    shell: /bin/bash
   with_items:
     - "{{ sfmix_admin_users }}"
     - "{{ sfmix_host_local_users }}"
