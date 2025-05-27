@@ -1,7 +1,7 @@
 ---
-- name: Restart mqtt2prometheus
+- name: Restart mqtt2prometheus-air-sensor
   become: true
   docker_container:
-    name: mqtt2prometheus
+    name: mqtt2prometheus-air-sensor
     state: started
     restart: true
