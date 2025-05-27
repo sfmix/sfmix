@@ -1,0 +1,48 @@
+---
+- name: Create /opt/mosquitto/config directory
+  become: true
+  file:
+    path: /opt/mosquitto/config
+    state: directory
+    recurse: true
+    mode: ug=rwx,o=rx
+    owner: root
+    group: root
+- name: Create /opt/mosquitto/data directory
+  become: true
+  file:
+    path: /opt/mosquitto/data
+    state: directory
+    recurse: true
+    mode: ug=rwx,o=rx
+    owner: root
+    group: root
+- name: Template /opt/mosquitto/config/mosquitto.conf
+  become: true
+  template:
+    src: mosquitto.conf.j2
+    dest: /opt/mosquitto/config/mosquitto.conf
+    mode: ug=rw,o=r
+    owner: root
+    group: root
+- name: Template /opt/mosquitto/data/password_file
+  become: true
+  template:
+    src: password_file.j2
+    dest: /opt/mosquitto/data/password_file
+    mode: ug=rw,o=r
+    owner: root
+    group: root
+- name: Run docker container eclipse-mosquitto
+  become: true
+  docker_container:
+    name: mosquitto
+    image: eclipse-mosquitto
+    state: started
+    restart_policy: always
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - /opt/mosquitto/config:/mosquitto/config
+      - /opt/mosquitto/data:/mosquitto/data
