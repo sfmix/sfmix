@@ -1,0 +1,66 @@
+---
+mqtt:
+  server: tcp://{{ mqtt.broker.hostname }}:{{ mqtt.broker.port }}
+  user: mqtt
+  password: {{ mqtt.users.mqtt.password }}
+  topic_path: sfmix/air_sensor/+/sensor/+/+
+  device_id_regex: "sfmix/air_sensor/(?P<deviceid>.*)/sensor/.*"
+  metric_per_topic_config:
+    metric_name_regex: "sfmix/air_sensor/(?P<deviceid>.*)/sensor/(?P<metricname>.*)"
+metrics:
+  - prom_name: co2
+    mqtt_name: co2/state
+    type: gauge
+    help: Carbon Dioxide Air Concentration in parts per million
+  - prom_name: particulate_matter_1um
+    mqtt_name: pm__1__m_weight_concentration/state
+    type: gauge
+    help: Particulate matter mass concentration microgram/m^3 (Size > 1uM)
+  - prom_name: particulate_matter_2_5um
+    mqtt_name: pm__2_5__m_weight_concentration/state
+    type: gauge
+    help: Particulate matter mass concentration microgram/m^3 (Size > 2.5uM)
+  - prom_name: particulate_matter_4um
+    mqtt_name: pm__4__m_weight_concentration/state
+    type: gauge
+    help: Particulate matter mass concentration microgram/m^3 (Size > 4uM)
+  - prom_name: particulate_matter_10um
+    mqtt_name: pm__10__m_weight_concentration/state
+    type: gauge
+    help: Particulate matter mass concentration microgram/m^3 (Size > 10uM)
+  - prom_name: temperature
+    mqtt_name: temperature/state
+    type: gauge
+    help: Temperature in Celsius
+  - prom_name: voc
+    mqtt_name: voc/state
+    type: gauge
+    help: VOC Index
+  - prom_name: nox
+    mqtt_name: nox/state
+    type: gauge
+    help: NOX Index
+  - prom_name: humidity
+    mqtt_name: humidity/state
+    type: gauge
+    help: Humidity Percentage
+  - prom_name: ambient_light
+    mqtt_name: ambient_light/state
+    type: gauge
+    help: Ambient Light
+  - prom_name: ambient_light_cct
+    mqtt_name: ambient_light_cct/state
+    type: gauge
+    help: Ambient Light CCT
+  - prom_name: air_pressure
+    mqtt_name: air_pressure/state
+    type: gauge
+    help: Air Pressure (hPa)
+  - prom_name: ambient_sound_level_laeq_1min
+    mqtt_name: ambient_sound_level__laeq_1min_/state
+    type: gauge
+    help: Ambient Sound Level LAeq (1 minute)
+  - prom_name: ambient_sound_level_lapeak_1min
+    mqtt_name: ambient_sound_level__lapeak_1min_/state
+    type: gauge
+    help: Ambient Sound Level LApeak (1 minute)

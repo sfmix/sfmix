@@ -46,3 +46,25 @@
     volumes:
       - /opt/mosquitto/config:/mosquitto/config
       - /opt/mosquitto/data:/mosquitto/data
+
+# mqtt2prometheus
+- name: Place mqtt2prometheus config file
+  become: true
+  template:
+    src: mqtt2prometheus.config.yaml.j2
+    dest: /opt/mqtt2prometheus.config.yaml
+    mode: ug=rw,o=r
+    owner: root
+    group: root
+  notify: Restart mqtt2prometheus
+- name: Run docker container mqtt2prometheus
+  become: true
+  docker_container:
+    name: mqtt2prometheus
+    network_mode: host
+    image: ghcr.io/hikhvar/mqtt2prometheus:latest
+    state: started
+    restart_policy: always
+    volumes:
+      - /opt/mqtt2prometheus.config.yaml:/config.yaml
+    command: "-config /config.yaml"

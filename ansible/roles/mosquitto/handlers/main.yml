@@ -1,0 +1,7 @@
+---
+- name: Restart mqtt2prometheus
+  become: true
+  docker_container:
+    name: mqtt2prometheus
+    state: started
+    restart: true
