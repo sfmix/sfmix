@@ -70,3 +70,28 @@ scrape_configs:
       static_configs:
       - targets:
         - metrics.sfo02.sfmix.org:9641
+      metric_relabel_configs:
+        - source_labels: [sensor]
+          regex: '(sfo01|sfo02|scl05)'
+          target_label: facility_operator
+          replacement: digital_realty
+        - source_labels: [sensor]
+          regex: '(fmt01)'
+          target_label: facility_operator
+          replacement: hurricane_electric
+        - source_labels: [sensor]
+          regex: '(scl01)'
+          target_label: facility_operator
+          replacement: qts
+        - source_labels: [sensor]
+          regex: '(scl02|sjc02)'
+          target_label: facility_operator
+          replacement: coresite
+        - source_labels: [sensor]
+          regex: '(sjc01)'
+          target_label: facility_operator
+          replacement: equinix
+        - source_labels: [sensor]
+          regex: '(scl04)'
+          target_label: facility_operator
+          replacement: opencolo
