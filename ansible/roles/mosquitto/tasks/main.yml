@@ -47,24 +47,24 @@
       - /opt/mosquitto/config:/mosquitto/config
       - /opt/mosquitto/data:/mosquitto/data
 
-# mqtt2prometheus
-- name: Place mqtt2prometheus config file
+# mqtt2prometheus for air sensor
+- name: Place mqtt2prometheus config file for air sensors
   become: true
   template:
-    src: mqtt2prometheus.config.yaml.j2
-    dest: /opt/mqtt2prometheus.config.yaml
+    src: mqtt2prometheus.air_sensor.config.yaml.j2
+    dest: /opt/mqtt2prometheus.air_sensor.config.yaml
     mode: ug=rw,o=r
     owner: root
     group: root
-  notify: Restart mqtt2prometheus
-- name: Run docker container mqtt2prometheus
+  notify: Restart mqtt2prometheus-air-sensor
+- name: Run docker container mqtt2prometheus-air-sensor
   become: true
   docker_container:
-    name: mqtt2prometheus
+    name: mqtt2prometheus-air-sensor
     network_mode: host
     image: ghcr.io/hikhvar/mqtt2prometheus:latest
     state: started
     restart_policy: always
     volumes:
-      - /opt/mqtt2prometheus.config.yaml:/config.yaml
+      - /opt/mqtt2prometheus.air_sensor.config.yaml:/config.yaml
     command: "-config /config.yaml"
