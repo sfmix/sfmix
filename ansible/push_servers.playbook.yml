@@ -62,6 +62,13 @@
     - prometheus
     - grafana
 
+- name: Metrics Server
+  hosts: metrics
+  tags:
+    - mosquitto
+  roles:
+    - mosquitto
+
 - name: Teleport Auth/Proxy Server
   hosts: teleport
   tags:
