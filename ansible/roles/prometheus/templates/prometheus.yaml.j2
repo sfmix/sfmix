@@ -63,3 +63,10 @@ scrape_configs:
       static_configs:
       - targets:
         - netbox.sfmix.org
+    - job_name: mqtt2prometheus-air-sensor
+      scheme: http
+      scrape_interval: 5s
+      scrape_timeout: 4s
+      static_configs:
+      - targets:
+        - metrics.sfo02.sfmix.org:9641
