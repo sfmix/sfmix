@@ -60,7 +60,7 @@ ixp_admin_source_subnets:
     6463
   - 104.244.27.18/32
   - 107.161.208.1/32
-  - 2602:ffd3:0:2::9:/127
+  - 2602:ffd3:0:2::8/127
   # richgibson -- Development VM
   - !vault |
     $ANSIBLE_VAULT;1.1;AES256
