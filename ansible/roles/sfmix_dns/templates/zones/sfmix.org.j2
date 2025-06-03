@@ -113,6 +113,11 @@ caida-44			IN	A	192.33.255.44
 caida-45			IN	A	192.33.255.45
 caida-46			IN	A	192.33.255.46
 bcast-vlan105.edge-gw		IN	A	192.33.255.47
+;;; Valve OOB/VLAN 106 -- 192.33.255.48/31
+gw-vlan106.edge-gw              IN      A       192.33.255.48
+gw-vlan106.edge-gw              IN      AAAA    2620:11A:B000:106::1
+valve-oob.scl02                 IN      A       192.33.255.49
+valve-oob.scl02                 IN      AAAA    2620:11A:B000:106::2
 ;
 ;; SFMIX Public -- Site-spanning Access LAN
 ; 192.33.255.64/27 / 2620:11A:B000:110::/64
@@ -245,6 +250,11 @@ cofractal.as26073-as40271.fmt01.transit	IN	A	149.112.115.20
 cofractal.as26073-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::20
 sfmix.as26073-as40271.fmt01.transit	IN	A	149.112.115.21
 sfmix.as26073-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::21
+;;; Valve Cache/AS32590 -- 149.112.115.22/31 / 2620:11A:B002::22/127
+gw-valve.scl02                  IN      AAAA    2620:11A:B002::22
+gw-valve.scl02                  IN      A       149.112.115.22
+valve-cache.scl02               IN      AAAA    2620:11A:B002::23
+valve-cache.scl02               IN      A       149.112.115.23
 
 ;; Apple Edge Cache -- 149.112.115.160/27 / 2620:11A:B002:3000::/56
 apple-edge-cache.transit		IN	A	149.112.115.160
