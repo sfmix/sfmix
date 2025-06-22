@@ -1,7 +1,4 @@
 ---
-- name: "Download SSH Keys from GitHub"
-  ansible.builtin.import_tasks: download_ssh_keys_from_github.yml
-
 - name: "SFMIX Server: sshd"
   ansible.builtin.import_tasks: sshd.yml
 
