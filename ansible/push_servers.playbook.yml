@@ -59,8 +59,14 @@
     - netbox_data
     - docker_engine
     - sflow_rt
-    - prometheus
     - grafana
+
+- name: Metrics Server - Prometheus
+  hosts: metrics
+  tags:
+    - prometheus
+  roles:
+    - prometheus
 
 - name: Metrics Server
   hosts: metrics
