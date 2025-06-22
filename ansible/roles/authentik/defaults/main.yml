@@ -1,0 +1,11 @@
+---
+authentik_authentik:
+  postgres_password: authentik
+  secret_key: sooper_secret
+  email:
+    host: smtp.example.com
+    port: 587
+    username: username
+    password: password
+    from: noreply@example.com
+  tag: "2025.2.3"

@@ -21,6 +21,7 @@ all:
         tailscale:
         obscreen:
         librenms:
+        login:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -84,3 +85,6 @@ all:
     librenms:
       hosts:
         librenms.sfmix.org:
+    login:
+      hosts:
+        login.sfmix.org:
