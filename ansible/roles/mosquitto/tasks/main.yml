@@ -1,7 +1,7 @@
 ---
 - name: Create /opt/mosquitto/config directory
   become: true
-  file:
+  ansible.builtin.file:
     path: /opt/mosquitto/config
     state: directory
     recurse: true
@@ -10,7 +10,7 @@
     group: root
 - name: Create /opt/mosquitto/data directory
   become: true
-  file:
+  ansible.builtin.file:
     path: /opt/mosquitto/data
     state: directory
     recurse: true
@@ -19,7 +19,7 @@
     group: root
 - name: Template /opt/mosquitto/config/mosquitto.conf
   become: true
-  template:
+  ansible.builtin.template:
     src: mosquitto.conf.j2
     dest: /opt/mosquitto/config/mosquitto.conf
     mode: ug=rw,o=r
@@ -27,7 +27,7 @@
     group: root
 - name: Template /opt/mosquitto/data/password_file
   become: true
-  template:
+  ansible.builtin.template:
     src: password_file.j2
     dest: /opt/mosquitto/data/password_file
     mode: ug=rw,o=r
@@ -35,7 +35,7 @@
     group: root
 - name: Run docker container eclipse-mosquitto
   become: true
-  docker_container:
+  community.docker.docker_container:
     name: mosquitto
     image: eclipse-mosquitto
     state: started
@@ -50,7 +50,7 @@
 # mqtt2prometheus for air sensor
 - name: Place mqtt2prometheus config file for air sensors
   become: true
-  template:
+  ansible.builtin.template:
     src: mqtt2prometheus.air_sensor.config.yaml.j2
     dest: /opt/mqtt2prometheus.air_sensor.config.yaml
     mode: ug=rw,o=r
@@ -59,7 +59,7 @@
   notify: Restart mqtt2prometheus-air-sensor
 - name: Run docker container mqtt2prometheus-air-sensor
   become: true
-  docker_container:
+  community.docker.docker_container:
     name: mqtt2prometheus-air-sensor
     network_mode: host
     image: ghcr.io/hikhvar/mqtt2prometheus:latest

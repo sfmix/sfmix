@@ -277,7 +277,7 @@ sfmix_server_snmp_community: !vault |
   6233
 sfmix_server_dns_recursors:
   - 192.33.255.3
-mqtt:
+mosquitto_mqtt:
   broker:
     hostname: mqtt.sfmix.org
     port: 1883

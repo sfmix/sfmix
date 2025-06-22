@@ -2,7 +2,7 @@
 mqtt:
   server: tcp://{{ mqtt.broker.hostname }}:{{ mqtt.broker.port }}
   user: mqtt
-  password: {{ mqtt.users.mqtt.password }}
+  password: {{ mosquitto_mqtt.users.mqtt.password }}
   topic_path: sfmix/air_sensor/+/sensor/+/+
   device_id_regex: "sfmix/air_sensor/(?P<deviceid>.*)/sensor/.*"
   metric_per_topic_config:
