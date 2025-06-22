@@ -8,6 +8,9 @@
     # This way, we can easily support multiple deploys a day (so long as there
     # is 864 seconds, or a little less than 15 minutes) in-between deploys,
     # without having to have ansible be a DNS client and do math from SOA records
+    #
+    # WARNING: This is not portable for all versions of `date` :/
+    # This probably ought to be a python plugin that uses datetime
     sfmix_dns_current_zone_serial: >
       {{
         ('%Y%m%d' | strftime(ansible_date_time.epoch)) ~

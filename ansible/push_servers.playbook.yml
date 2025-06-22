@@ -274,7 +274,7 @@
   roles:
     - obscreen
 
-- name: login - authentik
+- name: Login - authentik
   hosts: login
   roles:
     - authentik
