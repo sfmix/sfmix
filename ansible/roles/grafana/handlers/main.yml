@@ -3,16 +3,16 @@
   community.docker.docker_container:
     name: syslog-ng
     state: started
-    restart: yes
+    restart: true
 - name: "Restart loki docker container"
   become: true
   community.docker.docker_container:
     name: loki
     state: started
-    restart: yes
+    restart: true
 - name: "Restart promtail docker container"
   become: true
   community.docker.docker_container:
     name: promtail
     state: started
-    restart: yes
+    restart: true
