@@ -30,3 +30,28 @@
     name: birdwatcher
     restart: true
     state: started
+
+- name: Rebuild bird_exporter docker container
+  become: true
+  community.docker.docker_image:
+    name: bird_exporter
+    build:
+      path: "{{ sfmix_route_server_linux_bird_exporter_directory }}/repo"
+      network: host
+    source: build
+    tag: "{{ sfmix_route_server_linux_bird_exporter_version | replace('/', '_') }}"
+    force_source: true
+  notify: Remove bird_exporter container
+
+- name: Remove bird_exporter container
+  become: true
+  community.docker.docker_container:
+    name: bird_exporter
+    state: absent
+
+- name: Restart bird_exporter
+  become: true
+  community.docker.docker_container:
+    name: bird_exporter
+    restart: true
+    state: started
