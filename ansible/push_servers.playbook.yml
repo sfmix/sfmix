@@ -273,3 +273,8 @@
   hosts: obscreen
   roles:
     - obscreen
+
+- name: login - authentik
+  hosts: login
+  roles:
+    - authentik
