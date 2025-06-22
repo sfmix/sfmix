@@ -1,5 +1,5 @@
 ---
-obscreen:
+obscreen_obscreen:
   directory: /opt/obscreen
   user: nobody
   group: nogroup
