@@ -31,5 +31,5 @@
       - /run/bird/bird.ctl:/var/run/bird.ctl
     command:
       -format.new=true
-      -bird.v2 
+      -bird.v2
       -web.listen-address={{ ansible_default_ipv4.address }}:{{ sfmix_route_server_linux_bird_exporter_port }}
