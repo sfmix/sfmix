@@ -95,3 +95,10 @@ scrape_configs:
           regex: '(scl04)'
           target_label: facility_operator
           replacement: opencolo
+    - job_name: bird_exporer
+      scheme: http
+      scrape_interval: 60s
+      scrape_timeout: 15s
+      static_configs:
+        - targets:
+            - 10.1.1.18:9324
