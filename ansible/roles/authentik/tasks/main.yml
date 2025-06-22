@@ -1,0 +1,63 @@
+---
+## Authentik
+- name: "Ensure /opt/authentik/custom-templates"
+  become: true
+  ansible.builtin.file:
+    path: "/opt/authentik/custom-templates"
+    state: directory
+    owner: root
+    group: root
+    mode: ug=rwx,o=rx
+- name: "Ensure /opt/authentik/database"
+  become: true
+  ansible.builtin.file:
+    path: "/opt/authentik/database"
+    state: directory
+    owner: 70
+    group: 70
+    mode: u=rwx,go=
+- name: "Ensure /opt/authentik/redis"
+  become: true
+  ansible.builtin.file:
+    path: "/opt/authentik/redis"
+    state: directory
+    owner: 999
+    group: 1000
+    mode: ug=rwx,o=rx
+- name: "Ensure /opt/authentik/media"
+  become: true
+  ansible.builtin.file:
+    path: "/opt/authentik/redis"
+    state: directory
+    owner: 999
+    group: 1000
+    mode: ug=rwx,o=rx
+- name: "Ensure /opt/authentik/certs"
+  become: true
+  ansible.builtin.file:
+    path: "/opt/authentik/redis"
+    state: directory
+    owner: 999
+    group: 1000
+    mode: ug=rwx,o=rx
+- name: Template /opt/authentik/.env
+  become: true
+  ansible.builtin.template:
+    src: authentik.env.j2
+    dest: /opt/authentik/.env
+    owner: root
+    group: root
+    mode: ug=rw,o=
+- name: Template /opt/authentik/docker-compose.yml
+  become: true
+  ansible.builtin.template:
+    src: authentik.docker-compose.yml.j2
+    dest: /opt/authentik/docker-compose.yml
+    owner: root
+    group: root
+    mode: ug=rw,o=
+- name: Authentik docker-compose
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: /opt/authentik
+    state: present
