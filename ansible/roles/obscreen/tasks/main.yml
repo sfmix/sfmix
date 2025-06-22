@@ -5,28 +5,28 @@
     name: docker-compose-v2
     state: present
 
-- name: "Obscreen: Create directory: {{ obscreen.directory }}"
+- name: "Obscreen: Create directory: {{ obscreen_obscreen.directory }}"
   become: true
   ansible.builtin.file:
-    path: "{{ obscreen.directory }}"
+    path: "{{ obscreen_obscreen.directory }}"
     state: directory
-    owner: "{{ obscreen.user }}"
-    group: "{{ obscreen.group }}"
-    mode: 0755
+    owner: "{{ obscreen_obscreen.user }}"
+    group: "{{ obscreen_obscreen.group }}"
+    mode: ug=rwx,o=rx
 
 - name: "Obscreen: Pull docker-compose.yml file from https"
   become: true
   ansible.builtin.get_url:
-    url: "{{ obscreen.docker_compose_url }}"
-    dest: "{{ obscreen.directory }}/docker-compose.yml"
-    owner: "{{ obscreen.user }}"
-    group: "{{ obscreen.group }}"
-    mode: 0644
+    url: "{{ obscreen_obscreen.docker_compose_url }}"
+    dest: "{{ obscreen_obscreen.directory }}/docker-compose.yml"
+    owner: "{{ obscreen_obscreen.user }}"
+    group: "{{ obscreen_obscreen.group }}"
+    mode: u=rw,go=r
 
 - name: "Obscreen: Start docker-compose"
   become: true
   community.docker.docker_compose_v2:
-    project_src: "{{ obscreen.directory }}"
+    project_src: "{{ obscreen_obscreen.directory }}"
     state: present
     pull: always # always pull the latest
     recreate: always
@@ -62,7 +62,7 @@
         certbot_create_standalone_stop_services: ["nginx.service"]
         certbot_certs:
           - domains:
-              - "{{ obscreen.domain }}"
+              - "{{ obscreen_obscreen.domain }}"
         nginx_remove_default_vhost: true
         nginx_server_tokens: "off"
         nginx_extra_http_options: |
@@ -72,10 +72,10 @@
             server_name: "_"
             return: "301 https://$host$request_uri"
           - listen: "443 ssl http2"
-            server_name: "{{ obscreen.domain }}"
+            server_name: "{{ obscreen_obscreen.domain }}"
             extra_parameters: |
-              ssl_certificate /etc/letsencrypt/live/{{ obscreen.domain }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ obscreen.domain }}/privkey.pem;
+              ssl_certificate /etc/letsencrypt/live/{{ obscreen_obscreen.domain }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ obscreen_obscreen.domain }}/privkey.pem;
               ssl_dhparam /etc/ssl/certs/dhparam.pem;
               location / {
                 limit_req zone=ip burst=12 delay=8;
