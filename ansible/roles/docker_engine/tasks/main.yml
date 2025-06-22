@@ -11,6 +11,7 @@
   ansible.builtin.copy:
     src: docker.daemon.json
     dest: /etc/docker/daemon.json
+    mode: ug=rw,o=r
   notify: Restart docker
 
 - name: Add SFMIX users to docker group
