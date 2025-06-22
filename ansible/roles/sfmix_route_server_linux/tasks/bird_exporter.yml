@@ -1,0 +1,35 @@
+---
+- name: Ensure bird_exporter directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ sfmix_route_server_linux_bird_exporter_directory }}"
+    state: directory
+    mode: gu=rwx,o=rx
+
+- name: Clone bird_exporter repo
+  become: true
+  ansible.builtin.git:
+    repo: "{{ sfmix_route_server_linux_bird_exporter_repo }}"
+    dest: "{{ sfmix_route_server_linux_bird_exporter_directory }}/repo"
+    version: "{{ sfmix_route_server_linux_bird_exporter_version }}"
+    force: true
+  notify: Rebuild bird_exporter docker container
+
+- name: Trigger bird_exporter rebuilt and old container destruction
+  ansible.builtin.meta: flush_handlers
+
+- name: Run bird_exporter
+  become: true
+  community.docker.docker_container:
+    name: bird_exporter
+    image: "bird_exporter:{{ sfmix_route_server_linux_bird_exporter_version | replace('/', '_') }}"
+    restart_policy: unless-stopped
+    state: started
+    network_mode: host
+    log_driver: local
+    volumes:
+      - /run/bird/bird.ctl:/var/run/bird.ctl
+    command:
+      -format.new=true
+      -bird.v2 
+      -web.listen-address={{ ansible_default_ipv4.address }}:{{ sfmix_route_server_linux_bird_exporter_port }}
