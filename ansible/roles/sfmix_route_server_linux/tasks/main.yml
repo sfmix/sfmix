@@ -7,6 +7,11 @@
     - birdwatcher
   ansible.builtin.import_tasks: birdwatcher.yml
 
+- name: "Install and configure bird_exporter"
+  tags:
+    - bird_exporter
+  ansible.builtin.import_tasks: bird_exporter.yml
+
 # Install fping, as a place to discover MACs from
 - name: "Install fping"
   become: true

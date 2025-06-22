@@ -4,3 +4,7 @@ sfmix_route_server_linux_birdwatcher_repo: "https://github.com/alice-lg/birdwatc
 sfmix_route_server_linux_birdwatcher_version: "master"
 sfmix_route_server_linux_rtr_hostname: 192.33.255.13 # rpki-linux.sfmix.org
 sfmix_route_server_linux_rtr_port: 3323
+sfmix_route_server_linux_bird_exporter_repo: https://github.com/czerwonk/bird_exporter.git
+sfmix_route_server_linux_bird_exporter_directory: /opt/bird_exporter
+sfmix_route_server_linux_bird_exporter_version: b7ff18f9e130fef48ef8731b303867742fd17f22
+sfmix_route_server_linux_bird_exporter_port: 9324
