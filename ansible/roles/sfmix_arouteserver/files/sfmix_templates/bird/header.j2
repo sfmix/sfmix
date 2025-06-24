@@ -2,7 +2,7 @@ router id {{ cfg.router_id }};
 define rs_as = {{ cfg.rs_as }};
 
 {% if not "logging" is used_local_file %}
-log syslog all;
+log syslog { remote, warning, error, fatal, bug };
 debug protocols { states, routes, filters, interfaces, events };
 {% else %}
 {{ "logging"|include_local_file -}}
