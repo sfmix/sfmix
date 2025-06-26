@@ -26,12 +26,13 @@
     network_mode: host
     user: nobody
     command: >-
+      -Dixp.syslog.host=127.0.0.1
       -Dixp.bogons=yes
-      -Dixp.bgp.router=100.64.0.18
-      -Dixp.bgp.as={{ sfmix_sflow_collector_bgp_asn }}
-      -Dixp.bgp.id={{ sfmix_sflow_collector_bgp_address }}
-      -Dixp.bgp.multipath=yes
-      -Dbgp.start=yes
+# -Dixp.bgp.router=100.64.0.18
+# -Dixp.bgp.as={{ sfmix_sflow_collector_bgp_asn }}
+# -Dixp.bgp.id={{ sfmix_sflow_collector_bgp_address }}
+# -Dixp.bgp.multipath=yes
+# -Dbgp.start=yes
     volumes:
       - "{{ sflow_rt_store_dir }}:/sflow-rt/store"
 
