@@ -492,6 +492,59 @@ def update_netbox_interface_description_asn_participant() -> None:
         #     raise ValueError(f"Could not find ASN in interface description \"{interface.description}\" for {interface.device.name} / {interface.name}")
 
 
+def update_netbox_interface_ips(peering_switch_hostname: str) -> None:
+    netbox = netbox_api_client()
+    connection_params = get_eapi_connection_parameters()
+    connection_params["host"] = peering_switch_hostname
+    switch = pyeapi.connect(**connection_params)
+    response = switch.enable(["show ip interface brief"])
+
+    # Track IPs found on device
+    device_ips = set()
+
+    for interface_name, interface in response[0]["result"]["interfaces"].items():
+        if "interfaceAddress" not in interface:
+            continue
+
+        ip_addr = interface["interfaceAddress"]["ipAddr"]
+        if ip_addr["address"] == "0.0.0.0":
+            continue
+
+        ip_with_mask = f"{ip_addr['address']}/{ip_addr['maskLen']}"
+        device_ips.add(ip_with_mask)
+
+        nb_interface = netbox.dcim.interfaces.get(device=peering_switch_hostname, name=interface_name)
+
+        if not nb_interface:
+            logger.warning(f"Interface not found in Netbox: {peering_switch_hostname}/{interface_name}")
+            continue
+
+        existing_ips = list(netbox.ipam.ip_addresses.filter(address=ip_with_mask))
+
+        if not existing_ips:
+            logger.info(f"Creating IP {ip_with_mask} for {peering_switch_hostname}/{interface_name}")
+            netbox.ipam.ip_addresses.create(
+                address=ip_with_mask,
+                assigned_object_type="dcim.interface",
+                assigned_object_id=nb_interface.id
+            )
+        elif len(existing_ips) > 1:
+            logger.warning(f"Multiple entries found for IP {ip_with_mask} (here, {peering_switch_hostname}/{interface_name})- skipping update")
+            continue
+        elif existing_ips[0].assigned_object_id != nb_interface.id:
+            logger.info(f"Updating IP {ip_with_mask} assignment to {peering_switch_hostname}/{interface_name}")
+            existing_ip = existing_ips[0]
+            existing_ip.assigned_object_type = "dcim.interface"
+            existing_ip.assigned_object_id = nb_interface.id
+            existing_ip.save()
+
+    # Remove IPs from Netbox that are no longer on device
+    for nb_interface in netbox.dcim.interfaces.filter(device=peering_switch_hostname):
+        for ip in netbox.ipam.ip_addresses.filter(interface_id=nb_interface.id):
+            if ip.address not in device_ips:
+                logger.info(f"Removing IP {ip.address} from {peering_switch_hostname}/{nb_interface.name}")
+                ip.delete()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Network discovery and synchronization script"
@@ -521,6 +574,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Synchronize the ASN in the interface description as the participant in Netbox Interface custom field",
     )
+    parser.add_argument("--sync-interface-ips", action="store_true", help="Synchronize interface IPs to Netbox")
     args = parser.parse_args()
 
     peering_switch_hostnames = list_peering_switch_hostnames()
@@ -576,3 +630,9 @@ if __name__ == "__main__":
         logger.info(
             "Skipping interface description ASN to participant sync. To enable: --sync-interface-description-asn-participant"
         )
+
+    if args.sync_interface_ips:
+        for peering_switch_hostname in peering_switch_hostnames:
+            update_netbox_interface_ips(peering_switch_hostname)
+    else:
+        logger.info("Skipping interface IP sync. To enable: --sync-interface-ips")
