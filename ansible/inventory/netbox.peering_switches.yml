@@ -15,6 +15,7 @@ group_by:
   - device_roles
 query_filters:
   - role: peering_switch
+  - status: active
 group_names_raw: true
 interfaces: true
 site_data: true
