@@ -492,7 +492,7 @@ def update_netbox_interface_description_asn_participant() -> None:
         #     raise ValueError(f"Could not find ASN in interface description \"{interface.description}\" for {interface.device.name} / {interface.name}")
 
 
-def update_netbox_interface_ips(peering_switch_hostname: str) -> None:
+def update_netbox_peering_switch_interface_ips(peering_switch_hostname: str) -> None:
     netbox = netbox_api_client()
     connection_params = get_eapi_connection_parameters()
     connection_params["host"] = peering_switch_hostname
@@ -544,6 +544,20 @@ def update_netbox_interface_ips(peering_switch_hostname: str) -> None:
             if ip.address not in device_ips:
                 logger.info(f"Removing IP {ip.address} from {peering_switch_hostname}/{nb_interface.name}")
                 ip.delete()
+
+    # Set the primary IPv4 address of the device to the primary IP address on the Management1 interface
+    management1_interface = netbox.dcim.interfaces.get(device=peering_switch_hostname, name="Management1")
+    if management1_interface:
+        primary_ip = netbox.ipam.ip_addresses.get(interface_id=management1_interface.id, family=4)
+        if primary_ip:
+            device = netbox.dcim.devices.get(name=peering_switch_hostname)
+            logger.info(f"Setting primary IPv4 address of {peering_switch_hostname} to {primary_ip.address}")
+            device.primary_ip4 = primary_ip
+            device.save()
+        else:
+            logger.warning(f"No primary IPv4 address found on Management1 interface of {peering_switch_hostname}")
+    else:
+        logger.warning(f"Management1 interface not found on {peering_switch_hostname}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -633,6 +647,6 @@ if __name__ == "__main__":
 
     if args.sync_interface_ips:
         for peering_switch_hostname in peering_switch_hostnames:
-            update_netbox_interface_ips(peering_switch_hostname)
+            update_netbox_peering_switch_interface_ips(peering_switch_hostname)
     else:
         logger.info("Skipping interface IP sync. To enable: --sync-interface-ips")
