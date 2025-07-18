@@ -1,0 +1,50 @@
+---
+- name: Build a list of all peering_switch loopbacks
+  ansible.builtin.set_fact:
+    all_peering_switch_loopbacks: >
+      {{ groups['peering_switch'] |
+        map('extract', hostvars, 'interfaces') |
+        map('selectattr', 'name', 'equalto', 'Loopback0') |
+        sum(start=[]) |
+        map(attribute='ip_addresses') |
+        sum(start=[]) |
+        map(attribute='address') |
+        ansible.utils.ipaddr('address')
+        }}
+    local_loopbacks: >
+      {{
+        interfaces |
+        selectattr('name', 'equalto', 'Loopback0') |
+        map(attribute='ip_addresses') |
+        sum(start=[]) |
+        map(attribute='address') |
+        ansible.utils.ipaddr('address')
+      }}
+- name: Build a list of all other peering_switch loopbacks
+  ansible.builtin.set_fact:
+    other_peering_switch_loopbacks: >
+      {{
+        all_peering_switch_loopbacks | difference(local_loopbacks) | sort
+      }}
+- name: Build vxlan1 configuration commands
+  ansible.builtin.set_fact:
+    vxlan1_commands: >
+      {{
+        ['vxlan source-interface Loopback0', 'vxlan udp-port 4789'] +
+
+        exchange_fabric_vlans |
+        dict2items |
+        selectattr('value.status.value', 'equalto', 'active') |
+        map(attribute='value') |
+        map(attribute='vid') |
+        map('regex_replace', '^(.*)$', 'vxlan vlan \1 vni \1') |
+        list +
+
+        ['vxlan flood vtep ' + other_peering_switch_loopbacks | join(' ')]
+      }}
+
+
+- name: Configure vxlan1 interfaces
+  arista.eos.eos_config:
+    parents: interface Vxlan1
+    lines: "{{ vxlan1_commands }}"
