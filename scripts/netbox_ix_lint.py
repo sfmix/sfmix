@@ -162,6 +162,26 @@ def check_participant_has_ips(netbox: pynetbox.core.api.Api) -> None:
             )
 
 
+def check_ixp_participant_ip_tenant(netbox: pynetbox.core.api.Api) -> None:
+    print("[!!] Check that IXP participant IPs have correct Tenant set")
+    for ip in netbox.ipam.ip_addresses.filter(tag="ixp_participant"):
+        if not ip.tenant:
+            print(
+                f"IXP Participant IP {ip.address} is missing Tenant",
+                url_strip_api(ip.url),
+            )
+            continue
+
+        # Check if the tenant has the ixp_participant tag
+        tenant_tag_slugs = [tag.slug for tag in ip.tenant.tags]
+        if "ixp_participant" not in tenant_tag_slugs:
+            print(
+                f"IXP Participant IP {ip.address} has Tenant {ip.tenant.name} "
+                f"but Tenant is missing `ixp_participant` tag",
+                url_strip_api(ip.url),
+            )
+
+
 def netbox_lint(operator_config: Dict[str, str]) -> None:
     netbox = netbox_client(operator_config)
     check_peering_lan_ip_tags(netbox=netbox)
@@ -171,6 +191,7 @@ def netbox_lint(operator_config: Dict[str, str]) -> None:
     check_peering_port_participant_matches_description_asn(netbox=netbox)
     check_participant_has_ports(netbox=netbox)
     check_participant_has_ips(netbox=netbox)
+    check_ixp_participant_ip_tenant(netbox=netbox)
 
 
 if __name__ == "__main__":
