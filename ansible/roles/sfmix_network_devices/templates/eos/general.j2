@@ -33,6 +33,9 @@ sflow run
 !
 lldp run
 !
+! This first requires you run:
+!   security pki key generate rsa 4096 eAPI.key
+!   security pki certificate generate self-signed eAPI.crt key eAPI.key generate rsa 4096 validity 30000 parameters common-name eAPI
 management security
    ssl profile eAPI
       cipher-list HIGH:!eNULL:!aNULL:!MD5:!ADH:!ANULL
