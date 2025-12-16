@@ -1,13 +1,13 @@
 ---
 # Install jq
 - name: "Install jq (Linux)"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   become: true
   ansible.builtin.apt:
     name: jq
 
 - name: "Install jq (OpenBSD)"
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   become: true
   community.general.openbsd_pkg:
     name: jq
