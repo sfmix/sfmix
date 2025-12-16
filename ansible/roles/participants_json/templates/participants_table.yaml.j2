@@ -34,7 +34,7 @@ participants:
         speed_bps: {{ (peering_port.speed * 1000) | int }}
         {%     endif %}
         location: {{ netbox_sites[netbox_devices[peering_port.device.id].site.id].facility }}
-          {% set ip_map = namespace(ipv4=null, ipv6 = null) %}
+          {% set ip_map = namespace(ipv4=none, ipv6=none) %}
           {% for ip_address in netbox_participant_ip_addresses.values() %}
           {%   if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
           {%     if ip_address.family.value == 4 %}
@@ -44,10 +44,10 @@ participants:
           {%     endif %}
           {%   endif %}
           {% endfor %}
-        ipv4: {{ ip_map.ipv4 | default("Pending") }}
-        ipv4_integer: {{ ip_map.ipv4 | default("0.0.0.0") | ansible.utils.ipaddr('int') }}
-        ipv6: {{ ip_map.ipv6 | default("Pending") }}
-        ipv6_integer: {{ ((ip_map.ipv6 | default("::")) | ansible.utils.ipaddr('int') ) - (((ip_map.ipv6 | default("::")) ~ "/64") | ansible.utils.ipaddr('network') | ansible.utils.ipaddr('address') | ansible.utils.ipaddr('int')) }}
+        ipv4: {{ ip_map.ipv4 | default("Pending", true) }}
+        ipv4_integer: {{ ip_map.ipv4 | default("0.0.0.0", true) | ansible.utils.ipaddr('int') }}
+        ipv6: {{ ip_map.ipv6 | default("Pending", true) }}
+        ipv6_integer: {{ ((ip_map.ipv6 | default("::", true)) | ansible.utils.ipaddr('int') ) - (((ip_map.ipv6 | default("::", true)) ~ "/64") | ansible.utils.ipaddr('network') | ansible.utils.ipaddr('address') | ansible.utils.ipaddr('int')) }}
         {%   endif %}
         {% endfor %}
       {% endif %}
