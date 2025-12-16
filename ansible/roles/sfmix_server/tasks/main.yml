@@ -6,7 +6,7 @@
   ansible.builtin.import_tasks: motd.yml
 
 - name: "SFMIX Server: Docker"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   ansible.builtin.import_tasks:
     file: docker.yml
   tags:
@@ -27,14 +27,14 @@
   ansible.builtin.import_tasks: common_packages.yml
 
 - name: "SFMIX Server: UFW"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   ansible.builtin.import_tasks:
     file: ufw.yml
   tags:
     - ufw
 
 - name: "SFMIX Server: DNS"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   ansible.builtin.import_tasks:
     file: sfmix_dns.yml
   tags:
@@ -47,7 +47,7 @@
     - snmp
 
 - name: "SFMIX Server: Linux sysctl"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   ansible.builtin.import_tasks:
     file: linux_sysctl.yml
   tags:

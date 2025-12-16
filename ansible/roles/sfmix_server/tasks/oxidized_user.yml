@@ -1,6 +1,6 @@
 ---
 - name: Create "oxidized" user (Linux)
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   become: true
   ansible.builtin.user:
     name: oxidized
@@ -12,7 +12,7 @@
     shell: /usr/sbin/nologin
 
 - name: Create "oxidized" user (OpenBSD)
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   become: true
   ansible.builtin.user:
     name: oxidized

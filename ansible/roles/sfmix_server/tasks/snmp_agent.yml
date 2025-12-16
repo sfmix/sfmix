@@ -1,13 +1,13 @@
 ---
 - name: Install snmpd (Linux)
   become: true
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   ansible.builtin.apt:
     name: snmpd
 
 - name: Template snmpd.conf (Linux)
   become: true
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   ansible.builtin.template:
     src: net-snmp.snmpd.conf.j2
     dest: /etc/snmp/snmpd.conf
@@ -18,14 +18,14 @@
 
 - name: Enable snmpd (OpenBSD)
   become: true
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   ansible.builtin.service:
     name: snmpd
     enabled: true
 
 - name: Template snmpd.conf (OpenBSD)
   become: true
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   ansible.builtin.template:
     src: openbsd.snmpd.conf.j2
     dest: /etc/snmpd.conf

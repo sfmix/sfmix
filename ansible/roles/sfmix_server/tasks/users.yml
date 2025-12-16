@@ -1,6 +1,6 @@
 ---
 - name: "SFMIX Admin users: ensure user (Linux)"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   become: true
   ansible.builtin.user:
     name: "{{ item.username }}"
@@ -15,7 +15,7 @@
     - "{{ sfmix_host_local_users }}"
 
 - name: "SFMIX Admin users: ensure user (OpenBSD)"
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   become: true
   ansible.builtin.user:
     name: "{{ item.username }}"
@@ -50,7 +50,7 @@
     - "{{ sfmix_host_local_users }}"
 
 - name: "No password for sudo group (Linux)"
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   become: true
   community.general.sudoers:
     name: sudoers
@@ -59,7 +59,7 @@
     nopassword: true
 
 - name: Ensure /etc/sudoers.d directory (OpenBSD)
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   become: true
   ansible.builtin.file:
     path: /etc/sudoers.d
@@ -69,7 +69,7 @@
     mode: ug=rwx,o=
 
 - name: Add /etc/sudoers.d to /etc/sudoers (OpenBSD)
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   become: true
   ansible.builtin.lineinfile:
     path: /etc/sudoers
@@ -77,7 +77,7 @@
     line: "@includedir /etc/sudoers.d"
 
 - name: "No password for wheel group (OpenBSD)"
-  when: ansible_system == "OpenBSD"
+  when: ansible_facts["system"] == "OpenBSD"
   become: true
   community.general.sudoers:
     name: sudoers

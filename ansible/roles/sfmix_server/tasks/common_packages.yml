@@ -1,6 +1,6 @@
 ---
 - name: Install common packages (Linux)
-  when: ansible_system == "Linux"
+  when: ansible_facts["system"] == "Linux"
   become: true
   ansible.builtin.apt:
     name: "{{ item }}"
@@ -13,13 +13,13 @@
     - htop
 
 - name: Install qemu-guest-agent on Linux VMs
-  when: ansible_system == "Linux" and ansible_virtualization_role == "guest"
+  when: ansible_facts["system"] == "Linux" and ansible_facts["virtualization_role"] == "guest"
   become: true
   ansible.builtin.apt:
     name: qemu-guest-agent
 
 - name: Install qemu-ga on OpenBSD VMs
-  when: ansible_system == "OpenBSD" and ansible_system_vendor == "KVM"
+  when: ansible_facts["system"] == "OpenBSD" and ansible_facts["system_vendor"] == "KVM"
   become: true
   community.general.openbsd_pkg:
     name: qemu-ga
