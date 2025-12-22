@@ -146,6 +146,8 @@ sfmix_admin_users:
     github_username: igloo22225
   - username: richgibson
     github_username: RichGibson
+  - username: lee
+    github_username: edgenative
 sfmix_host_local_users: []
 sfmix_host_local_admin_source_subnets: []
 grafana_admin_password: !vault |
