@@ -56,8 +56,7 @@ all:
         rs-openbsd.sfmix.org:
           ansible_host: mgmt.rs-openbsd.sfmix.org
         rs-openbsd-new.sfmix.org:
-          ansible_host: 10.6.1.204
-          ansible_hostname: rs-openbsd.sfmix.org
+          ansible_hostname: mgmt.rs-openbsd-new.sfmix.org
     looking_glass:
       hosts:
         lg.sfmix.org:
