@@ -6,7 +6,7 @@
     - name: Load netbox data
       ansible.builtin.import_role:
         name: netbox_data
-    - name: Configure vlan interfaces
+    - name: Configure vxlan interfaces
       ansible.builtin.import_role:
         name: sfmix_network_devices
         tasks_from: peering_switch_vxlan_interfaces.yml
