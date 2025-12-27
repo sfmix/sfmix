@@ -41,7 +41,7 @@
     - slowcgi
     - bgplgd
 
-- name: "Ensure bgpd config directories: {{ item }}"
+- name: Ensure bgpd config directories
   become: true
   ansible.builtin.file:
     path: "{{ item }}"
