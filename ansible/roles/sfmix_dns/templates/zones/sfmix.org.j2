@@ -48,6 +48,12 @@ teleport	IN	NS	ns1.sfmix.org.
 ; Bluesky
 _atproto	IN	TXT	"did=did:plc:ewz4lfv4yrab2vr5scjgl3xb"
 
+; Route Servers
+rs-linux		IN	A	206.197.187.253
+rs-linux		IN	AAAA	2001:504:30::ba06:3055:1
+rs-openbsd		IN	A	206.197.187.254
+rs-openbsd		IN	AAAA	2001:504:30::ba06:3055:2
+
 ; SFMIX Public Services
 ;; ARIN: NetName: SFMIX-V4-MANAGEMENT: 192.33.255.0/24
 ;; ARIN: NetName: SFMIX-V6-MANAGEMENT: 2620:11A:B000::/44
@@ -457,6 +463,7 @@ netbox.oob.sfo02		IN	A	10.1.1.13
 metrics.oob.sfo02		IN	A	10.1.1.14
 eth3.edge-gw.sfo02		IN	A	10.1.1.30
 mgmt.rs-linux			IN	A	10.1.1.18
+mgmt.rs-linux-new		IN	A	10.1.1.19
 pve01-paulave200-sfo		IN	A	100.64.0.21
 ipmi.pve01-paulave200-sfo	IN	A	10.1.1.20
 pve02-paulave200-sfo		IN	A	100.64.0.23
@@ -469,7 +476,6 @@ openwrt.sfo02		IN	A	198.35.53.246
 
 re1-30.gw.sfo02		IN	A	149.20.37.65
 			IN	AAAA	2001:4f8:4:6a::2
-rs-linux		IN	A	206.197.187.253
 
 ; FMT01 (Hurricane Electric) / Site ID 2
 wan.mgmt-gw.fmt01			IN	A		64.71.188.18
@@ -519,7 +525,6 @@ ipmi.pve01-warmspringsblvd48233-fmt	IN	A		10.2.1.11
 vmbr0.pve02-warmspringsblvd48233-fmt	IN	A		100.64.1.12
 pve02-warmspringsblvd48233-fmt		IN	CNAME		vmbr0.pve02-warmspringsblvd48233-fmt
 ipmi.pve02-warmspringsblvd48233-fmt	IN	A		10.2.1.13
-; mgmt.rs-openbsd-new			IN	A		10.2.1.14
 mgmt.quarantine-lg			IN	A		10.2.1.25
 mgmt.alice				IN	A		10.2.1.26
 cr1.fmt01.transit			IN	CNAME		fxp0.cr1.fmt01.transit
