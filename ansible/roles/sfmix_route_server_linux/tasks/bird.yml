@@ -25,7 +25,7 @@
     group: bird
     mode: ug=rw,o=r
 
-- name: "Template arouteserver Local File: {{ item }}"
+- name: "Template arouteserver Local File: {{ item | default('') }}"
   become: true
   when: "(arouteserver_use_local_files | default([])) and (arouteserver_local_files_dir is defined)"
   ansible.builtin.template:
