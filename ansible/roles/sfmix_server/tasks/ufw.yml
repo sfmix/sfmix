@@ -3,6 +3,7 @@
   become: true
   ansible.builtin.apt:
     name: ufw
+    state: present
 
 - name: "Firewall: Enable/Disable UFW"
   become: true
@@ -10,13 +11,48 @@
     state: "{{ sfmix_server_ufw_enabled | bool | ternary('enabled', 'disabled') }}"
     policy: reject
 
+- name: "Firewall: Build desired admin subnets list (normalized)"
+  ansible.builtin.set_fact:
+    _ufw_desired_admin_subnets: >-
+      {{ (ixp_admin_source_subnets + sfmix_host_local_admin_source_subnets)
+         | map('regex_replace', '/32$', '')
+         | map('regex_replace', '/128$', '')
+         | list }}
+  tags:
+    - firewall
+
+- name: "Firewall: Get current UFW rules"
+  become: true
+  ansible.builtin.command: ufw status
+  register: _ufw_status
+  changed_when: false
+  tags:
+    - firewall
+
+- name: "Firewall: Parse managed admin subnet rules"
+  ansible.builtin.set_fact:
+    _ufw_current_admin_subnets: >-
+      {{ _ufw_status.stdout_lines
+         | select('search', 'ALLOW')
+         | select('search', 'ansible-managed-admin')
+         | map('regex_replace', '^Anywhere.*ALLOW\s+(\S+)\s+#\s*ansible-managed-admin.*$', '\1')
+         | list }}
+  tags:
+    - firewall
+
+- name: "Firewall: Remove stale admin subnet rules"
+  become: true
+  ansible.builtin.command: ufw delete allow from {{ item }} comment 'ansible-managed-admin'
+  loop: "{{ _ufw_current_admin_subnets | difference(_ufw_desired_admin_subnets) }}"
+  tags:
+    - firewall
+
 - name: "Firewall: Allow admin subnets"
   become: true
   community.general.ufw:
     rule: allow
     src: "{{ item }}"
-  with_items:
-    - "{{ ixp_admin_source_subnets }}"
-    - "{{ sfmix_host_local_admin_source_subnets }}"
+    comment: ansible-managed-admin
+  loop: "{{ _ufw_desired_admin_subnets }}"
   tags:
     - firewall
