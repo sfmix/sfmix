@@ -32,4 +32,4 @@
     command:
       -format.new=true
       -bird.v2
-      -web.listen-address={{ ansible_default_ipv4.address }}:{{ sfmix_route_server_linux_bird_exporter_port }}
+      -web.listen-address={{ ansible_facts['default_ipv4']['address'] }}:{{ sfmix_route_server_linux_bird_exporter_port }}
