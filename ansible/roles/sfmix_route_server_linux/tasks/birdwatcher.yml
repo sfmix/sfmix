@@ -15,6 +15,18 @@
     force: true
   notify: Rebuild birdwatcher docker container
 
+- name: Check if birdwatcher image exists
+  become: true
+  community.docker.docker_image_info:
+    name: "birdwatcher:{{ sfmix_route_server_linux_birdwatcher_version | replace('/', '_') }}"
+  register: birdwatcher_image_info
+
+- name: Trigger birdwatcher build if image missing
+  ansible.builtin.command: /bin/true
+  changed_when: true
+  when: birdwatcher_image_info.images | length == 0
+  notify: Rebuild birdwatcher docker container
+
 - name: Trigger birdwatcher rebuilt and old container destruction
   ansible.builtin.meta: flush_handlers
 
@@ -40,3 +52,11 @@
       - /run/bird/bird.ctl:/run/bird/bird.ctl
       - /etc/bird/bird.conf:/etc/bird.conf:ro
       - "{{ sfmix_route_server_linux_birdwatcher_directory }}/birdwatcher.conf:/etc/birdwatcher/birdwatcher.conf:ro"
+
+- name: Cron to restart birdwatcher every 4 hours
+  become: true
+  ansible.builtin.cron:
+    name: "restart birdwatcher"
+    minute: "0"
+    hour: "*/4"
+    job: "docker restart birdwatcher"
