@@ -48,6 +48,8 @@
     network_mode: host
     log_driver: local
     command: /usr/bin/birdwatcher -config /etc/birdwatcher/birdwatcher.conf
+    memory: "{{ sfmix_route_server_linux_birdwatcher_memory_limit | default('768m') }}"
+    cpus: "{{ sfmix_route_server_linux_birdwatcher_cpus_limit | default(2) }}"
     volumes:
       - /run/bird/bird.ctl:/run/bird/bird.ctl
       - /etc/bird/bird.conf:/etc/bird.conf:ro
