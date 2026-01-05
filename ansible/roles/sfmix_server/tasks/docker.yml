@@ -2,7 +2,9 @@
 - name: Install docker
   become: true
   ansible.builtin.apt:
-    pkg: docker.io
+    pkg:
+      - docker.io
+      - python3-requests
     state: present
     update_cache: true
 
