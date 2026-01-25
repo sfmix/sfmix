@@ -198,7 +198,8 @@ def list_peering_switch_hostnames() -> List[str]:
     netbox = netbox_api_client()
     peering_switches = []
     for device in netbox.dcim.devices.filter(role="peering_switch"):
-        peering_switches.append(device.name)
+        if not device.name.startswith("cr1"):
+          peering_switches.append(device.name)
     return peering_switches
 
 
@@ -248,6 +249,7 @@ def discover_hardware_interfaces(device_hostname: str) -> None:
     netbox = netbox_api_client()
     connection_params = get_eapi_connection_parameters()
     connection_params["host"] = device_hostname
+    logger.info(f"discover_hardware_interfaces: {device_hostname}")
     switch = pyeapi.connect(**connection_params)
     response = switch.enable(
         [
