@@ -712,11 +712,13 @@ switch01.sjc02 		IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a33
 lg.sfo01	IN	A	206.197.187.1	; SFMIX looking glass
 lg.sfo01	IN	AAAA	2001:504:30::ba01:2276:1	; SFMIX looking glass
 {% for ip_id, ip_address in netbox_participant_ip_addresses.items() %}
-{%   set as_plus_number = 'as' + netbox_participants[ip_address.tenant.id].custom_fields.as_number | string %}
-{%   if ip_address.family.value == 4 %}
-{%     set type = "A" %}
-{%   elif ip_address.family.value == 6 %}
-{%     set type = "AAAA" %}
-{%   endif %}
+{%   if ip_address.tenant.id in netbox_participants %}
+{%     set as_plus_number = 'as' + netbox_participants[ip_address.tenant.id].custom_fields.as_number | string %}
+{%     if ip_address.family.value == 4 %}
+{%       set type = "A" %}
+{%     elif ip_address.family.value == 6 %}
+{%       set type = "AAAA" %}
+{%     endif %}
 {{ as_plus_number }}		IN	{{ type }}	{{ ip_address.address | ansible.utils.ipaddr('address') }}
+{%   endif %}
 {% endfor %}
