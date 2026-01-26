@@ -609,32 +609,33 @@ switch01.scl01 		IN 	SSHFP   4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
 switch01.scl01 		IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
 
 ; SCL02 (CoreSite SV4) / Site ID 5
-wan.mgmt-gw.scl02	IN	A		66.128.149.4
-wan.mgmt-gw.scl02	IN	AAAA	2605:6c00:2000:2d::100
-mgmt-gw.scl02		IN	A		10.5.0.0
-lo.mgmt-gw.scl02	IN	A		10.5.0.0
-lo.mgmt-gw.scl02	IN	AAAA	2620:11a:b00f:500::
-eth2.mgmt-gw.scl02	IN	A		10.5.1.1
-eth2.mgmt-gw.scl02	IN	AAAA	2620:11a:b00f:501::1
-eth0.200.mgmt-gw.scl02	IN	A		10.255.200.105
-eth0.200.mgmt-gw.scl02	IN	AAAA	2620:11a:b00f:fffe::105
-wg15.mgmt-gw.scl02	IN	A		10.255.1.22
-wg25.mgmt-gw.scl02	IN	A		10.255.2.22
-mgmt-switch.scl02	IN	A		10.5.1.2
-pdu01.scl02		IN	A		10.5.1.4
-pdu02.scl02		IN	A		10.5.1.5
-switch01.scl02		IN	A		10.5.1.15
-lo0.switch01.scl02	IN	A		100.64.108.1
-switch01.scl02 		IN 	SSHFP		1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
-switch01.scl02 		IN 	SSHFP		1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
-switch01.scl02 		IN 	SSHFP		2 1 99466d885d3bc1483613345636a1913fbed21e3b
-switch01.scl02 		IN 	SSHFP		2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
-switch01.scl02 		IN 	SSHFP		3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
-switch01.scl02 		IN 	SSHFP		3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
-switch01.scl02 		IN 	SSHFP		4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
-switch01.scl02 		IN 	SSHFP		4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
-cr1.scl02.transit	IN	CNAME		fxp0.cr1.scl02.transit
-fxp0.cr1.scl02.transit	IN	A		10.5.1.30
+wan.mgmt-gw.scl02		IN	A	66.128.149.4
+wan.mgmt-gw.scl02		IN	AAAA	2605:6c00:2000:2d::100
+mgmt-gw.scl02			IN	A	10.5.0.0
+lo.mgmt-gw.scl02		IN	A	10.5.0.0
+lo.mgmt-gw.scl02		IN	AAAA	2620:11a:b00f:500::
+eth2.mgmt-gw.scl02		IN	A	10.5.1.1
+eth2.mgmt-gw.scl02		IN	AAAA	2620:11a:b00f:501::1
+eth0.200.mgmt-gw.scl02		IN	A	10.255.200.105
+eth0.200.mgmt-gw.scl02		IN	AAAA	2620:11a:b00f:fffe::105
+wg15.mgmt-gw.scl02		IN	A	10.255.1.22
+wg25.mgmt-gw.scl02		IN	A	10.255.2.22
+mgmt-switch.scl02		IN	A	10.5.1.2
+pdu01.scl02			IN	A	10.5.1.4
+pdu02.scl02			IN	A	10.5.1.5
+switch01.scl02			IN	A	10.5.1.15
+lo0.switch01.scl02		IN	A	100.64.108.1
+switch01.scl02 			IN 	SSHFP	1 1 b545f8a2bba5886877fd6e4d72022187cadb161d
+switch01.scl02 			IN 	SSHFP	1 2 6c14db1d18ca35d96051d14c1918f678a35a33bdcd614977acdf722c40b29dbc
+switch01.scl02 			IN 	SSHFP	2 1 99466d885d3bc1483613345636a1913fbed21e3b
+switch01.scl02 			IN 	SSHFP	2 2 d9e4d0c46327aabf2b0c06e395df9b9b95e5ab08fdede1bf9413bb87036dcb24
+switch01.scl02 			IN 	SSHFP	3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
+switch01.scl02 			IN 	SSHFP	3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
+switch01.scl02 			IN 	SSHFP	4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
+switch01.scl02 			IN 	SSHFP	4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
+cr1.scl02.transit		IN	CNAME	fxp0.cr1.scl02.transit
+fxp0.cr1.scl02.transit		IN	A	10.5.1.30
+management.cr1.scl02.transit	IN	A	10.5.1.31
 
 ; SCL04 (OpenColo) / Site ID 6
 wan.mgmt-gw.scl04	IN	A	50.117.26.130
