@@ -373,7 +373,15 @@ system.cr1.scl02.transit	IN	AAAA	2620:11A:B002:2000::247
 ; SFO01 (365 Main) / Site ID 0
 wan.mgmt-gw.sfo01		IN	A	192.235.122.10
 mgmt-gw.sfo01			IN	A	10.0.0.0
+lo.mgmt-gw.sfo01		IN	A	10.0.0.0
+lo.mgmt-gw.sfo01		IN	AAAA	2620:11a:b00f::
+eth0.50.mgmt-gw.sfo01		IN	A	192.235.122.10
 eth1.mgmt-gw.sfo01		IN	A	10.0.1.1
+eth1.mgmt-gw.sfo01		IN	AAAA	2620:11a:b00f:1::1
+eth0.200.mgmt-gw.sfo01		IN	A	10.255.200.100
+eth0.200.mgmt-gw.sfo01		IN	AAAA	2620:11a:b00f:fffe::100
+wg10.mgmt-gw.sfo01		IN	A	10.255.1.2
+wg20.mgmt-gw.sfo01		IN	A	10.255.2.2
 pdu01.sfo01			IN	A	10.0.1.3
 pdu02.sfo01			IN	A	10.0.1.4
 switch01.sfo01			IN	A	10.0.1.15
@@ -390,7 +398,23 @@ switch01.sfo01 			IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3
 ; SFO02 (200 Paul Ave) / Site ID 1
 wan.mgmt-gw.sfo02		IN	A	198.35.53.243
 mgmt-gw.sfo02			IN	A	10.1.0.0
+lo.mgmt-gw.sfo02		IN	A	10.1.0.0
+lo.mgmt-gw.sfo02		IN	AAAA	2620:11a:b00f:100::
+eth2.31.mgmt-gw.sfo02		IN	A	198.35.53.243
+eth2.20.mgmt-gw.sfo02		IN	A	10.1.1.1
+eth2.20.mgmt-gw.sfo02		IN	A	100.64.0.1
+eth2.20.mgmt-gw.sfo02		IN	AAAA	2620:11a:b00f:101::1
 eth2.mgmt-gw.sfo02		IN	A	10.1.1.1
+eth0.200.mgmt-gw.sfo02		IN	A	10.255.200.101
+eth0.200.mgmt-gw.sfo02		IN	AAAA	2620:11a:b00f:fffe::101
+wg10.mgmt-gw.sfo02		IN	A	10.255.1.1
+wg12.mgmt-gw.sfo02		IN	A	10.255.1.9
+wg13.mgmt-gw.sfo02		IN	A	10.255.1.13
+wg14.mgmt-gw.sfo02		IN	A	10.255.1.17
+wg15.mgmt-gw.sfo02		IN	A	10.255.1.21
+wg16.mgmt-gw.sfo02		IN	A	10.255.1.25
+wg17.mgmt-gw.sfo02		IN	A	10.255.1.29
+wg18.mgmt-gw.sfo02		IN	A	10.255.1.33
 pdu01.sfo02			IN	A	10.1.1.3
 pdu02.sfo02			IN	A	10.1.1.4
 switch01.sfo02			IN	A	10.1.1.15
@@ -436,7 +460,23 @@ re1-30.gw.sfo02		IN	A	149.20.37.65
 ; FMT01 (Hurricane Electric) / Site ID 2
 wan.mgmt-gw.fmt01			IN	A		64.71.188.18
 mgmt-gw.fmt01				IN	A		10.2.0.0
+lo.mgmt-gw.fmt01			IN	A		10.2.0.0
+lo.mgmt-gw.fmt01			IN	AAAA	2620:11a:b00f:200::
+eth1.mgmt-gw.fmt01			IN	A		64.71.188.18
+eth1.mgmt-gw.fmt01			IN	AAAA	2001:470:0:321::2
 eth2.mgmt-gw.fmt01			IN	A		10.2.1.1
+eth2.mgmt-gw.fmt01			IN	AAAA	2620:11a:b00f:201::1
+eth0.200.mgmt-gw.fmt01			IN	A		10.255.200.102
+eth0.200.mgmt-gw.fmt01			IN	AAAA	2620:11a:b00f:fffe::102
+wg20.mgmt-gw.fmt01			IN	A		10.255.2.1
+wg21.mgmt-gw.fmt01			IN	A		10.255.2.5
+wg21.mgmt-gw.fmt01			IN	A		10.255.1.10
+wg23.mgmt-gw.fmt01			IN	A		10.255.2.13
+wg24.mgmt-gw.fmt01			IN	A		10.255.2.17
+wg25.mgmt-gw.fmt01			IN	A		10.255.2.21
+wg26.mgmt-gw.fmt01			IN	A		10.255.2.25
+wg27.mgmt-gw.fmt01			IN	A		10.255.2.30
+wg28.mgmt-gw.fmt01			IN	A		10.255.2.33
 mgmt-switch.fmt01			IN	A		10.2.1.3
 pdu01.fmt01				IN	A		10.2.1.4
 pdu02.fmt01				IN	A		10.2.1.5
@@ -493,7 +533,14 @@ eth5.edge-gw.fmt01	IN	AAAA	2001:2035:0:a9f::2
 ; SJC01 (Equinix SV1) / Site ID 3
 wan.mgmt-gw.sjc01		IN	A		173.243.64.202
 mgmt-gw.sjc01			IN	A		10.3.0.0
+lo.mgmt-gw.sjc01		IN	A		10.3.0.0
+lo.mgmt-gw.sjc01		IN	AAAA	2620:11a:b00f:300::
 eth2.mgmt-gw.sjc01		IN	A		10.3.1.1
+eth2.mgmt-gw.sjc01		IN	AAAA	2620:11a:b00f:301::1
+eth0.200.mgmt-gw.sjc01		IN	A		10.255.200.103
+eth0.200.mgmt-gw.sjc01		IN	AAAA	2620:11a:b00f:fffe::103
+wg13.mgmt-gw.sjc01		IN	A		10.255.1.14
+wg23.mgmt-gw.sjc01		IN	A		10.255.2.14
 mgmt-gw-new.sjc01		IN	A		10.3.1.2
 wan.mgmt-gw-new.sjc01	IN	A		173.243.64.203
 mgmt-switch.sjc01		IN	A		10.3.1.3
@@ -539,7 +586,14 @@ equinix-sj-ix.cr1.sjc01			IN	AAAA		2001:504:0:1:0:4:271:1
 ; SCL01 (QTS SJC1) / Site ID 4
 wan.mgmt-gw.scl01	IN	A		205.234.25.36
 mgmt-gw.scl01		IN	A		10.4.0.0
+lo.mgmt-gw.scl01	IN	A		10.4.0.0
+lo.mgmt-gw.scl01	IN	AAAA	2620:11a:b00f:400::
 eth2.mgmt-gw.scl01	IN	A		10.4.1.1
+eth2.mgmt-gw.scl01	IN	AAAA	2620:11a:b00f:401::1
+eth0.200.mgmt-gw.scl01	IN	A		10.255.200.104
+eth0.200.mgmt-gw.scl01	IN	AAAA	2620:11a:b00f:fffe::104
+wg14.mgmt-gw.scl01	IN	A		10.255.1.18
+wg24.mgmt-gw.scl01	IN	A		10.255.2.18
 mgmt-switch.scl01	IN	A		10.4.1.2
 pdu01.scl01		IN	A		10.4.1.4
 pdu02.scl01		IN	A		10.4.1.5
@@ -558,7 +612,14 @@ switch01.scl01 		IN 	SSHFP   4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a33
 wan.mgmt-gw.scl02	IN	A		66.128.149.4
 wan.mgmt-gw.scl02	IN	AAAA	2605:6c00:2000:2d::100
 mgmt-gw.scl02		IN	A		10.5.0.0
+lo.mgmt-gw.scl02	IN	A		10.5.0.0
+lo.mgmt-gw.scl02	IN	AAAA	2620:11a:b00f:500::
 eth2.mgmt-gw.scl02	IN	A		10.5.1.1
+eth2.mgmt-gw.scl02	IN	AAAA	2620:11a:b00f:501::1
+eth0.200.mgmt-gw.scl02	IN	A		10.255.200.105
+eth0.200.mgmt-gw.scl02	IN	AAAA	2620:11a:b00f:fffe::105
+wg15.mgmt-gw.scl02	IN	A		10.255.1.22
+wg25.mgmt-gw.scl02	IN	A		10.255.2.22
 mgmt-switch.scl02	IN	A		10.5.1.2
 pdu01.scl02		IN	A		10.5.1.4
 pdu02.scl02		IN	A		10.5.1.5
@@ -578,7 +639,14 @@ fxp0.cr1.scl02.transit	IN	A		10.5.1.30
 ; SCL04 (OpenColo) / Site ID 6
 wan.mgmt-gw.scl04	IN	A	50.117.26.130
 mgmt-gw.scl04		IN	A	10.6.0.0
+lo.mgmt-gw.scl04	IN	A	10.6.0.0
+lo.mgmt-gw.scl04	IN	AAAA	2620:11a:b00f:600::
 eth2.mgmt-gw.scl04	IN	A	10.6.1.1
+eth2.mgmt-gw.scl04	IN	AAAA	2620:11a:b00f:601::1
+eth0.200.mgmt-gw.scl04	IN	A	10.255.200.106
+eth0.200.mgmt-gw.scl04	IN	AAAA	2620:11a:b00f:fffe::106
+wg16.mgmt-gw.scl04	IN	A	10.255.1.26
+wg26.mgmt-gw.scl04	IN	A	10.255.2.26
 mgmt-switch.scl04	IN	A	10.6.1.2
 pdu01.scl04		IN	A	10.6.1.4
 pdu02.scl04		IN	A	10.6.1.5
@@ -601,7 +669,14 @@ mgmt.rs-openbsd		IN	A	10.6.1.33
 ; SCL05 (Digital Realty SJC31) / Site ID 8
 wan.mgmt-gw.scl05	IN	A	198.24.47.162
 mgmt-gw.scl05		IN	A	10.8.0.0
+lo.mgmt-gw.scl05	IN	A	10.8.0.0
+lo.mgmt-gw.scl05	IN	AAAA	2620:11a:b00f:800::
+eth0.mgmt-gw.scl05	IN	A	198.24.47.162
 eth2.mgmt-gw.scl05	IN	A	10.8.1.1
+eth1.200.mgmt-gw.scl05	IN	A	10.255.200.108
+eth1.200.mgmt-gw.scl05	IN	AAAA	2620:11a:b00f:fffe::108
+wg18.mgmt-gw.scl05	IN	A	10.255.1.34
+wg28.mgmt-gw.scl05	IN	A	10.255.2.34
 mgmt-switch.scl05	IN	A	10.8.1.2
 pdu01.scl05		IN	A	10.8.1.4
 pdu02.scl05		IN	A	10.8.1.5
@@ -611,7 +686,14 @@ switch01.scl05		IN	A	10.8.1.15
 wan.mgmt-gw.sjc02       IN      A       66.128.149.164
 wan.mgmt-gw.sjc02       IN      AAAA	2605:6c00:2000:4d::100
 mgmt-gw.sjc02           IN      A       10.7.0.0
+lo.mgmt-gw.sjc02        IN      A       10.7.0.0
+lo.mgmt-gw.sjc02        IN      AAAA	2620:11a:b00f:700::
 eth2.mgmt-gw.sjc02      IN      A       10.7.1.1
+eth2.mgmt-gw.sjc02      IN      AAAA	2620:11a:b00f:701::1
+eth0.200.mgmt-gw.sjc02  IN      A       10.255.200.107
+eth0.200.mgmt-gw.sjc02  IN      AAAA	2620:11a:b00f:fffe::107
+wg17.mgmt-gw.sjc02      IN      A       10.255.1.30
+wg27.mgmt-gw.sjc02      IN      A       10.255.2.29
 mgmt-switch.sjc02       IN      A       10.7.1.2
 pdu01.sjc02             IN      A       10.7.1.4
 pdu02.sjc02             IN      A       10.7.1.5
