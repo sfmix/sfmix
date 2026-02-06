@@ -1,0 +1,61 @@
+---
+- name: Install nginx and certbot
+  become: true
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+
+- name: Place nginx site configuration
+  become: true
+  ansible.builtin.template:
+    src: nginx-snappy.conf.j2
+    dest: /etc/nginx/sites-available/snappy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable nginx site
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/snappy.conf
+    dest: /etc/nginx/sites-enabled/snappy.conf
+    state: link
+  notify: Reload nginx
+
+- name: Remove default nginx site
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Enable and start nginx
+  become: true
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Obtain letsencrypt certificate
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      certbot --nginx
+      --non-interactive
+      --agree-tos
+      --email {{ ixp_primary_tech_contact_email }}
+      --domains {{ snappy_speedtest_domain }}
+    creates: /etc/letsencrypt/live/{{ snappy_speedtest_domain }}/fullchain.pem
+  notify: Reload nginx
+
+- name: Ensure certbot renewal timer is enabled
+  become: true
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    enabled: true
+    state: started
