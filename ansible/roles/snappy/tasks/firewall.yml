@@ -13,13 +13,6 @@
     port: "443"
     proto: tcp
 
-- name: "Firewall: Allow speedtest port from anywhere"
-  become: true
-  community.general.ufw:
-    rule: allow
-    port: "{{ snappy_speedtest_listen_port | string }}"
-    proto: tcp
-
 - name: "Firewall: Allow BGP from IPv4 peer"
   become: true
   community.general.ufw:
