@@ -198,8 +198,8 @@ def list_peering_switch_hostnames() -> List[str]:
     netbox = netbox_api_client()
     peering_switches = []
     for device in netbox.dcim.devices.filter(role="peering_switch"):
-        if not device.name.startswith("cr1"):
-          peering_switches.append(device.name)
+        if not "cr1" in device.hostname:
+          peering_switches.append(device.hostname)
     return peering_switches
 
 
