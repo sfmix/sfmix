@@ -591,9 +591,31 @@ if __name__ == "__main__":
         help="Synchronize the ASN in the interface description as the participant in Netbox Interface custom field",
     )
     parser.add_argument("--sync-interface-ips", action="store_true", help="Synchronize interface IPs to Netbox")
+    parser.add_argument(
+        "--device",
+        action="append",
+        metavar="HOSTNAME",
+        help="Limit discovery to specific device(s). Can be specified multiple times.",
+    )
+    parser.add_argument(
+        "--list-devices",
+        action="store_true",
+        help="List available peering switch hostnames and exit",
+    )
     args = parser.parse_args()
 
     peering_switch_hostnames = list_peering_switch_hostnames()
+
+    if args.list_devices:
+        for hostname in sorted(peering_switch_hostnames):
+            print(hostname)
+        raise SystemExit(0)
+
+    if args.device:
+        unknown = set(args.device) - set(peering_switch_hostnames)
+        if unknown:
+            parser.error(f"Unknown device(s): {', '.join(sorted(unknown))}. Use --list-devices to see available devices.")
+        peering_switch_hostnames = [h for h in peering_switch_hostnames if h in args.device]
 
     if args.sync_hardware_interfaces:
         for peering_switch_hostname in peering_switch_hostnames:
