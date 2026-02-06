@@ -10,6 +10,11 @@
   tags:
     - speedtest
 
+- name: "Snappy: Nginx + TLS"
+  ansible.builtin.import_tasks: nginx.yml
+  tags:
+    - nginx
+
 - name: "Snappy: Firewall"
   ansible.builtin.import_tasks: firewall.yml
   tags:

@@ -1,0 +1,38 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ snappy_speedtest_domain }};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ snappy_speedtest_domain }};
+
+    # Certs managed by certbot
+    ssl_certificate /etc/letsencrypt/live/{{ snappy_speedtest_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ snappy_speedtest_domain }}/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/{{ snappy_speedtest_domain }}/chain.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://127.0.0.1:{{ snappy_speedtest_listen_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

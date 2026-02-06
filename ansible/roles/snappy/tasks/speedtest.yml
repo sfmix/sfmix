@@ -46,6 +46,16 @@
   args:
     creates: /var/lib/librespeed/assets/index.html
 
+- name: Place customized index.html (privacy policy fix)
+  become: true
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: /var/lib/librespeed/assets/index.html
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart speedtest container
+
 - name: Overwrite servers_list.js with our template
   become: true
   ansible.builtin.template:
@@ -72,7 +82,8 @@
     name: speedtest
     image: speedtest-rust:local
     restart_policy: always
-    network_mode: host
+    published_ports:
+      - "127.0.0.1:{{ snappy_speedtest_listen_port }}:8080"
     volumes:
       - "/etc/librespeed.toml:/usr/local/bin/configs.toml:ro"
       - "/var/lib/librespeed/assets:/usr/local/bin/assets:ro"
