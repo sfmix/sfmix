@@ -268,3 +268,10 @@
   hosts: login
   roles:
     - authentik
+
+- name: "Snappy: Speedtest Server"
+  hosts: snappy
+  tags:
+    - snappy
+  roles:
+    - snappy
