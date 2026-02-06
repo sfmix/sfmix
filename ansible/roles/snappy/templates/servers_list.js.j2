@@ -1,0 +1,12 @@
+function get_servers() {
+    return [
+        {
+            name : "{{ snappy_speedtest_server_name }}",
+            server : window.location.origin,
+            dlURL: "backend/garbage",
+            ulURL: "backend/empty",
+            pingURL: "backend/empty",
+            getIpURL: "backend/getIP"
+        }
+    ]
+}

@@ -1,0 +1,58 @@
+router id {{ snappy_bgp_router_id }};
+
+log syslog all;
+
+protocol device {
+}
+
+protocol direct {
+    ipv4;
+    ipv6;
+    interface "{{ snappy_bgp_interface }}";
+}
+
+protocol kernel kernel4 {
+    ipv4 {
+        export filter {
+            if source = RTS_BGP then accept;
+            reject;
+        };
+        import none;
+    };
+    learn;
+    scan time 10;
+}
+
+protocol kernel kernel6 {
+    ipv6 {
+        export filter {
+            if source = RTS_BGP then accept;
+            reject;
+        };
+        import none;
+    };
+    learn;
+    scan time 10;
+}
+
+protocol bgp cost_neutral_v4 {
+    description "SFMIX cost-neutral transit (IPv4)";
+    local as {{ snappy_bgp_local_asn }};
+    neighbor {{ snappy_bgp_neighbor_v4 }} as {{ snappy_bgp_remote_asn }};
+
+    ipv4 {
+        import all;
+        export none;
+    };
+}
+
+protocol bgp cost_neutral_v6 {
+    description "SFMIX cost-neutral transit (IPv6)";
+    local as {{ snappy_bgp_local_asn }};
+    neighbor {{ snappy_bgp_neighbor_v6 }} as {{ snappy_bgp_remote_asn }};
+
+    ipv6 {
+        import all;
+        export none;
+    };
+}
