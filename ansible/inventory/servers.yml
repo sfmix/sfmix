@@ -22,6 +22,7 @@ all:
         obscreen:
         librenms:
         login:
+        snappy:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -88,3 +89,6 @@ all:
     login:
       hosts:
         login.sfmix.org:
+    snappy:
+      hosts:
+        snappy.sfmix.org:
