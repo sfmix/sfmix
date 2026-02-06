@@ -24,6 +24,9 @@ ixp_admin_source_subnets:
   - 100.64.0.0/10
   - 10.0.0.0/8
   - 2620:11a:b00f::/48
+  # SFMIX Transit -- Snappy
+  - 149.112.115.26/32
+  - 2620:11A:B002::26/128
   # SFMIX Public Infrastructure
   - 192.33.255.0/28
   - 192.33.255.16/29
