@@ -1,0 +1,37 @@
+---
+- name: "Firewall: Allow HTTP from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: "Firewall: Allow HTTPS from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: "Firewall: Allow speedtest port from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ snappy_speedtest_listen_port | string }}"
+    proto: tcp
+
+- name: "Firewall: Allow BGP from IPv4 peer"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "179"
+    proto: tcp
+    from_ip: "{{ snappy_bgp_neighbor_v4 }}"
+
+- name: "Firewall: Allow BGP from IPv6 peer"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "179"
+    proto: tcp
+    from_ip: "{{ snappy_bgp_neighbor_v6 }}"

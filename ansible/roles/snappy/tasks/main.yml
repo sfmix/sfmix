@@ -1,0 +1,16 @@
+---
+- name: "Snappy: Install BIRD"
+  ansible.builtin.import_tasks: bird.yml
+  tags:
+    - bird
+    - bgp
+
+- name: "Snappy: Speedtest"
+  ansible.builtin.import_tasks: speedtest.yml
+  tags:
+    - speedtest
+
+- name: "Snappy: Firewall"
+  ansible.builtin.import_tasks: firewall.yml
+  tags:
+    - firewall

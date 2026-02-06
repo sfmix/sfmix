@@ -1,0 +1,78 @@
+---
+- name: Create /etc/librespeed.toml
+  become: true
+  ansible.builtin.template:
+    src: librespeed.toml.j2
+    dest: /etc/librespeed.toml
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart speedtest container
+
+- name: Create /var/lib/librespeed/assets directory
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/librespeed/assets
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Place servers_list.js
+  become: true
+  ansible.builtin.template:
+    src: servers_list.js.j2
+    dest: /var/lib/librespeed/assets/servers_list.js
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart speedtest container
+
+- name: Clone speedtest-rust repository
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/librespeed/speedtest-rust.git
+    dest: /opt/speedtest-rust
+    version: master
+    force: true
+
+- name: Copy default assets (index.html, etc.)
+  become: true
+  ansible.builtin.shell: |
+    cp -n /opt/speedtest-rust/assets/*.html /var/lib/librespeed/assets/ 2>/dev/null || true
+    cp -n /opt/speedtest-rust/assets/*.css /var/lib/librespeed/assets/ 2>/dev/null || true
+    cp -n /opt/speedtest-rust/assets/*.js /var/lib/librespeed/assets/ 2>/dev/null || true
+    cp -rn /opt/speedtest-rust/assets/images /var/lib/librespeed/assets/ 2>/dev/null || true
+  args:
+    creates: /var/lib/librespeed/assets/index.html
+
+- name: Overwrite servers_list.js with our template
+  become: true
+  ansible.builtin.template:
+    src: servers_list.js.j2
+    dest: /var/lib/librespeed/assets/servers_list.js
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart speedtest container
+
+- name: Build speedtest-rust Docker image
+  become: true
+  community.docker.docker_image:
+    name: speedtest-rust
+    tag: local
+    source: build
+    build:
+      path: /opt/speedtest-rust
+    force_source: true
+
+- name: Run speedtest-rust container
+  become: true
+  community.docker.docker_container:
+    name: speedtest
+    image: speedtest-rust:local
+    restart_policy: always
+    network_mode: host
+    volumes:
+      - "/etc/librespeed.toml:/usr/local/bin/configs.toml:ro"
+      - "/var/lib/librespeed/assets:/usr/local/bin/assets:ro"

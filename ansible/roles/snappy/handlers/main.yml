@@ -1,0 +1,12 @@
+---
+- name: Restart BIRD
+  become: true
+  ansible.builtin.systemd_service:
+    name: bird
+    state: restarted
+
+- name: Restart speedtest container
+  become: true
+  community.general.docker_container:
+    name: speedtest
+    restart: true
