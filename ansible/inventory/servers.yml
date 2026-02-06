@@ -92,4 +92,3 @@ all:
     snappy:
       hosts:
         snappy.sfmix.org:
-          ansible_host: mgmt.snappy.sfmix.org
