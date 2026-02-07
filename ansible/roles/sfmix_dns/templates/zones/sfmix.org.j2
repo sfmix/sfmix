@@ -316,8 +316,8 @@ apple-edge-cache.transit		IN	AAAA	2620:11a:b002:3080::1
 ;; Transit VRF Peering LAN (VLAN 1407) - 149.112.115.192/27 / 2620:11A:B002:1000::/64
 ae0-1000.ar1.fmt01.transit		IN	A	149.112.115.211
 ae0-1000.ar1.fmt01.transit		IN	AAAA	2620:11A:B002:1000::211
-ae0-1000.cr1.scl02.transit		IN	A	149.112.115.212
-ae0-1000.cr1.scl02.transit		IN	AAAA	2620:11A:B002:1000::212
+ae0-1000.ar1.scl02.transit		IN	A	149.112.115.212
+ae0-1000.ar1.scl02.transit		IN	AAAA	2620:11A:B002:1000::212
 transit-peering-lan.cr1.sjc01.transit	IN	A	149.112.115.213
 transit-peering-lan.cr1.sjc01.transit	IN	AAAA	2620:11A:B002:1000::213
 ;; unused-214.transit		IN	A	149.112.115.214
@@ -342,8 +342,8 @@ transit-peering-lan.cr1.sjc01.transit	IN	AAAA	2620:11A:B002:1000::213
 ;;; Transit VRF Loopbacks - 149.112.115.224/27 / 2620:11A:B002:2000::/64
 lo0.ar1.fmt01.transit		IN	A	149.112.115.244
 lo0.ar1.fmt01.transit		IN	AAAA	2620:11A:B002:2000::244
-lo0.cr1.scl02.transit		IN	A	149.112.115.245
-lo0.cr1.scl02.transit		IN	AAAA	2620:11A:B002:2000::245
+lo0.ar1.scl02.transit		IN	A	149.112.115.245
+lo0.ar1.scl02.transit		IN	AAAA	2620:11A:B002:2000::245
 system.cr1.sjc01.transit	IN	A	149.112.115.246
 system.cr1.sjc01.transit	IN	AAAA	2620:11A:B002:2000::246
 system.cr1.scl02.transit	IN	A	149.112.115.247
@@ -628,8 +628,8 @@ switch01.scl02 			IN 	SSHFP	3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
 switch01.scl02 			IN 	SSHFP	3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
 switch01.scl02 			IN 	SSHFP	4 1 91639c3d1b61bdfea9635c379a3cd225b95714e6
 switch01.scl02 			IN 	SSHFP	4 2 23a53f109127e09f87d6719df12f81dec7b7dac2c3b6a3380afa7483720b13b1
-cr1.scl02.transit		IN	CNAME	fxp0.cr1.scl02.transit
-fxp0.cr1.scl02.transit		IN	A	10.5.1.30
+ar1.scl02.transit		IN	CNAME	fxp0.ar1.scl02.transit
+fxp0.ar1.scl02.transit		IN	A	10.5.1.30
 management.cr1.scl02.transit	IN	A	10.5.1.31
 
 ; SCL04 (OpenColo) / Site ID 6
