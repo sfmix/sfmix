@@ -314,8 +314,8 @@ apple-edge-cache.transit		IN	A	149.112.115.191
 apple-edge-cache.transit		IN	AAAA	2620:11a:b002:3080::1
 
 ;; Transit VRF Peering LAN (VLAN 1407) - 149.112.115.192/27 / 2620:11A:B002:1000::/64
-ae0-1000.cr1.fmt01.transit		IN	A	149.112.115.211
-ae0-1000.cr1.fmt01.transit		IN	AAAA	2620:11A:B002:1000::211
+ae0-1000.ar1.fmt01.transit		IN	A	149.112.115.211
+ae0-1000.ar1.fmt01.transit		IN	AAAA	2620:11A:B002:1000::211
 ae0-1000.cr1.scl02.transit		IN	A	149.112.115.212
 ae0-1000.cr1.scl02.transit		IN	AAAA	2620:11A:B002:1000::212
 transit-peering-lan.cr1.sjc01.transit	IN	A	149.112.115.213
@@ -340,8 +340,8 @@ transit-peering-lan.cr1.sjc01.transit	IN	AAAA	2620:11A:B002:1000::213
 ;; unused-222.transit		IN	AAAA	2620:11A:B002:1000::222
 
 ;;; Transit VRF Loopbacks - 149.112.115.224/27 / 2620:11A:B002:2000::/64
-lo0.cr1.fmt01.transit		IN	A	149.112.115.244
-lo0.cr1.fmt01.transit		IN	AAAA	2620:11A:B002:2000::244
+lo0.ar1.fmt01.transit		IN	A	149.112.115.244
+lo0.ar1.fmt01.transit		IN	AAAA	2620:11A:B002:2000::244
 lo0.cr1.scl02.transit		IN	A	149.112.115.245
 lo0.cr1.scl02.transit		IN	AAAA	2620:11A:B002:2000::245
 system.cr1.sjc01.transit	IN	A	149.112.115.246
@@ -518,8 +518,8 @@ pve02-warmspringsblvd48233-fmt		IN	CNAME		vmbr0.pve02-warmspringsblvd48233-fmt
 ipmi.pve02-warmspringsblvd48233-fmt	IN	A		10.2.1.13
 mgmt.quarantine-lg			IN	A		10.2.1.25
 mgmt.alice				IN	A		10.2.1.26
-cr1.fmt01.transit			IN	CNAME		fxp0.cr1.fmt01.transit
-fxp0.cr1.fmt01.transit			IN	A		10.2.1.30
+ar1.fmt01.transit			IN	CNAME		fxp0.ar1.fmt01.transit
+fxp0.ar1.fmt01.transit			IN	A		10.2.1.30
 
 ; fmt01 Transit: Arelion via Cofractal
 eth5.edge-gw.fmt01	IN	A	62.115.146.167
