@@ -57,6 +57,9 @@ bind_acls:
       - 50.117.26.130
       # mgmt-gw.scl05
       - 198.24.47.162
+      # snappy
+      - 149.112.115.26
+      - 2620:11a:b002::26
   - name: secondaries
     match_list:
       # ns1.he.net
