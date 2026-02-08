@@ -9,7 +9,24 @@
     state: present
     update_cache: true
 
-- name: Place nginx site configuration
+- name: Check if SSL certificate exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ snappy_speedtest_domain }}/fullchain.pem
+  register: ssl_cert_exists
+
+- name: Place HTTP-only nginx site configuration (for initial cert)
+  become: true
+  ansible.builtin.template:
+    src: nginx-snappy-http.conf.j2
+    dest: /etc/nginx/sites-available/snappy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: not ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Place HTTPS nginx site configuration (when cert exists)
   become: true
   ansible.builtin.template:
     src: nginx-snappy.conf.j2
@@ -17,6 +34,7 @@
     owner: root
     group: root
     mode: "0644"
+  when: ssl_cert_exists.stat.exists
   notify: Reload nginx
 
 - name: Enable nginx site
@@ -45,12 +63,22 @@
   become: true
   ansible.builtin.command:
     cmd: >-
-      certbot --nginx
+      certbot certonly --webroot
+      -w /var/www/html
       --non-interactive
       --agree-tos
       --email {{ ixp_primary_tech_contact_email }}
       --domains {{ snappy_speedtest_domain }}
     creates: /etc/letsencrypt/live/{{ snappy_speedtest_domain }}/fullchain.pem
+
+- name: Place full HTTPS nginx site configuration
+  become: true
+  ansible.builtin.template:
+    src: nginx-snappy.conf.j2
+    dest: /etc/nginx/sites-available/snappy.conf
+    owner: root
+    group: root
+    mode: "0644"
   notify: Reload nginx
 
 - name: Ensure certbot renewal timer is enabled

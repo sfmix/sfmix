@@ -66,21 +66,11 @@
     mode: "0644"
   notify: Restart speedtest container
 
-- name: Build speedtest-rust Docker image
-  become: true
-  community.docker.docker_image:
-    name: speedtest-rust
-    tag: local
-    source: build
-    build:
-      path: /opt/speedtest-rust
-    force_source: true
-
 - name: Run speedtest-rust container
   become: true
   community.docker.docker_container:
     name: speedtest
-    image: speedtest-rust:local
+    image: ghcr.io/librespeed/speedtest-rust:latest
     restart_policy: always
     published_ports:
       - "127.0.0.1:{{ snappy_speedtest_listen_port }}:8080"
