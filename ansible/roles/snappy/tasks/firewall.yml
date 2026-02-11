@@ -13,6 +13,13 @@
     port: "443"
     proto: tcp
 
+- name: "Firewall: Allow speedtest HTTP from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ snappy_speedtest_listen_port }}"
+    proto: tcp
+
 - name: "Firewall: Allow BGP from IPv4 peer"
   become: true
   community.general.ufw:
@@ -28,3 +35,17 @@
     port: "179"
     proto: tcp
     from_ip: "{{ snappy_bgp_neighbor_v6 }}"
+
+- name: "Firewall: Allow iperf3 TCP from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ snappy_iperf3_port }}"
+    proto: tcp
+
+- name: "Firewall: Allow iperf3 UDP from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ snappy_iperf3_port }}"
+    proto: udp
