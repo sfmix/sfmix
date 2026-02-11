@@ -15,6 +15,11 @@
   tags:
     - nginx
 
+- name: "Snappy: iperf3"
+  ansible.builtin.import_tasks: iperf3.yml
+  tags:
+    - iperf3
+
 - name: "Snappy: Firewall"
   ansible.builtin.import_tasks: firewall.yml
   tags:
