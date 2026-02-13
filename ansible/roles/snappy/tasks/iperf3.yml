@@ -1,0 +1,44 @@
+---
+- name: Install iperf3
+  become: true
+  ansible.builtin.apt:
+    name: iperf3
+    state: present
+    update_cache: true
+
+
+- name: Create iperf3 systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=iperf3 server
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/iperf3 -s -p {{ snappy_iperf3_port }}
+      Restart=always
+      RestartSec=5
+      User=root
+      Group=root
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/iperf3.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart iperf3
+
+- name: Reload systemd daemon
+  become: true
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Enable and start iperf3 service
+  become: true
+  ansible.builtin.systemd_service:
+    name: iperf3
+    enabled: true
+    state: started

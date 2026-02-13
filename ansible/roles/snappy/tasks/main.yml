@@ -1,4 +1,11 @@
 ---
+- name: "Snappy: Network Tuning"
+  ansible.builtin.import_tasks: network_tuning.yml
+  tags:
+    - network
+    - tuning
+    - performance
+
 - name: "Snappy: Install BIRD"
   ansible.builtin.import_tasks: bird.yml
   tags:
