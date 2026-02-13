@@ -1,0 +1,7 @@
+---
+- name: Restart librespeed container
+  become: true
+  community.docker.docker_container:
+    name: librespeed
+    state: started
+    restart: true

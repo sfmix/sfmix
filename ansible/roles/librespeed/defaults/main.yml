@@ -1,0 +1,11 @@
+---
+librespeed_listen_port: 8080
+librespeed_server_name: "SFMIX - San Francisco, CA"
+librespeed_url_path: "/librespeed"
+
+librespeed_dl_duration: "20"
+librespeed_ul_duration: "20"
+librespeed_dl_streams: "8"
+librespeed_ul_streams: "4"
+librespeed_stream_delay: "200"
+librespeed_chunk_size: "150"

@@ -1,0 +1,12 @@
+function get_servers() {
+    return [
+        {
+            name : "{{ librespeed_server_name }}",
+            server : window.location.origin + "/librespeed",
+            dlURL: "backend/garbage",
+            ulURL: "backend/empty",
+            pingURL: "backend/empty",
+            getIpURL: "backend/getIP"
+        }
+    ]
+}
