@@ -1,0 +1,7 @@
+---
+- name: Restart openspeedtest container
+  become: true
+  community.docker.docker_container:
+    name: openspeedtest
+    state: started
+    restart: true
