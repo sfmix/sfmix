@@ -1,0 +1,32 @@
+---
+- name: Clone tauc-speedtest repository
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/roadrunnerspeed/tauc-speedtest.git
+    dest: /opt/tauc-speedtest
+    version: master
+    force: true
+  notify: Restart tauc-speedtest container
+
+- name: Place tauc nginx configuration
+  become: true
+  ansible.builtin.template:
+    src: default.conf.j2
+    dest: /opt/tauc-speedtest/site-config/default.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart tauc-speedtest container
+
+- name: Run tauc-speedtest container
+  become: true
+  community.docker.docker_container:
+    name: tauc-speedtest
+    image: nginx:latest
+    restart_policy: always
+    published_ports:
+      - "127.0.0.1:{{ tauc_listen_port }}:80"
+    volumes:
+      - "/opt/tauc-speedtest/download-files:/usr/share/nginx/html/downloads:ro"
+      - "/opt/tauc-speedtest/site-config:/etc/nginx/conf.d:ro"
+    pull: true

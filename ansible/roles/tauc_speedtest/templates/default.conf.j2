@@ -1,0 +1,27 @@
+server {
+    listen                  80;
+    server_name             {{ snappy_speedtest_domain | default('_') }};
+
+    root        /usr/share/nginx/html;
+
+    # Setup our downloads section
+    location /downloads {
+        limit_except GET { deny all; }
+        add_header Content-disposition "attachment; filename=$1";
+    }
+
+    # Setup our upload section
+    location /uploads {
+        limit_except PUT { deny all; }
+        client_max_body_size 200M;
+
+        client_body_temp_path /tmp/uploads;
+        client_body_buffer_size 128K;
+        client_body_in_file_only on;
+    }
+
+    # Deny Everything else
+    location / {
+        deny all;
+    }
+}

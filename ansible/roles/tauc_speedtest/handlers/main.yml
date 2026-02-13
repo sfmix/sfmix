@@ -1,0 +1,7 @@
+---
+- name: Restart tauc-speedtest container
+  become: true
+  community.docker.docker_container:
+    name: tauc-speedtest
+    state: started
+    restart: true

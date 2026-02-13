@@ -1,0 +1,3 @@
+---
+tauc_listen_port: 8081
+tauc_url_path: "/tauc"
