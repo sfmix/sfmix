@@ -9,6 +9,24 @@
     state: present
     update_cache: true
 
+- name: Create landing page directory
+  become: true
+  ansible.builtin.file:
+    path: /var/www/snappy
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Place landing page
+  become: true
+  ansible.builtin.template:
+    src: landing-page.html.j2
+    dest: /var/www/snappy/index.html
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
 - name: Check if SSL certificate exists
   become: true
   ansible.builtin.stat:
