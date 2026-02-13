@@ -1,0 +1,10 @@
+---
+- name: Run openspeedtest container
+  become: true
+  community.docker.docker_container:
+    name: openspeedtest
+    image: openspeedtest/latest:latest
+    restart_policy: always
+    published_ports:
+      - "127.0.0.1:{{ openspeedtest_listen_port }}:3000"
+    pull: true
