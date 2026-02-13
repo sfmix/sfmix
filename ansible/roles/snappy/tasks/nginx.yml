@@ -18,6 +18,24 @@
     group: www-data
     mode: "0755"
 
+- name: Create static assets directory
+  become: true
+  ansible.builtin.file:
+    path: /var/www/snappy/static
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Place OG image
+  become: true
+  ansible.builtin.copy:
+    src: sfmix-fiber-spray.png
+    dest: /var/www/snappy/static/sfmix-fiber-spray.png
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
 - name: Place landing page
   become: true
   ansible.builtin.template:
