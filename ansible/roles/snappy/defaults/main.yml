@@ -6,16 +6,4 @@ snappy_bgp_neighbor_v4: "149.112.115.27"
 snappy_bgp_neighbor_v6: "2620:11a:b002::27"
 snappy_bgp_interface: "ens18"
 
-snappy_speedtest_listen_port: 8080
-snappy_speedtest_server_name: "SFMIX - San Francisco, CA"
 snappy_speedtest_domain: "snappy.sfmix.org"
-
-# LibreSpeed performance tuning (balanced for BBR)
-snappy_speedtest_dl_duration: "20"        # Download test duration in seconds (default: 15)
-snappy_speedtest_ul_duration: "20"        # Upload test duration in seconds (default: 15)
-snappy_speedtest_dl_streams: "8"          # Parallel download streams (default: 6)
-snappy_speedtest_ul_streams: "4"          # Parallel upload streams (default: 3)
-snappy_speedtest_stream_delay: "200"      # Delay between streams in ms (default: 300)
-snappy_speedtest_chunk_size: "150"        # Download chunk size in KB (default: 100)
-
-snappy_iperf3_port: 5201

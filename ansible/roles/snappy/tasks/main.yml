@@ -12,20 +12,38 @@
     - bird
     - bgp
 
-- name: "Snappy: Speedtest"
-  ansible.builtin.import_tasks: speedtest.yml
+- name: "Snappy: iperf3"
+  ansible.builtin.import_role:
+    name: iperf3
   tags:
     - speedtest
+    - iperf3
+
+- name: "Snappy: LibreSpeed"
+  ansible.builtin.import_role:
+    name: librespeed
+  tags:
+    - speedtest
+    - librespeed
+
+- name: "Snappy: TAUC Speed Test"
+  ansible.builtin.import_role:
+    name: tauc_speedtest
+  tags:
+    - speedtest
+    - tauc
+
+- name: "Snappy: OpenSpeedTest"
+  ansible.builtin.import_role:
+    name: openspeedtest
+  tags:
+    - speedtest
+    - openspeedtest
 
 - name: "Snappy: Nginx + TLS"
   ansible.builtin.import_tasks: nginx.yml
   tags:
     - nginx
-
-- name: "Snappy: iperf3"
-  ansible.builtin.import_tasks: iperf3.yml
-  tags:
-    - iperf3
 
 - name: "Snappy: Firewall"
   ansible.builtin.import_tasks: firewall.yml

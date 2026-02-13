@@ -1,14 +1,18 @@
 # Snappy Speed Test Server Role
 
-Ansible role to configure the snappy.sfmix.org speed test server with optimized network performance settings.
+Ansible role providing common infrastructure for the snappy.sfmix.org speed test server. This role orchestrates network tuning, BGP peering, nginx reverse proxy, and multiple speed test implementations.
 
 ## Features
 
 - **Network Tuning**: Optimized TCP/IP stack for gigabit+ throughput
-- **iperf3 Server**: Network performance testing
-- **LibreSpeed**: Web-based speed test
-- **BGP Peering**: BIRD BGP daemon for route exchange
-- **Nginx**: TLS-enabled web server
+- **BGP Peering**: BIRD BGP daemon for route exchange with IXP fabric
+- **Nginx**: TLS-enabled reverse proxy with path-based routing
+- **Firewall**: UFW configuration for speed test services
+- **Speed Test Orchestration**: Imports and configures multiple speed test roles:
+  - iperf3 (network performance testing)
+  - LibreSpeed (web-based speed test)
+  - TAUC Speed Test (alternative web speed test)
+  - OpenSpeedTest (another web speed test option)
 
 ## Network Performance Optimizations
 
@@ -40,30 +44,41 @@ With these optimizations, snappy achieves:
 See `defaults/main.yml` for configurable variables:
 
 ```yaml
-snappy_bgp_interface: "ens18"        # Network interface for BGP peering
-snappy_iperf3_port: 5201             # iperf3 server port
+# BGP Configuration
+snappy_bgp_local_asn: 64512
+snappy_bgp_remote_asn: 40271
+snappy_bgp_router_id: "149.112.115.26"
+snappy_bgp_neighbor_v4: "149.112.115.27"
+snappy_bgp_neighbor_v6: "2620:11a:b002::27"
+snappy_bgp_interface: "ens18"
 
-# LibreSpeed web speed test
-snappy_speedtest_listen_port: 8080   # LibreSpeed port
+# Nginx/TLS Configuration
 snappy_speedtest_domain: "snappy.sfmix.org"
-
-# LibreSpeed performance tuning (optimized for gigabit+ connections)
-snappy_speedtest_dl_duration: "30"   # Download test duration (seconds)
-snappy_speedtest_ul_duration: "30"   # Upload test duration (seconds)
-snappy_speedtest_dl_streams: "10"    # Parallel download streams (default: 6)
-snappy_speedtest_ul_streams: "8"     # Parallel upload streams (default: 3)
-snappy_speedtest_stream_delay: "200" # Delay between streams (ms)
-snappy_speedtest_chunk_size: "250"   # Download chunk size (KB)
 ```
 
-### LibreSpeed Performance Notes
+## Speed Test Services
 
-The default LibreSpeed configuration (6 download streams, 3 upload streams, 15s duration) is optimized for typical home connections (100-500 Mbps). For gigabit+ speeds, the optimized settings above provide:
+The snappy role orchestrates multiple speed test implementations by importing their respective roles:
 
-- **More parallel streams**: 10 download / 8 upload streams saturate high-bandwidth links
-- **Longer test duration**: 30 seconds allows TCP to fully ramp up on WAN links
-- **Larger chunks**: 250 KB chunks reduce HTTP overhead on fast connections
-- **Lower stream delay**: 200ms starts streams faster for quicker saturation
+- **iperf3** (port 5201): Command-line network performance testing
+- **LibreSpeed** (`/librespeed/`): Rust-based web speed test
+- **TAUC Speed Test** (`/tauc/`): Alternative web speed test
+- **OpenSpeedTest** (`/openspeedtest/`): Another web speed test option
+
+### Architecture
+
+- Each speed test is implemented as a separate Ansible role
+- Web-based tests run in Docker containers on localhost-only ports (8080, 8081, 8082)
+- Nginx reverse proxy provides TLS termination and path-based routing
+- iperf3 runs as a systemd service on port 5201
+
+### Speed Test Configuration
+
+Each speed test has its own role with independent configuration:
+- `iperf3` role: See `roles/iperf3/defaults/main.yml`
+- `librespeed` role: See `roles/librespeed/defaults/main.yml`
+- `tauc_speedtest` role: See `roles/tauc_speedtest/defaults/main.yml`
+- `openspeedtest` role: See `roles/openspeedtest/defaults/main.yml`
 
 **Note**: Web-based speed tests (JavaScript/HTTP) typically achieve 70-90% of iperf3 performance due to browser overhead. For maximum accuracy, use iperf3 directly.
 
@@ -78,6 +93,14 @@ ansible-playbook push_servers.playbook.yml --tags network,tuning
 # Configure iperf3 only
 ansible-playbook push_servers.playbook.yml --tags iperf3
 
+# Deploy all speed tests
+ansible-playbook push_servers.playbook.yml --tags speedtest
+
+# Deploy specific speed test
+ansible-playbook push_servers.playbook.yml --tags librespeed
+ansible-playbook push_servers.playbook.yml --tags tauc
+ansible-playbook push_servers.playbook.yml --tags openspeedtest
+
 # Full snappy configuration
 ansible-playbook push_servers.playbook.yml --tags snappy
 ```
@@ -86,7 +109,21 @@ ansible-playbook push_servers.playbook.yml --tags snappy
 
 - Debian/Ubuntu target host
 - Kernel with BBR support (4.9+)
-- `community.general` and `ansible.posix` collections
+- Docker installed on target host
+- Ansible collections:
+  - `community.general`
+  - `ansible.posix`
+  - `community.docker`
+
+## Role Dependencies
+
+The snappy role imports the following roles:
+- `iperf3` - iperf3 server deployment
+- `librespeed` - LibreSpeed web speed test
+- `tauc_speedtest` - TAUC Speed Test
+- `openspeedtest` - OpenSpeedTest
+
+These roles must be present in your `roles/` directory.
 
 ## Network Tuning Technical Details
 
