@@ -29,36 +29,10 @@ server {
 
     client_max_body_size 100M;
 
-    # Root landing page
+    # Landing page and static assets
     location = / {
-        return 200 '<!DOCTYPE html>
-<html>
-<head>
-    <title>SFMIX Speed Test</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        h1 { color: #333; }
-        .speedtest-links { list-style: none; padding: 0; }
-        .speedtest-links li { margin: 15px 0; }
-        .speedtest-links a { display: block; padding: 15px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-        .speedtest-links a:hover { background: #0056b3; }
-    </style>
-</head>
-<body>
-    <h1>SFMIX Speed Test Services</h1>
-    <p>Choose a speed test service:</p>
-    <ul class="speedtest-links">
-        <li><a href="/librespeed/">LibreSpeed (Rust-based)</a></li>
-        <li><a href="/openspeedtest/">OpenSpeedTest</a></li>
-    </ul>
-    <h2>TR-143 / CLI Endpoints</h2>
-    <ul>
-        <li>TAUC download: <code>https://snappy.sfmix.org/tauc/downloads/20MB.file</code></li>
-        <li>iperf3: <code>iperf3 -c snappy.sfmix.org</code></li>
-    </ul>
-</body>
-</html>';
-        add_header Content-Type text/html;
+        root /var/www/snappy;
+        try_files /index.html =404;
     }
 
     # LibreSpeed
