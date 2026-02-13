@@ -1,0 +1,85 @@
+---
+- name: Remove old speedtest container (from previous snappy role)
+  become: true
+  community.docker.docker_container:
+    name: speedtest
+    state: absent
+
+- name: Create /etc/librespeed.toml
+  become: true
+  ansible.builtin.template:
+    src: librespeed.toml.j2
+    dest: /etc/librespeed.toml
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart librespeed container
+
+- name: Create /var/lib/librespeed/assets directory
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/librespeed/assets
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Place servers_list.js
+  become: true
+  ansible.builtin.template:
+    src: servers_list.js.j2
+    dest: /var/lib/librespeed/assets/servers_list.js
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart librespeed container
+
+- name: Clone speedtest-rust repository
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/librespeed/speedtest-rust.git
+    dest: /opt/speedtest-rust
+    version: master
+    force: true
+
+- name: Copy default assets (index.html, etc.)
+  become: true
+  ansible.builtin.shell: |
+    cp -n /opt/speedtest-rust/assets/*.html /var/lib/librespeed/assets/ 2>/dev/null || true
+    cp -n /opt/speedtest-rust/assets/*.css /var/lib/librespeed/assets/ 2>/dev/null || true
+    cp -n /opt/speedtest-rust/assets/*.js /var/lib/librespeed/assets/ 2>/dev/null || true
+    cp -rn /opt/speedtest-rust/assets/images /var/lib/librespeed/assets/ 2>/dev/null || true
+  args:
+    creates: /var/lib/librespeed/assets/index.html
+
+- name: Place customized index.html (privacy policy fix)
+  become: true
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: /var/lib/librespeed/assets/index.html
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart librespeed container
+
+- name: Overwrite servers_list.js with our template
+  become: true
+  ansible.builtin.template:
+    src: servers_list.js.j2
+    dest: /var/lib/librespeed/assets/servers_list.js
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart librespeed container
+
+- name: Run speedtest-rust container
+  become: true
+  community.docker.docker_container:
+    name: librespeed
+    image: ghcr.io/librespeed/speedtest-rust:latest
+    restart_policy: always
+    published_ports:
+      - "127.0.0.1:{{ librespeed_listen_port }}:8080"
+    volumes:
+      - "/etc/librespeed.toml:/usr/local/bin/configs.toml:ro"
+      - "/var/lib/librespeed/assets:/usr/local/bin/assets:ro"
