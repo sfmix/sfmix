@@ -304,6 +304,34 @@
                 <!-- Bay Bridge suspension cables -->
                 <path d="M640,46 Q660,30 675,14" stroke="#4a2a2a" stroke-width="0.7" fill="none"/>
                 <path d="M710,46 Q690,30 675,14" stroke="#4a2a2a" stroke-width="0.7" fill="none"/>
+                <!-- Rolling fog: organic shapes with drift animations -->
+                <defs>
+                    <filter id="fogBlur">
+                        <feGaussianBlur stdDeviation="4 2"/>
+                    </filter>
+                </defs>
+                <g filter="url(#fogBlur)">
+                    <!-- Low fog bank: thick rolling layer -->
+                    <path d="M-100,48 C50,42 120,46 200,40 C280,36 350,44 450,38 C550,34 620,42 750,38 C880,34 1000,42 1100,40 L1300,44 L1300,60 L-100,60 Z"
+                        fill="white" opacity="0.08">
+                        <animateTransform attributeName="transform" type="translate" values="0,0;60,2;-40,-1;0,0" dur="8s" repeatCount="indefinite"/>
+                    </path>
+                    <!-- Mid fog wisps -->
+                    <path d="M-50,38 C80,34 160,40 280,34 C400,28 460,36 560,32 C660,28 740,34 860,30 C980,26 1080,34 1250,32 L1300,36 L1300,46 L-50,46 Z"
+                        fill="white" opacity="0.06">
+                        <animateTransform attributeName="transform" type="translate" values="0,0;-50,1;30,-1;0,0" dur="12s" repeatCount="indefinite"/>
+                    </path>
+                    <!-- High fog wisps: thin tendrils around tower tops -->
+                    <path d="M200,24 C300,20 380,26 480,22 C580,18 640,24 720,20 C800,16 860,22 950,20 L950,30 C860,32 800,26 720,30 C640,34 580,28 480,32 C380,36 300,30 200,34 Z"
+                        fill="white" opacity="0.05">
+                        <animateTransform attributeName="transform" type="translate" values="0,0;40,-2;-60,1;0,0" dur="15s" repeatCount="indefinite"/>
+                    </path>
+                    <!-- Extra wisp: small drifting patch -->
+                    <path d="M400,28 C440,24 500,30 560,26 C620,22 660,28 700,24 L700,34 C660,38 620,32 560,36 C500,40 440,34 400,38 Z"
+                        fill="white" opacity="0.07">
+                        <animateTransform attributeName="transform" type="translate" values="0,0;-35,2;50,-1;0,0" dur="6s" repeatCount="indefinite"/>
+                    </path>
+                </g>
             </svg>
         </div>
     </div>
