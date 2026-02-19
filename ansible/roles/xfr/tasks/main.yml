@@ -1,0 +1,46 @@
+---
+- name: Download xfr binary
+  become: true
+  ansible.builtin.unarchive:
+    src: "https://github.com/lance0/xfr/releases/{{ xfr_version }}/download/xfr-{{ xfr_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    mode: "0755"
+    creates: /usr/local/bin/xfr
+  notify: Restart xfr
+
+- name: Create xfr systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=xfr speed test server
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/xfr serve -p {{ xfr_port }}
+      Restart=always
+      RestartSec=5
+      User=root
+      Group=root
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/xfr.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart xfr
+
+- name: Reload systemd daemon
+  become: true
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Enable and start xfr service
+  become: true
+  ansible.builtin.systemd_service:
+    name: xfr
+    enabled: true
+    state: started
