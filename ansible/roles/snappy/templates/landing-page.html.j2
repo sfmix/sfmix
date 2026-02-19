@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Test your network speed to the San Francisco Metropolitan Internet Exchange (SFMIX). LibreSpeed, OpenSpeedTest, iperf3, and TR-143 endpoints available.">
+    <meta name="description" content="Test your network speed to the San Francisco Metropolitan Internet eXchange (SFMIX). LibreSpeed, OpenSpeedTest, iperf3, and TR-143 endpoints available.">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="SFMIX Snappy Speed Test">
-    <meta property="og:description" content="Test your network speed to the San Francisco Metropolitan Internet Exchange. Multiple speed test tools available.">
+    <meta property="og:description" content="Test your network speed to the San Francisco Metropolitan Internet eXchange. Multiple speed test tools available.">
     <meta property="og:url" content="https://{{ snappy_speedtest_domain }}/">
     <meta property="og:site_name" content="SFMIX">
     <meta property="og:image" content="https://{{ snappy_speedtest_domain }}/static/sfmix-fiber-spray.png">
@@ -18,7 +18,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="SFMIX Snappy Speed Test">
-    <meta name="twitter:description" content="Test your network speed to the San Francisco Metropolitan Internet Exchange. Multiple speed test tools available.">
+    <meta name="twitter:description" content="Test your network speed to the San Francisco Metropolitan Internet eXchange. Multiple speed test tools available.">
     <meta name="twitter:image" content="https://{{ snappy_speedtest_domain }}/static/sfmix-fiber-spray.png">
 
     <title>SFMIX Snappy - Speed Test</title>
@@ -250,23 +250,67 @@
         <div class="fiber"></div>
         <div class="skyline">
             <svg viewBox="0 0 1200 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M0,60 L0,45 80,45 80,30 95,30 95,42 120,42 120,20 130,20 130,42
-                    180,42 180,35 200,35 200,42 240,42 240,15 248,15 248,42
-                    300,42 300,28 320,28 320,42 360,42 360,8 365,4 370,8 370,42
-                    420,42 420,22 440,22 440,42 480,42 480,32 500,32 500,42
-                    540,42 540,18 555,18 555,42 600,42 600,25 620,25 620,42
-                    660,42 660,38 700,38 700,42 740,42 740,12 748,12 748,42
-                    800,42 800,30 830,30 830,42 880,42 880,20 895,20 895,42
-                    940,42 940,35 970,35 970,42 1020,42 1020,28 1040,28 1040,42
-                    1080,42 1080,38 1120,38 1120,42 1160,42 1160,45 1200,45 1200,60 Z"
-                    fill="#0d1117"/>
+                <!-- Continuous base: western hills, Twin Peaks, Nob Hill, all FiDi/SoMa buildings, eastern waterfront — no gaps -->
+                <path d="M0,60 L0,52 30,50 60,48 90,46 110,47 130,46 160,47 180,46 200,47
+                    210,46 220,42 235,38 245,40 255,36 270,40 285,42 300,44 310,46
+                    320,44 335,42 345,43 355,42 365,43 375,42 385,44
+                    385,44 390,44 390,42 394,42 394,44
+                    400,44 400,42 410,42 410,40 420,40 420,38 432,38 432,40 440,40 440,42
+                    442,42 442,36 458,36 458,42
+                    460,42 460,30 476,30 476,42
+                    478,42 478,34 490,34 490,42
+                    492,42 492,28 504,28 504,42
+                    506,42 506,18 528,18 528,42
+                    530,42 530,28 544,28 544,42
+                    546,42 546,12 548,8 550,5 553,3 556,5 558,8 560,12 560,42
+                    562,42 562,20 576,20 576,42
+                    578,42 578,26 588,26 588,42
+                    590,42 590,32 602,32 602,42
+                    604,42 604,38 616,38 616,42
+                    618,42 618,40 632,40 632,42
+                    634,42 634,44 660,44 660,46
+                    670,46 700,47 740,48 790,48 830,50 880,52 950,54 1050,56 1200,58 1200,60 Z"
+                    fill="#2a3648"/>
+                <!-- Sutro Tower: two tapered lattice legs -->
+                <path d="M188,46 L191,46 195,24 194,24 190,46 Z" fill="#4a2a2a"/>
+                <path d="M203,46 L206,46 202,24 201,24 205,46 Z" fill="#4a2a2a"/>
+                <!-- Sutro Tower: cross-braces between legs -->
+                <line x1="192" y1="38" x2="203" y2="38" stroke="#4a2a2a" stroke-width="1"/>
+                <line x1="193" y1="32" x2="202" y2="32" stroke="#4a2a2a" stroke-width="1"/>
+                <line x1="194" y1="26" x2="201" y2="26" stroke="#4a2a2a" stroke-width="1"/>
+                <!-- Sutro Tower: horizontal platform at top of legs -->
+                <rect x="193" y="23" width="10" height="2" fill="#4a2a2a"/>
+                <!-- Sutro Tower: center mast -->
+                <rect x="197" y="6" width="2" height="17" fill="#4a2a2a"/>
+                <!-- Sutro Tower: left antenna prong -->
+                <path d="M194,23 L192,10 193,10 195,23 Z" fill="#4a2a2a"/>
+                <!-- Sutro Tower: right antenna prong -->
+                <path d="M201,23 L203,10 204,10 202,23 Z" fill="#4a2a2a"/>
+                <!-- Sutro Tower: antenna tips -->
+                <line x1="192" y1="10" x2="192" y2="6" stroke="#4a2a2a" stroke-width="1"/>
+                <line x1="198" y1="6" x2="198" y2="2" stroke="#4a2a2a" stroke-width="1"/>
+                <line x1="204" y1="10" x2="204" y2="6" stroke="#4a2a2a" stroke-width="1"/>
+                <!-- Coit Tower: tapered column with observation cap -->
+                <path d="M392,44 L393,42 394,26 394,24 393,23 393,22 403,22 403,23 402,24 402,26 403,42 404,44 Z" fill="#2a3648"/>
+                <!-- Transamerica Pyramid: tall solid triangle -->
+                <polygon points="490,2 480,60 500,60" fill="#2a3648"/>
+                <!-- Transamerica Pyramid: inverted triangle for observation wings (flat top = wings, apex down) -->
+                <polygon points="484,12 496,12 490,18" fill="#2a3648"/>
+                <!-- Bay Bridge west tower: two vertical columns with cross-beam -->
+                <rect x="670" y="14" width="3" height="34" fill="#4a2a2a"/>
+                <rect x="677" y="14" width="3" height="34" fill="#4a2a2a"/>
+                <rect x="670" y="14" width="10" height="2" fill="#4a2a2a"/>
+                <rect x="670" y="28" width="10" height="2" fill="#4a2a2a"/>
+                <!-- Bay Bridge suspension cables -->
+                <path d="M640,46 Q660,30 675,14" stroke="#4a2a2a" stroke-width="0.7" fill="none"/>
+                <path d="M710,46 Q690,30 675,14" stroke="#4a2a2a" stroke-width="0.7" fill="none"/>
             </svg>
         </div>
     </div>
     <div class="container">
         <header>
             <h1>Snappy Speed Test</h1>
-            <p class="subtitle">San Francisco Metropolitan Internet Exchange</p>
+            <p class="subtitle">San Francisco Metropolitan Internet eXchange</p>
         </header>
 
         <div class="card-grid">
@@ -285,7 +329,7 @@
         <div class="cli-section">
             <h2>CLI &amp; TR-143 Endpoints</h2>
             <div class="cli-item">
-                <span class="label"><a href="https://github.com/esnet/iperf" style="color: #b197fc; text-decoration: none;"></a>iperf3</a></span>
+                <span class="label"><a href="https://github.com/esnet/iperf" style="color: #b197fc; text-decoration: none;">iperf3</a></span>
                 <div>
                     <code>iperf3 -c {{ snappy_speedtest_domain }}</code>
                     <div style="font-size: 0.78em; color: #6b7b8d; margin-top: 4px;">The standard network throughput measurement tool. Single-client TCP/UDP testing.</div>
