@@ -19,6 +19,13 @@
     - speedtest
     - iperf3
 
+- name: "Snappy: xfr"
+  ansible.builtin.import_role:
+    name: xfr
+  tags:
+    - speedtest
+    - xfr
+
 - name: "Snappy: LibreSpeed"
   ansible.builtin.import_role:
     name: librespeed

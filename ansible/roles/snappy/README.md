@@ -10,6 +10,7 @@ Ansible role providing common infrastructure for the snappy.sfmix.org speed test
 - **Firewall**: UFW configuration for speed test services
 - **Speed Test Orchestration**: Imports and configures multiple speed test roles:
   - iperf3 (network performance testing)
+  - xfr (modern iperf3 alternative with multi-client, QUIC, and UDP support)
   - LibreSpeed (web-based speed test)
   - TAUC Speed Test (alternative web speed test)
   - OpenSpeedTest (another web speed test option)
@@ -61,6 +62,7 @@ snappy_speedtest_domain: "snappy.sfmix.org"
 The snappy role orchestrates multiple speed test implementations by importing their respective roles:
 
 - **iperf3** (port 5201): Command-line network performance testing
+- **xfr** (port 5202): Modern iperf3 alternative with multi-client server, QUIC, and UDP
 - **LibreSpeed** (`/librespeed/`): Rust-based web speed test
 - **TAUC Speed Test** (`/tauc/`): Alternative web speed test
 - **OpenSpeedTest** (`/openspeedtest/`): Another web speed test option
@@ -70,12 +72,13 @@ The snappy role orchestrates multiple speed test implementations by importing th
 - Each speed test is implemented as a separate Ansible role
 - Web-based tests run in Docker containers on localhost-only ports (8080, 8081, 8082)
 - Nginx reverse proxy provides TLS termination and path-based routing
-- iperf3 runs as a systemd service on port 5201
+- iperf3 and xfr run as systemd services on ports 5201 and 5202 respectively
 
 ### Speed Test Configuration
 
 Each speed test has its own role with independent configuration:
 - `iperf3` role: See `roles/iperf3/defaults/main.yml`
+- `xfr` role: See `roles/xfr/defaults/main.yml`
 - `librespeed` role: See `roles/librespeed/defaults/main.yml`
 - `tauc_speedtest` role: See `roles/tauc_speedtest/defaults/main.yml`
 - `openspeedtest` role: See `roles/openspeedtest/defaults/main.yml`
@@ -92,6 +95,9 @@ ansible-playbook push_servers.playbook.yml --tags network,tuning
 
 # Configure iperf3 only
 ansible-playbook push_servers.playbook.yml --tags iperf3
+
+# Configure xfr only
+ansible-playbook push_servers.playbook.yml --tags xfr
 
 # Deploy all speed tests
 ansible-playbook push_servers.playbook.yml --tags speedtest
@@ -119,6 +125,7 @@ ansible-playbook push_servers.playbook.yml --tags snappy
 
 The snappy role imports the following roles:
 - `iperf3` - iperf3 server deployment
+- `xfr` - xfr speed test server
 - `librespeed` - LibreSpeed web speed test
 - `tauc_speedtest` - TAUC Speed Test
 - `openspeedtest` - OpenSpeedTest

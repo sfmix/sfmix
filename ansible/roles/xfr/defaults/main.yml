@@ -1,0 +1,4 @@
+---
+xfr_port: "5202"
+xfr_version: "latest"
+xfr_arch: "x86_64-unknown-linux-musl"

@@ -285,8 +285,18 @@
         <div class="cli-section">
             <h2>CLI &amp; TR-143 Endpoints</h2>
             <div class="cli-item">
-                <span class="label">iperf3</span>
-                <code>iperf3 -c {{ snappy_speedtest_domain }}</code>
+                <span class="label"><a href="https://github.com/esnet/iperf" style="color: #b197fc; text-decoration: none;"></a>iperf3</a></span>
+                <div>
+                    <code>iperf3 -c {{ snappy_speedtest_domain }}</code>
+                    <div style="font-size: 0.78em; color: #6b7b8d; margin-top: 4px;">The standard network throughput measurement tool. Single-client TCP/UDP testing.</div>
+                </div>
+            </div>
+            <div class="cli-item">
+                <span class="label"><a href="https://github.com/lance0/xfr" style="color: #b197fc; text-decoration: none;">xfr</a></span>
+                <div>
+                    <code>xfr {{ snappy_speedtest_domain }} -p {{ xfr_port }}</code>
+                    <div style="font-size: 0.78em; color: #6b7b8d; margin-top: 4px;">Modern iperf3 alternative with multi-client server, QUIC support, and live TUI. Built in Rust.</div>
+                </div>
             </div>
             <div class="cli-item">
                 <span class="label">TAUC DL</span>
