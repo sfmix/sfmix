@@ -73,7 +73,8 @@ all:
         rpki-linux.sfmix.org:
     tailscale:
       hosts:
-        tailscale.sfo02.sfmix.org:
+        tailscale-sfo02.sfo02.sfmix.org:
+        tailscale-scl04.scl04.sfmix.org:
     proxmox_hypervisors:
       hosts:
         pve01-paulave200-sfo.sfmix.org:
