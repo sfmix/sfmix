@@ -56,3 +56,17 @@
     rule: allow
     port: "{{ xfr_port }}"
     proto: udp
+
+- name: "Firewall: Allow btest-rs TCP from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ btest_rs_port }}"
+    proto: tcp
+
+- name: "Firewall: Allow btest-rs UDP range from anywhere"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ btest_rs_port }}:{{ btest_rs_port | int + btest_rs_max_sessions | int + 256 }}"
+    proto: udp
