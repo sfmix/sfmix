@@ -47,6 +47,13 @@
     - speedtest
     - openspeedtest
 
+- name: "Snappy: btest-rs (MikroTik bandwidth-test)"
+  ansible.builtin.import_role:
+    name: btest_rs
+  tags:
+    - speedtest
+    - btest
+
 - name: "Snappy: Nginx + TLS"
   ansible.builtin.import_tasks: nginx.yml
   tags:

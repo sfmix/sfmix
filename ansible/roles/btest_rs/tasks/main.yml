@@ -1,0 +1,53 @@
+---
+- name: Download and extract btest-rs release
+  become: true
+  ansible.builtin.unarchive:
+    src: "https://github.com/jof/btest-rs/releases/download/{{ btest_rs_version }}/btest-rs-{{ btest_rs_version }}-{{ btest_rs_arch }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+    creates: /tmp/btest-rs-{{ btest_rs_version }}-{{ btest_rs_arch }}/btest-rs
+
+- name: Install btest-rs binary
+  become: true
+  ansible.builtin.copy:
+    src: /tmp/btest-rs-{{ btest_rs_version }}-{{ btest_rs_arch }}/btest-rs
+    dest: /usr/local/bin/btest-rs
+    remote_src: true
+    mode: "0755"
+  notify: Restart btest-rs
+
+- name: Create btest-rs systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=btest-rs MikroTik bandwidth-test server
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/btest-rs --listen 0.0.0.0:{{ btest_rs_port }} --udp-port-start {{ btest_rs_port }} --max-sessions {{ btest_rs_max_sessions }}
+      Restart=always
+      RestartSec=5
+      User=root
+      Group=root
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/btest-rs.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart btest-rs
+
+- name: Reload systemd daemon
+  become: true
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Enable and start btest-rs service
+  become: true
+  ansible.builtin.systemd_service:
+    name: btest-rs
+    enabled: true
+    state: started
