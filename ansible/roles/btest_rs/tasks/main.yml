@@ -26,7 +26,7 @@
 
       [Service]
       Type=simple
-      ExecStart=/usr/local/bin/btest-rs --listen 0.0.0.0:{{ btest_rs_port }} --udp-port-start {{ btest_rs_port }} --max-sessions {{ btest_rs_max_sessions }}
+      ExecStart=/usr/local/bin/btest-rs --listen 0.0.0.0:{{ btest_rs_port }} --udp-port-start {{ btest_rs_port }} --max-sessions {{ btest_rs_max_sessions }} --max-test-duration {{ btest_rs_max_test_duration }} --control-timeout {{ btest_rs_control_timeout }}
       Restart=always
       RestartSec=5
       User=root
