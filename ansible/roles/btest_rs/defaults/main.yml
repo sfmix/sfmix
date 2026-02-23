@@ -3,5 +3,5 @@ btest_rs_port: 2000
 btest_rs_max_sessions: 100
 btest_rs_max_test_duration: 300
 btest_rs_control_timeout: 30
-btest_rs_version: "v0.1.1"
+btest_rs_version: "v0.1.2"
 btest_rs_arch: "x86_64-unknown-linux-gnu"
