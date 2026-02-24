@@ -1,0 +1,4 @@
+---
+sfmix_website_deploy_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBw5JP7Ah/p5fR0n25fDpW2FzfTt8421L9BZwiigcKqf gha-deploy@web.sfmix.org"
+sfmix_website_server_name: "web.sfmix.org"
+sfmix_website_server_aliases: []

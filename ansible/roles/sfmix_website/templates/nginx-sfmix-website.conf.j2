@@ -1,0 +1,91 @@
+{% set all_domains = [sfmix_website_server_name] + sfmix_website_server_aliases %}
+{% set cert_path = "/etc/letsencrypt/live/" + sfmix_website_server_name %}
+{% set has_cert = sfmix_website_has_cert | default(false) %}
+
+# HTTP — redirect to HTTPS (or serve plain if no cert yet)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ all_domains | join(' ') }};
+
+{% if has_cert %}
+    # ACME challenge for renewals
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://{{ sfmix_website_server_name }}$request_uri;
+    }
+{% else %}
+    root {{ sfmix_website_docroot }};
+    index index.html;
+
+    # ACME challenge for initial cert
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+{% endif %}
+}
+
+{% if has_cert %}
+# Redirect aliases to canonical domain
+{% for alias in sfmix_website_server_aliases %}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name {{ alias }};
+
+    ssl_certificate {{ cert_path }}/fullchain.pem;
+    ssl_certificate_key {{ cert_path }}/privkey.pem;
+
+    return 301 https://{{ sfmix_website_server_name }}$request_uri;
+}
+{% endfor %}
+
+# HTTPS — main site
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{ sfmix_website_server_name }};
+
+    ssl_certificate {{ cert_path }}/fullchain.pem;
+    ssl_certificate_key {{ cert_path }}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
+    root {{ sfmix_website_docroot }};
+    index index.html;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Cache static assets
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|tif|tiff)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Serve Hugo pretty URLs
+    location / {
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+
+    # Custom 404
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+    }
+}
+{% endif %}

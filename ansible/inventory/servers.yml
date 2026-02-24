@@ -23,6 +23,7 @@ all:
         librenms:
         login:
         snappy:
+        sfmix_website:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -93,3 +94,6 @@ all:
     snappy:
       hosts:
         snappy.sfmix.org:
+    sfmix_website:
+      hosts:
+        web.sfmix.org:

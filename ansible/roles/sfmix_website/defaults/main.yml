@@ -1,0 +1,8 @@
+---
+sfmix_website_docroot: "/var/www/sfmix.org"
+sfmix_website_server_name: "sfmix.org"
+sfmix_website_server_aliases:
+  - "www.sfmix.org"
+sfmix_website_certbot_email: "{{ ixp_primary_tech_contact_email }}"
+sfmix_website_deploy_user: "deploy"
+sfmix_website_deploy_public_key: ""
