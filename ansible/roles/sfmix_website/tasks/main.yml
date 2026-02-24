@@ -1,0 +1,110 @@
+---
+- name: Install nginx, certbot, and rsync
+  become: true
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+      - rsync
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Remove default nginx site
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+# Deploy user — GHA rsyncs the built site to this user's docroot
+- name: Create deploy user
+  become: true
+  ansible.builtin.user:
+    name: "{{ sfmix_website_deploy_user }}"
+    system: true
+    shell: /bin/bash
+    home: "/home/{{ sfmix_website_deploy_user }}"
+    create_home: true
+
+- name: Set deploy user authorized_keys
+  become: true
+  ansible.posix.authorized_key:
+    user: "{{ sfmix_website_deploy_user }}"
+    key: "{{ sfmix_website_deploy_public_key }}"
+    exclusive: true
+  when: sfmix_website_deploy_public_key | length > 0
+
+- name: Create website docroot directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ sfmix_website_docroot }}"
+    state: directory
+    owner: "{{ sfmix_website_deploy_user }}"
+    group: "{{ sfmix_website_deploy_user }}"
+    mode: "0755"
+
+# Phase 1: HTTP-only nginx (needed for certbot webroot challenge)
+- name: Check if TLS certificate exists
+  become: true
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ sfmix_website_server_name }}/fullchain.pem"
+  register: sfmix_website_cert
+
+- name: Deploy HTTP-only nginx config (pre-certbot)
+  become: true
+  ansible.builtin.template:
+    src: nginx-sfmix-website.conf.j2
+    dest: /etc/nginx/sites-available/sfmix-website.conf
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    sfmix_website_has_cert: false
+  when: not sfmix_website_cert.stat.exists
+  notify: Reload nginx
+
+- name: Enable nginx site
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/sfmix-website.conf
+    dest: /etc/nginx/sites-enabled/sfmix-website.conf
+    state: link
+  notify: Reload nginx
+
+- name: Flush handlers (ensure nginx is running with HTTP config)
+  ansible.builtin.meta: flush_handlers
+
+# Phase 2: Obtain TLS certificate
+- name: Obtain Let's Encrypt certificate
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --webroot
+      -w /var/www/html
+      --non-interactive
+      --agree-tos
+      --email {{ sfmix_website_certbot_email }}
+      --domains {{ ([sfmix_website_server_name] + sfmix_website_server_aliases) | join(',') }}
+    creates: "/etc/letsencrypt/live/{{ sfmix_website_server_name }}/fullchain.pem"
+
+# Phase 3: Deploy full HTTPS nginx config
+- name: Deploy HTTPS nginx config
+  become: true
+  ansible.builtin.template:
+    src: nginx-sfmix-website.conf.j2
+    dest: /etc/nginx/sites-available/sfmix-website.conf
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    sfmix_website_has_cert: true
+  notify: Reload nginx
+
+- name: Ensure certbot renewal timer is enabled
+  become: true
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    enabled: true
+    state: started

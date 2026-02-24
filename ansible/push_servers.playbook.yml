@@ -275,3 +275,10 @@
     - snappy
   roles:
     - snappy
+
+- name: "SFMIX Website"
+  hosts: sfmix_website
+  tags:
+    - sfmix_website
+  roles:
+    - sfmix_website
