@@ -52,4 +52,3 @@ url: "/page-slug/"
 
 Page content in Markdown...
 ```
-
