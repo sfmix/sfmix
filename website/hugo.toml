@@ -2,7 +2,6 @@ baseURL = 'https://sfmix.org/'
 languageCode = 'en-us'
 title = 'SFMIX – San Francisco Metropolitan Internet eXchange'
 disableKinds = ['taxonomy', 'term']
-# LFS migration complete
 
 [markup.goldmark.renderer]
   unsafe = true
