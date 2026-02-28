@@ -1,0 +1,82 @@
+<header class="site-header">
+  <div class="container nav-container">
+    <a href="{{ "/" | relURL }}" class="site-logo">
+      <img src="{{ "img/sfmix-logo-large.png" | relURL }}" alt="SFMIX" class="logo-img">
+    </a>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav" id="site-nav">
+      <ul class="nav-list">
+        {{/* About dropdown */}}
+        <li class="nav-item has-dropdown">
+          <button class="nav-link dropdown-toggle" aria-expanded="false">About</button>
+          <ul class="dropdown-menu">
+            {{ range .Site.Menus.about }}
+            <li><a href="{{ .URL | relURL }}" class="dropdown-link">{{ .Name }}</a></li>
+            {{ end }}
+          </ul>
+        </li>
+        {{/* Connect dropdown */}}
+        <li class="nav-item has-dropdown">
+          <button class="nav-link dropdown-toggle" aria-expanded="false">Connect</button>
+          <ul class="dropdown-menu">
+            {{ range .Site.Menus.connect }}
+            <li><a href="{{ .URL | relURL }}" class="dropdown-link">{{ .Name }}</a></li>
+            {{ end }}
+          </ul>
+        </li>
+        {{/* Services dropdown */}}
+        <li class="nav-item has-dropdown">
+          <button class="nav-link dropdown-toggle" aria-expanded="false">Services</button>
+          <ul class="dropdown-menu">
+            {{ range .Site.Menus.services }}
+            <li><a href="{{ .URL | relURL }}" class="dropdown-link">{{ .Name }}</a></li>
+            {{ end }}
+          </ul>
+        </li>
+        {{/* Top-level items */}}
+        {{ range .Site.Menus.main }}
+        <li class="nav-item">
+          <a href="{{ .URL | relURL }}" class="nav-link">{{ .Name }}</a>
+        </li>
+        {{ end }}
+      </ul>
+    </nav>
+  </div>
+</header>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile nav toggle
+  const toggle = document.querySelector('.nav-toggle');
+  const nav = document.getElementById('site-nav');
+  toggle.addEventListener('click', function() {
+    const expanded = this.getAttribute('aria-expanded') === 'true';
+    this.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('open');
+  });
+  // Dropdown toggles
+  document.querySelectorAll('.dropdown-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const expanded = this.getAttribute('aria-expanded') === 'true';
+      // Close all other dropdowns
+      document.querySelectorAll('.dropdown-toggle').forEach(function(b) {
+        b.setAttribute('aria-expanded', 'false');
+        b.parentElement.classList.remove('dropdown-open');
+      });
+      if (!expanded) {
+        this.setAttribute('aria-expanded', 'true');
+        this.parentElement.classList.add('dropdown-open');
+      }
+    });
+  });
+  // Close dropdowns on outside click
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.dropdown-toggle').forEach(function(b) {
+      b.setAttribute('aria-expanded', 'false');
+      b.parentElement.classList.remove('dropdown-open');
+    });
+  });
+});
+</script>

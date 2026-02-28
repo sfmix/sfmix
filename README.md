@@ -4,9 +4,13 @@ A community-driven and operated Internet Exchange in the San Francisco Bay Area
 since 2006.
 More information is at https://sfmix.org/
 
+## `website/`
+
+Hugo static site for [sfmix.org](https://sfmix.org/). Built and deployed automatically via GitHub Actions on pushes to `main` that touch `website/`. See [`website/README.md`](website/README.md) for details.
+
 ## `ansible/`
 
-Deployment tools and configuration with ansible
+Deployment tools and configuration with Ansible, including the `sfmix_website` role that provisions the web server (nginx, Let's Encrypt TLS, deploy user).
 
 ## `documentation/`
 

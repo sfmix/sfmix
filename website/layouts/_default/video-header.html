@@ -1,0 +1,16 @@
+{{ define "main" }}
+<div class="page-header page-header-video"{{ with .Params.mobile_image }} style="--mobile-bg: url('/{{ . }}')"{{ end }}>
+  <video class="page-header-bg" autoplay muted loop playsinline>
+    <source src="{{ .Params.video | relURL }}" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="container" style="position: relative; z-index: 2;">
+    <h1>{{ .Title }}</h1>
+  </div>
+</div>
+<div class="content">
+  <div class="container">
+    {{ .Content }}
+  </div>
+</div>
+{{ end }}
