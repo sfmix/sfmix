@@ -1,38 +1,41 @@
-# SFMIX
+# 🌉 SFMIX
 
-A community-driven and operated Internet Exchange in the San Francisco Bay Area
-since 2006.
-More information is at https://sfmix.org/
+**San Francisco Metropolitan Internet eXchange** — a community-driven and operated Internet Exchange in the San Francisco Bay Area since 2006. Keeping Bay Area traffic local since before it was cool.
 
-## `website/`
+🔗 [sfmix.org](https://sfmix.org/) · 📬 tech-c@sfmix.org
 
-Hugo static site for [sfmix.org](https://sfmix.org/). Built and deployed automatically via GitHub Actions on pushes to `main` that touch `website/`. See [`website/README.md`](website/README.md) for details.
+---
 
-## `ansible/`
+## 🌐 `website/`
 
-Deployment tools and configuration with Ansible, including the `sfmix_website` role that provisions the web server (nginx, Let's Encrypt TLS, deploy user).
+The public-facing Hugo static site for [sfmix.org](https://sfmix.org/). Pushes to `main` that touch `website/` automatically build and deploy via GitHub Actions. See [`website/README.md`](website/README.md) for local dev and content editing.
 
-## `documentation/`
+## 🔧 `ansible/`
 
-Public SFMIX documentation information.
+Ansible roles and playbooks that keep the lights on — network devices, servers, and services. Highlights include:
 
-Private documentation is in the private repo https://github.com/sfmix/documentation
+- **`sfmix_arouteserver`** / **`sfmix_route_server_linux`** — route server config generation ([ARouteServer](https://arouteserver.readthedocs.io/)) and BIRD deployment
+- **`sfmix_looking_glass`** — looking glass and participant data publishing
+- **`sfmix_network_devices`** — peering switch configuration management
+- **`sfmix_website`** — provisions the web server (nginx, Let's Encrypt TLS, deploy user for CI/CD)
+- **`sfmix_dns`** — authoritative DNS zone management
+- **`snappy`** — the speed test stack (LibreSpeed, OpenSpeedTest, TAUC TR-143, iperf3)
+- …and more (monitoring, flow collection, RPKI, etc.)
 
-## `scripts/`
-* `new_participant.py`
-  * Creates a new Internet Exchange participant inside of Netbox, interactively
-    prompting for information, this finds available pre-patched switchports and
-    configures them for the incoming participant.
-* `route_server_parity.py`
-  * Using the birdwatcher and bpglgd JSON APIs that operate along side each
-    Route Server, this compares the session states between these Route Servers
-    to find participant router-IPs that do not have session parity between the
-    two Route Servers
-* `discovery.py`
-  * Using ARP and ICMPv6 Neighbor Discovery, search for the current MAC address
-    bindings for participants and update Netbox with the current values. 
-  * Collect VLAN/MAC->Interface mappings from devices
-  * Updates Peering LAN IPs with `participant_lag` custom field values
-* `participant_speeds.py`
-  * Using the public `participants.json` file, create a reporting of ports
-    speeds by site, and in total.
+## 🐍 `scripts/`
+
+Handy Python utilities for day-to-day IXP operations:
+
+- **`new_participant.py`** — interactively onboard a new participant in NetBox, finding available pre-patched switchports
+- **`discovery.py`** — ARP/NDP MAC discovery, VLAN→interface mapping, and NetBox updates
+- **`route_server_parity.py`** — compare BGP session state across route servers to find participants missing parity
+- **`participant_speeds.py`** — port speed reporting by site and in total
+- **`netbox_ix_lint.py`** — lint and validate NetBox IX data
+
+## 📖 `documentation/`
+
+Public SFMIX docs — BGP community references, Nokia SR OS cheatsheet, NetBox conventions, and design docs. Private documentation lives in [sfmix/documentation](https://github.com/sfmix/documentation).
+
+## 🌡️ `sensors/`
+
+[ESPHome](https://esphome.io/) configs for environmental sensors deployed at IX sites. Because even bits like it cool.
