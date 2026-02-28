@@ -1,0 +1,83 @@
+{{ define "main" }}
+<div class="page-header page-header-video"{{ with .Params.mobile_image }} style="--mobile-bg: url('/{{ . }}')"{{ end }}>
+  <video class="page-header-bg" autoplay muted loop playsinline>
+    <source src="{{ .Params.video | relURL }}" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="container" style="position: relative; z-index: 2;">
+    <h1>{{ .Title }}</h1>
+  </div>
+</div>
+<div class="content">
+  <div class="container">
+    {{ .Content }}
+
+    {{ with .Site.Data.participants_table.participants }}
+    {{/* Desktop: full table */}}
+    <div class="participants-desktop">
+    <table>
+      <thead>
+        <tr>
+          <th>Organization</th>
+          <th>ASN</th>
+          <th>Type</th>
+          <th>Location</th>
+          <th>Speed</th>
+          <th>IPv4</th>
+          <th>IPv6</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range . }}
+          {{ $name := .name }}
+          {{ $asn := .as_number }}
+          {{ $type := .member_type }}
+          {{ $ports := .peering_ports }}
+          {{ range $i, $port := $ports }}
+          <tr{{ if eq $type "Exempt" }} class="row-exempt"{{ else if eq $type "Infrastructure" }} class="row-infra"{{ end }}>
+            {{ if eq $i 0 }}
+            <td{{ if gt (len $ports) 1 }} rowspan="{{ len $ports }}"{{ end }}>{{ $name }}</td>
+            <td{{ if gt (len $ports) 1 }} rowspan="{{ len $ports }}"{{ end }}><a href="https://www.peeringdb.com/asn/{{ $asn }}">{{ $asn }}</a></td>
+            <td{{ if gt (len $ports) 1 }} rowspan="{{ len $ports }}"{{ end }}>{{ $type }}</td>
+            {{ end }}
+            <td>{{ $port.location }}</td>
+            <td class="nowrap">{{ $port.speed }}</td>
+            <td><code>{{ $port.ipv4 }}</code></td>
+            <td><code>{{ $port.ipv6 }}</code></td>
+          </tr>
+          {{ end }}
+        {{ end }}
+      </tbody>
+    </table>
+    </div>
+
+    {{/* Mobile: expandable cards */}}
+    <div class="participants-mobile">
+      {{ range . }}
+      {{ $asn := .as_number }}
+      {{ $type := .member_type }}
+      <details class="participant-card{{ if eq $type "Exempt" }} row-exempt{{ else if eq $type "Infrastructure" }} row-infra{{ end }}" data-ipv4="{{ with index .peering_ports 0 }}{{ .ipv4 }}{{ end }}">
+        <summary>
+          <strong>{{ .name }}</strong>
+          <span class="participant-meta">AS{{ $asn }} · {{ $type }}{{ with index .peering_ports 0 }} · {{ .speed }}{{ end }}</span>
+        </summary>
+        <div class="participant-details">
+          <p><a href="https://www.peeringdb.com/asn/{{ $asn }}">PeeringDB →</a></p>
+          {{ range .peering_ports }}
+          <div class="participant-port">
+            <div><strong>{{ .location }}</strong> — {{ .speed }}</div>
+            <div>IPv4: <code>{{ .ipv4 }}</code></div>
+            <div>IPv6: <code>{{ .ipv6 }}</code></div>
+          </div>
+          {{ end }}
+        </div>
+      </details>
+      {{ end }}
+    </div>
+
+    <p class="table-footer">{{ len . }} participants. Data sourced from <a href="https://lg.sfmix.org/participants_table.json">lg.sfmix.org</a>. Last updated {{ now.Format "January 2, 2006 15:04 MST" }}.</p>
+    {{ end }}
+  </div>
+</div>
+<script src="{{ "js/participants.js" | relURL }}"></script>
+{{ end }}
