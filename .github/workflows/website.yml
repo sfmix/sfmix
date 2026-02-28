@@ -18,6 +18,8 @@ jobs:
         working-directory: website
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
