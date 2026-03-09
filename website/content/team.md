@@ -46,15 +46,6 @@ Brian Meredith is the Chief Technology Officer and Director of Network Operation
 </div>
 <div class="bio">
 
-### Walt Wollny — Treasurer
-<img src="/img/team/walt.jpg" alt="Walt Wollny" class="bio-photo">
-
-Walt Wollny is the Director of Interconnection Strategy at Hurricane Electric, supporting the company’s global network reach across over 56 countries and more than 320 Internet Exchanges. He focuses on global connectivity and expanding into new markets.
-
-With over 25 years of experience in the Internet industry, Walt previously worked as an IP Business Development Manager at Amazon. During his tenure, he supported the deployment of over 64 new CDN builds, including in markets such as Japan, Singapore, Hong Kong, India, Taiwan, the Philippines, and Australia.
-</div>
-<div class="bio">
-
 ### Matt Peterson — General Manager
 <img src="/img/team/matt-peterson.jpg" alt="Matt Peterson" class="bio-photo">
 
@@ -68,6 +59,15 @@ Matt Peterson is a principal at Two P, an infrastructure consultancy based in Sa
 
 AJ (Anthony) Steller is the Director of Interconnection Strategy at H5 Data Centers, where he focuses on everything from network architecture to helping customers find the right connectivity solutions. With 15 years in the networking industry, AJ's career is rooted in a mission to build a better-connected world. He spent 13 years at Charter Communications, rising through the ranks from the NOC to serving as a Transport and Capacity Engineer managing peering and transit strategy. A familiar face at NANOG and GPF, AJ is a dedicated advocate for the peering community. As an SFMIX Board Member, he combines his deep operational background with a "help-first" mentality to ensure the exchange remains a robust resource for all participants.
 
+</div>
+<div class="bio">
+
+### Walt Wollny — Treasurer
+<img src="/img/team/walt.jpg" alt="Walt Wollny" class="bio-photo">
+
+Walt Wollny is the Director of Interconnection Strategy at Hurricane Electric, supporting the company’s global network reach across over 56 countries and more than 320 Internet Exchanges. He focuses on global connectivity and expanding into new markets.
+
+With over 25 years of experience in the Internet industry, Walt previously worked as an IP Business Development Manager at Amazon. During his tenure, he supported the deployment of over 64 new CDN builds, including in markets such as Japan, Singapore, Hong Kong, India, Taiwan, the Philippines, and Australia.
 </div>
 
 ## Technical Advisory / Operations
