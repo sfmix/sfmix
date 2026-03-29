@@ -1,7 +1,8 @@
 ---
 roles:
   - name: lae.netbox
-    version: v1.0.4
+    src: git+https://github.com/lae/ansible-role-netbox.git
+    version: v1.0.7
   - name: geerlingguy.postgresql
     version: 3.5.0
   - name: DavidWittman.redis
