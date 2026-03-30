@@ -1,0 +1,112 @@
+---
+# Ensure Docker is available (should already be from sfmix_server base role)
+- name: Install Docker and dependencies
+  become: true
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose
+      - python3-docker
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create portal install directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ ixp_portal_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Sync portal source from the monorepo
+- name: Synchronize portal source
+  become: true
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../portal/"
+    dest: "{{ ixp_portal_install_dir }}/"
+    delete: true
+    rsync_opts:
+      - "--exclude=.venv"
+      - "--exclude=__pycache__"
+      - "--exclude=db.sqlite3"
+      - "--exclude=staticfiles"
+      - "--exclude=.env"
+  notify: Restart ixp_portal
+
+- name: Template portal .env file
+  become: true
+  ansible.builtin.template:
+    src: dotenv.j2
+    dest: "{{ ixp_portal_install_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart ixp_portal
+
+- name: Build and start portal container
+  become: true
+  ansible.builtin.command:
+    cmd: docker-compose up -d --build
+    chdir: "{{ ixp_portal_install_dir }}"
+  register: _portal_up
+  changed_when: "'Creating' in _portal_up.stderr or 'Recreating' in _portal_up.stderr or 'Building' in _portal_up.stderr"
+
+- name: Wait for portal container to be healthy
+  become: true
+  ansible.builtin.command:
+    cmd: docker-compose ps -q portal
+    chdir: "{{ ixp_portal_install_dir }}"
+  register: _portal_container_id
+  changed_when: false
+  retries: 5
+  delay: 3
+  until: _portal_container_id.stdout | length > 0
+
+- name: Run Django migrations inside container
+  become: true
+  ansible.builtin.command:
+    cmd: docker-compose exec -T portal python manage.py migrate --noinput
+    chdir: "{{ ixp_portal_install_dir }}"
+  register: _portal_migrate
+  changed_when: "'Applying' in _portal_migrate.stdout"
+
+# --- TLS cert for portal.sfmix.org ---
+- name: Check if portal TLS certificate exists
+  become: true
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ ixp_portal_domain }}/fullchain.pem"
+  register: _portal_cert
+
+- name: Obtain Let's Encrypt certificate for portal
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --webroot
+      -w /var/www/html
+      --non-interactive
+      --agree-tos
+      --email {{ ixp_portal_certbot_email }}
+      --domains {{ ixp_portal_domain }}
+    creates: "/etc/letsencrypt/live/{{ ixp_portal_domain }}/fullchain.pem"
+
+# --- Nginx vhost ---
+- name: Deploy portal nginx vhost
+  become: true
+  ansible.builtin.template:
+    src: nginx-portal.conf.j2
+    dest: /etc/nginx/sites-available/ixp-portal.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable portal nginx vhost
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/ixp-portal.conf
+    dest: /etc/nginx/sites-enabled/ixp-portal.conf
+    state: link
+  notify: Reload nginx

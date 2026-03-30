@@ -8,7 +8,6 @@ all:
         netbox:
         metrics:
         teleport:
-        portal:
         sentry:
         shell:
         dns:
@@ -33,9 +32,6 @@ all:
     teleport:
       hosts:
         teleport.sfmix.org:
-    portal:
-      hosts:
-        portal.sfmix.org:
     sentry:
       hosts:
         sentry.sfmix.org:

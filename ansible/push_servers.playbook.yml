@@ -71,23 +71,14 @@
   roles:
     - teleport
 
-- name: "Participant Portal: Prepare Server"
-  hosts: portal
-  become: true
-  tags:
-    - portal
-    - redis
-    - postgres
-  roles:
-    - geerlingguy.postgresql
-    - DavidWittman.redis
-
-- name: "Participant Portal: Install LibreIXP"
-  hosts: portal
-  tags:
-    - portal
-  roles:
-    - libreixp_portal
+# NOTE: Old libreixp_portal on dedicated portal VM — retired.
+# Portal now runs on web.sfmix.org via the ixp_portal role (see end of file).
+# - name: "Participant Portal: Prepare Server"
+#   hosts: portal
+#   ...
+# - name: "Participant Portal: Install LibreIXP"
+#   hosts: portal
+#   ...
 
 - name: Install Sentry
   hosts: sentry
@@ -284,3 +275,10 @@
     - sfmix_website
   roles:
     - sfmix_website
+
+- name: "IXP Participant Portal"
+  hosts: sfmix_website
+  tags:
+    - ixp_portal
+  roles:
+    - ixp_portal

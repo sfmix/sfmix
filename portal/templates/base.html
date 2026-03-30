@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SFMIX Portal{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+  <nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+    <a href="/" class="text-lg font-semibold text-indigo-700">SFMIX Portal</a>
+    <div class="flex items-center gap-4 text-sm">
+      {% if user.is_authenticated %}
+        <span class="text-gray-600">{{ user.email }}</span>
+        {% if user.is_ix_admin %}<span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium">Admin</span>{% endif %}
+        <a href="{% url 'oidc_logout' %}" class="text-gray-500 hover:text-gray-700">Sign out</a>
+      {% else %}
+        <a href="{% url 'login' %}" class="text-indigo-600 hover:text-indigo-800 font-medium">Sign in</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="flex-1 max-w-5xl mx-auto w-full px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-gray-200 px-6 py-4 text-center text-xs text-gray-400">
+    &copy; San Francisco Metropolitan Internet eXchange
+  </footer>
+</body>
+</html>
