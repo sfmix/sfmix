@@ -202,15 +202,16 @@ from the corresponding ASN group on next login. Groups from other sources
 **Future:** Cross-reference ASN groups with SFMIX participant list from NetBox
 to restrict enrollment to actual IX participants.
 
-**Downstream applications for participants:**
-- Participant portal (future: LibreIXP or custom)
+**Downstream applications for participants (future):**
+- Per-ASN traffic statistics via a dedicated lightweight app (server-side
+  PromQL queries against Prometheus, rendered charts only — no direct
+  Grafana/Prometheus access for participants, to prevent query manipulation)
+- Participant portal (LibreIXP or custom)
 - Looking glass (authenticated views)
-- Traffic statistics (per-participant graphs)
 
 **Authorization:**
 - Participants see only resources related to their own ASN(s)
-- No access to SFMIX admin tools
-- Separate Authentik flow with distinct branding
+- Grafana remains admin-only (authentik Admins group)
 
 ## Deployment Steps
 

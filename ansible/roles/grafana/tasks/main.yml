@@ -75,6 +75,16 @@
       GF_SERVER_DOMAIN: "{{ grafana_domain }}"
       GF_SERVER_HTTP_PORT: "3000"
       GF_SERVER_ROOT_URL: "https://{{ grafana_domain }}"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "Authentik"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{ grafana_oauth_client_secret }}"
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://login.sfmix.org/application/o/authorize/"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://login.sfmix.org/application/o/token/"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "https://login.sfmix.org/application/o/userinfo/"
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'authentik Admins') && 'GrafanaAdmin' || 'Viewer'"
+      GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"
 
 - name: "Grafana Loki: Create directory"
   become: true
