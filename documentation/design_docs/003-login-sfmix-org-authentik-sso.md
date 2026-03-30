@@ -57,34 +57,81 @@ Deploy [Authentik](https://goauthentik.io/) as the centralized SSO/identity plat
 
 ### Flow 1: SFMIX Administrator Login
 
-**Purpose:** SFMIX staff authenticate to manage infrastructure services.
+**Purpose:** SFMIX staff authenticate to manage infrastructure services
+(Grafana, NetBox, etc.). Access requires membership in the `IX Administrators`
+group.
 
-**Method:** GitHub OAuth2 with org team membership check.
+#### Group Model
 
-**GitHub OAuth2 Configuration:**
+| Group | Purpose | How assigned |
+|-------|---------|-------------|
+| `IX Administrators` | IX operators — access to Grafana and admin tools | Automatically via GitHub or PeeringDB (see below) |
+| `authentik Admins` | Authentik platform superusers | Manually assigned (subset of IX Admins) |
+
+Not all IX Administrators are authentik Admins. `authentik Admins` is manually
+assigned to users who need to manage the Authentik platform itself.
+
+#### Two Paths to IX Administrator
+
+There are two ways a user can become an IX Administrator:
+
+**Path 1: GitHub team membership**
+
+Users who are members of the `sfmix/ix-administrators` team on GitHub are
+automatically added to the `IX Administrators` group on first login.
 
 | Parameter | Value |
 |-----------|-------|
 | Client ID | `Ov23liaNukEQ6zEzsem9` |
 | Callback URL | `https://login.sfmix.org/source/oauth/callback/github/` |
 | Additional Scopes | `read:org` (for team membership check) |
-| Auth method | `post_body` (GitHub default) |
 | Provider type | `github` (built-in) |
 
-**Team-to-admin mapping:**
+The user property mapping (`GitHub Admin User Mapping`) fetches `/user/teams`
+from the GitHub API using the OAuth token. If the user is a member of
+`sfmix/ix-administrators`, the mapping returns `IX Administrators` in the
+`groups` list.
 
-The user property mapping fetches `/user/teams` from the GitHub API using
-the OAuth token. If the user is a member of `sfmix/ix-administrators`, they
-are added to the `authentik Admins` group (superuser). On next login, if
-they've been removed from the team, the group sync removes them from
-`authentik Admins`.
+**Path 2: PeeringDB AS12276 admin**
 
-**Session duration:** All login stages set to **8 hours**. This ensures
-admin group membership is re-evaluated at least every 8 hours via re-login.
+Users who are administrators of AS12276 (SFMIX) on PeeringDB are automatically
+added to the `IX Administrators` group on first login. This allows SFMIX
+operators who may not have GitHub accounts to gain admin access.
 
-**Downstream applications (OIDC providers):**
+The PeeringDB user property mapping (`PeeringDB User Mapping`) checks the
+`networks` claim. If any network has `asn == 12276`, the mapping adds
+`IX Administrators` to the user's groups (in addition to the per-ASN groups
+like `as12276`).
 
-#### Grafana (`grafana.sfmix.org`) — DONE
+#### User Identity Canonicalization
+
+Both sources use `email_link` matching mode and set `username = email`. This
+ensures that a user who logs in via both GitHub and PeeringDB with the same
+email address is linked to a single Authentik user. Groups from both sources
+are merged onto that user.
+
+#### Session Duration
+
+All login stages set to **8 hours**. This limits how long a session persists
+before requiring re-authentication.
+
+#### Group Sync Limitation
+
+Group assignments are set during the **enrollment flow** (first login from a
+source). The **authentication flow** (returning user login) does not re-evaluate
+group memberships. This means:
+
+- If a user is removed from the GitHub `ix-administrators` team, their
+  `IX Administrators` group persists until manually removed in Authentik.
+- If a user loses PeeringDB admin access to AS12276, same applies.
+- The 8-hour session duration limits exposure but does not revoke groups.
+
+**TODO:** Add a `UserWriteStage` or `GroupUpdateStage` to the
+`default-source-authentication` flow to re-evaluate groups on every login.
+
+#### Downstream Applications (OIDC Providers)
+
+##### Grafana (`grafana.sfmix.org`) — DONE
 
 Authentik OIDC provider with `default-provider-authorization-implicit-consent`
 flow (no user prompt). Grafana uses Generic OAuth with env vars.
@@ -93,7 +140,7 @@ flow (no user prompt). Grafana uses Generic OAuth with env vars.
 |-----------|-------|
 | Client ID | `grafana` |
 | Redirect URI | `https://grafana.sfmix.org/login/generic_oauth` |
-| Scopes | `openid profile email` |
+| Scopes | `openid profile email groups` |
 | Auth URL | `https://login.sfmix.org/application/o/authorize/` |
 | Token URL | `https://login.sfmix.org/application/o/token/` |
 | Userinfo URL | `https://login.sfmix.org/application/o/userinfo/` |
@@ -105,33 +152,29 @@ flow (no user prompt). Grafana uses Generic OAuth with env vars.
 
 **Defense in depth (two layers of access control):**
 
-1. **Authentik layer:** `ExpressionPolicy` on the Grafana application
-   requires `IX Administrators` group. Non-members are denied before
-   reaching Grafana.
+1. **Authentik layer:** An `ExpressionPolicy` (`Grafana: Require Admin Group`)
+   bound to the Grafana application checks:
+   ```python
+   return ak_is_group_member(request.user, name="IX Administrators")
+   ```
+   Non-members are denied at the Authentik authorization step, before any
+   redirect to Grafana occurs.
+
 2. **Grafana layer:** `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true`
-   denies login if the `groups` claim doesn't include `IX Administrators`.
-   This ensures access control even if the Authentik policy is modified.
+   independently denies login if the `groups` OIDC claim doesn't include
+   `IX Administrators`. This ensures Grafana enforces its own access control
+   even if the Authentik policy is misconfigured or removed.
 
-The `groups` OIDC scope is served by a custom `ScopeMapping` that returns
-all Authentik group memberships in the token claims.
+The `groups` OIDC scope is served by a custom `ScopeMapping`
+(`SFMIX: OpenID 'groups'`) that returns all Authentik group memberships in
+the token claims.
 
-#### Future downstream apps
+##### Future downstream apps
 - NetBox (`netbox.sfmix.org`) — has OIDC/SAML support
 - LibreNMS (`librenms.sfmix.org`)
 - Any future admin tools
 
-**Group model:**
-
-| Group | Source | Purpose |
-|-------|--------|---------|
-| `IX Administrators` | GitHub `sfmix/ix-administrators` team | IX operators — access to Grafana and admin tools |
-| `authentik Admins` | Manually assigned (subset of IX Admins) | Authentik platform superusers |
-
-Not all IX Administrators are authentik Admins. The GitHub team mapping
-populates `IX Administrators` only. `authentik Admins` membership is
-assigned manually to users who need to manage the Authentik platform itself.
-
-**Authorization:**
+**Authorization summary:**
 - `IX Administrators` → access to downstream admin apps (Grafana, etc.)
 - `authentik Admins` → additionally can manage Authentik configuration
 
