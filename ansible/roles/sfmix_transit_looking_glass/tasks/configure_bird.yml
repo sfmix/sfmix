@@ -1,0 +1,76 @@
+---
+- name: Ensure BIRD config backup directory /etc/bird/backup
+  become: true
+  ansible.builtin.file:
+    path: /etc/bird/backup
+    state: directory
+    owner: bird
+    group: bird
+    mode: ug=rwx,o=rx
+
+- name: Place candidate BIRD config
+  become: true
+  ansible.builtin.template:
+    src: bird.conf.j2
+    dest: /etc/bird/bird.candidate.conf
+    owner: bird
+    group: bird
+    mode: ug=rw,o=
+  register: bird_conf_candidate
+
+- name: Test candidate BIRD config
+  become: true
+  ansible.builtin.command: bird -p -c /etc/bird/bird.candidate.conf
+  changed_when: false
+  register: bird_config_test
+  when: bird_conf_candidate.changed | bool
+
+- name: "Install BIRD Config: Take a backup, place new config, and reload"
+  when: bird_conf_candidate.changed | bool and bird_config_test.rc == 0
+  block:
+    - name: Check for an existing BIRD config
+      become: true
+      ansible.builtin.stat:
+        path: /etc/bird/bird.conf
+      register: existing_bird_config
+    - name: Backup existing BIRD config
+      become: true
+      when: existing_bird_config.stat.exists
+      ansible.builtin.copy:
+        src: /etc/bird/bird.conf
+        dest: /etc/bird/backup/bird.conf.{{ '%Y%m%d-%H%M%S' | strftime }}
+        remote_src: true
+        owner: bird
+        group: bird
+        mode: ug=rw,o=
+    - name: Install candidate BIRD config
+      become: true
+      ansible.builtin.copy:
+        src: /etc/bird/bird.candidate.conf
+        dest: /etc/bird/bird.conf
+        remote_src: true
+        owner: bird
+        group: bird
+        mode: ug=rw,o=
+      notify: Reload bird
+
+- name: Find old BIRD config backups more than 52 weeks old
+  become: true
+  ansible.builtin.find:
+    paths: /etc/bird/backup
+    age: 52w
+  register: old_bird_configs
+
+- name: Delete old BIRD config backups
+  become: true
+  ansible.builtin.file:
+   path: "{{ item.path }}"
+   state: absent
+  loop: "{{ old_bird_configs.files }}"
+
+- name: Enable/start BIRD
+  become: true
+  ansible.builtin.service:
+    name: bird
+    enabled: true
+    state: started

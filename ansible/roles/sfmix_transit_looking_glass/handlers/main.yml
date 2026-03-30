@@ -1,0 +1,32 @@
+---
+- name: Reload bird
+  become: true
+  ansible.builtin.systemd_service:
+    state: reloaded
+    daemon_reload: true
+    name: bird.service
+
+- name: Rebuild birdwatcher docker container
+  become: true
+  community.docker.docker_image:
+    name: birdwatcher
+    build:
+      path: "{{ sfmix_transit_looking_glass_bird_exporter_directory }}/repo"
+      network: host
+    source: build
+    tag: "{{ sfmix_transit_looking_glass_birdwatcher_version | replace('/', '_') }}"
+    force_source: true
+  notify: Remove birdwatcher container
+
+- name: Remove birdwatcher container
+  become: true
+  community.docker.docker_container:
+    name: birdwatcher
+    state: absent
+
+- name: Restart birdwatcher
+  become: true
+  community.docker.docker_container:
+    name: birdwatcher
+    restart: true
+    state: started

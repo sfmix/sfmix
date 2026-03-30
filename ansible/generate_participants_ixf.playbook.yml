@@ -1,0 +1,42 @@
+---
+- name: Generate IXF Participants Data from NetBox
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # These variables would typically be loaded from NetBox API calls
+    # or from the existing inventory data
+    netbox_devices: "{{ hostvars['localhost']['netbox_devices'] | default({}) }}"
+    netbox_sites: "{{ hostvars['localhost']['netbox_sites'] | default({}) }}"
+    exchange_fabric_vlans: "{{ hostvars['localhost']['exchange_fabric_vlans'] | default({}) }}"
+    netbox_prefixes: "{{ hostvars['localhost']['netbox_prefixes'] | default({}) }}"
+    netbox_participants: "{{ hostvars['localhost']['netbox_participants'] | default({}) }}"
+    netbox_peering_port_interfaces: "{{ hostvars['localhost']['netbox_peering_port_interfaces'] | default({}) }}"
+    netbox_participant_ip_addresses: "{{ hostvars['localhost']['netbox_participant_ip_addresses'] | default({}) }}"
+
+  tasks:
+    - name: Generate IXF format participant data using Python module
+      netbox_participants_ixf:
+        netbox_devices: "{{ netbox_devices }}"
+        netbox_sites: "{{ netbox_sites }}"
+        exchange_fabric_vlans: "{{ exchange_fabric_vlans }}"
+        netbox_prefixes: "{{ netbox_prefixes }}"
+        netbox_participants: "{{ netbox_participants }}"
+        netbox_peering_port_interfaces: "{{ netbox_peering_port_interfaces }}"
+        netbox_participant_ip_addresses: "{{ netbox_participant_ip_addresses }}"
+      register: ixf_result
+
+    - name: Display generated IXF data
+      ansible.builtin.debug:
+        var: ixf_result.ixf_data
+
+    - name: Save IXF data to file
+      ansible.builtin.copy:
+        content: "{{ ixf_result.ixf_data | to_nice_yaml }}"
+        dest: "./participants_ixf.yaml"
+        mode: '0644'
+      when: ixf_result.ixf_data is defined
+
+    - name: Show file location
+      ansible.builtin.debug:
+        msg: "IXF data saved to ./participants_ixf.yaml"
+      when: ixf_result.ixf_data is defined

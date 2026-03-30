@@ -1,0 +1,3515 @@
+{
+  "ixp_list": [
+    {
+      "country": "US",
+      "ixf_id": 223,
+      "ixp_id": 155,
+      "name": "San Francisco Metropolitan Internet Exchange",
+      "peeringdb_id": 155,
+      "shortname": "SFMIX",
+      "support_email": "tech-c@sfmix.org",
+      "support_phone": "+1 415 634-6712",
+      "switch": [
+        {
+          "city": "Fremont",
+          "colo": "Hurricane Electric FMT2",
+          "country": "US",
+          "id": 63,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.fmt01",
+          "pdb_facility_id": 547
+        },
+        {
+          "city": "Santa Clara",
+          "colo": "QTS Santa Clara (SJC2)",
+          "country": "US",
+          "id": 138,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.scl01",
+          "pdb_facility_id": 578
+        },
+        {
+          "city": "Santa Clara",
+          "colo": "CoreSite - SV4",
+          "country": "US",
+          "id": 73,
+          "manufacturer": "Arista",
+          "model": "DCS-7280CR3-36S-F",
+          "name": "switch01.scl02",
+          "pdb_facility_id": 1619
+        },
+        {
+          "city": "Santa Clara",
+          "colo": "OpenColo",
+          "country": "US",
+          "id": 101,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.scl04",
+          "pdb_facility_id": 10674
+        },
+        {
+          "city": "Santa Clara",
+          "colo": "Digital Realty SJC31",
+          "country": "US",
+          "id": 192,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.scl05",
+          "pdb_facility_id": 2542
+        },
+        {
+          "city": "San Francisco",
+          "colo": "Digital Realty SFO12",
+          "country": "US",
+          "id": 58,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.sfo01",
+          "pdb_facility_id": 23
+        },
+        {
+          "city": "San Francisco",
+          "colo": "Digital Realty SFO10",
+          "country": "US",
+          "id": 59,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.sfo02",
+          "pdb_facility_id": 2
+        },
+        {
+          "city": "San Jose",
+          "colo": "Equinix SV1/SV5/SV10 - Silicon Valley",
+          "country": "US",
+          "id": 145,
+          "manufacturer": "Arista",
+          "model": "DCS-7280CR3-36S-F",
+          "name": "switch01.sjc01",
+          "pdb_facility_id": 6
+        },
+        {
+          "city": "San Jose",
+          "colo": "CoreSite - SV1",
+          "country": "US",
+          "id": 178,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch01.sjc02",
+          "pdb_facility_id": 20
+        },
+        {
+          "city": "Fremont",
+          "colo": "Hurricane Electric FMT2",
+          "country": "US",
+          "id": 67,
+          "manufacturer": "Arista",
+          "model": "DCS-7280SR-48C6-F",
+          "name": "switch02.fmt01",
+          "pdb_facility_id": 547
+        },
+        {
+          "city": "San Francisco",
+          "colo": "Digital Realty SFO10",
+          "country": "US",
+          "id": 62,
+          "manufacturer": "Arista",
+          "model": "DCS-7280CR3-36S-F",
+          "name": "switch02.sfo02",
+          "pdb_facility_id": 2
+        },
+        {
+          "city": "San Jose",
+          "colo": "Equinix SV1/SV5/SV10 - Silicon Valley",
+          "country": "US",
+          "id": 71,
+          "manufacturer": "Arista",
+          "model": "DCS-7280CR3-36S-F",
+          "name": "switch02.sjc01",
+          "pdb_facility_id": 6
+        },
+        {
+          "city": "Fremont",
+          "colo": "Hurricane Electric FMT2",
+          "country": "US",
+          "id": 68,
+          "manufacturer": "Arista",
+          "model": "DCS-7280CR3-36S-F",
+          "name": "switch03.fmt01",
+          "pdb_facility_id": 547
+        }
+      ],
+      "url": "https://sfmix.org/",
+      "vlan": [
+        {
+          "id": 1,
+          "ipv4": {
+            "mask_length": 24,
+            "prefix": "206.197.187.0"
+          },
+          "ipv6": {
+            "mask_length": 64,
+            "prefix": "2001:504:30::"
+          },
+          "name": "SFMIX-PEERING"
+        }
+      ]
+    }
+  ],
+  "member_list": [
+    {
+      "asnum": 10111,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.86",
+                "mac_addresses": [
+                  "fc:96:43:07:58:80"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:111:1",
+                "mac_addresses": [
+                  "fc:96:43:07:58:80"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Zeofast Network Global"
+    },
+    {
+      "asnum": 10310,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 59
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.9",
+                "mac_addresses": [
+                  "5c:45:27:76:1f:fa"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:310:1",
+                "mac_addresses": [
+                  "5c:45:27:76:1f:fa"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 59
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.24",
+                "mac_addresses": [
+                  "30:7c:5e:e3:cb:f6"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:310:2",
+                "mac_addresses": [
+                  "30:7c:5e:e3:cb:f6"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Yahoo!"
+    },
+    {
+      "asnum": 10946,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.68",
+                "mac_addresses": [
+                  "fc:ec:da:4a:9a:6e"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:946:1",
+                "mac_addresses": [
+                  "fc:ec:da:4a:9a:6e"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Network Time Foundation, Inc."
+    },
+    {
+      "asnum": 11170,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.93",
+                "mac_addresses": [
+                  "f8:c2:88:54:5c:83"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:1170:1",
+                "mac_addresses": [
+                  "f8:c2:88:54:5c:83"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "RollerNet"
+    },
+    {
+      "asnum": 12077,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.52",
+                "mac_addresses": [
+                  "dc:38:e1:41:4c:00"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:2077:1",
+                "mac_addresses": [
+                  "dc:38:e1:41:4c:00"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Subconscious"
+    },
+    {
+      "asnum": 12200,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.59",
+                "mac_addresses": [
+                  "6c:6c:d3:1a:8f:eb"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:2200:2",
+                "mac_addresses": [
+                  "6c:6c:d3:1a:8f:eb"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.57",
+                "mac_addresses": [
+                  "6c:6c:d3:1b:08:ab"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:2200:1",
+                "mac_addresses": [
+                  "6c:6c:d3:1b:08:ab"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Rackspace"
+    },
+    {
+      "asnum": 12276,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 59
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.1"
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:2276:1"
+              },
+              "vlan_id": 1
+            },
+            {
+              "ipv4": {
+                "address": "206.197.187.2"
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:2276:2"
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "ixp",
+      "name": "SFMIX"
+    },
+    {
+      "asnum": 13335,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.62",
+                "mac_addresses": [
+                  "7c:25:86:ee:d9:fe"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:3335:2",
+                "mac_addresses": [
+                  "7c:25:86:ee:d9:fe"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Cloudflare"
+    },
+    {
+      "asnum": 13427,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.48",
+                "mac_addresses": [
+                  "fc:99:47:42:69:40"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:3427:1",
+                "mac_addresses": [
+                  "fc:99:47:42:69:40"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Softcom Internet Communications"
+    },
+    {
+      "asnum": 137182,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.54",
+                "mac_addresses": [
+                  "d4:af:f7:b5:be:85"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba13:7182:1",
+                "mac_addresses": [
+                  "d4:af:f7:b5:be:85"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "BLUE WIRELESS"
+    },
+    {
+      "asnum": 138398,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.95",
+                "mac_addresses": [
+                  "48:a9:8a:7b:8c:57"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba13:8398:1",
+                "mac_addresses": [
+                  "48:a9:8a:7b:8c:57"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Prodigi Technology Services Limited"
+    },
+    {
+      "asnum": 138997,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.53",
+                "mac_addresses": [
+                  "48:5a:0d:0d:f7:39"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba13:8997:1",
+                "mac_addresses": [
+                  "48:5a:0d:0d:f7:39"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Eons Data"
+    },
+    {
+      "asnum": 14061,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 73
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.69",
+                "mac_addresses": [
+                  "24:fc:4e:b8:84:c3"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:4061:1",
+                "mac_addresses": [
+                  "24:fc:4e:b8:84:c3"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 145
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.74",
+                "mac_addresses": [
+                  "24:fc:4e:b7:10:62"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:4061:2",
+                "mac_addresses": [
+                  "24:fc:4e:b7:10:62"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "DigitalOcean"
+    },
+    {
+      "asnum": 14593,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 200000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.60",
+                "mac_addresses": [
+                  "ac:3d:94:7d:83:10"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:4593:1",
+                "mac_addresses": [
+                  "ac:3d:94:7d:83:10"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "SpaceX Starlink"
+    },
+    {
+      "asnum": 14907,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.82",
+                "mac_addresses": [
+                  "b0:eb:7f:82:f5:44"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:4907:1",
+                "mac_addresses": [
+                  "b0:eb:7f:82:f5:44"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Wikimedia Foundation"
+    },
+    {
+      "asnum": 15169,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.96",
+                "mac_addresses": [
+                  "d8:53:9a:0e:8d:8e"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:5169:2",
+                "mac_addresses": [
+                  "d8:53:9a:0e:8d:8e"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.50",
+                "mac_addresses": [
+                  "c0:d6:82:ff:15:6f"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:5169:1",
+                "mac_addresses": [
+                  "c0:d6:82:ff:15:6f"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Google LLC"
+    },
+    {
+      "asnum": 16276,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 145
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.49"
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:6276:1"
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "OVHcloud"
+    },
+    {
+      "asnum": 16509,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.103",
+                "mac_addresses": [
+                  "0c:81:26:ac:72:2d"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:6509:2",
+                "mac_addresses": [
+                  "0c:81:26:ac:72:2d"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.65",
+                "mac_addresses": [
+                  "18:2a:d3:aa:87:6d"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:6509:1",
+                "mac_addresses": [
+                  "18:2a:d3:aa:87:6d"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Amazon.com"
+    },
+    {
+      "asnum": 18779,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.21",
+                "mac_addresses": [
+                  "a8:24:b8:78:5b:fb"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:8779:1",
+                "mac_addresses": [
+                  "a8:24:b8:78:5b:fb"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.33",
+                "mac_addresses": [
+                  "40:55:82:d1:9a:9f"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:8779:2",
+                "mac_addresses": [
+                  "40:55:82:d1:9a:9f"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Energy Group Networks"
+    },
+    {
+      "asnum": 19165,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 58
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.14",
+                "mac_addresses": [
+                  "40:55:82:cc:39:13"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba01:9165:1",
+                "mac_addresses": [
+                  "40:55:82:cc:39:13"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Webpass"
+    },
+    {
+      "asnum": 20253,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 145
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.70",
+                "mac_addresses": [
+                  "34:88:18:09:bd:10"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:253:1",
+                "mac_addresses": [
+                  "34:88:18:09:bd:10"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Qwilt"
+    },
+    {
+      "asnum": 20940,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 73
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.6",
+                "mac_addresses": [
+                  "e4:9d:73:99:d5:9a"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:940:1",
+                "mac_addresses": [
+                  "e4:9d:73:99:d5:9a"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Akamai Technologies"
+    },
+    {
+      "asnum": 210000,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.98",
+                "mac_addresses": [
+                  "48:73:10:bb:f5:cb"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba21:0:1",
+                "mac_addresses": [
+                  "48:73:10:bb:f5:cb"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "DAOport Network"
+    },
+    {
+      "asnum": 21928,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.25",
+                "mac_addresses": [
+                  "3c:26:e4:b5:bb:00"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:1928:1",
+                "mac_addresses": [
+                  "3c:26:e4:b5:bb:00"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "T-Mobile USA"
+    },
+    {
+      "asnum": 22768,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.29",
+                "mac_addresses": [
+                  "24:2a:04:83:0b:c0"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:2768:1",
+                "mac_addresses": [
+                  "24:2a:04:83:0b:c0"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Synergy Fiber"
+    },
+    {
+      "asnum": 25820,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.37",
+                "mac_addresses": [
+                  "d4:04:ff:81:09:2a"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:5820:1"
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "IT7 Networks"
+    },
+    {
+      "asnum": 25875,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.80",
+                "mac_addresses": [
+                  "00:01:02:03:04:05"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:5875:1",
+                "mac_addresses": [
+                  "00:01:02:03:04:05"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "FriendFinder Networks"
+    },
+    {
+      "asnum": 26073,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.71",
+                "mac_addresses": [
+                  "e4:dc:5f:0f:fc:a2"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:6073:1",
+                "mac_addresses": [
+                  "e4:dc:5f:0f:fc:a2"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.78",
+                "mac_addresses": [
+                  "e4:dc:5f:0f:fe:a2"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:6073:2",
+                "mac_addresses": [
+                  "e4:dc:5f:0f:fe:a2"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Cofractal"
+    },
+    {
+      "asnum": 26415,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.27",
+                "mac_addresses": [
+                  "0a:00:05:18:9d:49"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:6415:1",
+                "mac_addresses": [
+                  "0a:00:05:18:9d:49"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "VeriSign Global Registry Services"
+    },
+    {
+      "asnum": 27321,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.56",
+                "mac_addresses": [
+                  "70:6d:15:ea:c7:84"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:7321:1",
+                "mac_addresses": [
+                  "70:6d:15:ea:c7:84"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "ISC F-ROOT OAK1"
+    },
+    {
+      "asnum": 2734,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 73
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.10",
+                "mac_addresses": [
+                  "fc:0a:81:fa:96:60"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:2734:1",
+                "mac_addresses": [
+                  "fc:0a:81:fa:96:60"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "CoreSite IP"
+    },
+    {
+      "asnum": 27647,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.7",
+                "mac_addresses": [
+                  "c8:e7:f0:62:9b:9f"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:7647:1",
+                "mac_addresses": [
+                  "c8:e7:f0:62:9b:9f"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.67",
+                "mac_addresses": [
+                  "1c:9c:8c:73:98:9c"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba02:7647:2",
+                "mac_addresses": [
+                  "1c:9c:8c:73:98:9c"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Weebly"
+    },
+    {
+      "asnum": 2906,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.11",
+                "mac_addresses": [
+                  "ac:3d:94:ff:28:84"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:2906:1",
+                "mac_addresses": [
+                  "ac:3d:94:ff:28:84"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Netflix"
+    },
+    {
+      "asnum": 30081,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.83",
+                "mac_addresses": [
+                  "58:00:bb:68:76:80"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:81:1",
+                "mac_addresses": [
+                  "58:00:bb:68:76:80"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "CacheFly"
+    },
+    {
+      "asnum": 30640,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.61",
+                "mac_addresses": [
+                  "98:5d:82:97:57:eb"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:640:1",
+                "mac_addresses": [
+                  "98:5d:82:97:57:eb"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Etheric Networks"
+    },
+    {
+      "asnum": 32035,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.84",
+                "mac_addresses": [
+                  "cc:e1:94:65:cc:71"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:2035:1",
+                "mac_addresses": [
+                  "cc:e1:94:65:cc:71"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "NetFortris"
+    },
+    {
+      "asnum": 32329,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.13",
+                "mac_addresses": [
+                  "98:5d:82:b7:2b:5f"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:2329:1",
+                "mac_addresses": [
+                  "98:5d:82:b7:2b:5f"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Monkeybrains"
+    },
+    {
+      "asnum": 32614,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.63",
+                "mac_addresses": [
+                  "78:0c:f0:5a:0b:a0"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:2614:1",
+                "mac_addresses": [
+                  "78:0c:f0:5a:0b:a0"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "High Desert Internet Services"
+    },
+    {
+      "asnum": 32934,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 145
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.92",
+                "mac_addresses": [
+                  "d4:04:ff:d8:34:f8"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:2934:2",
+                "mac_addresses": [
+                  "d4:04:ff:d8:34:f8"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.91",
+                "mac_addresses": [
+                  "d4:04:ff:d8:34:e3"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:2934:1",
+                "mac_addresses": [
+                  "d4:04:ff:d8:34:e3"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Meta"
+    },
+    {
+      "asnum": 33445,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 58
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.15",
+                "mac_addresses": [
+                  "88:e6:4b:c1:38:10"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:3445:1",
+                "mac_addresses": [
+                  "88:e6:4b:c1:38:10"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Yelp"
+    },
+    {
+      "asnum": 33452,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.47",
+                "mac_addresses": [
+                  "64:9d:99:b2:13:94"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Ridge Wireless"
+    },
+    {
+      "asnum": 33548,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.20",
+                "mac_addresses": [
+                  "00:a7:42:04:b4:4e"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:3548:1",
+                "mac_addresses": [
+                  "00:a7:42:04:b4:4e"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Unwired Broadband"
+    },
+    {
+      "asnum": 34927,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.106",
+                "mac_addresses": [
+                  "90:e2:ba:f1:f5:b5"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:4927:1",
+                "mac_addresses": [
+                  "90:e2:ba:f1:f5:b5"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "FogNet - iFog GmbH"
+    },
+    {
+      "asnum": 35008,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.41",
+                "mac_addresses": [
+                  "98:49:25:5c:f8:53"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:5008:1",
+                "mac_addresses": [
+                  "98:49:25:5c:f8:53"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Kerfuffle"
+    },
+    {
+      "asnum": 36086,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.8",
+                "mac_addresses": [
+                  "78:19:f7:33:24:88"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:6086:1",
+                "mac_addresses": [
+                  "78:19:f7:33:24:88"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Digital Realty United States"
+    },
+    {
+      "asnum": 36210,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 59
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.109",
+                "mac_addresses": [
+                  "04:5c:6c:cc:4d:5f"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:6210:1",
+                "mac_addresses": [
+                  "04:5c:6c:cc:4d:5f"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Moscone Center"
+    },
+    {
+      "asnum": 36236,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.45",
+                "mac_addresses": [
+                  "f4:bf:a8:21:23:b2"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:6236:1",
+                "mac_addresses": [
+                  "f4:bf:a8:21:23:b2"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "NetActuate"
+    },
+    {
+      "asnum": 36734,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 58
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.23",
+                "mac_addresses": [
+                  "88:90:09:5e:bb:bf"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba03:6734:1",
+                "mac_addresses": [
+                  "88:90:09:5e:bb:bf"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Paxio (fka Fastmetrics)"
+    },
+    {
+      "asnum": 3856,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.18",
+                "mac_addresses": [
+                  "70:69:5a:1d:14:20"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:42:1",
+                "mac_addresses": [
+                  "70:69:5a:1d:14:20"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "PCH AS3856"
+    },
+    {
+      "asnum": 393891,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 145
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.31",
+                "mac_addresses": [
+                  "7c:21:0e:bb:51:f0"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:3891:1",
+                "mac_addresses": [
+                  "7c:21:0e:bb:51:f0"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Nutrien"
+    },
+    {
+      "asnum": 395354,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.16",
+                "mac_addresses": [
+                  "74:88:bb:4e:4f:91"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:5354:1",
+                "mac_addresses": [
+                  "74:88:bb:4e:4f:91"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Starry"
+    },
+    {
+      "asnum": 396032,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.66",
+                "mac_addresses": [
+                  "3c:fd:fe:05:68:24"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:6032:1",
+                "mac_addresses": [
+                  "3c:fd:fe:05:68:24"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Sea Ranch Connect"
+    },
+    {
+      "asnum": 396097,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 68
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.43",
+                "mac_addresses": [
+                  "00:a7:42:42:7e:4b"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:6097:1",
+                "mac_addresses": [
+                  "00:a7:42:42:7e:4b"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Sail Internet"
+    },
+    {
+      "asnum": 397131,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.85",
+                "mac_addresses": [
+                  "44:4c:a8:a6:33:1f"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:7131:1",
+                "mac_addresses": [
+                  "44:4c:a8:a6:33:1f"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Everythink AS397131"
+    },
+    {
+      "asnum": 397554,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.58",
+                "mac_addresses": [
+                  "b8:69:f4:45:75:42"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:7554:1",
+                "mac_addresses": [
+                  "b8:69:f4:45:75:42"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "HAPPYCYCLING"
+    },
+    {
+      "asnum": 397715,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.30",
+                "mac_addresses": [
+                  "24:5a:4c:98:c7:55"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:7715:1",
+                "mac_addresses": [
+                  "24:5a:4c:98:c7:55"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "KPFA"
+    },
+    {
+      "asnum": 397945,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.38",
+                "mac_addresses": [
+                  "78:9a:18:bb:9f:2a"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:7945:1",
+                "mac_addresses": [
+                  "78:9a:18:bb:9f:2a"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Madrone Technology Group"
+    },
+    {
+      "asnum": 398826,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 59
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.105",
+                "mac_addresses": [
+                  "0c:81:26:47:44:2b"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:8826:1",
+                "mac_addresses": [
+                  "0c:81:26:47:44:2b"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "OLink Cloud"
+    },
+    {
+      "asnum": 399338,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.111",
+                "mac_addresses": [
+                  "48:a9:8a:a4:09:c7"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:9338:1",
+                "mac_addresses": [
+                  "48:a9:8a:a4:09:c7"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "CENTRAL VALLEY INTERNET"
+    },
+    {
+      "asnum": 399888,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.44",
+                "mac_addresses": [
+                  "9c:dc:71:49:74:d1"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba39:9888:1",
+                "mac_addresses": [
+                  "9c:dc:71:49:74:d1"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "WireCat"
+    },
+    {
+      "asnum": 400006,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.76",
+                "mac_addresses": [
+                  "9c:5a:80:01:c6:f4"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba40:6:1",
+                "mac_addresses": [
+                  "9c:5a:80:01:c6:f4"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "DigitalMonks LLC"
+    },
+    {
+      "asnum": 400587,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.112",
+                "mac_addresses": [
+                  "28:99:3a:26:05:eb"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba40:587:1",
+                "mac_addresses": [
+                  "28:99:3a:26:05:eb"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Ryamer"
+    },
+    {
+      "asnum": 40913,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 138
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.77",
+                "mac_addresses": [
+                  "44:64:3c:b3:8f:54"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba04:913:1",
+                "mac_addresses": [
+                  "44:64:3c:b3:8f:54"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "QTS Santa Clara"
+    },
+    {
+      "asnum": 42,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.19",
+                "mac_addresses": [
+                  "00:0c:29:b9:25:ee"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:3856:1",
+                "mac_addresses": [
+                  "00:0c:29:b9:25:ee"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "PCH AS42"
+    },
+    {
+      "asnum": 43519,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 145
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.75",
+                "mac_addresses": [
+                  "b0:eb:7f:82:41:2a"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba04:3519:1",
+                "mac_addresses": [
+                  "b0:eb:7f:82:41:2a"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Nominet Nameservers"
+    },
+    {
+      "asnum": 46886,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.34",
+                "mac_addresses": [
+                  "74:4d:28:7b:39:93"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba04:6886:1",
+                "mac_addresses": [
+                  "74:4d:28:7b:39:93"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Tekify Broadband Internet Services"
+    },
+    {
+      "asnum": 46997,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 68
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.100",
+                "mac_addresses": [
+                  "28:99:3a:9c:4a:bd"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba04:6997:1",
+                "mac_addresses": [
+                  "28:99:3a:9c:4a:bd"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Nato Internet Service"
+    },
+    {
+      "asnum": 49544,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.87",
+                "mac_addresses": [
+                  "f0:7c:c7:b2:a7:8c"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba04:9544:1",
+                "mac_addresses": [
+                  "f0:7c:c7:b2:a7:8c"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "i3D.net"
+    },
+    {
+      "asnum": 53859,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 20000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.39",
+                "mac_addresses": [
+                  "40:8f:9d:f0:bb:31"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:3859:1",
+                "mac_addresses": [
+                  "40:8f:9d:f0:bb:31"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Atherton Fiber"
+    },
+    {
+      "asnum": 54113,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 73
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.90",
+                "mac_addresses": [
+                  "fc:bd:67:db:97:d5"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:4113:1",
+                "mac_addresses": [
+                  "fc:bd:67:db:97:d5"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Fastly, Inc."
+    },
+    {
+      "asnum": 54415,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.104",
+                "mac_addresses": [
+                  "d4:c9:3c:31:31:82"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:4415:1",
+                "mac_addresses": [
+                  "d4:c9:3c:31:31:82"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "WIZ"
+    },
+    {
+      "asnum": 55256,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 138
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.72",
+                "mac_addresses": [
+                  "98:5d:82:e3:73:ad"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:5256:1",
+                "mac_addresses": [
+                  "98:5d:82:e3:73:ad"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        },
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.97",
+                "mac_addresses": [
+                  "d4:af:f7:cb:4b:a1"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:5256:2",
+                "mac_addresses": [
+                  "d4:af:f7:cb:4b:a1"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Netskope"
+    },
+    {
+      "asnum": 55651,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.46",
+                "mac_addresses": [
+                  "18:fd:74:f4:3c:51"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:5651:1",
+                "mac_addresses": [
+                  "18:fd:74:f4:3c:51"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "DBolical Pty Ltd"
+    },
+    {
+      "asnum": 57976,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 71
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.42",
+                "mac_addresses": [
+                  "44:aa:50:37:40:a0"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba05:7976:1",
+                "mac_addresses": [
+                  "44:aa:50:37:40:a0"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Blizzard Entertainment"
+    },
+    {
+      "asnum": 60011,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.79",
+                "mac_addresses": [
+                  "ac:1f:6b:bd:07:ac"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:11:1",
+                "mac_addresses": [
+                  "ac:1f:6b:bd:07:ac"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Mythic Beasts USA"
+    },
+    {
+      "asnum": 6140,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.22",
+                "mac_addresses": [
+                  "78:50:7c:3a:7a:91"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:6140:1",
+                "mac_addresses": [
+                  "78:50:7c:3a:7a:91"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Two P"
+    },
+    {
+      "asnum": 62538,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.89",
+                "mac_addresses": [
+                  "d8:b1:22:df:71:58"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:2538:1",
+                "mac_addresses": [
+                  "d8:b1:22:df:71:58"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "ipFail Networks"
+    },
+    {
+      "asnum": 62713,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.35",
+                "mac_addresses": [
+                  "18:2a:d3:ce:5e:ef"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:2713:1",
+                "mac_addresses": [
+                  "18:2a:d3:ce:5e:ef"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "PubMatic"
+    },
+    {
+      "asnum": 62809,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 20000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.17",
+                "mac_addresses": [
+                  "f8:c1:16:14:d0:b8"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:2809:1",
+                "mac_addresses": [
+                  "f8:c1:16:14:d0:b8"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "VOLT BROADBAND"
+    },
+    {
+      "asnum": 62902,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 58
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.94",
+                "mac_addresses": [
+                  "9c:69:b4:66:77:56"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:2902:1",
+                "mac_addresses": [
+                  "9c:69:b4:66:77:56"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Web3 Tech"
+    },
+    {
+      "asnum": 63129,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 67
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.32",
+                "mac_addresses": [
+                  "78:9a:18:cf:2e:fa"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:3129:1",
+                "mac_addresses": [
+                  "78:9a:18:cf:2e:fa"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "AirRabbit, LLC"
+    },
+    {
+      "asnum": 63949,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 73
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.40",
+                "mac_addresses": [
+                  "64:c3:d6:ff:19:43"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:3949:1",
+                "mac_addresses": [
+                  "64:c3:d6:ff:19:43"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Linode AS63949"
+    },
+    {
+      "asnum": 64238,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.26",
+                "mac_addresses": [
+                  "00:a7:42:4f:a8:fd"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:4238:1",
+                "mac_addresses": [
+                  "00:a7:42:4f:a8:fd"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "DNS-OARC"
+    },
+    {
+      "asnum": 6424,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.81",
+                "mac_addresses": [
+                  "e0:f6:2d:9b:26:12"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:6424:1",
+                "mac_addresses": [
+                  "e0:f6:2d:9b:26:12"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "EDGOO NETWORKS"
+    },
+    {
+      "asnum": 64289,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "switch_id": 101
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.51",
+                "mac_addresses": [
+                  "00:1c:73:3c:e4:4c"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:4289:1",
+                "mac_addresses": [
+                  "00:1c:73:3c:e4:4c"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Macarne LLC"
+    },
+    {
+      "asnum": 6447,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 62
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.28",
+                "mac_addresses": [
+                  "ec:0d:9a:d6:12:2c"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:6447:1",
+                "mac_addresses": [
+                  "ec:0d:9a:d6:12:2c"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "RouteViews"
+    },
+    {
+      "asnum": 6939,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 100000,
+              "switch_id": 68
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.12",
+                "mac_addresses": [
+                  "f4:ce:48:ef:df:38"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:6939:1",
+                "mac_addresses": [
+                  "f4:ce:48:ef:df:38"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Hurricane Electric"
+    },
+    {
+      "asnum": 7500,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.64",
+                "mac_addresses": [
+                  "f8:0f:6f:8a:c3:83"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:7500:1",
+                "mac_addresses": [
+                  "f8:0f:6f:8a:c3:83"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "M-ROOT DNS Server"
+    },
+    {
+      "asnum": 7941,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 20000,
+              "switch_id": 59
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.36",
+                "mac_addresses": [
+                  "fc:96:43:81:40:dc"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:7941:1",
+                "mac_addresses": [
+                  "fc:96:43:81:40:dc"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Internet Archive"
+    },
+    {
+      "asnum": 8674,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 10000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.99",
+                "mac_addresses": [
+                  "00:02:b3:4c:47:68"
+                ]
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba00:8674:1",
+                "mac_addresses": [
+                  "00:02:b3:4c:47:68"
+                ]
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "peering",
+      "name": "Netnod"
+    },
+    {
+      "asnum": 63055,
+      "connection_list": [
+        {
+          "if_list": [
+            {
+              "if_speed": 1000,
+              "switch_id": 59
+            },
+            {
+              "if_speed": 1000,
+              "switch_id": 63
+            }
+          ],
+          "ixp_id": 155,
+          "state": "active",
+          "vlan_list": [
+            {
+              "ipv4": {
+                "address": "206.197.187.253"
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:3055:1"
+              },
+              "vlan_id": 1
+            },
+            {
+              "ipv4": {
+                "address": "206.197.187.254"
+              },
+              "ipv6": {
+                "address": "2001:504:30::ba06:3055:2"
+              },
+              "vlan_id": 1
+            }
+          ]
+        }
+      ],
+      "member_type": "ixp",
+      "name": "SFMIX Route Servers"
+    }
+  ],
+  "timestamp": "2025-07-01T19:54:47+0000",
+  "version": "1.0"
+}

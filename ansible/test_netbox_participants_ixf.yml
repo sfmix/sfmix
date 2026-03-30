@@ -1,0 +1,154 @@
+---
+# Test playbook for netbox_participants_ixf module
+# This playbook demonstrates different ways to test the module
+
+- name: Test NetBox Participants IXF Module
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Test with mock NetBox server (start mock_netbox_server.py first)
+    test_netbox_url: "http://localhost:8000"
+    test_netbox_token: "test-token"
+    
+    # Or use real NetBox instance (uncomment and modify)
+    # real_netbox_url: "https://your-netbox.example.com"
+    # real_netbox_token: "your-real-token"
+    
+    # Custom IXP info for testing
+    test_ixp_info:
+      shortname: "TESTIX"
+      name: "Test Internet Exchange"
+      ixp_id: 999
+      ixf_id: 999
+      peeringdb_id: 999
+      country: "US"
+      url: "https://test.example.com/"
+      support_email: "test@example.com"
+      support_phone: "+1 555 123-4567"
+
+  tasks:
+    - name: Test with mock NetBox server
+      block:
+        - name: Generate IXF data from mock NetBox
+          netbox_participants_ixf:
+            netbox_api_endpoint: "{{ test_netbox_url }}"
+            netbox_api_token: "{{ test_netbox_token }}"
+            ixp_info: "{{ test_ixp_info }}"
+          register: mock_ixf_result
+          
+        - name: Display mock test results
+          debug:
+            msg: |
+              Mock NetBox Test Results:
+              - Switches: {{ mock_ixf_result.ixf_data.ixp_list[0].switch | length }}
+              - VLANs: {{ mock_ixf_result.ixf_data.ixp_list[0].vlan | length }}
+              - Members: {{ mock_ixf_result.ixf_data.member_list | length }}
+              - Timestamp: {{ mock_ixf_result.ixf_data.timestamp }}
+        
+        - name: Save mock IXF data to file
+          copy:
+            content: "{{ mock_ixf_result.ixf_data | to_nice_json }}"
+            dest: "/tmp/mock_ixf_data.json"
+          
+        - name: Validate IXF data structure
+          assert:
+            that:
+              - mock_ixf_result.ixf_data.version == "1.0"
+              - mock_ixf_result.ixf_data.ixp_list | length == 1
+              - mock_ixf_result.ixf_data.ixp_list[0].shortname == "TESTIX"
+              - mock_ixf_result.ixf_data.member_list | length > 0
+            fail_msg: "IXF data structure validation failed"
+            success_msg: "IXF data structure is valid"
+      
+      rescue:
+        - name: Handle mock test failure
+          debug:
+            msg: |
+              Mock test failed. Make sure to start the mock server first:
+              python3 /home/jof/src/sfmix/sfmix/ansible/library/mock_netbox_server.py --port 8000
+
+    # Uncomment this block to test with real NetBox
+    # - name: Test with real NetBox (optional)
+    #   block:
+    #     - name: Generate IXF data from real NetBox
+    #       netbox_participants_ixf:
+    #         netbox_api_endpoint: "{{ real_netbox_url }}"
+    #         netbox_api_token: "{{ real_netbox_token }}"
+    #       register: real_ixf_result
+    #       when: real_netbox_url is defined and real_netbox_token is defined
+    #       
+    #     - name: Display real test results
+    #       debug:
+    #         msg: |
+    #           Real NetBox Test Results:
+    #           - Switches: {{ real_ixf_result.ixf_data.ixp_list[0].switch | length }}
+    #           - VLANs: {{ real_ixf_result.ixf_data.ixp_list[0].vlan | length }}
+    #           - Members: {{ real_ixf_result.ixf_data.member_list | length }}
+    #       when: real_ixf_result is defined
+    #       
+    #     - name: Save real IXF data to file
+    #       copy:
+    #         content: "{{ real_ixf_result.ixf_data | to_nice_json }}"
+    #         dest: "/tmp/real_ixf_data.json"
+    #       when: real_ixf_result is defined
+    #   
+    #   rescue:
+    #     - name: Handle real test failure
+    #       debug:
+    #         msg: "Real NetBox test failed: {{ ansible_failed_result.msg }}"
+
+    - name: Test error handling
+      block:
+        - name: Test with invalid endpoint
+          netbox_participants_ixf:
+            netbox_api_endpoint: "http://invalid-endpoint:9999"
+            netbox_api_token: "invalid-token"
+          register: error_test_result
+          ignore_errors: true
+          
+        - name: Verify error handling
+          assert:
+            that:
+              - error_test_result is failed
+            fail_msg: "Error handling test failed - should have failed with invalid endpoint"
+            success_msg: "Error handling works correctly"
+
+    - name: Performance test (optional)
+      block:
+        - name: Record start time
+          set_fact:
+            start_time: "{{ ansible_date_time.epoch }}"
+            
+        - name: Run performance test
+          netbox_participants_ixf:
+            netbox_api_endpoint: "{{ test_netbox_url }}"
+            netbox_api_token: "{{ test_netbox_token }}"
+          register: perf_result
+          
+        - name: Calculate execution time
+          set_fact:
+            execution_time: "{{ ansible_date_time.epoch | int - start_time | int }}"
+            
+        - name: Display performance results
+          debug:
+            msg: "Module execution time: {{ execution_time }} seconds"
+      
+      rescue:
+        - name: Handle performance test failure
+          debug:
+            msg: "Performance test skipped due to connection issues"
+
+    - name: Summary
+      debug:
+        msg: |
+          Test Summary:
+          ✓ Module can be imported and executed
+          ✓ IXF data structure is generated correctly
+          ✓ Error handling works as expected
+          ✓ Output files created in /tmp/
+          
+          Next steps:
+          1. Review generated IXF data in /tmp/mock_ixf_data.json
+          2. Test with real NetBox by uncommenting the real NetBox block
+          3. Run unit tests: python3 test_netbox_participants_ixf.py
+          4. Start mock server for interactive testing

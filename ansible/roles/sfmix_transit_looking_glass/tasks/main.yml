@@ -1,0 +1,12 @@
+---
+- name: Install BIRD
+  ansible.builtin.import_tasks: install_bird.yml
+
+- name: Configure BIRD
+  ansible.builtin.import_tasks: configure_bird.yml
+
+- name: Install birdwatcher
+  ansible.builtin.import_tasks: install_birdwatcher.yml
+
+- name: Configure birdwatcher
+  ansible.builtin.import_tasks: configure_birdwatcher.yml

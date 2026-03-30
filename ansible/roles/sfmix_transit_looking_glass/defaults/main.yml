@@ -1,0 +1,10 @@
+---
+sfmix_transit_looking_glass_birdwatcher_directory: "/opt/birdwatcher"
+sfmix_transit_looking_glass_birdwatcher_repo: "https://github.com/alice-lg/birdwatcher"
+sfmix_transit_looking_glass_birdwatcher_version: "master"
+# sfmix_transit_looking_glass_rtr_hostname: 193.33.255.13 # rpki-linux.sfmix.org
+# sfmix_transit_looking_glass_rtr_port: 3323
+# sfmix_transit_looking_glass_bird_exporter_repo: https://github.com/czerwonk/bird_exporter.git
+# sfmix_transit_looking_glass_bird_exporter_directory: /opt/bird_exporter
+# sfmix_transit_looking_glass_bird_exporter_version: b7ff18f9e130fef48ef8731b303867742fd17f22
+# sfmix_transit_looking_glass_bird_exporter_port: 9324
