@@ -4,6 +4,17 @@ __pycache__/
 .esphome/
 sensors/secrets.yaml
 
+# IDE / editor configs
+.claude/
+.continue/
+.vscode/
+.mypy_cache/
+
+# Ansible runtime
+ansible/.vagrant/
+ansible/collections/
+ansible/inventory.json
+
 # Hugo (website/)
 website/public/
 website/resources/_gen/
