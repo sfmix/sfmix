@@ -1,0 +1,127 @@
+---
+- name: Install nginx and certbot
+  become: true
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+
+- name: Check if SSL certificate exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ akvorado_domain }}/fullchain.pem
+  register: ssl_cert_exists
+
+- name: Generate htpasswd file for basic auth
+  become: true
+  ansible.builtin.shell:
+    cmd: "printf '%s:%s\n' '{{ akvorado_basic_auth_user }}' \"$(openssl passwd -apr1 '{{ akvorado_basic_auth_password }}')\" > /etc/nginx/htpasswd-akvorado"
+    creates: /etc/nginx/htpasswd-akvorado
+  when: akvorado_basic_auth_password != ""
+  notify: Reload nginx
+
+- name: Set htpasswd file permissions
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/htpasswd-akvorado
+    mode: "0640"
+    owner: root
+    group: www-data
+  when: akvorado_basic_auth_password != ""
+
+- name: Place HTTP-only nginx config (for initial cert)
+  become: true
+  ansible.builtin.template:
+    src: akvorado-http.conf.j2
+    dest: /etc/nginx/sites-available/akvorado.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: not ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Place HTTPS nginx config (when cert exists)
+  become: true
+  ansible.builtin.template:
+    src: akvorado-https.conf.j2
+    dest: /etc/nginx/sites-available/akvorado.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Enable nginx site
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/akvorado.conf
+    dest: /etc/nginx/sites-enabled/akvorado.conf
+    state: link
+  notify: Reload nginx
+
+- name: Remove default nginx site
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Allow HTTP port
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+    comment: "Nginx HTTP"
+  when: ansible_facts.services['ufw.service'] is defined
+
+- name: Allow HTTPS port
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+    comment: "Nginx HTTPS"
+  when: ansible_facts.services['ufw.service'] is defined
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start nginx
+  become: true
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Obtain letsencrypt certificate
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --webroot
+      -w /var/www/html
+      --non-interactive
+      --agree-tos
+      --email {{ ixp_primary_tech_contact_email }}
+      --domains {{ akvorado_domain }}
+    creates: /etc/letsencrypt/live/{{ akvorado_domain }}/fullchain.pem
+
+- name: Place full HTTPS nginx config
+  become: true
+  ansible.builtin.template:
+    src: akvorado-https.conf.j2
+    dest: /etc/nginx/sites-available/akvorado.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Ensure certbot renewal timer is enabled
+  become: true
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    enabled: true
+    state: started

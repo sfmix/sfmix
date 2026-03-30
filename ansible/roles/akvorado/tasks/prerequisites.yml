@@ -1,0 +1,27 @@
+---
+- name: Install required packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - python3-docker
+      - python3-pip
+      - curl
+      - git
+    state: present
+    update_cache: true
+
+- name: Ensure Docker service is running
+  become: true
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add user to docker group
+  become: true
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: docker
+    append: true

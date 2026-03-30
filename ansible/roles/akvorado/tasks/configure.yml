@@ -1,0 +1,48 @@
+---
+- name: Generate Akvorado configuration
+  become: true
+  ansible.builtin.template:
+    src: akvorado.yaml.j2
+    dest: "{{ akvorado_config_dir }}/akvorado.yaml"
+    mode: "0644"
+    owner: root
+    group: root
+  notify: Reload akvorado
+
+- name: Generate Docker Compose file
+  become: true
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ akvorado_install_dir }}/docker-compose.yml"
+    mode: "0644"
+    owner: root
+    group: root
+  notify: Restart akvorado
+
+- name: Generate ClickHouse configuration
+  become: true
+  ansible.builtin.template:
+    src: clickhouse-config.xml.j2
+    dest: "{{ akvorado_config_dir }}/clickhouse-config.xml"
+    mode: "0644"
+    owner: root
+    group: root
+  notify: Restart clickhouse
+
+- name: Download GeoIP ASN database
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ akvorado_geoip_asn_database }}"
+    dest: "{{ akvorado_data_dir }}/geoip/asn.mmdb"
+    mode: "0644"
+  when: akvorado_geoip_asn_database != ""
+  ignore_errors: true
+
+- name: Download GeoIP country database
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ akvorado_geoip_country_database }}"
+    dest: "{{ akvorado_data_dir }}/geoip/country.mmdb"
+    mode: "0644"
+  when: akvorado_geoip_country_database != ""
+  ignore_errors: true

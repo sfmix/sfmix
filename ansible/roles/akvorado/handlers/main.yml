@@ -1,0 +1,33 @@
+---
+- name: Restart akvorado
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: "{{ akvorado_install_dir }}"
+    state: restarted
+
+- name: Reload akvorado
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: "{{ akvorado_install_dir }}"
+    state: restarted
+    services:
+      - akvorado-orchestrator
+      - akvorado-inlet
+      - akvorado-outlet
+      - akvorado-console
+
+- name: Restart clickhouse
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: "{{ akvorado_install_dir }}"
+    state: restarted
+    services:
+      - clickhouse
+
+- name: Restart kafka
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: "{{ akvorado_install_dir }}"
+    state: restarted
+    services:
+      - kafka

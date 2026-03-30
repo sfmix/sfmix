@@ -1,0 +1,7 @@
+---
+akvorado_domain: "hetch-hetchy.sfmix.org"
+akvorado_http_port: 8080
+
+# Basic auth (set password via vault in group_vars)
+akvorado_basic_auth_user: "admin"
+akvorado_basic_auth_password: ""
