@@ -99,21 +99,41 @@ flow (no user prompt). Grafana uses Generic OAuth with env vars.
 | Userinfo URL | `https://login.sfmix.org/application/o/userinfo/` |
 
 **Role mapping** (via `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH`):
-- `authentik Admins` → `GrafanaAdmin`
-- All others → `Viewer` (but see access policy below)
+- `IX Administrators` + `authentik Admins` → `GrafanaAdmin`
+- `IX Administrators` only → `Admin`
+- No matching group → empty string (denied by `role_attribute_strict`)
 
-**Access policy:** An Authentik `ExpressionPolicy` bound to the Grafana
-application restricts access to `authentik Admins` members only. Non-admin
-users are denied at the Authentik authorization layer before reaching Grafana.
+**Defense in depth (two layers of access control):**
+
+1. **Authentik layer:** `ExpressionPolicy` on the Grafana application
+   requires `IX Administrators` group. Non-members are denied before
+   reaching Grafana.
+2. **Grafana layer:** `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true`
+   denies login if the `groups` claim doesn't include `IX Administrators`.
+   This ensures access control even if the Authentik policy is modified.
+
+The `groups` OIDC scope is served by a custom `ScopeMapping` that returns
+all Authentik group memberships in the token claims.
 
 #### Future downstream apps
 - NetBox (`netbox.sfmix.org`) — has OIDC/SAML support
 - LibreNMS (`librenms.sfmix.org`)
 - Any future admin tools
 
+**Group model:**
+
+| Group | Source | Purpose |
+|-------|--------|---------|
+| `IX Administrators` | GitHub `sfmix/ix-administrators` team | IX operators — access to Grafana and admin tools |
+| `authentik Admins` | Manually assigned (subset of IX Admins) | Authentik platform superusers |
+
+Not all IX Administrators are authentik Admins. The GitHub team mapping
+populates `IX Administrators` only. `authentik Admins` membership is
+assigned manually to users who need to manage the Authentik platform itself.
+
 **Authorization:**
-- Group: `authentik Admins` (superuser, mapped from GitHub team)
-- All members get admin/superuser access to downstream apps
+- `IX Administrators` → access to downstream admin apps (Grafana, etc.)
+- `authentik Admins` → additionally can manage Authentik configuration
 
 ### Flow 2: IX Participant Login (PeeringDB Federation)
 
