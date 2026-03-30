@@ -1,0 +1,5 @@
+---
+- name: Install BIRD 2
+  become: true
+  ansible.builtin.apt:
+    name: bird2

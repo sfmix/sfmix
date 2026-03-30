@@ -1,0 +1,19 @@
+---
+- name: Ensure birdwatcher directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ sfmix_transit_looking_glass_birdwatcher_directory }}"
+    state: directory
+    mode: ug=rwx,o=rx
+
+- name: Clone birdwatcher repo
+  become: true
+  ansible.builtin.git:
+    repo: "{{ sfmix_transit_looking_glass_birdwatcher_repo }}"
+    dest: "{{ sfmix_transit_looking_glass_birdwatcher_directory }}/repo"
+    version: "{{ sfmix_transit_looking_glass_birdwatcher_version }}"
+    force: true
+  notify: Rebuild birdwatcher docker container
+
+- name: Trigger birdwatcher rebuilt and old container destruction
+  ansible.builtin.meta: flush_handlers

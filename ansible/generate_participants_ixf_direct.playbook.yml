@@ -1,0 +1,38 @@
+---
+- name: Generate IXF Participants JSON using direct NetBox API
+  hosts: localhost
+  gather_facts: false
+  vars:
+    output_file: "/tmp/participants_ixf_direct.yaml"
+  
+  tasks:
+    - name: Generate IX-F Participants JSON from NetBox API
+      netbox_participants_ixf:
+        netbox_api_endpoint: "{{ ixp_netbox_api_endpoint }}"
+        netbox_api_token: "{{ ixp_netbox_api_token }}"
+        ixp_info:
+          shortname: SFMIX
+          name: San Francisco Metropolitan Internet Exchange
+          ixp_id: 155
+          ixf_id: 223
+          peeringdb_id: 155
+          country: US
+          url: https://sfmix.org/
+          support_email: tech-c@sfmix.org
+          support_phone: "+1 415 634-6712"
+      register: ixf_result
+
+    - name: Save IXF data to file
+      ansible.builtin.copy:
+        content: "{{ ixf_result.ixf_data | to_nice_yaml }}"
+        dest: "{{ output_file }}"
+        mode: '0644'
+
+    - name: Display result summary
+      ansible.builtin.debug:
+        msg: |
+          IXF data generated successfully!
+          - Switches: {{ ixf_result.ixf_data.ixp_list[0].switch | length }}
+          - VLANs: {{ ixf_result.ixf_data.ixp_list[0].vlan | length }}
+          - Members: {{ ixf_result.ixf_data.ixp_list[0].member_list | length }}
+          - Output saved to: {{ output_file }}

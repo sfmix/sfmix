@@ -1,0 +1,23 @@
+---
+- name: Place birdwatcher.conf
+  become: true
+  ansible.builtin.template:
+    src: birdwatcher.conf.j1
+    dest: "{{ sfmix_transit_looking_glass_birdwatcher_directory }}/birdwatcher.conf"
+    mode: ug=rw,o=r
+  notify: Restart birdwatcher
+
+- name: Run birdwatcher
+  become: true
+  community.docker.docker_container:
+    name: birdwatcher
+    image: "birdwatcher:{{ sfmix_transit_looking_glass_birdwatcher_version | replace('/', '_') }}"
+    restart_policy: unless-stopped
+    state: started
+    network_mode: host
+    log_driver: local
+    command: /usr/bin/birdwatcher -config /etc/birdwatcher/birdwatcher.conf
+    volumes:
+      - /run/bird/bird.ctl:/run/bird/bird.ctl
+      - /etc/bird/bird.conf:/etc/bird.conf:ro
+      - "{{ sfmix_transit_looking_glass_birdwatcher_directory }}/birdwatcher.conf:/etc/birdwatcher/birdwatcher.conf:ro"
