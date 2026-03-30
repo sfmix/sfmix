@@ -352,11 +352,13 @@ to restrict enrollment to actual IX participants.
    - Provider type: `github` (built-in)
    - Additional scopes: `read:org`
    - `group_matching_mode`: `name_link` (links to existing `authentik Admins`)
-3. [x] GitHub team `sfmix/ix-administrators` maps to `authentik Admins` group
-4. [x] Session duration set to 8 hours (forces re-evaluation of group membership)
-5. [x] Both login flows tested end-to-end
-6. [x] Grafana OIDC provider created, access restricted to authentik Admins
-7. [ ] Create OIDC/SAML providers for remaining admin apps (NetBox, LibreNMS, etc.)
+3. [x] GitHub team `sfmix/ix-administrators` maps to `IX Administrators` group
+4. [x] PeeringDB AS12276 admin maps to `IX Administrators` group
+5. [x] Session duration set to 8 hours (forces re-evaluation of group membership)
+6. [x] Group sync on every login via `UserWriteStage` in auth flow
+7. [x] Both login flows tested end-to-end
+8. [x] Grafana OIDC provider created, access restricted to IX Administrators
+9. [ ] Create OIDC/SAML providers for remaining admin apps (NetBox, LibreNMS, etc.)
 
 ## Security Considerations
 
@@ -366,6 +368,48 @@ to restrict enrollment to actual IX participants.
 - PeeringDB source: only `verified_user: true` accounts should be allowed to enroll
 - Rate limiting on login endpoints
 - TOTP/WebAuthn MFA encouraged for admin accounts
+
+### Session Revocation and Incident Response
+
+Authentik OSS does not support OIDC backchannel logout. Revoking access in
+Authentik does **not** immediately terminate active sessions in downstream
+apps (Grafana, etc.). The gap is bounded by the downstream app's session
+lifetime.
+
+**To revoke a compromised or malicious administrator:**
+
+1. **Deactivate user and kill Authentik sessions** (immediate):
+   ```bash
+   sudo docker compose -f /opt/authentik/docker-compose.yml exec server ak shell -c "
+   from authentik.core.models import User, AuthenticatedSession
+   user = User.objects.get(username='user@example.com')
+   user.is_active = False
+   user.save()
+   deleted = AuthenticatedSession.objects.filter(user=user).delete()
+   for g in user.ak_groups.all():
+       g.users.remove(user)
+   print(f'{user.username}: deactivated, sessions killed, removed from all groups')
+   "
+   ```
+   This prevents new OIDC tokens from being issued and kills the SSO session.
+
+2. **Revoke upstream access** (prevents re-enrollment):
+   - Remove from GitHub `sfmix/ix-administrators` team
+   - Revoke PeeringDB admin access to AS12276 if applicable
+
+3. **Kill downstream sessions** (closes the backchannel gap):
+   - **Grafana:** Delete user from Grafana SQLite DB or use admin API
+   - **Other apps:** Restart containers or clear session stores as needed
+
+4. **Nuclear option** (invalidates ALL sessions for an app):
+   - Rotate the OIDC client secret for the affected application
+   - Redeploy via Ansible to update the downstream app's config
+   - All users of that app must re-authenticate
+
+**Known limitation:** Between steps 1 and 3, the user may still have an
+active downstream session. The 8-hour session duration bounds this window.
+To reduce it further in the future, consider shorter Grafana session
+lifetimes or implementing token refresh with short-lived access tokens.
 
 ## Network Issue: VXLAN MTU / MSS Clamping
 
