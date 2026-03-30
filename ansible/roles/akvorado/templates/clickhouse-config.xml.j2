@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <logger>
+        <level>information</level>
+        <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+        <size>1000M</size>
+        <count>10</count>
+    </logger>
+
+    <max_server_memory_usage_to_ram_ratio>0.9</max_server_memory_usage_to_ram_ratio>
+
+    <kafka>
+        <max_block_size>65536</max_block_size>
+    </kafka>
+
+    <merge_tree>
+        <max_suspicious_broken_parts>5</max_suspicious_broken_parts>
+    </merge_tree>
+
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

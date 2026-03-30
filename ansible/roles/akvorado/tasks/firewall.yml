@@ -1,0 +1,18 @@
+---
+- name: Allow Akvorado HTTP port
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ akvorado_http_port }}"
+    proto: tcp
+    comment: "Akvorado HTTP interface"
+  when: ansible_facts.services['ufw.service'] is defined
+
+- name: Allow flow collector port
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ akvorado_flow_port }}"
+    proto: udp
+    comment: "Akvorado flow collector (NetFlow/IPFIX/sFlow)"
+  when: ansible_facts.services['ufw.service'] is defined

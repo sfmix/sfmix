@@ -1,0 +1,7 @@
+---
+akvorado_flow_workers: 8
+
+akvorado_snmp_communities:
+  - community: "{{ vault_snmp_community | default('public') }}"
+
+akvorado_basic_auth_password: "{{ vault_akvorado_basic_auth_password | default('') }}"

@@ -1,0 +1,163 @@
+volumes:
+  akvorado-kafka:
+  akvorado-clickhouse:
+  akvorado-run:
+  akvorado-console-db:
+
+services:
+  kafka:
+    image: apache/kafka:{{ kafka_version }}
+    container_name: akvorado-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: CLIENT://:9092,CONTROLLER://:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: CLIENT
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - akvorado-kafka:/var/lib/kafka/data
+    healthcheck:
+      interval: 20s
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--list", "--bootstrap-server", "kafka:9092"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: valkey/valkey:{{ redis_version }}
+    container_name: akvorado-redis
+    restart: unless-stopped
+    healthcheck:
+      interval: 20s
+      test: ["CMD-SHELL", "timeout 3 redis-cli ping | grep -q PONG"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:{{ clickhouse_version }}
+    container_name: akvorado-clickhouse
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      CLICKHOUSE_INIT_TIMEOUT: 60
+      CLICKHOUSE_SKIP_USER_SETUP: 1
+    volumes:
+      - akvorado-clickhouse:/var/lib/clickhouse
+      - {{ akvorado_config_dir }}/clickhouse-config.xml:/etc/clickhouse-server/config.d/akvorado.xml:ro
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      interval: 20s
+      test: ["CMD", "wget", "-T", "1", "--spider", "--no-proxy", "http://127.0.0.1:8123/ping"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  akvorado-orchestrator:
+    image: ghcr.io/akvorado/akvorado:{{ akvorado_version }}
+    container_name: akvorado-orchestrator
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: orchestrator /etc/akvorado/akvorado.yaml
+    volumes:
+      - {{ akvorado_config_dir }}:/etc/akvorado:ro
+{% if akvorado_geoip_asn_database != "" or akvorado_geoip_country_database != "" %}
+      - {{ akvorado_data_dir }}/geoip:/usr/share/GeoIP:ro
+{% endif %}
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/akvorado", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  akvorado-inlet:
+    image: ghcr.io/akvorado/akvorado:{{ akvorado_version }}
+    container_name: akvorado-inlet
+    restart: unless-stopped
+    depends_on:
+      akvorado-orchestrator:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    command: inlet http://akvorado-orchestrator:8080
+    ports:
+      - "{{ akvorado_flow_port }}:2055/udp"
+    volumes:
+      - akvorado-run:/run/akvorado
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  akvorado-outlet:
+    image: ghcr.io/akvorado/akvorado:{{ akvorado_version }}
+    container_name: akvorado-outlet
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      akvorado-orchestrator:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    command: outlet http://akvorado-orchestrator:8080
+    volumes:
+      - akvorado-run:/run/akvorado
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  akvorado-console:
+    image: ghcr.io/akvorado/akvorado:{{ akvorado_version }}
+    container_name: akvorado-console
+    restart: unless-stopped
+    depends_on:
+      akvorado-orchestrator:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    command: console http://akvorado-orchestrator:8080
+    ports:
+      - "127.0.0.1:{{ akvorado_http_port }}:8080"
+    volumes:
+      - akvorado-console-db:/run/akvorado
+    environment:
+      AKVORADO_CFG_CONSOLE_DATABASE_DSN: /run/akvorado/console.sqlite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

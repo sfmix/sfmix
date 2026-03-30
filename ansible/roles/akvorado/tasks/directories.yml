@@ -1,0 +1,14 @@
+---
+- name: Create Akvorado directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  loop:
+    - "{{ akvorado_install_dir }}"
+    - "{{ akvorado_config_dir }}"
+    - "{{ akvorado_data_dir }}"
+    - "{{ akvorado_data_dir }}/geoip"

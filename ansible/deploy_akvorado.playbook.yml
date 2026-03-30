@@ -1,0 +1,20 @@
+---
+- name: Deploy Akvorado Flow Collector
+  hosts: flow_collectors
+  become: true
+
+  roles:
+    - akvorado
+    - akvorado_nginx
+
+  post_tasks:
+    - name: Display Akvorado access information
+      ansible.builtin.debug:
+        msg:
+          - "Akvorado has been deployed successfully!"
+          - "Web Interface: https://{{ akvorado_domain }}"
+          - ""
+          - "Configure your routers to send flows to:"
+          - "  NetFlow/IPFIX: {{ ansible_default_ipv4.address }}:{{ akvorado_flow_port }} (UDP)"
+          - ""
+          - "View logs: cd {{ akvorado_install_dir }} && docker compose logs -f"

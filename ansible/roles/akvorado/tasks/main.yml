@@ -1,0 +1,30 @@
+---
+- name: "Akvorado: Install prerequisites"
+  ansible.builtin.import_tasks: prerequisites.yml
+  tags:
+    - akvorado
+    - prerequisites
+
+- name: "Akvorado: Setup directories"
+  ansible.builtin.import_tasks: directories.yml
+  tags:
+    - akvorado
+    - directories
+
+- name: "Akvorado: Configure Akvorado"
+  ansible.builtin.import_tasks: configure.yml
+  tags:
+    - akvorado
+    - configure
+
+- name: "Akvorado: Deploy with Docker Compose"
+  ansible.builtin.import_tasks: docker_compose.yml
+  tags:
+    - akvorado
+    - docker
+
+- name: "Akvorado: Setup firewall rules"
+  ansible.builtin.import_tasks: firewall.yml
+  tags:
+    - akvorado
+    - firewall

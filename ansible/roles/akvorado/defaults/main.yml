@@ -1,0 +1,41 @@
+---
+akvorado_version: "2.0.4"
+akvorado_install_dir: "/opt/akvorado"
+akvorado_data_dir: "/var/lib/akvorado"
+akvorado_config_dir: "/etc/akvorado"
+
+# Exposed ports
+akvorado_http_port: 8080
+akvorado_flow_port: 2055
+
+# Inlet config
+akvorado_flow_workers: 4
+
+# Outlet config
+akvorado_snmp_communities:
+  - community: "public"
+
+# ClickHouse
+clickhouse_version: "25.3"
+clickhouse_data_dir: "{{ akvorado_data_dir }}/clickhouse"
+
+# Kafka (Apache Kafka with KRaft, no Zookeeper)
+kafka_version: "4.1.1"
+kafka_data_dir: "{{ akvorado_data_dir }}/kafka"
+akvorado_kafka_topic: "flows"
+akvorado_kafka_partitions: 8
+
+# Redis (for console caching)
+redis_version: "7.2"
+
+# GeoIP
+akvorado_geoip_asn_database: ""
+akvorado_geoip_country_database: ""
+
+# Network classification (customize per deployment)
+akvorado_asns: {}
+akvorado_networks: {}
+
+# Outlet classifiers
+akvorado_exporter_classifiers: []
+akvorado_interface_classifiers: []
