@@ -1,0 +1,6 @@
+---
+- name: Login - authentik
+  hosts: login
+  gather_facts: true
+  roles:
+    - authentik

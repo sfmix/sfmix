@@ -1,4 +1,6 @@
 ---
+authentik_domain: login.sfmix.org
+
 authentik_authentik:
   postgres_password: authentik
   secret_key: sooper_secret
@@ -8,4 +10,4 @@ authentik_authentik:
     username: username
     password: password
     from: noreply@example.com
-  tag: "2025.2.3"
+  tag: "2026.2.1"
