@@ -12,10 +12,11 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "mozilla_django_oidc",
-    "dashboard",
+    "dashboard.apps.DashboardConfig",
 ]
 
 MIDDLEWARE = [
+    "dashboard.middleware.NetBoxCacheMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -88,13 +89,14 @@ OIDC_OP_JWKS_ENDPOINT = f"{_OIDC_ISSUER}/jwks/"
 # Re-check OIDC claims every 15 minutes
 OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = 900
 
-# --- IXP data sources ---
-IXP_PARTICIPANTS_URL = os.environ.get(
-    "IXP_PARTICIPANTS_URL",
-    "https://lg.sfmix.org/participants_table.json",
-)
+# --- IXP data source (NetBox) ---
 IXP_NETBOX_URL = os.environ.get("IXP_NETBOX_URL", "https://netbox.sfmix.org")
 IXP_NETBOX_TOKEN = os.environ.get("IXP_NETBOX_TOKEN", "")
+
+# --- Prometheus metrics ---
+# Networks allowed to scrape /metrics/.  Accepts CIDR notation.
+_trusted_nets = os.environ.get("PROMETHEUS_TRUSTED_NETWORKS", "127.0.0.0/8,::1/128")
+PROMETHEUS_TRUSTED_NETWORKS = [n.strip() for n in _trusted_nets.split(",") if n.strip()]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -108,5 +110,6 @@ LOGGING = {
     "loggers": {
         "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
         "mozilla_django_oidc": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "dashboard": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
