@@ -9,15 +9,15 @@ Deploy [Authentik](https://goauthentik.io/) as the centralized SSO/identity plat
 
 ## Infrastructure
 
-| Item | Value |
-|------|-------|
-| **Hostname** | `login.sfmix.org` |
-| **VM ID** | 105 |
-| **Hypervisor** | `pve01.scl04.sfmix.org` |
-| **OS** | Debian Trixie (13) |
-| **Ansible group** | `login` |
-| **Ansible role** | `authentik` |
-| **Playbook** | `deploy_login.playbook.yml` |
+| Item              | Value                       |
+|-------------------|-----------------------------|
+| **Hostname**      | `login.sfmix.org`           |
+| **VM ID**         | 105                         |
+| **Hypervisor**    | `pve01.scl04.sfmix.org`     |
+| **OS**            | Debian Trixie (13)          |
+| **Ansible group** | `login`                     |
+| **Ansible role**  | `authentik`                 |
+| **Playbook**      | `deploy_login.playbook.yml` |
 
 ### Networking
 
@@ -63,10 +63,10 @@ group.
 
 #### Group Model
 
-| Group | Purpose | How assigned |
-|-------|---------|-------------|
+| Group               | Purpose                                          | How assigned                                      |
+|---------------------|--------------------------------------------------|---------------------------------------------------|
 | `IX Administrators` | IX operators — access to Grafana and admin tools | Automatically via GitHub or PeeringDB (see below) |
-| `authentik Admins` | Authentik platform superusers | Manually assigned (subset of IX Admins) |
+| `authentik Admins`  | Authentik platform superusers                    | Manually assigned (subset of IX Admins)           |
 
 Not all IX Administrators are authentik Admins. `authentik Admins` is manually
 assigned to users who need to manage the Authentik platform itself.
@@ -80,12 +80,12 @@ There are two ways a user can become an IX Administrator:
 Users who are members of the `sfmix/ix-administrators` team on GitHub are
 automatically added to the `IX Administrators` group on first login.
 
-| Parameter | Value |
-|-----------|-------|
-| Client ID | `Ov23liaNukEQ6zEzsem9` |
-| Callback URL | `https://login.sfmix.org/source/oauth/callback/github/` |
-| Additional Scopes | `read:org` (for team membership check) |
-| Provider type | `github` (built-in) |
+| Parameter         | Value                                                   |
+|-------------------|---------------------------------------------------------|
+| Client ID         | `Ov23liaNukEQ6zEzsem9`                                  |
+| Callback URL      | `https://login.sfmix.org/source/oauth/callback/github/` |
+| Additional Scopes | `read:org` (for team membership check)                  |
+| Provider type     | `github` (built-in)                                     |
 
 The user property mapping (`GitHub Admin User Mapping`) fetches `/user/teams`
 from the GitHub API using the OAuth token. If the user is a member of
@@ -145,14 +145,14 @@ at least every 8 hours.
 Authentik OIDC provider with `default-provider-authorization-implicit-consent`
 flow (no user prompt). Grafana uses Generic OAuth with env vars.
 
-| Parameter | Value |
-|-----------|-------|
-| Client ID | `grafana` |
-| Redirect URI | `https://grafana.sfmix.org/login/generic_oauth` |
-| Scopes | `openid profile email groups` |
-| Auth URL | `https://login.sfmix.org/application/o/authorize/` |
-| Token URL | `https://login.sfmix.org/application/o/token/` |
-| Userinfo URL | `https://login.sfmix.org/application/o/userinfo/` |
+| Parameter    | Value                                              |
+|--------------|----------------------------------------------------|
+| Client ID    | `grafana`                                          |
+| Redirect URI | `https://grafana.sfmix.org/login/generic_oauth`    |
+| Scopes       | `openid profile email groups`                      |
+| Auth URL     | `https://login.sfmix.org/application/o/authorize/` |
+| Token URL    | `https://login.sfmix.org/application/o/token/`     |
+| Userinfo URL | `https://login.sfmix.org/application/o/userinfo/`  |
 
 **Role mapping** (via `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH`):
 - `IX Administrators` + `authentik Admins` → `GrafanaAdmin`
@@ -177,6 +177,16 @@ flow (no user prompt). Grafana uses Generic OAuth with env vars.
 The `groups` OIDC scope is served by a custom `ScopeMapping`
 (`SFMIX: OpenID 'groups'`) that returns all Authentik group memberships in
 the token claims.
+
+##### IXP Participant Portal (`portal.sfmix.org`) — DONE
+
+Authentik OIDC provider with `default-provider-authorization-implicit-consent` flow.
+
+| Parameter    | Value                                     |
+|--------------|-------------------------------------------|
+| Client ID    | `portal`                                  |
+| Redirect URI | `https://portal.sfmix.org/oidc/callback/` |
+| Scopes       | `openid profile email groups`             |
 
 ##### Future downstream apps
 - NetBox (`netbox.sfmix.org`) — has OIDC/SAML support
@@ -203,19 +213,19 @@ no custom Python code — only DB-stored property mappings for ASN logic.
 
 **PeeringDB OAuth2 Configuration:**
 
-| Parameter | Value |
-|-----------|-------|
-| Authorization URL | `https://auth.peeringdb.com/oauth2/authorize/` |
-| Access Token URL | `https://auth.peeringdb.com/oauth2/token/` |
-| Profile/Userinfo URL | `https://auth.peeringdb.com/oauth2/userinfo/` |
-| OIDC Well-Known URL | `https://auth.peeringdb.com/.well-known/openid-configuration` |
-| JWKS URL | `https://auth.peeringdb.com/oauth2/.well-known/jwks.json` |
-| Scopes | `openid profile email networks` (openid added by OIDC type) |
-| Additional Scopes | `networks` |
-| Client type | Confidential |
-| Grant type | Authorization code |
-| Auth method | `post_body` (`client_secret_post`) |
-| Redirect URI | `https://login.sfmix.org/source/oauth/callback/peeringdb/` |
+| Parameter            | Value                                                         |
+|----------------------|---------------------------------------------------------------|
+| Authorization URL    | `https://auth.peeringdb.com/oauth2/authorize/`                |
+| Access Token URL     | `https://auth.peeringdb.com/oauth2/token/`                    |
+| Profile/Userinfo URL | `https://auth.peeringdb.com/oauth2/userinfo/`                 |
+| OIDC Well-Known URL  | `https://auth.peeringdb.com/.well-known/openid-configuration` |
+| JWKS URL             | `https://auth.peeringdb.com/oauth2/.well-known/jwks.json`     |
+| Scopes               | `openid profile email networks` (openid added by OIDC type)   |
+| Additional Scopes    | `networks`                                                    |
+| Client type          | Confidential                                                  |
+| Grant type           | Authorization code                                            |
+| Auth method          | `post_body` (`client_secret_post`)                            |
+| Redirect URI         | `https://login.sfmix.org/source/oauth/callback/peeringdb/`    |
 
 **PeeringDB profile response** (with `networks` scope):
 ```json
@@ -297,11 +307,11 @@ from the corresponding ASN group on next login. Groups from other sources
 **Future:** Cross-reference ASN groups with SFMIX participant list from NetBox
 to restrict enrollment to actual IX participants.
 
-**Downstream applications for participants (future):**
+**Downstream applications for participants:**
+- IXP Participant Portal (`portal.sfmix.org`) — DONE
 - Per-ASN traffic statistics via a dedicated lightweight app (server-side
   PromQL queries against Prometheus, rendered charts only — no direct
   Grafana/Prometheus access for participants, to prevent query manipulation)
-- Participant portal (LibreIXP or custom)
 - Looking glass (authenticated views)
 
 **Authorization:**
@@ -338,10 +348,10 @@ to restrict enrollment to actual IX participants.
    - Additional scopes: `networks` (OIDC type adds `openid profile email`)
    - OIDC well-known: `https://auth.peeringdb.com/.well-known/openid-configuration`
    - Source promoted to login page identification stage
-   - `group_matching_mode`: `identifier`
+   - `group_matching_mode`: `name_link` (changed from `identifier` — the old value caused `IntegrityError` when PeeringDB and GitHub both tried to create the `IX Administrators` group)
 3. [x] Custom property mappings created for ASN user/group mapping
 4. [x] End-to-end PeeringDB login flow tested and working
-5. [ ] Create OIDC provider(s) for participant-facing applications
+5. [x] OIDC provider created for IXP Participant Portal (`portal.sfmix.org`)
 
 ### Phase 4: Admin SSO — DONE
 
@@ -360,9 +370,21 @@ to restrict enrollment to actual IX participants.
 8. [x] Grafana OIDC provider created, access restricted to IX Administrators
 9. [ ] Create OIDC/SAML providers for remaining admin apps (NetBox, LibreNMS, etc.)
 
+### Phase 5: Infrastructure as Code (Terraform) — DONE
+
+1. [x] Terraform project at `terraform/authentik/` with `goauthentik/authentik` provider
+2. [x] All managed resources defined in HCL (groups, sources, providers, applications, policies, property mappings)
+3. [x] Declarative `import` blocks in `imports.tf` — no persistent state file needed
+4. [x] Stateless workflow: each operator runs `terraform init && terraform apply` from scratch
+5. [x] Secrets passed via `TF_VAR_*` environment variables (never committed)
+6. [x] ASN groups deliberately excluded from Terraform — auto-created by PeeringDB enrollment
+7. [x] README with step-by-step setup guide for new operators
+
 ## Security Considerations
 
 - All secrets (DB password, secret key, SMTP credentials, OAuth client secrets) stored in Ansible Vault
+- Terraform secrets passed via `TF_VAR_*` environment variables — never committed to git
+- Terraform state is ephemeral (gitignored); import blocks handle resource mapping
 - TLS required — no plain HTTP (redirect 80→443)
 - Authentik admin interface restricted to `ixp_admin_source_subnets` via nginx or Authentik policy
 - PeeringDB source: only `verified_user: true` accounts should be allowed to enroll
