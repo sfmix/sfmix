@@ -1,0 +1,26 @@
+services:
+  portal:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY}"
+      DJANGO_DEBUG: "false"
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-portal.sfmix.org}"
+      OIDC_RP_CLIENT_ID: "${OIDC_RP_CLIENT_ID:-portal}"
+      OIDC_RP_CLIENT_SECRET: "${OIDC_RP_CLIENT_SECRET}"
+      OIDC_PROVIDER_URL: "${OIDC_PROVIDER_URL:-https://login.sfmix.org/application/o/portal}"
+      IXP_PARTICIPANTS_URL: "${IXP_PARTICIPANTS_URL:-https://lg.sfmix.org/participants_table.json}"
+      IXP_NETBOX_URL: "${IXP_NETBOX_URL:-https://netbox.sfmix.org}"
+      IXP_NETBOX_TOKEN: "${IXP_NETBOX_TOKEN:-}"
+    volumes:
+      - db:/app/db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/login/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db:

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Sign In – SFMIX Portal{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center mt-20">
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-sm w-full text-center">
+    <h1 class="text-xl font-semibold mb-2">SFMIX Participant Portal</h1>
+    <p class="text-gray-500 text-sm mb-6">Sign in with your PeeringDB or GitHub account via SFMIX SSO.</p>
+    <a href="{% url 'oidc_authentication_init' %}"
+       class="inline-block w-full bg-indigo-600 text-white rounded-md px-4 py-2.5 font-medium hover:bg-indigo-700 transition">
+      Sign in with SFMIX SSO
+    </a>
+    <p class="text-xs text-gray-400 mt-4">Authenticated by <a href="https://login.sfmix.org" class="underline">login.sfmix.org</a></p>
+  </div>
+</div>
+{% endblock %}

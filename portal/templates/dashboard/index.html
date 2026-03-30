@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – SFMIX Portal{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Your Networks</h1>
+
+{% if not participants %}
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
+    <p class="font-medium">No participant networks found.</p>
+    <p class="mt-1">Your account is not associated with any ASNs that are SFMIX participants.
+    If you believe this is an error, contact <a href="mailto:tech-c@sfmix.org" class="underline">tech-c@sfmix.org</a>.</p>
+  </div>
+
+  {% if asns %}
+  <div class="mt-4 text-sm text-gray-500">
+    <p>Your PeeringDB account is associated with these ASNs: <span class="font-mono">{% for a in asns %}AS{{ a }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></p>
+  </div>
+  {% endif %}
+
+{% else %}
+  <div class="grid gap-4">
+    {% for member in participants %}
+    <a href="{% url 'network_detail' member.asnum %}"
+       class="block bg-white border border-gray-200 rounded-lg p-5 hover:border-indigo-300 hover:shadow-sm transition group">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-lg font-semibold text-indigo-700 group-hover:text-indigo-800">AS{{ member.asnum }}</span>
+          <span class="ml-2 text-gray-700">{{ member.name }}</span>
+        </div>
+        <svg class="w-5 h-5 text-gray-400 group-hover:text-indigo-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+      {% if member.connection_list %}
+      <div class="mt-2 text-sm text-gray-500">
+        {{ member.connection_list|length }} connection{{ member.connection_list|length|pluralize }}
+      </div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}AS{{ asn }} – SFMIX Portal{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Back to dashboard</a>
+</div>
+
+<h1 class="text-2xl font-bold mb-1">AS{{ asn }}</h1>
+{% if member.name %}<p class="text-gray-600 mb-6">{{ member.name }}</p>{% endif %}
+
+{% if member.connection_list %}
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3">Connections</h2>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500">
+        <tr>
+          <th class="px-4 py-2 font-medium">VLAN</th>
+          <th class="px-4 py-2 font-medium">IPv4</th>
+          <th class="px-4 py-2 font-medium">IPv6</th>
+          <th class="px-4 py-2 font-medium">Speed</th>
+          <th class="px-4 py-2 font-medium">State</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for conn in member.connection_list %}
+          {% for vlan in conn.vlan_list %}
+          <tr>
+            <td class="px-4 py-2 font-mono text-xs">
+              {% if vlan.vlan_id %}VLAN {{ vlan.vlan_id }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-2 font-mono text-xs">
+              {% if vlan.ipv4 %}{{ vlan.ipv4.address }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-2 font-mono text-xs">
+              {% if vlan.ipv6 %}{{ vlan.ipv6.address }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-2">
+              {% for iface in conn.if_list %}
+                {{ iface.if_speed }}M{% if not forloop.last %}, {% endif %}
+              {% endfor %}
+            </td>
+            <td class="px-4 py-2">
+              {% if conn.state == "active" %}
+                <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Active</span>
+              {% else %}
+                <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ conn.state|default:"Unknown" }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if member.peering_policy %}
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3">Peering</h2>
+  <dl class="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+    <dt class="text-gray-500">Peering Policy</dt>
+    <dd class="font-medium">{{ member.peering_policy }}</dd>
+    {% if member.url %}
+    <dt class="text-gray-500">Website</dt>
+    <dd><a href="{{ member.url }}" class="text-indigo-600 hover:underline" target="_blank">{{ member.url }}</a></dd>
+    {% endif %}
+  </dl>
+</section>
+{% endif %}
+
+{% if netbox_data.results %}
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3">NetBox IP Addresses</h2>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500">
+        <tr>
+          <th class="px-4 py-2 font-medium">Address</th>
+          <th class="px-4 py-2 font-medium">Description</th>
+          <th class="px-4 py-2 font-medium">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for ip in netbox_data.results %}
+        <tr>
+          <td class="px-4 py-2 font-mono text-xs">{{ ip.address }}</td>
+          <td class="px-4 py-2">{{ ip.description|default:"—" }}</td>
+          <td class="px-4 py-2">
+            <span class="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">{{ ip.status.label }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h2 class="text-lg font-semibold mb-3">Quick Links</h2>
+  <div class="flex flex-wrap gap-3 text-sm">
+    <a href="https://lg.sfmix.org/" target="_blank"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
+      Looking Glass
+    </a>
+    <a href="https://www.peeringdb.com/asn/{{ asn }}" target="_blank"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
+      PeeringDB
+    </a>
+    <a href="https://sfmix.org/participants/" target="_blank"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
+      Public Participant List
+    </a>
+  </div>
+</section>
+{% endblock %}

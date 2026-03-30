@@ -1,0 +1,17 @@
+---
+ixp_portal_domain: portal.sfmix.org
+ixp_portal_install_dir: /opt/ixp_portal
+ixp_portal_user: sfmix
+ixp_portal_group: sfmix
+ixp_portal_listen_port: 8000
+
+# OIDC (Authentik)
+ixp_portal_oidc_client_id: portal
+ixp_portal_oidc_provider_url: "https://login.sfmix.org/application/o/portal"
+
+# Data sources
+ixp_portal_participants_url: "https://lg.sfmix.org/participants_table.json"
+ixp_portal_netbox_url: "https://netbox.sfmix.org"
+
+# Certbot
+ixp_portal_certbot_email: "{{ ixp_primary_tech_contact_email }}"

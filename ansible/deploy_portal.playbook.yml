@@ -1,0 +1,7 @@
+---
+- name: "Deploy IXP Participant Portal"
+  hosts: sfmix_website
+  tags:
+    - ixp_portal
+  roles:
+    - ixp_portal
