@@ -24,42 +24,42 @@ All port template names use the `{module}-` prefix, which NetBox expands to the 
 
 **Rear port templates (3):**
 
-| Template Name     | Type | Positions | Color   |
-|-------------------|------|-----------|---------|
-| `{module}-MPO-A`  | MPO  | 12        | Blue    |
-| `{module}-MPO-B`  | MPO  | 12        | Orange  |
-| `{module}-MPO-C`  | MPO  | 12        | Green   |
+| Template Name    | Type | Positions | Color  |
+|------------------|------|-----------|--------|
+| `{module}-MPO-A` | MPO  | 12        | Blue   |
+| `{module}-MPO-B` | MPO  | 12        | Orange |
+| `{module}-MPO-C` | MPO  | 12        | Green  |
 
 **Front port templates (24):**
 
 Each MPO has 4 LC duplex pairs (8 individual LC/UPC fiber ports), for 24 total front ports.
 
-| Template Name     | Rear Port        | Positions |
-|-------------------|------------------|-----------|
-| `{module}-A1-01`  | `{module}-MPO-A` | 1         |
-| `{module}-A1-02`  | `{module}-MPO-A` | 2         |
-| `{module}-A2-03`  | `{module}-MPO-A` | 3         |
-| `{module}-A2-04`  | `{module}-MPO-A` | 4         |
-| `{module}-A3-05`  | `{module}-MPO-A` | 9         |
-| `{module}-A3-06`  | `{module}-MPO-A` | 10        |
-| `{module}-A4-07`  | `{module}-MPO-A` | 11        |
-| `{module}-A4-08`  | `{module}-MPO-A` | 12        |
-| `{module}-B1-09`  | `{module}-MPO-B` | 1         |
-| `{module}-B1-10`  | `{module}-MPO-B` | 2         |
-| `{module}-B2-11`  | `{module}-MPO-B` | 3         |
-| `{module}-B2-12`  | `{module}-MPO-B` | 4         |
-| `{module}-B3-13`  | `{module}-MPO-B` | 9         |
-| `{module}-B3-14`  | `{module}-MPO-B` | 10        |
-| `{module}-B4-15`  | `{module}-MPO-B` | 11        |
-| `{module}-B4-16`  | `{module}-MPO-B` | 12        |
-| `{module}-C1-17`  | `{module}-MPO-C` | 1         |
-| `{module}-C1-18`  | `{module}-MPO-C` | 2         |
-| `{module}-C2-19`  | `{module}-MPO-C` | 3         |
-| `{module}-C2-20`  | `{module}-MPO-C` | 4         |
-| `{module}-C3-21`  | `{module}-MPO-C` | 9         |
-| `{module}-C3-22`  | `{module}-MPO-C` | 10        |
-| `{module}-C4-23`  | `{module}-MPO-C` | 11        |
-| `{module}-C4-24`  | `{module}-MPO-C` | 12        |
+| Template Name    | Rear Port        | Positions |
+|------------------|------------------|-----------|
+| `{module}-A1-01` | `{module}-MPO-A` | 1         |
+| `{module}-A1-02` | `{module}-MPO-A` | 2         |
+| `{module}-A2-03` | `{module}-MPO-A` | 3         |
+| `{module}-A2-04` | `{module}-MPO-A` | 4         |
+| `{module}-A3-05` | `{module}-MPO-A` | 9         |
+| `{module}-A3-06` | `{module}-MPO-A` | 10        |
+| `{module}-A4-07` | `{module}-MPO-A` | 11        |
+| `{module}-A4-08` | `{module}-MPO-A` | 12        |
+| `{module}-B1-09` | `{module}-MPO-B` | 1         |
+| `{module}-B1-10` | `{module}-MPO-B` | 2         |
+| `{module}-B2-11` | `{module}-MPO-B` | 3         |
+| `{module}-B2-12` | `{module}-MPO-B` | 4         |
+| `{module}-B3-13` | `{module}-MPO-B` | 9         |
+| `{module}-B3-14` | `{module}-MPO-B` | 10        |
+| `{module}-B4-15` | `{module}-MPO-B` | 11        |
+| `{module}-B4-16` | `{module}-MPO-B` | 12        |
+| `{module}-C1-17` | `{module}-MPO-C` | 1         |
+| `{module}-C1-18` | `{module}-MPO-C` | 2         |
+| `{module}-C2-19` | `{module}-MPO-C` | 3         |
+| `{module}-C2-20` | `{module}-MPO-C` | 4         |
+| `{module}-C3-21` | `{module}-MPO-C` | 9         |
+| `{module}-C3-22` | `{module}-MPO-C` | 10        |
+| `{module}-C4-23` | `{module}-MPO-C` | 11        |
+| `{module}-C4-24` | `{module}-MPO-C` | 12        |
 
 MPO-8 polarity: fiber pairs map to MPO positions 1-2, 3-4, 9-10, 11-12 (positions 5-8 unused in 8-fiber MPO).
 
