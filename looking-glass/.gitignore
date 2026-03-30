@@ -1,0 +1,10 @@
+# Rust build artifacts
+/target/
+
+# Containerlab runtime state
+test/clab/clab-lg-test/
+
+# TLS/SSL keys
+*.key
+*.pem
+!config/*.yml

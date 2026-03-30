@@ -1,0 +1,14 @@
+---
+name: lg-test
+
+mgmt:
+  network: lg-test-mgmt
+  ipv4-subnet: 172.30.0.0/24
+
+topology:
+  nodes:
+    switch01.sfo02:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      mgmt-ipv4: 172.30.0.2
+      startup-config: switch01.sfo02.cfg

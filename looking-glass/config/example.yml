@@ -1,0 +1,72 @@
+service:
+  name: "SFMIX Looking Glass"
+  operator: "SFMIX"
+  operator_url: "https://sfmix.org"
+  peeringdb_ix_id: 60
+
+site:
+  name: "sfo02"
+  display_name: "200 Paul, San Francisco"
+
+listen:
+  telnet:
+    enabled: true
+    bind: "[::]:2023"
+  # ssh:
+  #   enabled: true
+  #   bind: "[::]:2222"
+  #   host_key: "/etc/looking-glass/ssh_host_ed25519_key"
+  # mcp:
+  #   enabled: true
+  #   bind: "[::]:8080"
+  #   transport: "sse"
+
+# auth:
+#   oidc:
+#     issuer: "https://login.sfmix.org/application/o/looking-glass/"
+#     client_id: "looking-glass"
+#     scopes: ["openid", "profile", "email", "groups"]
+#     group_prefix: "as"
+#     admin_group: "IX Administrators"
+
+devices:
+  - name: "switch01.sfo02.sfmix.org"
+    platform: "arista_eos"
+    host: "switch01.sfo02.sfmix.org"
+    port: 22
+    username: "looking-glass"
+    auth_method: "ssh_key"
+    ssh_key: "/etc/looking-glass/device_key"
+
+  - name: "switch02.fmt01.sfmix.org"
+    platform: "arista_eos"
+    host: "switch02.fmt01.sfmix.org"
+    port: 22
+    username: "looking-glass"
+    auth_method: "ssh_key"
+    ssh_key: "/etc/looking-glass/device_key"
+
+  - name: "cr1.sjc01.transit.sfmix.org"
+    platform: "nokia_sros"
+    host: "cr1.sjc01.transit.sfmix.org"
+    port: 22
+    username: "looking-glass"
+    auth_method: "ssh_key"
+    ssh_key: "/etc/looking-glass/device_key"
+
+rate_limits:
+  global:
+    max_concurrent: 10
+    commands_per_minute: 60
+  per_device:
+    max_concurrent: 2
+    commands_per_minute: 20
+  per_user:
+    commands_per_minute: 10
+
+# participants:
+#   source: "file"
+#   file: "/etc/looking-glass/participants.yml"
+
+# policies:
+#   file: "/etc/looking-glass/policies.yml"
