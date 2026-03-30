@@ -1,5 +1,11 @@
 ---
 ## Authentik
+- name: Install docker-compose plugin
+  become: true
+  ansible.builtin.apt:
+    name: docker-compose
+    state: present
+    update_cache: true
 - name: "Ensure /opt/authentik/custom-templates"
   become: true
   ansible.builtin.file:
@@ -27,7 +33,7 @@
 - name: "Ensure /opt/authentik/media"
   become: true
   ansible.builtin.file:
-    path: "/opt/authentik/redis"
+    path: "/opt/authentik/media"
     state: directory
     owner: 999
     group: 1000
@@ -35,7 +41,7 @@
 - name: "Ensure /opt/authentik/certs"
   become: true
   ansible.builtin.file:
-    path: "/opt/authentik/redis"
+    path: "/opt/authentik/certs"
     state: directory
     owner: 999
     group: 1000
@@ -61,3 +67,112 @@
   community.docker.docker_compose_v2:
     project_src: /opt/authentik
     state: present
+
+## Nginx reverse proxy + TLS
+- name: Install nginx and certbot
+  become: true
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+
+- name: Check if SSL certificate exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ authentik_domain }}/fullchain.pem
+  register: ssl_cert_exists
+
+- name: Place HTTP-only nginx config (for initial cert)
+  become: true
+  ansible.builtin.template:
+    src: authentik-http.conf.j2
+    dest: /etc/nginx/sites-available/authentik.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: not ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Place HTTPS nginx config (when cert exists)
+  become: true
+  ansible.builtin.template:
+    src: authentik-https.conf.j2
+    dest: /etc/nginx/sites-available/authentik.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Enable nginx site
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/authentik.conf
+    dest: /etc/nginx/sites-enabled/authentik.conf
+    state: link
+  notify: Reload nginx
+
+- name: Remove default nginx site
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Allow HTTP port
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+    comment: "Nginx HTTP"
+
+- name: Allow HTTPS port
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+    comment: "Nginx HTTPS"
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start nginx
+  become: true
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Obtain letsencrypt certificate
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --webroot
+      -w /var/www/html
+      --non-interactive
+      --agree-tos
+      --email {{ ixp_primary_tech_contact_email }}
+      --domains {{ authentik_domain }}
+    creates: /etc/letsencrypt/live/{{ authentik_domain }}/fullchain.pem
+
+- name: Place full HTTPS nginx config
+  become: true
+  ansible.builtin.template:
+    src: authentik-https.conf.j2
+    dest: /etc/nginx/sites-available/authentik.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Ensure certbot renewal timer is enabled
+  become: true
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    enabled: true
+    state: started
