@@ -1,0 +1,26 @@
+service:
+  name: "SFMIX Looking Glass (test)"
+
+site:
+  name: "sfo02"
+  display_name: "Test Lab"
+
+listen:
+  telnet:
+    enabled: true
+    bind: "[::]:2023"
+  ssh:
+    enabled: true
+    bind: "[::]:2222"
+    host_key: "test/clab/lg_host_key"
+  mcp:
+    enabled: true
+    bind: "[::]:8080"
+
+devices:
+  - name: "switch01.sfo02.sfmix.org"
+    platform: "arista_eos"
+    host: "172.30.0.2"
+    port: 22
+    username: "admin"
+    auth_method: "password"

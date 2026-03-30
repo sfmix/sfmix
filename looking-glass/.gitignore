@@ -4,7 +4,7 @@
 # Containerlab runtime state
 test/clab/clab-lg-test/
 
-# TLS/SSL keys
+# TLS/SSL and SSH keys
 *.key
 *.pem
-!config/*.yml
+test/clab/lg_host_key
