@@ -9,9 +9,11 @@ ixp_portal_listen_port: 8000
 ixp_portal_oidc_client_id: portal
 ixp_portal_oidc_provider_url: "https://login.sfmix.org/application/o/portal"
 
-# Data sources
-ixp_portal_participants_url: "https://lg.sfmix.org/participants_table.json"
+# Data source (NetBox)
 ixp_portal_netbox_url: "https://netbox.sfmix.org"
+
+# Prometheus metrics — CIDRs allowed to scrape /metrics/
+ixp_portal_prometheus_trusted_networks: "127.0.0.0/8,::1/128"
 
 # Certbot
 ixp_portal_certbot_email: "{{ ixp_primary_tech_contact_email }}"
