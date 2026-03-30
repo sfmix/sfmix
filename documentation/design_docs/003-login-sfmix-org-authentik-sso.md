@@ -115,19 +115,28 @@ are merged onto that user.
 All login stages set to **8 hours**. This limits how long a session persists
 before requiring re-authentication.
 
-#### Group Sync Limitation
+#### Group Sync on Every Login
 
-Group assignments are set during the **enrollment flow** (first login from a
-source). The **authentication flow** (returning user login) does not re-evaluate
-group memberships. This means:
+A `UserWriteStage` (`default-source-authentication-write`) has been added to
+the `default-source-authentication` flow with `user_creation_mode=never_create`.
+This ensures that on every returning login (not just first enrollment):
 
-- If a user is removed from the GitHub `ix-administrators` team, their
-  `IX Administrators` group persists until manually removed in Authentik.
-- If a user loses PeeringDB admin access to AS12276, same applies.
-- The 8-hour session duration limits exposure but does not revoke groups.
+1. The source's user property mapping is re-evaluated against the fresh
+   OAuth token / OIDC claims.
+2. The user's group memberships are updated to match the mapping output.
+3. If a user is removed from the GitHub `ix-administrators` team, they
+   lose `IX Administrators` on next login.
+4. If a user loses PeeringDB admin access to AS12276, same applies.
 
-**TODO:** Add a `UserWriteStage` or `GroupUpdateStage` to the
-`default-source-authentication` flow to re-evaluate groups on every login.
+The `never_create` mode ensures this stage only updates existing users and
+cannot accidentally create new ones during the authentication flow.
+
+**Authentication flow stages:**
+1. `default-source-authentication-write` (UserWriteStage, order=5) — re-evaluate user attributes and groups
+2. `default-source-authentication-login` (UserLoginStage, order=10) — create session
+
+Combined with the 8-hour session duration, group membership is re-evaluated
+at least every 8 hours.
 
 #### Downstream Applications (OIDC Providers)
 
