@@ -82,8 +82,31 @@ they've been removed from the team, the group sync removes them from
 **Session duration:** All login stages set to **8 hours**. This ensures
 admin group membership is re-evaluated at least every 8 hours via re-login.
 
-**Downstream applications (OIDC/SAML providers):**
-- Grafana (`metrics.sfo02.sfmix.org`)
+**Downstream applications (OIDC providers):**
+
+#### Grafana (`grafana.sfmix.org`) — DONE
+
+Authentik OIDC provider with `default-provider-authorization-implicit-consent`
+flow (no user prompt). Grafana uses Generic OAuth with env vars.
+
+| Parameter | Value |
+|-----------|-------|
+| Client ID | `grafana` |
+| Redirect URI | `https://grafana.sfmix.org/login/generic_oauth` |
+| Scopes | `openid profile email` |
+| Auth URL | `https://login.sfmix.org/application/o/authorize/` |
+| Token URL | `https://login.sfmix.org/application/o/token/` |
+| Userinfo URL | `https://login.sfmix.org/application/o/userinfo/` |
+
+**Role mapping** (via `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH`):
+- `authentik Admins` → `GrafanaAdmin`
+- All others → `Viewer` (but see access policy below)
+
+**Access policy:** An Authentik `ExpressionPolicy` bound to the Grafana
+application restricts access to `authentik Admins` members only. Non-admin
+users are denied at the Authentik authorization layer before reaching Grafana.
+
+#### Future downstream apps
 - NetBox (`netbox.sfmix.org`) — has OIDC/SAML support
 - LibreNMS (`librenms.sfmix.org`)
 - Any future admin tools
@@ -260,7 +283,8 @@ to restrict enrollment to actual IX participants.
 3. [x] GitHub team `sfmix/ix-administrators` maps to `authentik Admins` group
 4. [x] Session duration set to 8 hours (forces re-evaluation of group membership)
 5. [x] Both login flows tested end-to-end
-6. [ ] Create OIDC/SAML providers for downstream admin apps (Grafana, NetBox, etc.)
+6. [x] Grafana OIDC provider created, access restricted to authentik Admins
+7. [ ] Create OIDC/SAML providers for remaining admin apps (NetBox, LibreNMS, etc.)
 
 ## Security Considerations
 
