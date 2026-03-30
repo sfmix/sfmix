@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}NetBox Status – SFMIX Portal{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Back to dashboard</a>
+</div>
+
+<h1 class="text-2xl font-bold mb-6">NetBox Data Source Status</h1>
+
+<!-- Health summary -->
+<div class="mb-6 flex items-center gap-3">
+  {% if health.healthy %}
+    <span class="inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
+      <span class="w-2 h-2 bg-green-500 rounded-full"></span> Healthy
+    </span>
+  {% elif health.last_success_time %}
+    <span class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-sm font-medium px-3 py-1 rounded-full">
+      <span class="w-2 h-2 bg-amber-500 rounded-full"></span> Degraded
+    </span>
+  {% else %}
+    <span class="inline-flex items-center gap-1.5 bg-red-100 text-red-800 text-sm font-medium px-3 py-1 rounded-full">
+      <span class="w-2 h-2 bg-red-500 rounded-full"></span> No data
+    </span>
+  {% endif %}
+</div>
+
+<div class="grid gap-6 md:grid-cols-2">
+  <!-- Cache info -->
+  <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <h2 class="text-lg font-semibold mb-3">Cache</h2>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Cache age</dt>
+        <dd class="font-mono">
+          {% if health.cache_age >= 0 %}
+            {{ health.cache_age|floatformat:0 }}s
+          {% else %}
+            <span class="text-gray-400">never refreshed</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Last refresh duration</dt>
+        <dd class="font-mono">{{ health.last_refresh_duration|floatformat:2 }}s</dd>
+      </div>
+      {% for type, count in health.item_counts.items %}
+      <div class="flex justify-between">
+        <dt class="text-gray-500">{{ type }}</dt>
+        <dd class="font-mono">{{ count }}</dd>
+      </div>
+      {% empty %}
+      <div class="text-gray-400 italic">No items cached</div>
+      {% endfor %}
+    </dl>
+  </div>
+
+  <!-- Refresh stats -->
+  <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <h2 class="text-lg font-semibold mb-3">Refresh History</h2>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Total successes</dt>
+        <dd class="font-mono text-green-700">{{ health.total_successes }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Total failures</dt>
+        <dd class="font-mono {% if health.total_failures %}text-red-700{% else %}text-gray-700{% endif %}">{{ health.total_failures }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Consecutive failures</dt>
+        <dd class="font-mono {% if health.consecutive_failures %}text-red-700 font-bold{% endif %}">{{ health.consecutive_failures }}</dd>
+      </div>
+      {% if health.last_error %}
+      <div>
+        <dt class="text-gray-500 mb-1">Last error</dt>
+        <dd class="font-mono text-xs text-red-600 bg-red-50 rounded p-2 break-all">{{ health.last_error }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="mt-6">
+  <form method="post" action="{% url 'netbox_clear_cache' %}">
+    {% csrf_token %}
+    <button type="submit"
+            class="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition"
+            onclick="return confirm('Clear all cached NetBox data and trigger an immediate refresh?')">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+      Clear Cache &amp; Refresh Now
+    </button>
+  </form>
+</div>
+{% endblock %}

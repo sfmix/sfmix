@@ -20,22 +20,17 @@
 {% else %}
   <div class="grid gap-4">
     {% for member in participants %}
-    <a href="{% url 'network_detail' member.asnum %}"
+    <a href="{% url 'network_detail' member.custom_fields.as_number %}"
        class="block bg-white border border-gray-200 rounded-lg p-5 hover:border-indigo-300 hover:shadow-sm transition group">
       <div class="flex items-center justify-between">
         <div>
-          <span class="text-lg font-semibold text-indigo-700 group-hover:text-indigo-800">AS{{ member.asnum }}</span>
-          <span class="ml-2 text-gray-700">{{ member.name }}</span>
+          <span class="text-lg font-semibold text-indigo-700 group-hover:text-indigo-800">AS{{ member.custom_fields.as_number }}</span>
+          <span class="ml-2 text-gray-700">{{ member.description|default:member.name }}</span>
         </div>
         <svg class="w-5 h-5 text-gray-400 group-hover:text-indigo-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
       </div>
-      {% if member.connection_list %}
-      <div class="mt-2 text-sm text-gray-500">
-        {{ member.connection_list|length }} connection{{ member.connection_list|length|pluralize }}
-      </div>
-      {% endif %}
     </a>
     {% endfor %}
   </div>

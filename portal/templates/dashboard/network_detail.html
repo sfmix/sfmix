@@ -7,49 +7,37 @@
 </div>
 
 <h1 class="text-2xl font-bold mb-1">AS{{ asn }}</h1>
-{% if member.name %}<p class="text-gray-600 mb-6">{{ member.name }}</p>{% endif %}
+{% if member.description %}<p class="text-gray-600 mb-6">{{ member.description }}</p>{% endif %}
 
-{% if member.connection_list %}
+{% if peering_ports %}
 <section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Connections</h2>
+  <h2 class="text-lg font-semibold mb-3">Peering Ports</h2>
   <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-left text-gray-500">
         <tr>
-          <th class="px-4 py-2 font-medium">VLAN</th>
-          <th class="px-4 py-2 font-medium">IPv4</th>
-          <th class="px-4 py-2 font-medium">IPv6</th>
+          <th class="px-4 py-2 font-medium">Interface</th>
+          <th class="px-4 py-2 font-medium">Switch</th>
           <th class="px-4 py-2 font-medium">Speed</th>
-          <th class="px-4 py-2 font-medium">State</th>
+          <th class="px-4 py-2 font-medium">Status</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
-        {% for conn in member.connection_list %}
-          {% for vlan in conn.vlan_list %}
-          <tr>
-            <td class="px-4 py-2 font-mono text-xs">
-              {% if vlan.vlan_id %}VLAN {{ vlan.vlan_id }}{% else %}—{% endif %}
-            </td>
-            <td class="px-4 py-2 font-mono text-xs">
-              {% if vlan.ipv4 %}{{ vlan.ipv4.address }}{% else %}—{% endif %}
-            </td>
-            <td class="px-4 py-2 font-mono text-xs">
-              {% if vlan.ipv6 %}{{ vlan.ipv6.address }}{% else %}—{% endif %}
-            </td>
-            <td class="px-4 py-2">
-              {% for iface in conn.if_list %}
-                {{ iface.if_speed }}M{% if not forloop.last %}, {% endif %}
-              {% endfor %}
-            </td>
-            <td class="px-4 py-2">
-              {% if conn.state == "active" %}
-                <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Active</span>
-              {% else %}
-                <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ conn.state|default:"Unknown" }}</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
+        {% for port in peering_ports %}
+        <tr>
+          <td class="px-4 py-2 font-mono text-xs">{{ port.name }}</td>
+          <td class="px-4 py-2">{{ port.device.display|default:"—" }}</td>
+          <td class="px-4 py-2">
+            {% if port.speed %}{{ port.speed|floatformat:"0" }} kbps{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-2">
+            {% if port.enabled %}
+              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Enabled</span>
+            {% else %}
+              <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">Disabled</span>
+            {% endif %}
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -57,39 +45,31 @@
 </section>
 {% endif %}
 
-{% if member.peering_policy %}
+{% if ip_addresses %}
 <section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Peering</h2>
-  <dl class="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-    <dt class="text-gray-500">Peering Policy</dt>
-    <dd class="font-medium">{{ member.peering_policy }}</dd>
-    {% if member.url %}
-    <dt class="text-gray-500">Website</dt>
-    <dd><a href="{{ member.url }}" class="text-indigo-600 hover:underline" target="_blank">{{ member.url }}</a></dd>
-    {% endif %}
-  </dl>
-</section>
-{% endif %}
-
-{% if netbox_data.results %}
-<section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">NetBox IP Addresses</h2>
+  <h2 class="text-lg font-semibold mb-3">IP Addresses</h2>
   <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-left text-gray-500">
         <tr>
           <th class="px-4 py-2 font-medium">Address</th>
-          <th class="px-4 py-2 font-medium">Description</th>
+          <th class="px-4 py-2 font-medium">Family</th>
+          <th class="px-4 py-2 font-medium">MAC Address</th>
           <th class="px-4 py-2 font-medium">Status</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
-        {% for ip in netbox_data.results %}
+        {% for ip in ip_addresses %}
         <tr>
           <td class="px-4 py-2 font-mono text-xs">{{ ip.address }}</td>
-          <td class="px-4 py-2">{{ ip.description|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ ip.family.label }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ ip.custom_fields.participant_mac_address|default:"—" }}</td>
           <td class="px-4 py-2">
-            <span class="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">{{ ip.status.label }}</span>
+            {% if ip.status.value == "active" %}
+              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ ip.status.label }}</span>
+            {% else %}
+              <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ ip.status.label }}</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
