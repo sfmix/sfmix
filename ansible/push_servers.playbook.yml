@@ -266,6 +266,8 @@
 
 - name: Login - authentik
   hosts: login
+  tags:
+    - login
   roles:
     - authentik
 
