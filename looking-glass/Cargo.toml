@@ -1,0 +1,36 @@
+[package]
+name = "looking-glass"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "Multi-purpose IXP looking glass with SSH, Telnet, and MCP interfaces"
+repository = "https://github.com/sfmix/looking-glass"
+readme = "README.md"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+russh = "0.46"
+russh-keys = "0.46"
+async-trait = "0.1"
+dashmap = "6"
+thiserror = "2"
+rmcp = { version = "0.16", features = ["server", "transport-streamable-http-server"] }
+axum = "0.8"
+tokio-util = "0.7"
+schemars = "0.8"
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+codegen-units = 1
+
+[dev-dependencies]
+tempfile = "3"
