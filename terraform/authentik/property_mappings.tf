@@ -33,8 +33,15 @@ is_ix_admin = any(
     for t in teams
 )
 
-groups = []
-if is_ix_admin:
+# Preserve manually-assigned groups not managed by OAuth sources
+try:
+    from authentik.core.models import User
+    existing = User.objects.filter(email=gh_email, is_active=True).first()
+    groups = [g.name for g in existing.groups.all() if g.name in {"authentik Admins"}] if existing else []
+except Exception:
+    groups = []
+
+if is_ix_admin and "IX Administrators" not in groups:
     groups.append("IX Administrators")
 
 return {
@@ -83,7 +90,16 @@ is_ix_admin = any(
     n.get("asn") in sfmix_asns
     for n in networks
 )
-if is_ix_admin:
+# Preserve manually-assigned groups not managed by OAuth sources
+try:
+    from authentik.core.models import User
+    existing = User.objects.filter(email=pdb_email, is_active=True).first()
+    preserved = [g.name for g in existing.groups.all() if g.name in {"authentik Admins"}] if existing else []
+    asn_groups = preserved + asn_groups
+except Exception:
+    pass
+
+if is_ix_admin and "IX Administrators" not in asn_groups:
     asn_groups.append("IX Administrators")
 
 return {
@@ -105,15 +121,7 @@ EOT
 
 resource "authentik_property_mapping_source_oauth" "peeringdb_group" {
   name       = "PeeringDB ASN Group Mapping"
-  expression = <<-EOT
-networks = info.get("networks", [])
-result = []
-for n in networks:
-    asn = n.get("asn")
-    if asn:
-        result.append("as" + str(asn))
-return result
-EOT
+  expression = "return {\"name\": group_id}"
 }
 
 # --- Custom scope mapping for OIDC providers ---
