@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Config {
     pub service: ServiceConfig,
     pub site: SiteConfig,
@@ -20,6 +21,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct ServiceConfig {
     pub name: String,
     #[serde(default)]
@@ -31,6 +33,7 @@ pub struct ServiceConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SiteConfig {
     pub name: String,
     #[serde(default)]
@@ -65,6 +68,7 @@ pub struct SshListenConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct McpListenConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -75,11 +79,13 @@ pub struct McpListenConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct AuthConfig {
     pub oidc: OidcConfig,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct OidcConfig {
     pub issuer: String,
     pub client_id: String,
@@ -103,6 +109,11 @@ pub struct DeviceConfig {
     pub auth_method: DeviceAuthMethod,
     #[serde(default)]
     pub ssh_key: Option<String>,
+    /// Expected SSH host key fingerprint (e.g. "SHA256:abc123...").
+    /// If set, connections to this device will be rejected if the host key
+    /// doesn't match. If unset, all host keys are accepted (TOFU model).
+    #[serde(default)]
+    pub host_key_fingerprint: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +132,7 @@ pub enum DeviceAuthMethod {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RateLimitConfig {
     pub global: RateLimitTier,
     pub per_device: RateLimitTier,
@@ -128,6 +140,7 @@ pub struct RateLimitConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RateLimitTier {
     pub max_concurrent: u32,
     pub commands_per_minute: u32,
@@ -140,6 +153,7 @@ pub struct PerUserRateLimit {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "source", rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum ParticipantsSourceConfig {
     File { file: String },
     Netbox { url: String, token_env: String },
