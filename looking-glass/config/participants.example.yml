@@ -1,0 +1,49 @@
+# =============================================================================
+# Looking Glass — Example Participants File
+# =============================================================================
+#
+# Maps IXP participants (by ASN) to their physical ports and BGP sessions.
+# Used by the policy engine to enforce per-ASN port access control.
+#
+# Port ownership rules:
+#   - Anonymous users can view infrastructure ports but NOT participant ports
+#   - Authenticated users can view their own ports (matched by ASN)
+#   - Administrators (in admin_group) can view all ports
+#   - Ports not listed here are treated as infrastructure (visible to everyone)
+
+participants:
+  - asn: 64500
+    name: "Example Networks"
+    ports:
+      - device: "switch01.sfo02"
+        interface: "Ethernet3/1"
+    sessions:
+      - device: "switch01.sfo02"
+        neighbor: "198.51.100.1"
+        neighbor_v6: "2001:db8:ffff::1"
+
+  - asn: 64501
+    name: "Another Peer Inc."
+    ports:
+      - device: "switch01.sfo02"
+        interface: "Ethernet3/2"
+      - device: "switch02.fmt01"
+        interface: "Ethernet3/5"
+    sessions:
+      - device: "switch01.sfo02"
+        neighbor: "198.51.100.2"
+        neighbor_v6: "2001:db8:ffff::2"
+      - device: "switch02.fmt01"
+        neighbor: "198.51.100.130"
+
+  - asn: 64502
+    name: "Cloud Provider LLC"
+    ports:
+      - device: "switch01.sfo02"
+        interface: "Ethernet3/3"
+      - device: "switch01.sfo02"
+        interface: "Ethernet3/4"      # LAG member or second port
+    sessions:
+      - device: "switch01.sfo02"
+        neighbor: "198.51.100.3"
+        neighbor_v6: "2001:db8:ffff::3"
