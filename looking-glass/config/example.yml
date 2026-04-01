@@ -1,72 +1,134 @@
+# =============================================================================
+# Looking Glass — Example Configuration
+# =============================================================================
+#
+# Copy this file to /etc/looking-glass/config.yml and edit to taste.
+# See README.md for full configuration reference.
+
+# ---------------------------------------------------------------------------
+# Service identity — shown in banners and MCP server info
+# ---------------------------------------------------------------------------
 service:
   name: "SFMIX Looking Glass"
-  operator: "SFMIX"
-  operator_url: "https://sfmix.org"
-  peeringdb_ix_id: 60
+  operator: "SFMIX"                       # optional
+  operator_url: "https://sfmix.org"       # optional
+  peeringdb_ix_id: 60                     # optional, PeeringDB IX ID
 
+# ---------------------------------------------------------------------------
+# Site — identifies which IXP site this instance serves
+# ---------------------------------------------------------------------------
 site:
   name: "sfo02"
-  display_name: "200 Paul, San Francisco"
+  display_name: "200 Paul, San Francisco"  # optional, human-readable
 
+# ---------------------------------------------------------------------------
+# Listen addresses — enable/disable and bind each frontend
+# ---------------------------------------------------------------------------
 listen:
   telnet:
     enabled: true
-    bind: "[::]:2023"
+    bind: "[::]:2023"     # default: [::]:23
+
+  # Uncomment to enable the SSH frontend (requires a host key):
   # ssh:
   #   enabled: true
-  #   bind: "[::]:2222"
+  #   bind: "[::]:2222"   # default: [::]:2222
   #   host_key: "/etc/looking-glass/ssh_host_ed25519_key"
+
+  # Uncomment to enable the MCP frontend:
   # mcp:
   #   enabled: true
-  #   bind: "[::]:8080"
-  #   transport: "sse"
+  #   bind: "[::]:8080"   # default: [::]:8080
+  #   transport: "sse"    # default: "sse"
 
+# ---------------------------------------------------------------------------
+# Authentication — OIDC configuration for SSH cert and MCP header identity
+# ---------------------------------------------------------------------------
+# Required for SSH and authenticated MCP access. If omitted, only Telnet
+# (unauthenticated) and anonymous MCP are available.
+#
 # auth:
 #   oidc:
 #     issuer: "https://login.sfmix.org/application/o/looking-glass/"
 #     client_id: "looking-glass"
 #     scopes: ["openid", "profile", "email", "groups"]
-#     group_prefix: "as"
-#     admin_group: "IX Administrators"
+#     group_prefix: "as"                # default: "as"
+#                                       # Groups matching "{prefix}{asn}" grant ASN ownership.
+#                                       # Example: group "as64500" → owns AS64500.
+#     admin_group: "IX Administrators"  # default: "IX Administrators"
+#                                       # Members of this group have full read-only access.
 
+# ---------------------------------------------------------------------------
+# Network devices — each device is an SSH target for command dispatch
+# ---------------------------------------------------------------------------
 devices:
   - name: "switch01.sfo02.sfmix.org"
-    platform: "arista_eos"
+    platform: arista_eos              # arista_eos | nokia_sros
     host: "switch01.sfo02.sfmix.org"
-    port: 22
+    port: 22                          # default: 22
     username: "looking-glass"
-    auth_method: "ssh_key"
+    auth_method: ssh_key              # default: ssh_key (ssh_key | password)
     ssh_key: "/etc/looking-glass/device_key"
+    # host_key_fingerprint: "SHA256:..."  # optional — pin device SSH host key
+    #                                     # Get with: ssh-keygen -lf <(ssh-keyscan -t ed25519 HOST 2>/dev/null)
+    #                                     # If omitted, all host keys are accepted (TOFU model).
 
   - name: "switch02.fmt01.sfmix.org"
-    platform: "arista_eos"
+    platform: arista_eos
     host: "switch02.fmt01.sfmix.org"
     port: 22
     username: "looking-glass"
-    auth_method: "ssh_key"
+    auth_method: ssh_key
     ssh_key: "/etc/looking-glass/device_key"
 
   - name: "cr1.sjc01.transit.sfmix.org"
-    platform: "nokia_sros"
+    platform: nokia_sros
     host: "cr1.sjc01.transit.sfmix.org"
     port: 22
     username: "looking-glass"
-    auth_method: "ssh_key"
+    auth_method: ssh_key
     ssh_key: "/etc/looking-glass/device_key"
 
+# ---------------------------------------------------------------------------
+# Rate limits — protect network devices from query floods
+# ---------------------------------------------------------------------------
 rate_limits:
   global:
-    max_concurrent: 10
-    commands_per_minute: 60
+    max_concurrent: 10        # max commands in flight across all devices
+    commands_per_minute: 60   # (reserved for future use)
   per_device:
-    max_concurrent: 2
-    commands_per_minute: 20
+    max_concurrent: 2         # max concurrent SSH sessions per device
+    commands_per_minute: 20   # (reserved for future use)
   per_user:
-    commands_per_minute: 10
+    commands_per_minute: 10   # sliding window per user/IP-prefix
+                              # Authenticated users keyed by email.
+                              # Anonymous users keyed by IP prefix (/24 IPv4, /56 IPv6).
 
+# ---------------------------------------------------------------------------
+# Participants — ASN-to-port mapping for per-ASN access control
+# ---------------------------------------------------------------------------
+# Maps ASNs to their physical ports and BGP sessions so the policy engine
+# can enforce port ownership. See config/participants.example.yml.
+#
 # participants:
-#   source: "file"
+#   source: file
 #   file: "/etc/looking-glass/participants.yml"
+#
+# NetBox source (future):
+# participants:
+#   source: netbox
+#   url: "https://netbox.sfmix.org/api"
+#   token_env: "NETBOX_TOKEN"
 
+# ---------------------------------------------------------------------------
+# Policies — command access rules (first-match evaluation)
+# ---------------------------------------------------------------------------
+# If omitted, a sensible default policy is used:
+#   1. Authenticated users: all show/ping/traceroute (port ownership enforced separately)
+#   2. Public users: broad show access, ping, traceroute
+#   3. Default deny
+#
+# See config/policies.example.yml for the custom policy file format.
+#
 # policies:
 #   file: "/etc/looking-glass/policies.yml"

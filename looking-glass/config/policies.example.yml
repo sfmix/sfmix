@@ -1,0 +1,63 @@
+# =============================================================================
+# Looking Glass — Example Policy File
+# =============================================================================
+#
+# First-match evaluation: the first rule whose match criteria fit the
+# caller's identity determines the outcome. If no rule matches, the
+# command is denied.
+#
+# Each rule has:
+#   name:   Human-readable identifier (used in logs and deny messages)
+#   match:  Optional criteria — if omitted, matches everything
+#     authenticated: true|false  — match on authentication state
+#     groups: [list]             — user must be in at least one group
+#   allow:  List of command patterns (trailing * wildcard supported)
+#   deny:   If true, matching requests are denied (no allow list needed)
+#
+# Port ownership is enforced separately by the policy engine regardless
+# of these rules. Even if "show interface *" is allowed, an anonymous
+# user cannot query a participant port.
+
+policies:
+  # Administrators get full access
+  - name: "admin-full-access"
+    match:
+      groups: ["IX Administrators"]
+    allow:
+      - "show *"
+      - "ping *"
+      - "traceroute *"
+
+  # Authenticated participants get all commands
+  # (port ownership is enforced separately — they can only see their own ports)
+  - name: "authenticated-participants"
+    match:
+      authenticated: true
+    allow:
+      - "show *"
+      - "ping *"
+      - "traceroute *"
+
+  # Public/anonymous users get a curated read-only command set
+  - name: "public-read-only"
+    match:
+      authenticated: false
+    allow:
+      - "show interfaces status"
+      - "show interface *"
+      - "show optics"
+      - "show optics *"
+      - "show ip bgp summary"
+      - "show bgp *"
+      - "show lldp neighbors"
+      - "show arp"
+      - "show ipv6 neighbors"
+      - "show mac address-table"
+      - "show vxlan vtep"
+      - "show participants"
+      - "ping *"
+      - "traceroute *"
+
+  # Catch-all deny — anything not matched above is rejected
+  - name: "default-deny"
+    deny: true
