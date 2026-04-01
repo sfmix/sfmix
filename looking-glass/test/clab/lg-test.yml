@@ -1,9 +1,10 @@
 service:
   name: "SFMIX Looking Glass (test)"
+  operator: "SFMIX"
 
 site:
-  name: "sfo02"
-  display_name: "Test Lab"
+  name: "lab"
+  display_name: "Containerlab Test"
 
 listen:
   telnet:
@@ -18,9 +19,30 @@ listen:
     bind: "[::]:8080"
 
 devices:
-  - name: "switch01.sfo02.sfmix.org"
+  - name: "switch01.sfo01"
     platform: "arista_eos"
     host: "172.30.0.2"
     port: 22
     username: "admin"
     auth_method: "password"
+
+  - name: "switch01.sfo02"
+    platform: "arista_eos"
+    host: "172.30.0.3"
+    port: 22
+    username: "admin"
+    auth_method: "password"
+
+rate_limits:
+  global:
+    max_concurrent: 10
+    commands_per_minute: 60
+  per_device:
+    max_concurrent: 2
+    commands_per_minute: 20
+  per_user:
+    commands_per_minute: 30
+
+participants:
+  source: "file"
+  file: "test/clab/participants.yml"

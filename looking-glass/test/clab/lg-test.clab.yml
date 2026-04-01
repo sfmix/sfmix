@@ -7,8 +7,43 @@ mgmt:
 
 topology:
   nodes:
-    switch01.sfo02:
+    # --- IXP switches (what the looking glass queries) ---
+    switch01.sfo01:
       kind: arista_ceos
       image: arista_eos:4.32.4.1M
       mgmt-ipv4: 172.30.0.2
+      startup-config: switch01.sfo01.cfg
+      binds:
+        - port_map.json:/mnt/flash/EosIntfMapping.json:ro
+
+    switch01.sfo02:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      mgmt-ipv4: 172.30.0.3
       startup-config: switch01.sfo02.cfg
+      binds:
+        - port_map.json:/mnt/flash/EosIntfMapping.json:ro
+
+    # --- Participant routers (generate interesting state) ---
+    mapple:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      mgmt-ipv4: 172.30.0.10
+      startup-config: mapple.cfg
+      binds:
+        - port_map.json:/mnt/flash/EosIntfMapping.json:ro
+
+    starfleet:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      mgmt-ipv4: 172.30.0.11
+      startup-config: starfleet.cfg
+      binds:
+        - port_map.json:/mnt/flash/EosIntfMapping.json:ro
+
+  links:
+    # Transport link between IXP sites
+    - endpoints: ["switch01.sfo01:eth1", "switch01.sfo02:eth1"]
+    # Participant ports
+    - endpoints: ["switch01.sfo01:eth2", "mapple:eth1"]
+    - endpoints: ["switch01.sfo02:eth2", "starfleet:eth1"]
