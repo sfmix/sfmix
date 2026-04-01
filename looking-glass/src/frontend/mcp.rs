@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+use axum::extract::Request;
+use axum::middleware::{self, Next};
+use axum::response::Response;
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::router::tool::ToolRouter,
@@ -14,12 +17,73 @@ use rmcp::{
     },
 };
 use serde_json::json;
-use tracing::info;
+use tracing::{info, debug};
 
 use crate::command::{AddressFamily, Command, Resource, Verb};
 use crate::frontend::telnet::TelnetState;
 use crate::identity::Identity;
 use crate::policy::PolicyDecision;
+
+tokio::task_local! {
+    /// Per-request identity extracted from reverse-proxy auth headers.
+    static CURRENT_IDENTITY: Identity;
+    /// Per-request rate-limit key (email for authenticated, IP prefix for anonymous).
+    static CURRENT_RATE_KEY: String;
+}
+
+/// Extract identity and rate-limit key from reverse-proxy headers.
+///
+/// Expects the reverse proxy (nginx + Authentik) to set:
+/// - `X-Forwarded-Email`: authenticated user's email
+/// - `X-Forwarded-Groups`: comma-separated group memberships
+/// - `X-Forwarded-For`: client IP (for anonymous rate limiting by /24 or /56)
+async fn auth_middleware(
+    request: Request,
+    next: Next,
+    group_prefix: String,
+) -> Response {
+    let email = request
+        .headers()
+        .get("X-Forwarded-Email")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let groups: Vec<String> = request
+        .headers()
+        .get("X-Forwarded-Groups")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').map(|g| g.trim().to_string()).filter(|g| !g.is_empty()).collect())
+        .unwrap_or_default();
+
+    // For anonymous rate limiting, extract client IP from X-Forwarded-For
+    let forwarded_ip: Option<std::net::IpAddr> = request
+        .headers()
+        .get("X-Forwarded-For")
+        .and_then(|v| v.to_str().ok())
+        // X-Forwarded-For can be "client, proxy1, proxy2" — take the first
+        .and_then(|s| s.split(',').next())
+        .and_then(|s| s.trim().parse().ok());
+
+    let (identity, rate_key) = match email {
+        Some(ref email) => {
+            debug!(email = %email, groups = ?groups, "MCP request with authenticated identity");
+            let rate_key = email.clone();
+            let identity = Identity::from_oidc_claims(email.clone(), groups, &group_prefix);
+            (identity, rate_key)
+        }
+        None => {
+            let rate_key = forwarded_ip
+                .map(crate::ratelimit::ip_to_rate_key)
+                .unwrap_or_else(|| "anonymous".to_string());
+            debug!(rate_key = %rate_key, "MCP request anonymous");
+            (Identity::anonymous(), rate_key)
+        }
+    };
+
+    CURRENT_IDENTITY.scope(identity, async {
+        CURRENT_RATE_KEY.scope(rate_key, next.run(request)).await
+    }).await
+}
 
 /// MCP (Model Context Protocol) frontend server.
 ///
@@ -39,19 +103,31 @@ impl McpFrontend {
         let state = self.state.clone();
         let ct = tokio_util::sync::CancellationToken::new();
 
-        let config = StreamableHttpServerConfig {
-            cancellation_token: ct.child_token(),
-            stateful_mode: false,
-            ..Default::default()
-        };
+        let config = StreamableHttpServerConfig::default()
+            .with_stateful_mode(false)
+            .with_cancellation_token(ct.child_token());
 
         let service = StreamableHttpService::new(
-            move || Ok(LookingGlassMcp::new(state.clone())),
+            move || {
+                // Read identity and rate key from task-locals set by auth middleware
+                let identity = CURRENT_IDENTITY
+                    .try_with(|id| id.clone())
+                    .unwrap_or_else(|_| Identity::anonymous());
+                let rate_key = CURRENT_RATE_KEY
+                    .try_with(|k| k.clone())
+                    .unwrap_or_else(|_| "anonymous".to_string());
+                Ok(LookingGlassMcp::new(state.clone(), identity, rate_key))
+            },
             LocalSessionManager::default().into(),
             config,
         );
 
-        let router = axum::Router::new().nest_service("/mcp", service);
+        let group_prefix = self.state.group_prefix.clone();
+        let router = axum::Router::new()
+            .nest_service("/mcp", service)
+            .layer(middleware::from_fn(move |req, next| {
+                auth_middleware(req, next, group_prefix.clone())
+            }));
         let listener = tokio::net::TcpListener::bind(&self.bind_addr).await?;
         info!("MCP server listening on {}", self.bind_addr);
 
@@ -95,31 +171,33 @@ struct DestinationParams {
 #[derive(Clone)]
 struct LookingGlassMcp {
     state: Arc<TelnetState>,
+    identity: Identity,
+    rate_key: String,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl LookingGlassMcp {
-    fn new(state: Arc<TelnetState>) -> Self {
+    fn new(state: Arc<TelnetState>, identity: Identity, rate_key: String) -> Self {
         Self {
             state,
+            identity,
+            rate_key,
             tool_router: Self::tool_router(),
         }
     }
 
     /// Execute a parsed command through the policy engine, rate limiter, and device pool.
     async fn execute_command(&self, command: &Command) -> Result<String, McpError> {
-        let identity = Identity::anonymous();
-
         if let PolicyDecision::Deny { reason } =
-            self.state.policy.evaluate(command, &identity, &self.state.participants)
+            self.state.policy.evaluate(command, &self.identity, &self.state.participants)
         {
             return Err(McpError::invalid_request(reason, None));
         }
 
         self.state
             .rate_limiter
-            .acquire("global", "mcp")
+            .acquire(&self.rate_key)
             .await
             .map_err(|e| McpError::invalid_request(format!("rate limited: {e}"), None))?;
 
@@ -257,29 +335,23 @@ impl LookingGlassMcp {
 #[tool_handler]
 impl ServerHandler for LookingGlassMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::default(),
-            capabilities: ServerCapabilities::builder()
+        ServerInfo::new(
+            ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()
                 .build(),
-            server_info: Implementation {
-                name: "sfmix-looking-glass".to_string(),
-                title: None,
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                description: Some("SFMIX IXP Looking Glass".to_string()),
-                icons: None,
-                website_url: None,
-            },
-            instructions: Some(
-                "SFMIX Looking Glass — query IXP switch and router state. \
-                 Available tools: show_interfaces_status, show_interface_detail, \
-                 show_optics, show_optics_detail, show_bgp_summary, \
-                 show_lldp_neighbors, show_arp_table, show_nd_table, \
-                 show_participants, ping, traceroute."
-                    .to_string(),
-            ),
-        }
+        )
+        .with_server_info(
+            Implementation::new("sfmix-looking-glass", env!("CARGO_PKG_VERSION"))
+                .with_description("SFMIX IXP Looking Glass"),
+        )
+        .with_instructions(
+            "SFMIX Looking Glass — query IXP switch and router state. \
+             Available tools: show_interfaces_status, show_interface_detail, \
+             show_optics, show_optics_detail, show_bgp_summary, \
+             show_lldp_neighbors, show_arp_table, show_nd_table, \
+             show_participants, ping, traceroute.",
+        )
     }
 
     async fn list_resources(
@@ -304,12 +376,10 @@ impl ServerHandler for LookingGlassMcp {
         _: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         match request.uri.as_str() {
-            "ixp://participants" => Ok(ReadResourceResult {
-                contents: vec![ResourceContents::text(
-                    self.format_participants(),
-                    request.uri,
-                )],
-            }),
+            "ixp://participants" => Ok(ReadResourceResult::new(vec![ResourceContents::text(
+                self.format_participants(),
+                request.uri,
+            )])),
             _ => Err(McpError::resource_not_found(
                 "resource_not_found",
                 Some(json!({ "uri": request.uri })),
