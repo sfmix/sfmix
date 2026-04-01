@@ -6,6 +6,7 @@ use clap::Parser;
 use tracing::info;
 
 mod command;
+mod completion;
 mod config;
 mod identity;
 mod participants;
@@ -80,24 +81,29 @@ async fn main() -> Result<()> {
 
     // Initialize rate limiter
     let rl_config = config.rate_limits.as_ref();
+    let per_device_concurrent = rl_config.map(|r| r.per_device.max_concurrent).unwrap_or(2);
     let rate_limiter = RateLimiter::new(
         rl_config.map(|r| r.global.max_concurrent).unwrap_or(10),
-        rl_config.map(|r| r.per_device.max_concurrent).unwrap_or(2),
-        rl_config.map(|r| r.per_device.commands_per_minute).unwrap_or(20),
         rl_config.map(|r| r.per_user.commands_per_minute).unwrap_or(10),
     );
 
     // Initialize device backend pool
-    let device_pool = DevicePool::new(config.devices);
+    let device_pool = DevicePool::new(config.devices, per_device_concurrent);
     info!("Configured devices: {:?}", device_pool.device_names());
 
     // Build shared state
+    let group_prefix = config
+        .auth
+        .as_ref()
+        .map(|a| a.oidc.group_prefix.clone())
+        .unwrap_or_else(|| "as".to_string());
     let telnet_state = Arc::new(TelnetState {
         service_name: config.service.name.clone(),
         policy,
         rate_limiter,
         participants,
         device_pool,
+        group_prefix,
     });
 
     // Start telnet server
