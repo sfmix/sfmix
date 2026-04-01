@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 /// Represents the identity of a looking glass user.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Identity {
     /// Whether the user is authenticated
     pub authenticated: bool,
@@ -13,6 +14,7 @@ pub struct Identity {
     pub groups: HashSet<String>,
 }
 
+#[allow(dead_code)]
 impl Identity {
     /// Anonymous/unauthenticated identity.
     pub fn anonymous() -> Self {

@@ -54,6 +54,7 @@ impl PolicyEngine {
         })
     }
 
+    #[allow(dead_code)]
     pub fn with_admin_group(mut self, group: &str) -> Self {
         self.admin_group = group.to_string();
         self

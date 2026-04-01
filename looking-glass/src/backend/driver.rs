@@ -10,6 +10,7 @@ use crate::config::Platform;
 /// native CLI syntax, executes them over an SSH session, and returns the
 /// raw text output.
 #[async_trait]
+#[allow(dead_code)]
 pub trait DeviceDriver: Send + Sync {
     /// The platform this driver handles.
     fn platform(&self) -> Platform;

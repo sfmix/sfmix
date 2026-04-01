@@ -5,9 +5,8 @@ use anyhow::{Context, Result};
 use russh::client;
 use russh::client::KeyboardInteractiveAuthResponse;
 use russh::{ChannelMsg, Disconnect};
-use russh::keys::key;
 use tokio::time::timeout;
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 use crate::config::{DeviceAuthMethod, DeviceConfig};
 
@@ -20,22 +19,44 @@ const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 /// A thin wrapper around a russh SSH session that can execute a single
 /// CLI command and return the collected output.
 ///
-/// For Phase 1, sessions are ephemeral: connect → exec → collect → disconnect.
+/// Sessions are ephemeral: connect → exec → collect → disconnect.
 /// A future version may pool persistent sessions.
 
-struct ClientHandler;
+struct ClientHandler {
+    /// If set, the server's host key SHA-256 fingerprint (as "SHA256:base64...")
+    /// must match this value. Obtained via `ssh-keygen -lf /path/to/key`.
+    expected_fingerprint: Option<String>,
+}
 
-#[async_trait::async_trait]
 impl client::Handler for ClientHandler {
     type Error = anyhow::Error;
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &key::PublicKey,
+        server_public_key: &russh::keys::PublicKey,
     ) -> Result<bool, Self::Error> {
-        // Accept all host keys for now.
-        // TODO: verify against known_hosts or configured fingerprint.
-        Ok(true)
+        match &self.expected_fingerprint {
+            Some(expected) => {
+                // Compute SHA-256 fingerprint; Display impl gives "SHA256:base64..."
+                let actual = server_public_key
+                    .fingerprint(russh::keys::HashAlg::Sha256)
+                    .to_string();
+                if actual == *expected {
+                    Ok(true)
+                } else {
+                    warn!(
+                        expected = expected,
+                        actual = actual,
+                        "SSH host key fingerprint mismatch"
+                    );
+                    Ok(false)
+                }
+            }
+            None => {
+                // No fingerprint configured — accept all (TOFU model)
+                Ok(true)
+            }
+        }
     }
 }
 
@@ -59,7 +80,13 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
     // Connect
     let mut session = timeout(
         CONNECT_TIMEOUT,
-        client::connect(Arc::new(russh_config), (config.host.as_str(), config.port), ClientHandler),
+        client::connect(
+            Arc::new(russh_config),
+            (config.host.as_str(), config.port),
+            ClientHandler {
+                expected_fingerprint: config.host_key_fingerprint.clone(),
+            },
+        ),
     )
     .await
     .context("SSH connect timed out")?
@@ -72,12 +99,17 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
                 .ssh_key
                 .as_deref()
                 .unwrap_or("/etc/looking-glass/device_key");
-            let key = russh_keys::load_secret_key(key_path, None)
+            let key = russh::keys::load_secret_key(key_path, None)
                 .map_err(|e| anyhow::anyhow!("failed to load SSH key {key_path}: {e}"))?;
+            let key_with_hash = russh::keys::PrivateKeyWithHashAlg::new(
+                Arc::new(key),
+                None,
+            );
             session
-                .authenticate_publickey(&config.username, Arc::new(key))
+                .authenticate_publickey(&config.username, key_with_hash)
                 .await
                 .context("SSH public key auth failed")?
+                .success()
         }
         DeviceAuthMethod::Password => {
             let password = std::env::var("LG_DEVICE_PASSWORD")
@@ -93,12 +125,13 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
 
             match ki_result {
                 KeyboardInteractiveAuthResponse::Success => true,
-                KeyboardInteractiveAuthResponse::Failure => {
+                KeyboardInteractiveAuthResponse::Failure { .. } => {
                     debug!(device = config.name, "keyboard-interactive rejected, trying password");
                     session
                         .authenticate_password(&config.username, &password)
                         .await
                         .context("SSH password auth failed")?
+                        .success()
                 }
                 KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } => {
                     let responses: Vec<String> = prompts.iter().map(|_| password.clone()).collect();

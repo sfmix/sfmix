@@ -5,6 +5,7 @@ use std::path::Path;
 
 /// A participant's port on a specific device.
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ParticipantPort {
     pub device: String,
     pub interface: String,
@@ -12,6 +13,7 @@ pub struct ParticipantPort {
 
 /// A participant's BGP session.
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ParticipantSession {
     pub device: String,
     #[serde(default)]
@@ -22,6 +24,7 @@ pub struct ParticipantSession {
 
 /// A single participant entry.
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct Participant {
     pub asn: u32,
     pub name: String,
@@ -43,6 +46,7 @@ pub struct ParticipantMap {
     by_asn: HashMap<u32, Participant>,
 }
 
+#[allow(dead_code)]
 impl ParticipantMap {
     pub fn load_from_file(path: &Path) -> Result<Self> {
         let contents = std::fs::read_to_string(path)?;
