@@ -1,0 +1,18 @@
+participants:
+  - asn: 64496
+    name: "Mapple"
+    ports:
+      - device: "switch01.sfo01"
+        interface: "Ethernet2"
+    sessions:
+      - device: "switch01.sfo01"
+        neighbor: "10.255.0.10"
+
+  - asn: 64497
+    name: "Starfleet"
+    ports:
+      - device: "switch01.sfo02"
+        interface: "Ethernet2"
+    sessions:
+      - device: "switch01.sfo02"
+        neighbor: "10.255.0.11"
