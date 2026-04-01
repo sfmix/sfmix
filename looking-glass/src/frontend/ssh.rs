@@ -2,16 +2,15 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use russh::server::{self, Auth, Msg, Server as _, Session};
-use russh::{Channel, ChannelId, CryptoVec};
-use russh::keys::key;
+use russh::{Channel, ChannelId, CryptoVec, MethodKind};
+use russh::keys::{Certificate, PublicKey};
 use tokio::net::TcpListener;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::command::{parse_command, ParseError, Resource};
 use crate::identity::Identity;
 use crate::policy::PolicyDecision;
-use crate::participants::ParticipantMap;
-use crate::frontend::telnet::TelnetState;
+use crate::frontend::telnet::{TelnetState, HELP_TEXT, format_participants};
 
 /// SSH frontend server.
 ///
@@ -27,11 +26,15 @@ pub struct SshFrontend {
 
 impl SshFrontend {
     pub fn new(bind_addr: String, host_key_path: &str, state: Arc<TelnetState>) -> Result<Self> {
-        let key = russh_keys::load_secret_key(host_key_path, None)
+        let key = russh::keys::load_secret_key(host_key_path, None)
             .map_err(|e| anyhow::anyhow!("failed to load SSH host key {host_key_path}: {e}"))?;
 
+        let mut methods = russh::MethodSet::empty();
+        methods.push(MethodKind::PublicKey);
+        methods.push(MethodKind::KeyboardInteractive);
+
         let config = server::Config {
-            methods: russh::MethodSet::PUBLICKEY | russh::MethodSet::KEYBOARD_INTERACTIVE,
+            methods,
             keys: vec![key],
             inactivity_timeout: Some(std::time::Duration::from_secs(600)),
             auth_rejection_time: std::time::Duration::from_secs(1),
@@ -77,24 +80,6 @@ impl server::Server for SshServerImpl {
     }
 }
 
-const SSH_HELP_TEXT: &str = "\
-Available commands:
-  show interfaces status          Interface summary (name, status, speed)
-  show interface <port>           Detailed interface counters
-  show optics                     Transceiver DOM levels (all ports)
-  show optics <port>              Detailed DOM for a specific port
-  show ip bgp summary             BGP IPv4 peer summary
-  show bgp ipv6 unicast summary   BGP IPv6 peer summary
-  show lldp neighbors              LLDP neighbor table
-  show arp                         ARP table
-  show ipv6 neighbors              IPv6 neighbor table
-  show participants                IXP participant list
-  ping <destination>               Ping from the looking glass host
-  traceroute <destination>         Traceroute from the looking glass host
-  help                             Show this help
-  quit / exit                      Disconnect
-";
-
 /// Per-client session handler.
 struct SshSessionHandler {
     state: Arc<TelnetState>,
@@ -105,23 +90,39 @@ struct SshSessionHandler {
 }
 
 impl SshSessionHandler {
-    /// Extract identity from an SSH public key.
+    /// Extract identity from an SSH public key (plain key auth).
+    fn extract_identity_from_key(&self, _public_key: &PublicKey) -> Identity {
+        // Plain public key auth — no OIDC claims available.
+        Identity::anonymous()
+    }
+
+    /// Extract identity from an SSH certificate.
     ///
     /// For opkssh certificates, the OIDC claims (email, groups) are embedded
-    /// in certificate extensions. For now, we accept all keys as anonymous.
-    /// TODO: Parse opkssh certificate extensions for real OIDC identity.
-    fn extract_identity(&self, _public_key: &key::PublicKey) -> Identity {
-        // TODO: When opkssh integration is complete, extract claims from
-        // certificate critical options / extensions:
+    /// in certificate extensions.
+    fn extract_identity_from_cert(&self, certificate: &Certificate) -> Identity {
+        // opkssh embeds OIDC claims in certificate extensions:
         //   - "email" → identity email
         //   - "groups" → comma-separated group list including "as{ASN}"
-        // For now, treat SSH users as authenticated but without ASN claims.
-        Identity::anonymous()
+        let extensions = certificate.extensions();
+        let email = extensions.get("email").map(|s| s.to_string());
+        let groups: Vec<String> = extensions
+            .get("groups")
+            .map(|s| s.split(',').map(|g| g.trim().to_string()).collect())
+            .unwrap_or_default();
+
+        if let Some(ref email) = email {
+            info!(email, groups = ?groups, "extracted OIDC identity from SSH certificate");
+            Identity::from_oidc_claims(email.clone(), groups, &self.state.group_prefix)
+        } else {
+            warn!("SSH certificate has no email extension, treating as anonymous");
+            Identity::anonymous()
+        }
     }
 
     async fn write_data(&self, session: &mut Session, data: &[u8]) {
         if let Some(ch) = self.channel_id {
-            session.data(ch, CryptoVec::from_slice(data));
+            let _ = session.data(ch, CryptoVec::from_slice(data));
         }
     }
 
@@ -137,7 +138,7 @@ impl SshSessionHandler {
         if line.eq_ignore_ascii_case("quit") || line.eq_ignore_ascii_case("exit") {
             self.write_data(session, b"Goodbye.\r\n").await;
             if let Some(ch) = self.channel_id {
-                session.close(ch);
+                let _ = session.close(ch);
             }
             return;
         }
@@ -157,7 +158,7 @@ impl SshSessionHandler {
 
         // Handle help locally
         if command.resource == Resource::Help {
-            let mut out = SSH_HELP_TEXT.to_string();
+            let mut out = HELP_TEXT.to_string();
             out.push_str("> ");
             self.write_data(session, out.as_bytes()).await;
             return;
@@ -182,11 +183,15 @@ impl SshSessionHandler {
             }
         }
 
-        // Rate limit
-        let user_key = self.peer_addr
-            .map(|a| a.ip().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
-        let _guard = match self.state.rate_limiter.acquire("global", &user_key).await {
+        // Rate limit — authenticated users keyed by email, anonymous by IP prefix
+        let user_key = if self.identity.authenticated {
+            self.identity.email.clone().unwrap_or_else(|| "unknown".to_string())
+        } else {
+            self.peer_addr
+                .map(|a| crate::ratelimit::ip_to_rate_key(a.ip()))
+                .unwrap_or_else(|| "unknown".to_string())
+        };
+        let _guard = match self.state.rate_limiter.acquire(&user_key).await {
             Ok(guard) => guard,
             Err(e) => {
                 let msg = format!("Rate limited: {e}\r\n> ");
@@ -211,14 +216,13 @@ impl SshSessionHandler {
     }
 }
 
-#[async_trait::async_trait]
 impl server::Handler for SshSessionHandler {
     type Error = anyhow::Error;
 
     async fn auth_publickey_offered(
         &mut self,
         _user: &str,
-        _public_key: &key::PublicKey,
+        _public_key: &PublicKey,
     ) -> Result<Auth, Self::Error> {
         // Accept all offered keys (signature will be verified by russh)
         Ok(Auth::Accept)
@@ -227,22 +231,35 @@ impl server::Handler for SshSessionHandler {
     async fn auth_publickey(
         &mut self,
         user: &str,
-        public_key: &key::PublicKey,
+        public_key: &PublicKey,
     ) -> Result<Auth, Self::Error> {
         debug!(user, "SSH public key auth accepted");
-        self.identity = self.extract_identity(public_key);
+        self.identity = self.extract_identity_from_key(public_key);
         Ok(Auth::Accept)
     }
 
-    async fn auth_keyboard_interactive(
+    async fn auth_openssh_certificate(
         &mut self,
+        user: &str,
+        certificate: &Certificate,
+    ) -> Result<Auth, Self::Error> {
+        debug!(user, "SSH certificate auth accepted");
+        self.identity = self.extract_identity_from_cert(certificate);
+        Ok(Auth::Accept)
+    }
+
+    async fn auth_keyboard_interactive<'a>(
+        &'a mut self,
         _user: &str,
         _submethods: &str,
-        _response: Option<server::Response<'async_trait>>,
+        _response: Option<server::Response<'a>>,
     ) -> Result<Auth, Self::Error> {
-        // Reject keyboard-interactive for now — we want pubkey (opkssh) auth
+        // Reject keyboard-interactive — we want pubkey (opkssh) auth
+        let mut methods = russh::MethodSet::empty();
+        methods.push(MethodKind::PublicKey);
         Ok(Auth::Reject {
-            proceed_with_methods: Some(russh::MethodSet::PUBLICKEY),
+            proceed_with_methods: Some(methods),
+            partial_success: false,
         })
     }
 
@@ -286,7 +303,7 @@ impl server::Handler for SshSessionHandler {
         self.process_line(session).await;
 
         // Close channel after exec
-        session.close(channel);
+        let _ = session.close(channel);
         Ok(())
     }
 
@@ -321,7 +338,7 @@ impl server::Handler for SshSessionHandler {
                     // Ctrl-D: disconnect
                     self.write_data(session, b"\r\nGoodbye.\r\n").await;
                     if let Some(ch) = self.channel_id {
-                        session.close(ch);
+                        let _ = session.close(ch);
                     }
                 }
                 b if b >= 0x20 => {
@@ -357,7 +374,7 @@ impl server::Handler for SshSessionHandler {
         session: &mut Session,
     ) -> Result<(), Self::Error> {
         debug!("SSH channel EOF");
-        session.close(channel);
+        let _ = session.close(channel);
         Ok(())
     }
 
@@ -369,16 +386,4 @@ impl server::Handler for SshSessionHandler {
         info!("SSH session ended for {:?}", self.peer_addr);
         Ok(())
     }
-}
-
-fn format_participants(participants: &ParticipantMap) -> String {
-    let mut output = String::new();
-    output.push_str("ASN      | Name\r\n");
-    output.push_str("---------+-------------------------------\r\n");
-    let mut entries: Vec<_> = participants.all().collect();
-    entries.sort_by_key(|p| p.asn);
-    for p in entries {
-        output.push_str(&format!("AS{:<6} | {}\r\n", p.asn, p.name));
-    }
-    output
 }
