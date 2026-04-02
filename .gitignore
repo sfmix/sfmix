@@ -8,12 +8,16 @@ sensors/secrets.yaml
 .claude/
 .continue/
 .vscode/
+.windsurf/
 .mypy_cache/
 
 # Ansible runtime
 ansible/.vagrant/
 ansible/collections/
 ansible/inventory.json
+
+# Terraform
+terraform/authentik/tfplan
 
 # Hugo (website/)
 website/public/
