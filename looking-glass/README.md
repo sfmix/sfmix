@@ -66,7 +66,10 @@ Default ports: telnet `:23`, SSH `:2222`, MCP `:8080`.
 |------|---------|
 | `src/main.rs` | Entry point, config loading, server startup |
 | `src/config.rs` | YAML config deserialization |
-| `src/command.rs` | Structured command types and parser |
+| `src/command.rs` | Structured command types (`Command`, `Verb`, `Resource`, `ParseError`) |
+| `src/grammar.rs` | Declarative grammar engine — parses commands and generates completions from `grammar.yml` |
+| `config/grammar.yml` | CLI command tree definition (keywords, help text, command templates) |
+| `build.rs` | Compile-time validation of `grammar.yml` |
 | `src/identity.rs` | User identity (anonymous, authenticated, admin) |
 | `src/policy.rs` | Policy engine (rules, port ownership, evaluation) |
 | `src/ratelimit.rs` | Rate limiter (global semaphore, per-user sliding window, IP prefix grouping) |
@@ -79,6 +82,119 @@ Default ports: telnet `:23`, SSH `:2222`, MCP `:8080`.
 | `src/backend/arista_eos.rs` | Arista EOS CLI translation |
 | `src/backend/nokia_sros.rs` | Nokia SR-OS CLI translation |
 | `src/backend/ssh.rs` | SSH client for device connections (with host key verification) |
+
+## Adding a New Command
+
+The CLI command tree is defined declaratively in `config/grammar.yml`. Adding a new command requires changes in a few files, but no parser or completion logic — those are driven entirely by the grammar.
+
+### Walkthrough: adding `show route-summary`
+
+#### 1. Add the `Resource` variant
+
+In `src/command.rs`, add the new variant to the `Resource` enum:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Resource {
+    // ... existing variants ...
+    RouteSummary,       // ← new
+}
+```
+
+The `serde(rename_all = "snake_case")` attribute means this variant maps to the string `"route_summary"` in YAML automatically.
+
+#### 2. Mirror the variant in `build.rs`
+
+`build.rs` has its own copy of the enum (build scripts can't import crate types). Add the same variant:
+
+```rust
+enum Resource {
+    // ... existing variants ...
+    RouteSummary,       // ← new
+}
+```
+
+If you forget this step, `cargo build` fails immediately with a clear error listing all valid resource names.
+
+#### 3. Add the grammar entry in `config/grammar.yml`
+
+Add the new keyword under the `show` command tree:
+
+```yaml
+commands:
+  show:
+    children:
+      # ... existing children ...
+      route-summary:
+        help: IP routing table summary
+        command: { verb: show, resource: route_summary }
+```
+
+This single YAML stanza gives you:
+- **Parsing**: `show route-summary` (and abbreviations like `sh ro`) resolves to the command
+- **Tab completion**: pressing Tab after `show r` completes to `route-summary`
+- **`?` help**: shows `route-summary    IP routing table summary` in context
+
+For commands that take an argument, use `_arg`:
+
+```yaml
+      route-summary:
+        help: IP routing table summary
+        command: { verb: show, resource: route_summary }
+        children:
+          _arg:
+            name: "<vrf>"
+            help: Show routes for a specific VRF
+            command: { verb: show, resource: route_summary, target: "$arg" }
+```
+
+#### 4. Add platform driver translations
+
+Each backend driver must translate the new resource into platform-native CLI.
+
+**`src/backend/arista_eos.rs`** — add a match arm in `translate()`:
+
+```rust
+(Verb::Show, Resource::RouteSummary) => match &command.target {
+    Some(vrf) => format!("show ip route vrf {vrf} summary"),
+    None => "show ip route summary".to_string(),
+},
+```
+
+**`src/backend/nokia_sros.rs`** — same pattern:
+
+```rust
+(Verb::Show, Resource::RouteSummary) => "show router route-table summary".to_string(),
+```
+
+If a driver doesn't support the resource, return an error:
+
+```rust
+(Verb::Show, Resource::RouteSummary) => {
+    anyhow::bail!("route-summary not supported on SR-OS")
+}
+```
+
+#### 5. (Optional) Update policy rules
+
+If the new command should be restricted, update your policy file. The default policy allows all `show` commands for authenticated users, so most new `show` resources work without policy changes.
+
+If the new resource is port-scoped (requires ownership checks), add it to `Resource::is_port_scoped()` in `src/command.rs`.
+
+#### Summary of files to touch
+
+| File | Change |
+|------|--------|
+| `src/command.rs` | Add `Resource` variant (one line) |
+| `build.rs` | Mirror the variant (one line) |
+| `config/grammar.yml` | Add keyword + help + command template |
+| `src/backend/arista_eos.rs` | Add `translate()` match arm |
+| `src/backend/nokia_sros.rs` | Add `translate()` match arm |
+| `src/command.rs` (optional) | Update `is_port_scoped()` if port-scoped |
+| Policy file (optional) | Add rules if access should be restricted |
+
+No changes are needed to the parser, completion engine, telnet/SSH/MCP frontends, or any test infrastructure — the grammar engine handles all of that.
 
 ## Configuration Reference
 
