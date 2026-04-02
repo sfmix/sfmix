@@ -10,8 +10,9 @@ Deploys [xfr](https://github.com/lance0/xfr) server as a systemd service for net
 
 ```yaml
 xfr_port: "5202"                              # Port for xfr server to listen on
-xfr_version: "latest"                         # GitHub release tag (e.g. "latest" or "download/v0.8.0")
+xfr_version: "v0.9.6"                         # GitHub release tag (e.g. "v0.9.6")
 xfr_arch: "x86_64-unknown-linux-musl"         # Binary architecture
+xfr_extra_args: "--no-mdns"                   # Extra arguments passed to xfr serve
 ```
 
 ## Dependencies

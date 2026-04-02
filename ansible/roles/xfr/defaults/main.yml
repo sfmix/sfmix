@@ -1,4 +1,5 @@
 ---
 xfr_port: "5202"
-xfr_version: "latest"
+xfr_version: "v0.9.6"
 xfr_arch: "x86_64-unknown-linux-musl"
+xfr_extra_args: "--no-mdns"
