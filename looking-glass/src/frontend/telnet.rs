@@ -230,8 +230,10 @@ async fn handle_telnet_session(
         let result = state.device_pool.execute(&command).await;
         match result {
             Ok(output) => {
-                writer.write_all(output.as_bytes()).await?;
-                if !output.ends_with('\n') {
+                // Pool output uses \n; telnet requires \r\n
+                let telnet_output = output.replace('\n', "\r\n");
+                writer.write_all(telnet_output.as_bytes()).await?;
+                if !telnet_output.ends_with("\r\n") {
                     writer.write_all(b"\r\n").await?;
                 }
             }

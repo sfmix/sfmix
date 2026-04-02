@@ -11,6 +11,60 @@ use super::arista_eos::AristaEosDriver;
 use super::nokia_sros::NokiaSrosDriver;
 use super::driver::DeviceDriver;
 
+/// Sanitize raw device CLI output for display.
+///
+/// - Strips ANSI escape sequences (CSI and OSC)
+/// - Normalizes line endings to `\n`
+/// - Trims trailing blank lines
+fn normalize_for_display(raw: &str) -> String {
+    // Strip \r so all line endings become \n
+    let no_cr = raw.replace('\r', "");
+    // Strip ANSI CSI sequences: ESC [ ... final_byte
+    let mut out = String::with_capacity(no_cr.len());
+    let mut chars = no_cr.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            match chars.peek() {
+                Some('[') => {
+                    chars.next(); // consume '['
+                    // Skip until final byte (0x40-0x7E)
+                    while let Some(&ch) = chars.peek() {
+                        chars.next();
+                        if ch >= '@' && ch <= '~' {
+                            break;
+                        }
+                    }
+                }
+                Some(']') => {
+                    chars.next(); // consume ']'
+                    // OSC: skip until ST (ESC \ or BEL)
+                    while let Some(ch) = chars.next() {
+                        if ch == '\x07' {
+                            break;
+                        }
+                        if ch == '\x1b' {
+                            if chars.peek() == Some(&'\\') {
+                                chars.next();
+                                break;
+                            }
+                        }
+                    }
+                }
+                _ => {} // lone ESC, skip it
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    // Trim trailing blank lines
+    let trimmed = out.trim_end_matches('\n');
+    if trimmed.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", trimmed)
+    }
+}
+
 /// Manages a pool of device configurations and dispatches commands.
 ///
 /// Each device has a concurrency semaphore that limits how many commands
@@ -102,8 +156,9 @@ impl DevicePool {
             output.push_str(&format!("--- {} ---\n", name));
             match handle.await {
                 Ok(Ok(result)) => {
-                    output.push_str(&result.output);
-                    if !result.output.ends_with('\n') {
+                    let clean = normalize_for_display(&result.output);
+                    output.push_str(&clean);
+                    if !clean.ends_with('\n') {
                         output.push('\n');
                     }
                 }
@@ -145,9 +200,9 @@ impl DevicePool {
         match driver.execute(command).await {
             Ok(result) => {
                 if result.success {
-                    Ok(result.output)
+                    Ok(normalize_for_display(&result.output))
                 } else {
-                    Ok(format!("[{}] {}", result.device, result.output))
+                    Ok(format!("[{}] {}", result.device, normalize_for_display(&result.output)))
                 }
             }
             Err(e) => {
