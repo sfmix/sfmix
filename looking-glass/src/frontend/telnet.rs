@@ -6,8 +6,8 @@ use tokio::net::TcpListener;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tracing::{info, warn};
 
-use crate::command::{parse_command, ParseError, Resource};
-use crate::completion;
+use crate::command::{ParseError, Resource};
+use crate::grammar::{self, parse_command};
 use crate::identity::Identity;
 use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::participants::ParticipantMap;
@@ -116,7 +116,7 @@ fn split_for_completion(input: &str) -> (Vec<&str>, &str) {
 }
 
 /// Format completions as a two-column IOS-style help table.
-fn format_completions(completions: &[completion::Completion]) -> String {
+fn format_completions(completions: &[grammar::Completion]) -> String {
     let mut out = String::new();
     for c in completions {
         out.push_str(&format!("  {:<20} {}\r\n", c.keyword, c.help));
@@ -340,14 +340,14 @@ async fn read_line(
                 let (tokens, partial) = split_for_completion(buf);
                 let token_refs: Vec<&str> = tokens.iter().map(|s| s.as_ref()).collect();
 
-                if let Some(suffix) = completion::tab_complete(&token_refs, partial) {
+                if let Some(suffix) = grammar::tab_complete(&token_refs, partial) {
                     // Unambiguous — append completion
                     buf.push_str(&suffix);
                     writer.write_all(suffix.as_bytes()).await?;
                     writer.flush().await?;
                 } else {
                     // Ambiguous — show options, then redisplay prompt + buffer
-                    let completions = completion::get_completions(&token_refs, partial);
+                    let completions = grammar::get_completions(&token_refs, partial);
                     if !completions.is_empty() {
                         writer.write_all(b"\r\n").await?;
                         writer
@@ -369,7 +369,7 @@ async fn read_line(
                 // If preceded by space (or empty), show all next-level options.
                 let (tokens, partial) = split_for_completion(buf);
                 let token_refs: Vec<&str> = tokens.iter().map(|s| s.as_ref()).collect();
-                let completions = completion::get_completions(&token_refs, partial);
+                let completions = grammar::get_completions(&token_refs, partial);
 
                 writer.write_all(b"\r\n").await?;
                 if completions.is_empty() {
