@@ -4,7 +4,7 @@
 
 resource "authentik_policy_expression" "grafana_require_admin_group" {
   name       = "Grafana: Require Admin Group"
-  expression = "return ak_is_group_member(request.user, name=\"IX Administrators\")"
+  expression = "return ak_is_group_member(request.user, name=\"${var.admin_group_name}\")"
 }
 
 resource "authentik_policy_binding" "grafana_require_admin_group" {

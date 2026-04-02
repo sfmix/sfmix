@@ -5,11 +5,11 @@ Infrastructure-as-code for the SFMIX Authentik SSO instance at `login.sfmix.org`
 ## What's managed
 
 - **Sources**: GitHub and PeeringDB OAuth federation
-- **Groups**: IX Administrators, authentik Admins, ASN-based groups
+- **Groups**: Admin group (default: IX Administrators), authentik Admins, ASN-based groups
 - **Property mappings**: Custom user/group mappings for both sources, custom `groups` scope
 - **Providers**: Grafana and IXP Participant Portal (OIDC)
 - **Applications**: Grafana, Portal
-- **Policies**: Grafana access restriction (IX Administrators group)
+- **Policies**: Grafana access restriction (admin group membership)
 
 Default flows, stages, and built-in scope mappings are referenced as **data sources** (read-only) — they remain managed by authentik's internal blueprints.
 
@@ -17,7 +17,7 @@ Default flows, stages, and built-in scope mappings are referenced as **data sour
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
 - SSH access to `login.sfmix.org` (for retrieving secrets during initial setup)
-- Membership in the **IX Administrators** group in Authentik
+- Membership in the admin group (default: **IX Administrators**) in Authentik
 
 ## Usage
 

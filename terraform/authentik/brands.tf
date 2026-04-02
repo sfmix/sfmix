@@ -16,6 +16,7 @@ resource "authentik_brand" "sfmix" {
 
   flow_authentication = authentik_flow.sfmix_authentication.uuid
   flow_invalidation   = data.authentik_flow.default_invalidation.id
+  flow_device_code    = authentik_flow.device_code.uuid
 
   branding_custom_css = <<-CSS
     /*

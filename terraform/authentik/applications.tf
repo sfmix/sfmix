@@ -11,6 +11,14 @@ resource "authentik_application" "grafana" {
   policy_engine_mode = "any"
 }
 
+resource "authentik_application" "looking_glass" {
+  name              = "Looking Glass"
+  slug              = "looking-glass"
+  protocol_provider = authentik_provider_oauth2.looking_glass.id
+  open_in_new_tab   = false
+  policy_engine_mode = "any"
+}
+
 resource "authentik_application" "portal" {
   name              = "IXP Participant Portal"
   slug              = "portal"

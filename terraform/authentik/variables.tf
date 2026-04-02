@@ -24,3 +24,9 @@ variable "portal_client_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "admin_group_name" {
+  description = "Name of the administrative group in Authentik (e.g. IX Administrators)"
+  type        = string
+  default     = "IX Administrators"
+}

@@ -3,7 +3,7 @@
 # -------------------------------------------------------------------
 
 resource "authentik_group" "ix_administrators" {
-  name         = "IX Administrators"
+  name         = var.admin_group_name
   is_superuser = false
 }
 
