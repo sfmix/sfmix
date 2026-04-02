@@ -172,18 +172,3 @@ A containerlab topology is provided for testing against real Arista EOS devices:
 cd test/clab
 sudo containerlab deploy -t lg-test.clab.yml
 ```
-
-## Tech Stack
-
-| Crate | Purpose |
-|-------|---------|
-| `tokio` | Async runtime |
-| `russh` | SSH client (device backend) and server (SSH frontend) |
-| `ssh-key` | SSH key types, certificate parsing |
-| `rmcp` | MCP server SDK (streamable HTTP) |
-| `axum` | HTTP framework (MCP transport, middleware) |
-| `clap` | CLI argument parsing |
-| `serde` / `serde_yaml` | Configuration and grammar file parsing |
-| `dashmap` | Concurrent per-user rate limit state |
-| `tracing` | Structured logging |
-| `thiserror` | Error type derivation |
