@@ -1,0 +1,185 @@
+# Looking Glass Command Grammar
+#
+# This file defines the complete command tree. It is embedded into the binary
+# at compile time via include_str!() and validated by build.rs.
+#
+# Node types:
+#   keyword children  — named子nodes matched by abbreviation
+#   _arg              — positional argument (value captured as target)
+#   command           — if present, this node can be executed (produces a Command)
+#   help              — description shown by ? and Tab
+#   optional          — if true, this keyword can be skipped during parsing
+#
+# Command fields:
+#   verb:            show | ping | traceroute
+#   resource:        the Resource enum variant (snake_case)
+#   address_family:  ipv4 (default) | ipv6
+#   target:          "$arg" to capture the positional argument value
+
+commands:
+  show:
+    help: Display device information
+    children:
+      interfaces:
+        help: Interface status summary
+        command: { verb: show, resource: interfaces_status }
+        children:
+          status:
+            help: Interface status summary (default)
+            command: { verb: show, resource: interfaces_status }
+          _arg:
+            name: "<name>"
+            help: Specific interface (e.g. Ethernet1)
+            command: { verb: show, resource: interface_detail, target: "$arg" }
+      optics:
+        help: Transceiver/DOM information
+        command: { verb: show, resource: optics }
+        children:
+          _arg:
+            name: "<name>"
+            help: Specific interface (e.g. Ethernet1)
+            command: { verb: show, resource: optics_detail, target: "$arg" }
+      ip:
+        help: IP protocol information
+        children:
+          bgp:
+            help: BGP routing information
+            command: { verb: show, resource: bgp_summary, address_family: ipv4 }
+            children:
+              summary:
+                help: BGP neighbor summary
+                command: { verb: show, resource: bgp_summary, address_family: ipv4 }
+              neighbor:
+                help: BGP neighbor detail
+                children:
+                  _arg:
+                    name: "<address>"
+                    help: Neighbor IP address
+                    command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv4 }
+      bgp:
+        help: BGP routing information
+        command: { verb: show, resource: bgp_summary, address_family: ipv4 }
+        children:
+          ipv6:
+            help: IPv6 address family
+            command: { verb: show, resource: bgp_summary, address_family: ipv6 }
+            children:
+              unicast:
+                help: Unicast address family
+                optional: true
+                command: { verb: show, resource: bgp_summary, address_family: ipv6 }
+                children:
+                  summary:
+                    help: BGP neighbor summary
+                    command: { verb: show, resource: bgp_summary, address_family: ipv6 }
+                  neighbor:
+                    help: BGP neighbor detail
+                    children:
+                      _arg:
+                        name: "<address>"
+                        help: Neighbor IP address
+                        command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv6 }
+              summary:
+                help: BGP neighbor summary
+                command: { verb: show, resource: bgp_summary, address_family: ipv6 }
+              neighbor:
+                help: BGP neighbor detail
+                children:
+                  _arg:
+                    name: "<address>"
+                    help: Neighbor IP address
+                    command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv6 }
+          summary:
+            help: BGP neighbor summary
+            command: { verb: show, resource: bgp_summary, address_family: ipv4 }
+          neighbor:
+            help: BGP neighbor detail
+            children:
+              _arg:
+                name: "<address>"
+                help: Neighbor IP address
+                command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv4 }
+      mac:
+        help: MAC address table
+        command: { verb: show, resource: mac_address_table }
+        children:
+          address-table:
+            help: MAC address table
+            command: { verb: show, resource: mac_address_table }
+            children:
+              interface:
+                help: Filter by interface
+                children:
+                  _arg:
+                    name: "<name>"
+                    help: Interface name
+                    command: { verb: show, resource: mac_address_table, target: "$arg" }
+          interface:
+            help: Filter by interface
+            children:
+              _arg:
+                name: "<name>"
+                help: Interface name
+                command: { verb: show, resource: mac_address_table, target: "$arg" }
+      arp:
+        help: ARP table
+        command: { verb: show, resource: arp_table }
+        children:
+          interface:
+            help: Filter by interface
+            children:
+              _arg:
+                name: "<name>"
+                help: Interface name
+                command: { verb: show, resource: arp_table, target: "$arg" }
+      ipv6:
+        help: IPv6 protocol information
+        children:
+          neighbors:
+            help: IPv6 neighbor discovery table
+            command: { verb: show, resource: nd_table, address_family: ipv6 }
+            children:
+              interface:
+                help: Filter by interface
+                children:
+                  _arg:
+                    name: "<name>"
+                    help: Interface name
+                    command: { verb: show, resource: nd_table, target: "$arg", address_family: ipv6 }
+      lldp:
+        help: LLDP neighbor information
+        command: { verb: show, resource: lldp_neighbors }
+      participants:
+        help: IXP participant list
+        command: { verb: show, resource: participants }
+      vxlan:
+        help: VXLAN VTEP information
+        command: { verb: show, resource: vxlan_vtep }
+
+  ping:
+    help: Send ICMP echo to a destination
+    children:
+      _arg:
+        name: "<destination>"
+        help: IP address or hostname
+        command: { verb: ping, resource: network_reachability, target: "$arg" }
+
+  traceroute:
+    help: Trace route to a destination
+    children:
+      _arg:
+        name: "<destination>"
+        help: IP address or hostname
+        command: { verb: traceroute, resource: network_reachability, target: "$arg" }
+
+  help:
+    help: Show available commands
+    command: { verb: show, resource: help }
+
+  quit:
+    help: Disconnect
+    builtin: quit
+
+  exit:
+    help: Disconnect
+    builtin: quit

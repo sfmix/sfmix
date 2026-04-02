@@ -273,7 +273,7 @@ fn is_participant_port(interface: &str, participants: &ParticipantMap) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::command::parse_command;
+    use crate::grammar::parse_command;
     use crate::participants::{Participant, ParticipantPort};
 
     fn test_participants() -> ParticipantMap {

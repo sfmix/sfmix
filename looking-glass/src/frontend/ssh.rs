@@ -7,7 +7,8 @@ use russh::keys::{Certificate, PublicKey};
 use tokio::net::TcpListener;
 use tracing::{debug, info, warn};
 
-use crate::command::{parse_command, ParseError, Resource};
+use crate::command::{ParseError, Resource};
+use crate::grammar::parse_command;
 use crate::identity::Identity;
 use crate::policy::PolicyDecision;
 use crate::frontend::telnet::{TelnetState, HELP_TEXT, format_participants};

@@ -6,7 +6,7 @@ use clap::Parser;
 use tracing::info;
 
 mod command;
-mod completion;
+mod grammar;
 mod config;
 mod identity;
 mod participants;
