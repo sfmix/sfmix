@@ -31,3 +31,17 @@ resource "authentik_flow_stage_binding" "sfmix_auth_source_select" {
   stage  = authentik_stage_identification.sfmix_source_select.id
   order  = 10
 }
+
+# -------------------------------------------------------------------
+# Device code flow — required for OIDC device authorization grant
+# (RFC 8628). Used by the Looking Glass SSH/Telnet login command.
+# -------------------------------------------------------------------
+
+resource "authentik_flow" "device_code" {
+  name               = "Device Code Flow"
+  title              = "Device Code Authorization"
+  slug               = "default-device-code-flow"
+  designation        = "stage_configuration"
+  authentication     = "require_authenticated"
+  policy_engine_mode = "any"
+}

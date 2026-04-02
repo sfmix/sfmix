@@ -55,8 +55,8 @@ try:
 except Exception:
     groups = []
 
-if is_ix_admin and "IX Administrators" not in groups:
-    groups.append("IX Administrators")
+if is_ix_admin and "${var.admin_group_name}" not in groups:
+    groups.append("${var.admin_group_name}")
 
 return {
     "username": gh_email,
@@ -106,7 +106,7 @@ for n in networks:
         asn_groups.append("as" + str(asn))
 
 # SFMIX IX Administrator path via PeeringDB:
-# Users who admin AS12276 (SFMIX) are IX Administrators
+# Users who admin AS12276 (SFMIX) get the admin group
 sfmix_asns = {12276}
 is_ix_admin = any(
     isinstance(n, dict) and n.get("asn") in sfmix_asns
@@ -121,8 +121,8 @@ try:
 except Exception:
     pass
 
-if is_ix_admin and "IX Administrators" not in asn_groups:
-    asn_groups.append("IX Administrators")
+if is_ix_admin and "${var.admin_group_name}" not in asn_groups:
+    asn_groups.append("${var.admin_group_name}")
 
 return {
     "username": pdb_email,
@@ -151,11 +151,11 @@ resource "authentik_property_mapping_source_oauth" "peeringdb_group" {
 resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "SFMIX: OpenID 'groups'"
   scope_name  = "groups"
-  description = "Include ASN groups and IX Administrators"
+  description = "Include ASN groups and ${var.admin_group_name}"
   expression  = <<-EOT
 import re
 groups = [g.name for g in request.user.ak_groups.all()]
-# Filter to asNNNN pattern or IX Administrators
-return {"groups": [g for g in groups if re.match(r'^as\d+$', g, re.I) or g == "IX Administrators"]}
+# Filter to asNNNN pattern or admin group
+return {"groups": [g for g in groups if re.match(r'^as\d+$', g, re.I) or g == "${var.admin_group_name}"]}
 EOT
 }
