@@ -1,4 +1,5 @@
 use std::fmt;
+use serde::Deserialize;
 
 /// Structured command representation.
 ///
@@ -14,14 +15,16 @@ pub struct Command {
     pub address_family: AddressFamily,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Verb {
     Show,
     Ping,
     Traceroute,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Resource {
     InterfacesStatus,
     InterfaceDetail,
@@ -40,10 +43,12 @@ pub enum Resource {
     Help,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 pub enum AddressFamily {
     #[default]
+    #[serde(rename = "ipv4")]
     IPv4,
+    #[serde(rename = "ipv6")]
     IPv6,
 }
 

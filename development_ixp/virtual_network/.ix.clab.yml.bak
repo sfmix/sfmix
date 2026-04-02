@@ -1,0 +1,67 @@
+---
+name: development_ixp
+
+mgmt:
+  network: fixedips
+  ipv4-subnet: 10.10.0.0/24
+  external-access: true
+# Management: 10.10.0.0/24
+# Loopbacks: 10.100.0.0/16
+## sfo01: 10.100.1.0/24
+## sfo02: 10.100.2.0/24
+# PTP: 10.200.0.0/24
+# Peering LAN: 10.255.0.0/24
+## Mapple: 10.255.0.10
+## Starfleet: 10.255.0.11
+
+topology:
+  nodes:
+    switch01.sfo01:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      startup-config: switch01.sfo01.cfg
+      mgmt-ipv4: 10.10.0.2
+      binds:
+        - port_map_7280.json:/mnt/flash/EosIntfMapping.json:ro
+      exec:
+        - FastCli -p 15 -c 'security pki key generate rsa 4096 eAPI.key'
+        - FastCli -p 15 -c 'security pki certificate generate self-signed eAPI.crt key eAPI.key generate rsa 4096 validity 30000 parameters common-name eAPI'
+    switch01.sfo02:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      startup-config: switch01.sfo02.cfg
+      mgmt-ipv4: 10.10.0.3
+      binds:
+        - port_map_7280.json:/mnt/flash/EosIntfMapping.json:ro
+      exec:
+        - FastCli -p 15 -c 'security pki key generate rsa 4096 eAPI.key'
+        - FastCli -p 15 -c 'security pki certificate generate self-signed eAPI.crt key eAPI.key generate rsa 4096 validity 30000 parameters common-name eAPI'
+    switch01.mapple.sfo01:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      startup-config: switch01.mapple.sfo01.cfg
+      mgmt-ipv4: 10.10.0.4
+      binds:
+        - port_map_7280.json:/mnt/flash/EosIntfMapping.json:ro
+      exec:
+        - FastCli -p 15 -c 'security pki key generate rsa 4096 eAPI.key'
+        - FastCli -p 15 -c 'security pki certificate generate self-signed eAPI.crt key eAPI.key generate rsa 4096 validity 30000 parameters common-name eAPI'
+    switch01.starfleet.sfo02:
+      kind: arista_ceos
+      image: arista_eos:4.32.4.1M
+      startup-config: switch01.starfleet.sfo02.cfg
+      mgmt-ipv4: 10.10.0.5
+      binds:
+        - port_map_7280.json:/mnt/flash/EosIntfMapping.json:ro
+      exec:
+        - FastCli -p 15 -c 'security pki key generate rsa 4096 eAPI.key'
+        - FastCli -p 15 -c 'security pki certificate generate self-signed eAPI.crt key eAPI.key generate rsa 4096 validity 30000 parameters common-name eAPI'
+    cr01.sfo01:
+      kind: nokia_sros
+      
+
+  links:
+    - endpoints: ["switch01.sfo01:eth1", "switch01.sfo02:eth1"] # Transport link
+    - endpoints: ["switch01.sfo01:eth2", "switch01.mapple.sfo01:eth1"] # Mapple sfo01 #1
+    - endpoints: ["switch01.sfo01:eth3", "switch01.mapple.sfo01:eth2"] # Mapple sfo01 #2
+    - endpoints: ["switch01.sfo02:eth2", "switch01.starfleet.sfo02:eth1"] # Starfleet sfo02

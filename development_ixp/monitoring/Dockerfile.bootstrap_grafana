@@ -1,0 +1,11 @@
+FROM python:3.10-alpine
+# RUN apk add g++ git make rrdtool
+# RUN mkdir -p /opt/RRDReST
+# RUN git clone https://github.com/tbotnz/RRDReST /opt/RRDReST
+COPY bootstrap_grafana.py /bootstrap_grafana.py
+# WORKDIR /opt/RRDReST
+RUN pip3 install requests
+# COPY . /opt/RRDReST
+# ENTRYPOINT ["uvicorn", "rrdrest:rrd_rest"]
+# CMD ["--host", "0.0.0.0", "--port", "9000"]
+ENTRYPOINT [ "python", "/bootstrap_grafana.py" ]

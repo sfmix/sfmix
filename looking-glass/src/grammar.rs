@@ -39,10 +39,11 @@ pub struct GrammarNode {
 
 #[derive(Debug, Deserialize)]
 pub struct CommandTemplate {
-    pub verb: String,
-    pub resource: String,
+    pub verb: Verb,
+    pub resource: Resource,
     pub target: Option<String>,
-    pub address_family: Option<String>,
+    #[serde(default)]
+    pub address_family: Option<AddressFamily>,
 }
 
 // --- Completion ---
@@ -232,46 +233,6 @@ fn resolve_node(
 }
 
 fn build_command(tpl: &CommandTemplate, captured_arg: Option<&str>) -> Result<Command, ParseError> {
-    let verb = match tpl.verb.as_str() {
-        "show" => Verb::Show,
-        "ping" => Verb::Ping,
-        "traceroute" => Verb::Traceroute,
-        other => {
-            return Err(ParseError::UnknownCommand(format!(
-                "unknown verb: {}",
-                other
-            )))
-        }
-    };
-
-    let resource = match tpl.resource.as_str() {
-        "interfaces_status" => Resource::InterfacesStatus,
-        "interface_detail" => Resource::InterfaceDetail,
-        "bgp_summary" => Resource::BgpSummary,
-        "bgp_neighbor" => Resource::BgpNeighbor,
-        "mac_address_table" => Resource::MacAddressTable,
-        "arp_table" => Resource::ArpTable,
-        "nd_table" => Resource::NdTable,
-        "lldp_neighbors" => Resource::LldpNeighbors,
-        "optics" => Resource::Optics,
-        "optics_detail" => Resource::OpticsDetail,
-        "participants" => Resource::Participants,
-        "vxlan_vtep" => Resource::VxlanVtep,
-        "network_reachability" => Resource::NetworkReachability,
-        "help" => Resource::Help,
-        other => {
-            return Err(ParseError::UnknownCommand(format!(
-                "unknown resource: {}",
-                other
-            )))
-        }
-    };
-
-    let address_family = match tpl.address_family.as_deref() {
-        Some("ipv6") => AddressFamily::IPv6,
-        _ => AddressFamily::IPv4,
-    };
-
     let target = match tpl.target.as_deref() {
         Some("$arg") => captured_arg.map(|s| s.to_string()),
         Some(other) => Some(other.to_string()),
@@ -279,11 +240,11 @@ fn build_command(tpl: &CommandTemplate, captured_arg: Option<&str>) -> Result<Co
     };
 
     Ok(Command {
-        verb,
-        resource,
+        verb: tpl.verb,
+        resource: tpl.resource,
         target,
         device: None,
-        address_family,
+        address_family: tpl.address_family.unwrap_or_default(),
     })
 }
 

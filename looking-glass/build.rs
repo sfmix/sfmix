@@ -1,6 +1,31 @@
 use std::collections::BTreeMap;
 use serde::Deserialize;
 
+/// Verb/Resource/AddressFamily are duplicated from command.rs so that build.rs
+/// can validate grammar.yml at compile time (build scripts can't import crate types).
+/// serde(rename_all) keeps them in sync — a YAML typo like "bogus_resource"
+/// causes a serde deserialization failure here at build time.
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Verb { Show, Ping, Traceroute }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
+enum Resource {
+    InterfacesStatus, InterfaceDetail, BgpSummary, BgpNeighbor,
+    MacAddressTable, ArpTable, NdTable, LldpNeighbors,
+    Optics, OpticsDetail, Participants, VxlanVtep,
+    NetworkReachability, Help,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+enum AddressFamily {
+    #[serde(rename = "ipv4")] IPv4,
+    #[serde(rename = "ipv6")] IPv6,
+}
+
 #[derive(Deserialize)]
 struct GrammarFile {
     commands: BTreeMap<String, GrammarNode>,
@@ -23,36 +48,17 @@ struct GrammarNode {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct CommandTemplate {
-    verb: String,
-    resource: String,
+    verb: Verb,
+    resource: Resource,
     #[serde(default)]
     target: Option<String>,
     #[serde(default)]
-    address_family: Option<String>,
+    address_family: Option<AddressFamily>,
 }
 
-const VALID_VERBS: &[&str] = &["show", "ping", "traceroute"];
-const VALID_RESOURCES: &[&str] = &[
-    "interfaces_status",
-    "interface_detail",
-    "bgp_summary",
-    "bgp_neighbor",
-    "mac_address_table",
-    "arp_table",
-    "nd_table",
-    "lldp_neighbors",
-    "optics",
-    "optics_detail",
-    "participants",
-    "vxlan_vtep",
-    "network_reachability",
-    "help",
-];
-const VALID_AF: &[&str] = &["ipv4", "ipv6"];
-
 fn validate_node(path: &str, node: &GrammarNode) {
-    // Every non-_arg node should have help text
     if node.help.is_none() && !path.ends_with("._arg") {
         eprintln!("  warning: {path} has no help text");
     }
@@ -63,22 +69,6 @@ fn validate_node(path: &str, node: &GrammarNode) {
     }
 
     if let Some(ref tpl) = node.command {
-        assert!(
-            VALID_VERBS.contains(&tpl.verb.as_str()),
-            "{path}: invalid verb '{}'",
-            tpl.verb
-        );
-        assert!(
-            VALID_RESOURCES.contains(&tpl.resource.as_str()),
-            "{path}: invalid resource '{}'",
-            tpl.resource
-        );
-        if let Some(ref af) = tpl.address_family {
-            assert!(
-                VALID_AF.contains(&af.as_str()),
-                "{path}: invalid address_family '{af}'"
-            );
-        }
         if let Some(ref target) = tpl.target {
             assert!(
                 target == "$arg",
