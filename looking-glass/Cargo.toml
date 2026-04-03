@@ -9,6 +9,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1"
+arc-swap = "1"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
@@ -17,7 +18,7 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 russh = "0.54.5"
-ssh-key = "0.6"
+ssh-encoding = "0.2"
 async-trait = "0.1"
 dashmap = "6"
 thiserror = "2"
@@ -25,6 +26,12 @@ rmcp = { version = "1", features = ["server", "transport-streamable-http-server"
 axum = "0.8"
 tokio-util = "0.7"
 schemars = "1"
+tabled = { version = "0.20", features = ["ansi"] }
+owo-colors = "4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+jsonwebtoken = "9"
+rand = "0.8"
+regex = "1"
 
 [profile.release]
 opt-level = "s"
