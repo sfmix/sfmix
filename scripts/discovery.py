@@ -475,6 +475,61 @@ def update_netbox_peering_port_tags_by_vlan() -> None:
             interface.save()
 
 
+CORE_PORT_DESCRIPTION_PREFIXES = ("Core:", "Transport", "Transit:", "Access:")
+
+
+def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> bool:
+    """Return True if this interface should carry the 'core_port' tag."""
+    if "peering_port" in tag_slugs:
+        return False
+    if name.startswith("Loopback"):
+        return True
+    desc = description.strip()
+    return any(desc.startswith(prefix) for prefix in CORE_PORT_DESCRIPTION_PREFIXES)
+
+
+def update_netbox_core_port_tags(device_hostnames: List[str], dry_run: bool = False) -> None:
+    """Add or remove the 'core_port' tag on peering switch interfaces.
+
+    An interface should be tagged 'core_port' if:
+      - It is a Loopback interface, OR
+      - Its description starts with Core:, Transport, Transit:, or Access:
+    AND it is NOT tagged 'peering_port' (participant ports are never core).
+    """
+    netbox = netbox_api_client()
+    for device_hostname in device_hostnames:
+        logger.debug(f"Checking core_port tags on {device_hostname}")
+        for interface in netbox.dcim.interfaces.filter(device=device_hostname):
+            tag_slugs = [tag["slug"] for tag in interface.tags]
+            should_be_core = _is_core_interface(
+                interface.name, interface.description, tag_slugs
+            )
+            is_core = "core_port" in tag_slugs
+
+            if should_be_core and not is_core:
+                logger.info(
+                    f"{'[DRY-RUN] Would add' if dry_run else 'Adding'} core_port tag to"
+                    f" {device_hostname} / {interface.name}"
+                    f" (desc: {interface.description!r})"
+                )
+                if not dry_run:
+                    interface.tags = [
+                        {"slug": s} for s in tag_slugs
+                    ] + [{"slug": "core_port"}]
+                    interface.save()
+            elif not should_be_core and is_core:
+                logger.info(
+                    f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'} core_port tag from"
+                    f" {device_hostname} / {interface.name}"
+                    f" (desc: {interface.description!r})"
+                )
+                if not dry_run:
+                    interface.tags = [
+                        {"slug": s} for s in tag_slugs if s != "core_port"
+                    ]
+                    interface.save()
+
+
 def update_netbox_interface_description_asn_participant() -> None:
     netbox = netbox_api_client()
     for interface in netbox.dcim.interfaces.filter(tag="peering_port"):
@@ -590,6 +645,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Synchronize the ASN in the interface description as the participant in Netbox Interface custom field",
     )
+    parser.add_argument(
+        "--sync-core-port-tags",
+        action="store_true",
+        help='Synchronize the "core_port" tag based on interface description',
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be changed without making any modifications",
+    )
     parser.add_argument("--sync-interface-ips", action="store_true", help="Synchronize interface IPs to Netbox")
     parser.add_argument(
         "--device",
@@ -660,6 +725,13 @@ if __name__ == "__main__":
     else:
         logger.info(
             "Skipping peering port tag sync. To enable: --sync-peering-port-tags-by-vlan"
+        )
+
+    if args.sync_core_port_tags:
+        update_netbox_core_port_tags(peering_switch_hostnames, dry_run=args.dry_run)
+    else:
+        logger.info(
+            "Skipping core port tag sync. To enable: --sync-core-port-tags"
         )
 
     if args.sync_interface_description_asn_participant:
