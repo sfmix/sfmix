@@ -18,6 +18,21 @@ pub struct Config {
     pub participants: Option<ParticipantsSourceConfig>,
     #[serde(default)]
     pub policies: Option<PolicySourceConfig>,
+    #[serde(default)]
+    pub frontend_limits: Option<FrontendLimitsConfig>,
+    #[serde(default)]
+    pub vlans: VlanVisibilityConfig,
+}
+
+/// VLAN visibility configuration for MAC address table output.
+///
+/// Public VLANs are visible to all users. Everything else is private
+/// and only visible to IX Administrators.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct VlanVisibilityConfig {
+    /// VLAN IDs visible to all users (e.g. ["998", "999"]).
+    #[serde(default)]
+    pub public: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,6 +63,8 @@ pub struct ListenConfig {
     pub ssh: Option<SshListenConfig>,
     #[serde(default)]
     pub mcp: Option<McpListenConfig>,
+    #[serde(default)]
+    pub rest: Option<RestListenConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,6 +82,10 @@ pub struct SshListenConfig {
     #[serde(default = "default_ssh_bind")]
     pub bind: String,
     pub host_key: String,
+    /// Path to the SSH CA private key used for signing user certificates.
+    /// If absent, certificate issuance is disabled (login command won't inject certs).
+    #[serde(default)]
+    pub ca_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,12 +100,20 @@ pub struct McpListenConfig {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct RestListenConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_rest_bind")]
+    pub bind: String,
+}
+
+#[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct AuthConfig {
     pub oidc: OidcConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[allow(dead_code)]
 pub struct OidcConfig {
     pub issuer: String,
@@ -95,6 +124,26 @@ pub struct OidcConfig {
     pub group_prefix: String,
     #[serde(default = "default_admin_group")]
     pub admin_group: String,
+    /// Additional audiences to accept for cross-service token verification.
+    /// Tokens with `aud` matching client_id OR any value in this list are accepted.
+    /// e.g. ["portal"] to accept tokens issued for the portal app.
+    #[serde(default)]
+    pub allowed_audiences: Vec<String>,
+    /// Device authorization endpoint (RFC 8628).
+    /// e.g. "https://login.sfmix.org/application/o/device/"
+    #[serde(default)]
+    pub device_auth_endpoint: Option<String>,
+    /// Token endpoint for polling device auth grant.
+    /// e.g. "https://login.sfmix.org/application/o/token/"
+    #[serde(default)]
+    pub token_endpoint: Option<String>,
+    /// JWKS URI for verifying id_token signatures.
+    /// If not set, derived from issuer's .well-known/openid-configuration.
+    #[serde(default)]
+    pub jwks_uri: Option<String>,
+    /// Lifetime of issued SSH certificates in seconds (default: 43200 = 12h).
+    #[serde(default = "default_cert_lifetime")]
+    pub cert_lifetime_secs: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -155,13 +204,46 @@ pub struct PerUserRateLimit {
 #[serde(tag = "source", rename_all = "snake_case")]
 #[allow(dead_code)]
 pub enum ParticipantsSourceConfig {
+    /// Load participants from a static YAML file.
     File { file: String },
-    Netbox { url: String, token_env: String },
+    /// Fetch participants + ports from NetBox GraphQL at startup and periodically.
+    Netbox {
+        url: String,
+        token_env: String,
+        #[serde(default = "default_refresh_interval")]
+        refresh_interval_secs: u64,
+    },
+}
+
+fn default_refresh_interval() -> u64 {
+    300
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PolicySourceConfig {
     pub file: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FrontendLimitsConfig {
+    #[serde(default = "default_idle_timeout_secs")]
+    pub idle_timeout_secs: u64,
+    #[serde(default = "default_max_connections")]
+    pub max_connections: u32,
+    #[serde(default = "default_max_connections_per_source")]
+    pub max_connections_per_source: u32,
+}
+
+fn default_idle_timeout_secs() -> u64 {
+    300
+}
+
+fn default_max_connections() -> u32 {
+    50
+}
+
+fn default_max_connections_per_source() -> u32 {
+    5
 }
 
 impl Config {
@@ -192,12 +274,23 @@ fn default_mcp_transport() -> String {
     "sse".to_string()
 }
 
+fn default_rest_bind() -> String {
+    "[::]:8081".to_string()
+}
+
 fn default_group_prefix() -> String {
     "as".to_string()
 }
 
+/// Default admin group name used when no OIDC config is present.
+pub const DEFAULT_ADMIN_GROUP: &str = "IX Administrators";
+
 fn default_admin_group() -> String {
-    "IX Administrators".to_string()
+    DEFAULT_ADMIN_GROUP.to_string()
+}
+
+fn default_cert_lifetime() -> u64 {
+    43200 // 12 hours
 }
 
 fn default_ssh_port() -> u16 {

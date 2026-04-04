@@ -95,14 +95,26 @@ devices:
 rate_limits:
   global:
     max_concurrent: 10        # max commands in flight across all devices
-    commands_per_minute: 60   # (reserved for future use)
+    commands_per_minute: 60   # sliding window, rejects when exceeded
   per_device:
     max_concurrent: 2         # max concurrent SSH sessions per device
-    commands_per_minute: 20   # (reserved for future use)
+    commands_per_minute: 20   # sliding window per device
   per_user:
     commands_per_minute: 10   # sliding window per user/IP-prefix
                               # Authenticated users keyed by email.
                               # Anonymous users keyed by IP prefix (/24 IPv4, /56 IPv6).
+
+# ---------------------------------------------------------------------------
+# Frontend limits — connection-level protection
+# ---------------------------------------------------------------------------
+# Protects the looking glass itself from connection floods.
+# Applied to telnet, SSH, and MCP frontends.
+#
+# frontend_limits:
+#   idle_timeout_secs: 300          # disconnect idle telnet/SSH sessions (default: 300)
+#   max_connections: 50             # global max concurrent connections (default: 50)
+#   max_connections_per_source: 5   # per source IP prefix (default: 5)
+#                                   # Sources grouped by /24 (IPv4) or /56 (IPv6).
 
 # ---------------------------------------------------------------------------
 # Participants — ASN-to-port mapping for per-ASN access control
@@ -119,6 +131,15 @@ rate_limits:
 #   source: netbox
 #   url: "https://netbox.sfmix.org/api"
 #   token_env: "NETBOX_TOKEN"
+
+# ---------------------------------------------------------------------------
+# VLAN visibility — controls which VLANs appear in MAC address table output
+# ---------------------------------------------------------------------------
+# Public VLANs are visible to all users (anonymous and authenticated).
+# All other VLANs are private and only visible to IX Administrators.
+#
+vlans:
+  public: ["998", "999"]        # peering VLANs visible to everyone
 
 # ---------------------------------------------------------------------------
 # Policies — command access rules (first-match evaluation)
