@@ -1,0 +1,25 @@
+---
+looking_glass_version: ""
+looking_glass_github_repo: sfmix/sfmix
+looking_glass_bind_address: "0.0.0.0"
+looking_glass_telnet_port: 2023
+looking_glass_ssh_enabled: false
+looking_glass_ssh_port: 2222
+looking_glass_user: looking-glass
+looking_glass_group: looking-glass
+looking_glass_config_dir: /etc/looking-glass
+looking_glass_binary_path: /usr/local/bin/looking-glass
+looking_glass_device_username: looking-glass
+looking_glass_device_auth_method: password
+looking_glass_devices: []
+
+# OIDC auth (optional — set looking_glass_oidc_enabled: true to enable)
+looking_glass_oidc_enabled: false
+looking_glass_oidc_issuer: ""
+looking_glass_oidc_client_id: ""
+looking_glass_oidc_device_auth_endpoint: ""
+looking_glass_oidc_token_endpoint: ""
+looking_glass_oidc_jwks_uri: ""
+looking_glass_oidc_group_prefix: "as"
+looking_glass_oidc_admin_group: "IX Administrators"
+looking_glass_oidc_cert_lifetime_secs: 43200

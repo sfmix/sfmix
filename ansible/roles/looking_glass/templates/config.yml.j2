@@ -1,0 +1,86 @@
+{{ ansible_managed | comment }}
+
+service:
+  name: "SFMIX Looking Glass"
+  operator: "SFMIX"
+  operator_url: "https://sfmix.org"
+  peeringdb_ix_id: 60
+
+site:
+  name: "central"
+  display_name: "SFMIX Central Looking Glass"
+
+listen:
+  telnet:
+    enabled: true
+    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_telnet_port }}"
+{% if looking_glass_ssh_enabled %}
+  ssh:
+    enabled: true
+    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_ssh_port }}"
+    host_key: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
+{% if looking_glass_oidc_enabled %}
+    ca_key: "{{ looking_glass_config_dir }}/ca_ed25519_key"
+{% endif %}
+{% endif %}
+{% if looking_glass_rest_enabled | default(false) %}
+  rest:
+    enabled: true
+    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_rest_port | default(8081) }}"
+{% endif %}
+{% if looking_glass_mcp_enabled | default(false) %}
+  mcp:
+    enabled: true
+    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_mcp_port | default(8080) }}"
+{% endif %}
+
+{% if looking_glass_oidc_enabled %}
+auth:
+  oidc:
+    issuer: "{{ looking_glass_oidc_issuer }}"
+    client_id: "{{ looking_glass_oidc_client_id }}"
+    device_auth_endpoint: "{{ looking_glass_oidc_device_auth_endpoint }}"
+    token_endpoint: "{{ looking_glass_oidc_token_endpoint }}"
+    jwks_uri: "{{ looking_glass_oidc_jwks_uri }}"
+    group_prefix: "{{ looking_glass_oidc_group_prefix }}"
+    admin_group: "{{ looking_glass_oidc_admin_group }}"
+    cert_lifetime_secs: {{ looking_glass_oidc_cert_lifetime_secs }}
+{% if looking_glass_oidc_allowed_audiences is defined %}
+    allowed_audiences:
+{% for aud in looking_glass_oidc_allowed_audiences %}
+      - "{{ aud }}"
+{% endfor %}
+{% endif %}
+{% endif %}
+
+devices:
+{% for device in looking_glass_devices %}
+  - name: "{{ device.name }}"
+    platform: {{ device.platform }}
+    host: "{{ device.host | default(device.name) }}"
+    port: {{ device.port | default(22) }}
+    username: "{{ looking_glass_device_username }}"
+    auth_method: {{ looking_glass_device_auth_method }}
+{% endfor %}
+
+participants:
+  source: netbox
+  url: "{{ looking_glass_netbox_url }}"
+  token_env: "LG_NETBOX_TOKEN"
+  refresh_interval_secs: {{ looking_glass_participants_refresh_interval | default(300) }}
+
+vlans:
+  public:
+{% for vlan in looking_glass_public_vlans | default(["998", "999"]) %}
+    - "{{ vlan }}"
+{% endfor %}
+
+rate_limits:
+  global:
+    max_concurrent: 10
+    commands_per_minute: 60
+  per_device:
+    max_concurrent: 2
+    commands_per_minute: 20
+  per_user:
+    commands_per_minute: 10

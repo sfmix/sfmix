@@ -14,6 +14,7 @@ all:
         rs_linux:
         rs_openbsd:
         looking_glass:
+        looking_glass_rust:
         quarantine_looking_glass:
         alice:
         rpki_linux:
@@ -56,6 +57,9 @@ all:
     looking_glass:
       hosts:
         lg.sfmix.org:
+    looking_glass_rust:
+      hosts:
+        alice.sfmix.org:
     quarantine_looking_glass:
       hosts:
         mgmt.quarantine-lg.sfmix.org:

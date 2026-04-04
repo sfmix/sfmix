@@ -1,0 +1,136 @@
+---
+- name: Create looking-glass system group
+  become: true
+  ansible.builtin.group:
+    name: "{{ looking_glass_group }}"
+    system: true
+
+- name: Create looking-glass system user
+  become: true
+  ansible.builtin.user:
+    name: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create config directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ looking_glass_config_dir }}"
+    state: directory
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0750"
+
+- name: Download looking-glass binary from GitHub Releases
+  become: true
+  ansible.builtin.get_url:
+    url: "https://github.com/{{ looking_glass_github_repo }}/releases/download/looking-glass-v{{ looking_glass_version }}/looking-glass-linux-amd64"
+    dest: "{{ looking_glass_binary_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+    force: true
+  notify: Restart looking-glass
+
+- name: Generate SSH host key
+  become: true
+  ansible.builtin.command:
+    cmd: ssh-keygen -t ed25519 -f {{ looking_glass_config_dir }}/ssh_host_ed25519_key -N ""
+    creates: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
+  when: looking_glass_ssh_enabled
+  notify: Restart looking-glass
+
+- name: Set SSH host key permissions
+  become: true
+  ansible.builtin.file:
+    path: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0600"
+  when: looking_glass_ssh_enabled
+
+- name: Generate CA key
+  become: true
+  ansible.builtin.command:
+    cmd: ssh-keygen -t ed25519 -f {{ looking_glass_config_dir }}/ca_ed25519_key -N ""
+    creates: "{{ looking_glass_config_dir }}/ca_ed25519_key"
+  when: looking_glass_ssh_enabled and looking_glass_oidc_enabled
+  notify: Restart looking-glass
+
+- name: Set CA key permissions
+  become: true
+  ansible.builtin.file:
+    path: "{{ looking_glass_config_dir }}/ca_ed25519_key"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0600"
+  when: looking_glass_ssh_enabled and looking_glass_oidc_enabled
+
+- name: Template looking-glass config
+  become: true
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ looking_glass_config_dir }}/config.yml"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0640"
+  notify: Restart looking-glass
+
+- name: Template looking-glass environment file
+  become: true
+  ansible.builtin.template:
+    src: looking-glass.env.j2
+    dest: "{{ looking_glass_config_dir }}/looking-glass.env"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0640"
+  notify: Restart looking-glass
+
+- name: Create looking-glass systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=SFMIX Looking Glass
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart={{ looking_glass_binary_path }} --config {{ looking_glass_config_dir }}/config.yml
+      Restart=always
+      RestartSec=5
+      User={{ looking_glass_user }}
+      Group={{ looking_glass_group }}
+      EnvironmentFile={{ looking_glass_config_dir }}/looking-glass.env
+
+      # Hardening
+      ProtectSystem=strict
+      ProtectHome=true
+      PrivateTmp=true
+      NoNewPrivileges=true
+      ReadOnlyPaths={{ looking_glass_config_dir }}
+
+      # Allow binding to privileged ports if needed
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/looking-glass.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart looking-glass
+
+- name: Reload systemd daemon
+  become: true
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Enable and start looking-glass service
+  become: true
+  ansible.builtin.systemd_service:
+    name: looking-glass
+    enabled: true
+    state: started
