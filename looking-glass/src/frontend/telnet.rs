@@ -6,13 +6,11 @@ use tokio::net::TcpListener;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tracing::{info, warn};
 
-use crate::command::{ParseError, Resource};
-use crate::grammar::{self, parse_command};
 use crate::identity::Identity;
-use crate::policy::{PolicyDecision, PolicyEngine};
-use crate::participants::ParticipantMap;
-use crate::ratelimit::RateLimiter;
-use crate::backend::pool::DevicePool;
+
+use super::common::{
+    SharedState, CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
+};
 
 // Telnet protocol constants
 const IAC: u8 = 255;
@@ -25,45 +23,31 @@ const SE: u8 = 240;
 const OPT_ECHO: u8 = 1;
 const OPT_SGA: u8 = 3; // Suppress Go-Ahead
 
-/// Shared state passed to each frontend session.
-pub struct TelnetState {
-    pub service_name: String,
-    pub policy: PolicyEngine,
-    pub rate_limiter: RateLimiter,
-    pub participants: ParticipantMap,
-    pub device_pool: DevicePool,
-    /// OIDC group prefix for extracting ASN from group names (e.g. "as")
-    pub group_prefix: String,
+/// Transform \n to \r\n for telnet output.
+fn to_crlf(data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(data.len() + data.len() / 40);
+    for &b in data {
+        if b == b'\n' {
+            out.push(b'\r');
+        }
+        out.push(b);
+    }
+    out
 }
 
-pub const HELP_TEXT: &str = "\
-Available commands:
-  show interfaces status          Interface summary (name, status, speed)
-  show interface <port>           Detailed interface counters
-  show optics                     Transceiver DOM levels (all ports)
-  show optics <port>              Detailed DOM for a specific port
-  show ip bgp summary             BGP IPv4 peer summary
-  show bgp ipv6 unicast summary   BGP IPv6 peer summary
-  show lldp neighbors              LLDP neighbor table
-  show arp                         ARP table
-  show ipv6 neighbors              IPv6 neighbor table
-  show participants                IXP participant list
-  ping <destination>               Ping from the looking glass host
-  traceroute <destination>         Traceroute from the looking glass host
-  help                             Show this help
-  quit / exit                      Disconnect
-";
+/// SessionWriter implementation for the telnet OwnedWriteHalf.
+/// Transforms \n → \r\n at the output boundary.
+struct TelnetWriter<'a> {
+    inner: &'a mut OwnedWriteHalf,
+}
 
-pub fn format_participants(participants: &ParticipantMap) -> String {
-    let mut output = String::new();
-    output.push_str("ASN      | Name\r\n");
-    output.push_str("---------+-------------------------------\r\n");
-    let mut entries: Vec<_> = participants.all().collect();
-    entries.sort_by_key(|p| p.asn);
-    for p in entries {
-        output.push_str(&format!("AS{:<6} | {}\r\n", p.asn, p.name));
+impl<'a> SessionWriter for TelnetWriter<'a> {
+    async fn write_bytes(&mut self, data: &[u8]) -> Result<()> {
+        let transformed = to_crlf(data);
+        self.inner.write_all(&transformed).await?;
+        self.inner.flush().await?;
+        Ok(())
     }
-    output
 }
 
 /// Telnet frontend server.
@@ -72,11 +56,11 @@ pub fn format_participants(participants: &ParticipantMap) -> String {
 /// Presents a simple text menu and accepts line-oriented commands.
 pub struct TelnetServer {
     bind_addr: String,
-    state: Arc<TelnetState>,
+    state: Arc<SharedState>,
 }
 
 impl TelnetServer {
-    pub fn new(bind_addr: String, state: Arc<TelnetState>) -> Self {
+    pub fn new(bind_addr: String, state: Arc<SharedState>) -> Self {
         Self { bind_addr, state }
     }
 
@@ -85,10 +69,23 @@ impl TelnetServer {
         info!("Telnet server listening on {}", self.bind_addr);
 
         loop {
-            let (socket, addr) = listener.accept().await?;
-            info!("Telnet connection from {}", addr);
+            let (mut socket, addr) = listener.accept().await?;
+            let source_key = crate::ratelimit::ip_to_rate_key(addr.ip());
             let state = self.state.clone();
+
+            // Connection gating — reject before spawning session task
+            let conn_guard = match state.connection_tracker.try_admit(&source_key) {
+                Ok(guard) => guard,
+                Err(e) => {
+                    warn!("Telnet connection rejected from {}: {}", addr, e);
+                    let _ = socket.write_all(format!("\r\n{e}\r\n").as_bytes()).await;
+                    continue;
+                }
+            };
+
+            info!("Telnet connection from {}", addr);
             tokio::spawn(async move {
+                let _conn_guard = conn_guard;
                 if let Err(e) = handle_telnet_session(socket, addr, state).await {
                     warn!("Telnet session error from {}: {}", addr, e);
                 }
@@ -98,40 +95,13 @@ impl TelnetServer {
     }
 }
 
-/// Split input into (completed_tokens, partial_token) for completion.
-/// If input ends with whitespace, partial is empty.
-fn split_for_completion(input: &str) -> (Vec<&str>, &str) {
-    if input.is_empty() || input.ends_with(' ') {
-        let tokens: Vec<&str> = input.split_whitespace().collect();
-        (tokens, "")
-    } else {
-        let tokens: Vec<&str> = input.split_whitespace().collect();
-        if tokens.is_empty() {
-            (vec![], "")
-        } else {
-            let partial = tokens[tokens.len() - 1];
-            (tokens[..tokens.len() - 1].to_vec(), partial)
-        }
-    }
-}
-
-/// Format completions as a two-column IOS-style help table.
-fn format_completions(completions: &[grammar::Completion]) -> String {
-    let mut out = String::new();
-    for c in completions {
-        out.push_str(&format!("  {:<20} {}\r\n", c.keyword, c.help));
-    }
-    out
-}
-
 async fn handle_telnet_session(
     socket: tokio::net::TcpStream,
     peer_addr: std::net::SocketAddr,
-    state: Arc<TelnetState>,
+    state: Arc<SharedState>,
 ) -> Result<()> {
     let (mut reader, mut writer) = socket.into_split();
-    let identity = Identity::anonymous();
-    let prompt = "> ";
+    let mut identity = Identity::anonymous();
 
     // Negotiate character mode: WILL ECHO + WILL SGA
     writer
@@ -140,111 +110,102 @@ async fn handle_telnet_session(
     writer.flush().await?;
 
     // Banner
-    writer
-        .write_all(
-            format!(
-                "\r\n{}\r\nType 'help' or '?' for available commands.\r\n\r\n",
-                state.service_name
-            )
-            .as_bytes(),
-        )
-        .await?;
+    let banner = format!(
+        "\n{}\nType 'help' or '?' for available commands.\n\n",
+        crate::format::format_banner(&state.service_name)
+    );
+    writer.write_all(&to_crlf(banner.as_bytes())).await?;
 
-    let mut line_buf = String::new();
+    let mut editor = LineEditor::new();
 
     loop {
         // Prompt
-        writer.write_all(prompt.as_bytes()).await?;
+        writer.write_all(PROMPT.as_bytes()).await?;
         writer.flush().await?;
-        line_buf.clear();
 
         // Interactive line editor — read char by char
-        let line = match read_line(&mut reader, &mut writer, &mut line_buf, prompt).await? {
+        let line = match read_line(&mut reader, &mut writer, &mut editor).await? {
             Some(line) => line,
             None => break, // EOF / Ctrl+D
         };
 
-        let line = line.trim().to_string();
-
-        // Quit commands (with abbreviation support)
-        let lower = line.to_lowercase();
-        if ("quit".starts_with(&lower) && !lower.is_empty())
-            || ("exit".starts_with(&lower) && lower.starts_with("ex"))
-        {
-            writer.write_all(b"Goodbye.\r\n").await?;
-            break;
-        }
-
-        // Parse command
-        let command = match parse_command(&line) {
-            Ok(cmd) => cmd,
-            Err(ParseError::Empty) => continue,
-            Err(e) => {
-                writer
-                    .write_all(format!("{e}\r\n").as_bytes())
-                    .await?;
-                continue;
-            }
-        };
-
-        // Handle help locally
-        if command.resource == Resource::Help {
-            writer.write_all(HELP_TEXT.as_bytes()).await?;
-            continue;
-        }
-
-        // Handle participants locally
-        if command.resource == Resource::Participants {
-            let output = format_participants(&state.participants);
-            writer.write_all(output.as_bytes()).await?;
-            continue;
-        }
-
-        // Policy check
-        match state
-            .policy
-            .evaluate(&command, &identity, &state.participants)
-        {
-            PolicyDecision::Allow => {}
-            PolicyDecision::Deny { reason } => {
-                writer
-                    .write_all(format!("Denied: {reason}\r\n").as_bytes())
-                    .await?;
-                continue;
-            }
-        }
-
-        // Rate limit
         let rate_key = crate::ratelimit::ip_to_rate_key(peer_addr.ip());
-        let _guard = match state.rate_limiter.acquire(&rate_key).await {
-            Ok(guard) => guard,
-            Err(e) => {
-                writer
-                    .write_all(format!("Rate limited: {e}\r\n").as_bytes())
-                    .await?;
-                continue;
-            }
-        };
+        let mut tw = TelnetWriter { inner: &mut writer };
 
-        // Dispatch to device backend
-        let result = state.device_pool.execute(&command).await;
-        match result {
-            Ok(output) => {
-                // Pool output uses \n; telnet requires \r\n
-                let telnet_output = output.replace('\n', "\r\n");
-                writer.write_all(telnet_output.as_bytes()).await?;
-                if !telnet_output.ends_with("\r\n") {
-                    writer.write_all(b"\r\n").await?;
-                }
+        match super::common::dispatch_command(&line, &state, &identity, &rate_key, crate::format::ColorMode::Color, &mut tw).await? {
+            CommandAction::Quit => break,
+            CommandAction::Login => {
+                handle_telnet_login(&state, &mut identity, &mut writer).await?;
             }
-            Err(e) => {
-                writer
-                    .write_all(format!("Error: {e}\r\n").as_bytes())
-                    .await?;
-            }
+            CommandAction::Continue => {}
         }
     }
 
+    Ok(())
+}
+
+/// Handle the OIDC login flow for telnet (session-only, no certs).
+async fn handle_telnet_login(
+    state: &SharedState,
+    identity: &mut Identity,
+    writer: &mut OwnedWriteHalf,
+) -> Result<()> {
+    if identity.authenticated {
+        let email = identity.email.as_deref().unwrap_or("unknown");
+        let msg = format!("Already authenticated as {email}\n");
+        writer.write_all(&to_crlf(msg.as_bytes())).await?;
+        writer.flush().await?;
+        return Ok(());
+    }
+    let oidc = match &state.oidc_client {
+        Some(c) => c.clone(),
+        None => {
+            writer.write_all(&to_crlf(b"OIDC authentication not configured.\n")).await?;
+            writer.flush().await?;
+            return Ok(());
+        }
+    };
+    let auth_state = match oidc.start_device_auth().await {
+        Ok(s) => s,
+        Err(e) => {
+            let msg = format!("Failed to start authentication: {e}\n");
+            writer.write_all(&to_crlf(msg.as_bytes())).await?;
+            writer.flush().await?;
+            return Ok(());
+        }
+    };
+    let msg = format!(
+        "\nTo authenticate, visit: {}\nEnter code: {}\nWaiting for authentication...\n",
+        auth_state.verification_uri, auth_state.user_code
+    );
+    writer.write_all(&to_crlf(msg.as_bytes())).await?;
+    writer.flush().await?;
+
+    match oidc.poll_for_token(&auth_state).await {
+        Ok(claims) => {
+            *identity = Identity::from_oidc_claims(
+                claims.email.clone(),
+                claims.groups.clone(),
+                &state.group_prefix,
+            );
+            let asn_list: Vec<String> = identity.asns.iter().map(|a| format!("AS{a}")).collect();
+            let asn_display = if asn_list.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", asn_list.join(", "))
+            };
+            let msg = format!(
+                "\nAuthenticated as {}{asn_display}\n(Session-only \u{2014} no certificate issued for telnet)\n",
+                claims.email
+            );
+            writer.write_all(&to_crlf(msg.as_bytes())).await?;
+        }
+        Err(e) => {
+            let msg = format!("\nAuthentication failed: {e}\n");
+            writer.write_all(&to_crlf(msg.as_bytes())).await?;
+        }
+    }
+    writer.flush().await?;
     Ok(())
 }
 
@@ -252,13 +213,16 @@ async fn handle_telnet_session(
 ///
 /// Reads from the telnet socket one byte at a time (character mode).
 /// Returns `Some(line)` on Enter, `None` on EOF/Ctrl+D.
+///
+/// Telnet-specific concerns (IAC handling, CR consumption) are handled
+/// here; all other byte processing is delegated to the shared LineEditor.
 async fn read_line(
     reader: &mut OwnedReadHalf,
     writer: &mut OwnedWriteHalf,
-    buf: &mut String,
-    prompt: &str,
+    editor: &mut LineEditor,
 ) -> Result<Option<String>> {
     let mut byte = [0u8; 1];
+    editor.clear();
 
     loop {
         if reader.read(&mut byte).await? == 0 {
@@ -266,7 +230,7 @@ async fn read_line(
         }
 
         match byte[0] {
-            // --- Telnet IAC sequence ---
+            // --- Telnet IAC sequence (telnet-specific, not in LineEditor) ---
             IAC => {
                 let mut cmd = [0u8; 1];
                 if reader.read_exact(&mut cmd).await.is_err() {
@@ -274,12 +238,10 @@ async fn read_line(
                 }
                 match cmd[0] {
                     WILL | WONT | DO | DONT => {
-                        // Read and discard the option byte
                         let mut opt = [0u8; 1];
                         let _ = reader.read_exact(&mut opt).await;
                     }
                     SB => {
-                        // Skip until IAC SE
                         loop {
                             let mut sb = [0u8; 1];
                             if reader.read_exact(&mut sb).await.is_err() {
@@ -297,136 +259,68 @@ async fn read_line(
                         }
                     }
                     IAC => {
-                        // Escaped 0xFF — treat as data
-                        buf.push(0xFF as char);
-                        writer.write_all(&[0xFF]).await?;
+                        // Escaped 0xFF — feed as data byte
+                        let mut output = Vec::new();
+                        let _ = editor.feed_byte(0xFF, &mut output);
+                        if !output.is_empty() {
+                            writer.write_all(&to_crlf(&output)).await?;
+                            writer.flush().await?;
+                        }
                     }
-                    _ => {} // Unknown, skip
+                    _ => {}
                 }
             }
 
-            // --- Enter (CR) ---
+            // --- CR: consume optional trailing LF/NUL, then delegate ---
             0x0D => {
-                // Consume optional LF or NUL after CR
                 let mut peek = [0u8; 1];
-                // Use a small timeout so we don't hang if no follow-up byte
                 let _ = tokio::time::timeout(
                     std::time::Duration::from_millis(50),
                     reader.read_exact(&mut peek),
                 )
                 .await;
-                writer.write_all(b"\r\n").await?;
-                writer.flush().await?;
-                return Ok(Some(buf.clone()));
-            }
-
-            // --- LF alone ---
-            0x0A => {
-                writer.write_all(b"\r\n").await?;
-                writer.flush().await?;
-                return Ok(Some(buf.clone()));
-            }
-
-            // --- Backspace / DEL ---
-            0x08 | 0x7F => {
-                if !buf.is_empty() {
-                    buf.pop();
-                    // Move cursor back, overwrite with space, move back again
-                    writer.write_all(b"\x08 \x08").await?;
-                    writer.flush().await?;
-                }
-            }
-
-            // --- Tab (completion) ---
-            0x09 => {
-                let (tokens, partial) = split_for_completion(buf);
-                let token_refs: Vec<&str> = tokens.iter().map(|s| s.as_ref()).collect();
-
-                if let Some(suffix) = grammar::tab_complete(&token_refs, partial) {
-                    // Unambiguous — append completion
-                    buf.push_str(&suffix);
-                    writer.write_all(suffix.as_bytes()).await?;
-                    writer.flush().await?;
-                } else {
-                    // Ambiguous — show options, then redisplay prompt + buffer
-                    let completions = grammar::get_completions(&token_refs, partial);
-                    if !completions.is_empty() {
-                        writer.write_all(b"\r\n").await?;
-                        writer
-                            .write_all(format_completions(&completions).as_bytes())
-                            .await?;
-                        // Redisplay prompt and current buffer
-                        writer
-                            .write_all(format!("{prompt}{buf}").as_bytes())
-                            .await?;
+                // Delegate CR as the newline trigger
+                let mut output = Vec::new();
+                match editor.feed_byte(0x0D, &mut output) {
+                    LineEvent::Line(line) => {
+                        writer.write_all(&to_crlf(&output)).await?;
                         writer.flush().await?;
+                        return Ok(Some(line));
+                    }
+                    LineEvent::Eof => {
+                        writer.write_all(&to_crlf(&output)).await?;
+                        return Ok(None);
+                    }
+                    LineEvent::Continue => {
+                        if !output.is_empty() {
+                            writer.write_all(&to_crlf(&output)).await?;
+                            writer.flush().await?;
+                        }
                     }
                 }
             }
 
-            // --- ? (inline help) ---
-            0x3F => {
-                // IOS-style: ? shows help without being added to the buffer.
-                // If preceded by a non-space char, show matches for that partial.
-                // If preceded by space (or empty), show all next-level options.
-                let (tokens, partial) = split_for_completion(buf);
-                let token_refs: Vec<&str> = tokens.iter().map(|s| s.as_ref()).collect();
-                let completions = grammar::get_completions(&token_refs, partial);
-
-                writer.write_all(b"\r\n").await?;
-                if completions.is_empty() {
-                    writer.write_all(b"  No completions available\r\n").await?;
-                } else {
-                    writer
-                        .write_all(format_completions(&completions).as_bytes())
-                        .await?;
+            // --- All other bytes: delegate to shared LineEditor ---
+            b => {
+                let mut output = Vec::new();
+                match editor.feed_byte(b, &mut output) {
+                    LineEvent::Line(line) => {
+                        writer.write_all(&to_crlf(&output)).await?;
+                        writer.flush().await?;
+                        return Ok(Some(line));
+                    }
+                    LineEvent::Eof => {
+                        writer.write_all(&to_crlf(&output)).await?;
+                        return Ok(None);
+                    }
+                    LineEvent::Continue => {
+                        if !output.is_empty() {
+                            writer.write_all(&to_crlf(&output)).await?;
+                            writer.flush().await?;
+                        }
+                    }
                 }
-                // Redisplay prompt and current buffer
-                writer
-                    .write_all(format!("{prompt}{buf}").as_bytes())
-                    .await?;
-                writer.flush().await?;
             }
-
-            // --- Ctrl+C ---
-            0x03 => {
-                writer.write_all(b"^C\r\n").await?;
-                buf.clear();
-                // Redisplay prompt
-                writer.write_all(prompt.as_bytes()).await?;
-                writer.flush().await?;
-            }
-
-            // --- Ctrl+D ---
-            0x04 => {
-                if buf.is_empty() {
-                    writer.write_all(b"\r\n").await?;
-                    return Ok(None);
-                }
-                // Non-empty buffer: ignore Ctrl+D (IOS behavior)
-            }
-
-            // --- Escape sequences (arrow keys, etc.) ---
-            0x1B => {
-                // Read [ and the direction byte, discard
-                let mut seq = [0u8; 2];
-                let _ = tokio::time::timeout(
-                    std::time::Duration::from_millis(50),
-                    reader.read_exact(&mut seq),
-                )
-                .await;
-                // Ignore arrow keys for now (no cursor movement support)
-            }
-
-            // --- Printable characters ---
-            c if c >= 0x20 && c < 0x7F => {
-                buf.push(c as char);
-                writer.write_all(&[c]).await?;
-                writer.flush().await?;
-            }
-
-            // --- Everything else: ignore ---
-            _ => {}
         }
     }
 }
