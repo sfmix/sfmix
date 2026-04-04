@@ -34,6 +34,10 @@ resource "authentik_source_oauth" "peeringdb" {
   group_matching_mode = "name_link" # Was "identifier" — caused IntegrityError on "IX Administrators"
   pkce                = "S256"
 
+  # PeeringDB's client_secret_basic (HTTP Basic) returns 401 with argon2-hashed
+  # secrets. Must use client_secret_post (POST body) instead.
+  authorization_code_auth_method = "post_body"
+
   authentication_flow = data.authentik_flow.default_source_authentication.id
   enrollment_flow     = data.authentik_flow.default_source_enrollment.id
   user_path_template  = "users"
