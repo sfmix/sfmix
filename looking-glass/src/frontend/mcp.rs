@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::extract::Request;
+use axum::http::HeaderMap;
 use axum::middleware::{self, Next};
 use axum::response::Response;
 use rmcp::{
@@ -19,63 +20,81 @@ use rmcp::{
 use serde_json::json;
 use tracing::{info, debug};
 
+use crate::oidc::OidcClient;
+
 use crate::command::{AddressFamily, Command, Resource, Verb};
-use crate::frontend::telnet::TelnetState;
+use crate::frontend::common::SharedState;
 use crate::identity::Identity;
 use crate::policy::PolicyDecision;
 
 tokio::task_local! {
-    /// Per-request identity extracted from reverse-proxy auth headers.
+    /// Per-request identity extracted from Bearer token.
     static CURRENT_IDENTITY: Identity;
     /// Per-request rate-limit key (email for authenticated, IP prefix for anonymous).
     static CURRENT_RATE_KEY: String;
 }
 
-/// Extract identity and rate-limit key from reverse-proxy headers.
+/// Extract Bearer token from Authorization header.
+fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "))
+        .map(|s| s.to_string())
+}
+
+/// Extract client IP from X-Forwarded-For or X-Real-IP for rate limiting.
+fn extract_client_ip(headers: &HeaderMap) -> Option<std::net::IpAddr> {
+    headers
+        .get("X-Forwarded-For")
+        .or_else(|| headers.get("X-Real-IP"))
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .and_then(|s| s.trim().parse().ok())
+}
+
+/// Authentication middleware: verify Bearer token via OIDC.
 ///
-/// Expects the reverse proxy (nginx + Authentik) to set:
-/// - `X-Forwarded-Email`: authenticated user's email
-/// - `X-Forwarded-Groups`: comma-separated group memberships
-/// - `X-Forwarded-For`: client IP (for anonymous rate limiting by /24 or /56)
+/// Identity is derived from cryptographically verified JWT claims only.
+/// No header-based trust (X-Forwarded-Email, etc.) — all identity must come
+/// from a valid Bearer token signed by the configured OIDC issuer.
 async fn auth_middleware(
     request: Request,
     next: Next,
     group_prefix: String,
+    oidc_client: Option<OidcClient>,
 ) -> Response {
-    let email = request
-        .headers()
-        .get("X-Forwarded-Email")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
+    let headers = request.headers();
+    let token = extract_bearer_token(headers);
+    let client_ip = extract_client_ip(headers);
 
-    let groups: Vec<String> = request
-        .headers()
-        .get("X-Forwarded-Groups")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.split(',').map(|g| g.trim().to_string()).filter(|g| !g.is_empty()).collect())
-        .unwrap_or_default();
-
-    // For anonymous rate limiting, extract client IP from X-Forwarded-For
-    let forwarded_ip: Option<std::net::IpAddr> = request
-        .headers()
-        .get("X-Forwarded-For")
-        .and_then(|v| v.to_str().ok())
-        // X-Forwarded-For can be "client, proxy1, proxy2" — take the first
-        .and_then(|s| s.split(',').next())
-        .and_then(|s| s.trim().parse().ok());
-
-    let (identity, rate_key) = match email {
-        Some(ref email) => {
-            debug!(email = %email, groups = ?groups, "MCP request with authenticated identity");
-            let rate_key = email.clone();
-            let identity = Identity::from_oidc_claims(email.clone(), groups, &group_prefix);
-            (identity, rate_key)
+    let (identity, rate_key) = match (&oidc_client, token) {
+        (Some(oidc), Some(token)) => {
+            match oidc.verify_id_token(&token).await {
+                Ok(claims) => {
+                    debug!(email = %claims.email, groups = ?claims.groups, "MCP: authenticated via Bearer token");
+                    let rate_key = claims.email.clone();
+                    let identity = Identity::from_oidc_claims(
+                        claims.email,
+                        claims.groups,
+                        &group_prefix,
+                    );
+                    (identity, rate_key)
+                }
+                Err(e) => {
+                    debug!(error = %e, "MCP: Bearer token verification failed");
+                    let rate_key = client_ip
+                        .map(crate::ratelimit::ip_to_rate_key)
+                        .unwrap_or_else(|| "anonymous".to_string());
+                    (Identity::anonymous(), rate_key)
+                }
+            }
         }
-        None => {
-            let rate_key = forwarded_ip
+        _ => {
+            let rate_key = client_ip
                 .map(crate::ratelimit::ip_to_rate_key)
                 .unwrap_or_else(|| "anonymous".to_string());
-            debug!(rate_key = %rate_key, "MCP request anonymous");
+            debug!(rate_key = %rate_key, "MCP: anonymous request");
             (Identity::anonymous(), rate_key)
         }
     };
@@ -91,11 +110,11 @@ async fn auth_middleware(
 /// enabling LLM agents to query IXP state.
 pub struct McpFrontend {
     bind_addr: String,
-    state: Arc<TelnetState>,
+    state: Arc<SharedState>,
 }
 
 impl McpFrontend {
-    pub fn new(bind_addr: String, state: Arc<TelnetState>) -> Self {
+    pub fn new(bind_addr: String, state: Arc<SharedState>) -> Self {
         Self { bind_addr, state }
     }
 
@@ -123,10 +142,11 @@ impl McpFrontend {
         );
 
         let group_prefix = self.state.group_prefix.clone();
+        let oidc_client = self.state.oidc_client.clone();
         let router = axum::Router::new()
             .nest_service("/mcp", service)
             .layer(middleware::from_fn(move |req, next| {
-                auth_middleware(req, next, group_prefix.clone())
+                auth_middleware(req, next, group_prefix.clone(), oidc_client.clone())
             }));
         let listener = tokio::net::TcpListener::bind(&self.bind_addr).await?;
         info!("MCP server listening on {}", self.bind_addr);
@@ -170,7 +190,7 @@ struct DestinationParams {
 
 #[derive(Clone)]
 struct LookingGlassMcp {
-    state: Arc<TelnetState>,
+    state: Arc<SharedState>,
     identity: Identity,
     rate_key: String,
     tool_router: ToolRouter<Self>,
@@ -178,7 +198,7 @@ struct LookingGlassMcp {
 
 #[tool_router]
 impl LookingGlassMcp {
-    fn new(state: Arc<TelnetState>, identity: Identity, rate_key: String) -> Self {
+    fn new(state: Arc<SharedState>, identity: Identity, rate_key: String) -> Self {
         Self {
             state,
             identity,
@@ -188,9 +208,10 @@ impl LookingGlassMcp {
     }
 
     /// Execute a parsed command through the policy engine, rate limiter, and device pool.
+    /// Returns JSON-serialized structured output for MCP/LLM consumption.
     async fn execute_command(&self, command: &Command) -> Result<String, McpError> {
         if let PolicyDecision::Deny { reason } =
-            self.state.policy.evaluate(command, &self.identity, &self.state.participants)
+            self.state.policy.evaluate(command, &self.identity, &self.state.participants.load())
         {
             return Err(McpError::invalid_request(reason, None));
         }
@@ -201,11 +222,31 @@ impl LookingGlassMcp {
             .await
             .map_err(|e| McpError::invalid_request(format!("rate limited: {e}"), None))?;
 
-        self.state
+        let mut rx = self.state
             .device_pool
-            .execute(command)
+            .execute(command, &self.identity, &self.state.device_rate_limiter, self.state.policy.admin_group(), &self.state.port_map.load(), &self.state.public_vlans)
             .await
-            .map_err(|e| McpError::internal_error(format!("device error: {e}"), None))
+            .map_err(|e| McpError::internal_error(format!("device error: {e}"), None))?;
+
+        // Collect all device results, then serialize as JSON for LLM agents
+        let mut json_results: Vec<serde_json::Value> = Vec::new();
+        while let Some(r) = rx.recv().await {
+            let data = match r.output {
+                crate::structured::CommandOutput::Stream(mut stream_rx) => {
+                    let text = crate::format::drain_stream(&mut stream_rx).await;
+                    serde_json::Value::String(text)
+                }
+                other => serde_json::json!(other),
+            };
+            json_results.push(serde_json::json!({
+                "device": r.device,
+                "success": r.success,
+                "data": data,
+            }));
+        }
+
+        serde_json::to_string_pretty(&json_results)
+            .map_err(|e| McpError::internal_error(format!("serialization error: {e}"), None))
     }
 
     /// Shorthand: build a Show command, execute it, and wrap the output.
@@ -221,21 +262,27 @@ impl LookingGlassMcp {
             target,
             device: None,
             address_family: af,
+            filter_asn: None,
+            filter_vlan: None,
         };
         let output = self.execute_command(&cmd).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
-    /// Format the participant list as "AS<n> <name>" lines.
+    /// Format the participant list as "AS<n> <name> [type]" lines.
     fn format_participants(&self) -> String {
-        let mut entries: Vec<_> = self.state.participants.all().collect();
+        let participants = self.state.participants.load();
+        let mut entries: Vec<_> = participants.all().collect();
         entries.sort_by_key(|p| p.asn);
         if entries.is_empty() {
             return "No participants configured.\n".to_string();
         }
         entries
             .iter()
-            .map(|p| format!("AS{} {}", p.asn, p.name))
+            .map(|p| {
+                let ptype = p.participant_type.as_deref().unwrap_or("Member");
+                format!("AS{} {} [{}]", p.asn, p.name, ptype)
+            })
             .collect::<Vec<_>>()
             .join("\n")
             + "\n"
@@ -310,6 +357,8 @@ impl LookingGlassMcp {
             target: Some(params.destination),
             device: None,
             address_family: AddressFamily::IPv4,
+            filter_asn: None,
+            filter_vlan: None,
         };
         let output = self.execute_command(&cmd).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
@@ -326,6 +375,8 @@ impl LookingGlassMcp {
             target: Some(params.destination),
             device: None,
             address_family: AddressFamily::IPv4,
+            filter_asn: None,
+            filter_vlan: None,
         };
         let output = self.execute_command(&cmd).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
