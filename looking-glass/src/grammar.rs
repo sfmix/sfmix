@@ -44,6 +44,10 @@ pub struct CommandTemplate {
     pub target: Option<String>,
     #[serde(default)]
     pub address_family: Option<AddressFamily>,
+    #[serde(default)]
+    pub filter_asn: Option<String>,
+    #[serde(default)]
+    pub filter_vlan: Option<String>,
 }
 
 // --- Completion ---
@@ -159,6 +163,8 @@ pub fn parse_command(input: &str) -> Result<Command, ParseError> {
             target: None,
             device: None,
             address_family: AddressFamily::IPv4,
+            filter_asn: None,
+            filter_vlan: None,
         });
     }
 
@@ -239,12 +245,25 @@ fn build_command(tpl: &CommandTemplate, captured_arg: Option<&str>) -> Result<Co
         None => None,
     };
 
+    let filter_asn = match tpl.filter_asn.as_deref() {
+        Some("$arg") => captured_arg
+            .and_then(|s| s.parse::<u32>().ok()),
+        _ => None,
+    };
+
+    let filter_vlan = match tpl.filter_vlan.as_deref() {
+        Some("$arg") => captured_arg.map(|s| s.to_string()),
+        _ => None,
+    };
+
     Ok(Command {
         verb: tpl.verb,
         resource: tpl.resource,
         target,
         device: None,
         address_family: tpl.address_family.unwrap_or_default(),
+        filter_asn,
+        filter_vlan,
     })
 }
 
@@ -313,10 +332,11 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_show_interface_detail() {
-        let cmd = parse_command("show interface Ethernet3/1").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfaceDetail);
-        assert_eq!(cmd.target.as_deref(), Some("Ethernet3/1"));
+    fn test_parse_show_interfaces_filter_asn() {
+        let cmd = parse_command("show interfaces 13335").unwrap();
+        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        assert_eq!(cmd.filter_asn, Some(13335));
+        assert!(cmd.target.is_none());
     }
 
     #[test]
@@ -324,9 +344,9 @@ mod tests {
         let cmd = parse_command("show optics").unwrap();
         assert_eq!(cmd.resource, Resource::Optics);
 
-        let cmd = parse_command("show optics Ethernet3/1").unwrap();
-        assert_eq!(cmd.resource, Resource::OpticsDetail);
-        assert_eq!(cmd.target.as_deref(), Some("Ethernet3/1"));
+        let cmd = parse_command("show optics 13335").unwrap();
+        assert_eq!(cmd.resource, Resource::Optics);
+        assert_eq!(cmd.filter_asn, Some(13335));
     }
 
     #[test]
@@ -382,10 +402,10 @@ mod tests {
     }
 
     #[test]
-    fn test_abbrev_sh_int_ethernet() {
-        let cmd = parse_command("sh int Ethernet1").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfaceDetail);
-        assert_eq!(cmd.target.as_deref(), Some("Ethernet1"));
+    fn test_abbrev_sh_int_asn() {
+        let cmd = parse_command("sh int 13335").unwrap();
+        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        assert_eq!(cmd.filter_asn, Some(13335));
     }
 
     #[test]

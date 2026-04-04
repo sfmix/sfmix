@@ -4,6 +4,7 @@ use std::path::Path;
 use tracing::debug;
 
 use crate::command::{Command, Resource, Verb};
+use crate::config::DEFAULT_ADMIN_GROUP;
 use crate::identity::Identity;
 use crate::participants::ParticipantMap;
 
@@ -50,11 +51,10 @@ impl PolicyEngine {
         let policy_file: PolicyFile = serde_yaml::from_str(&contents)?;
         Ok(Self {
             rules: policy_file.policies,
-            admin_group: "IX Administrators".to_string(),
+            admin_group: DEFAULT_ADMIN_GROUP.to_string(),
         })
     }
 
-    #[allow(dead_code)]
     pub fn with_admin_group(mut self, group: &str) -> Self {
         self.admin_group = group.to_string();
         self
@@ -93,15 +93,15 @@ impl PolicyEngine {
                     }),
                     allow: vec![
                         "show interfaces status".to_string(),
-                        "show interface *".to_string(),
                         "show optics".to_string(),
-                        "show optics *".to_string(),
                         "show ip bgp summary".to_string(),
                         "show bgp *".to_string(),
                         "show lldp neighbors".to_string(),
                         "show arp".to_string(),
+                        "show mac address-table".to_string(),
                         "show ipv6 neighbors".to_string(),
                         "show participants".to_string(),
+                        "show vxlan vtep".to_string(),
                         "ping *".to_string(),
                         "traceroute *".to_string(),
                     ],
@@ -114,15 +114,17 @@ impl PolicyEngine {
                     deny: true,
                 },
             ],
-            admin_group: "IX Administrators".to_string(),
+            admin_group: DEFAULT_ADMIN_GROUP.to_string(),
         }
     }
 
     /// Evaluate whether the given command is allowed for the given identity.
     ///
-    /// For Phase 1 (public/telnet), this primarily checks whether the command
-    /// is in the public command set. Port-scoped commands against participant
-    /// ports require authentication and ASN ownership (or admin).
+    /// Port-scoped commands (InterfaceDetail, OpticsDetail) target a participant
+    /// ASN and require authentication + ASN ownership (or admin).
+    ///
+    /// BGP neighbor commands targeting a participant session address require
+    /// authentication + ASN ownership (or admin).
     pub fn evaluate(
         &self,
         command: &Command,
@@ -134,30 +136,71 @@ impl PolicyEngine {
             return PolicyDecision::Allow;
         }
 
-        // Port-scoped commands targeting a specific interface need ownership check
+        // Port-scoped commands target a participant ASN — require auth + ownership
         if command.resource.is_port_scoped() {
             if let Some(ref target) = command.target {
-                // Check if this is a participant port
-                if is_participant_port(target, participants) {
-                    if !identity.authenticated {
+                let asn: u32 = match target.parse() {
+                    Ok(a) => a,
+                    Err(_) => {
                         return PolicyDecision::Deny {
-                            reason: "authentication required for participant port queries".to_string(),
+                            reason: format!("invalid ASN: {target}"),
                         };
                     }
-                    // Authenticated: check ASN ownership (or admin)
-                    if !identity.is_admin(&self.admin_group()) {
-                        let owns_port = identity.asns.iter().any(|asn| {
-                            // Check all devices — target is just the interface name
-                            participants.port_belongs_to_any_device(target, *asn)
-                        });
-                        if !owns_port {
-                            return PolicyDecision::Deny {
-                                reason: "you do not own this port".to_string(),
-                            };
-                        }
+                };
+                if participants.get(asn).is_none() {
+                    return PolicyDecision::Deny {
+                        reason: format!("unknown participant AS{asn}"),
+                    };
+                }
+                if !identity.authenticated {
+                    return PolicyDecision::Deny {
+                        reason: "authentication required for participant port queries".to_string(),
+                    };
+                }
+                if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&asn) {
+                    return PolicyDecision::Deny {
+                        reason: "you do not administer this ASN".to_string(),
+                    };
+                }
+            }
+        }
+
+        // ASN-filtered commands (show interfaces <asn>, show optics <asn>)
+        // require auth + ownership, same as port-scoped commands.
+        if let Some(asn) = command.filter_asn {
+            if participants.get(asn).is_none() {
+                return PolicyDecision::Deny {
+                    reason: format!("unknown participant AS{asn}"),
+                };
+            }
+            if !identity.authenticated {
+                return PolicyDecision::Deny {
+                    reason: "authentication required for participant port queries".to_string(),
+                };
+            }
+            if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&asn) {
+                return PolicyDecision::Deny {
+                    reason: "you do not administer this ASN".to_string(),
+                };
+            }
+        }
+
+        // BGP neighbor commands: if the address belongs to a participant, check ownership
+        if command.resource == Resource::BgpNeighbor {
+            if let Some(ref addr) = command.target {
+                if let Some(owner_asn) = participants.session_owner(addr) {
+                    if !identity.authenticated {
+                        return PolicyDecision::Deny {
+                            reason: "authentication required for participant BGP neighbor queries".to_string(),
+                        };
+                    }
+                    if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&owner_asn) {
+                        return PolicyDecision::Deny {
+                            reason: "you do not administer this BGP session".to_string(),
+                        };
                     }
                 }
-                // Core/infrastructure ports fall through to normal rule matching
+                // Non-participant sessions (infrastructure BGP) fall through to rule matching
             }
         }
 
@@ -182,7 +225,7 @@ impl PolicyEngine {
         }
     }
 
-    fn admin_group(&self) -> &str {
+    pub fn admin_group(&self) -> &str {
         &self.admin_group
     }
 
@@ -251,6 +294,7 @@ fn command_to_match_string(command: &Command) -> String {
             return format!("{verb} {}", command.target.as_deref().unwrap_or(""));
         }
         Resource::Help => "help",
+        Resource::Login => return "login".to_string(),
     };
     format!("{verb} {resource}")
 }
@@ -265,32 +309,32 @@ fn pattern_matches(input: &str, pattern: &str) -> bool {
     }
 }
 
-/// Check if an interface name belongs to any participant across all devices.
-fn is_participant_port(interface: &str, participants: &ParticipantMap) -> bool {
-    participants.interface_is_participant_port(interface)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::grammar::parse_command;
-    use crate::participants::{Participant, ParticipantPort};
+    use crate::participants::{Participant, ParticipantPort, ParticipantSession};
 
     fn test_participants() -> ParticipantMap {
-        // AS64500 owns Ethernet3/1, AS64501 owns Ethernet3/2
         let mut map = ParticipantMap::empty();
         map.insert(Participant {
             asn: 64500,
             name: "Test Peer A".to_string(),
+            participant_type: Some("Member".to_string()),
             ports: vec![ParticipantPort {
                 device: "switch01.sfo02".to_string(),
                 interface: "Ethernet3/1".to_string(),
             }],
-            sessions: vec![],
+            sessions: vec![ParticipantSession {
+                device: "switch01.sfo02".to_string(),
+                neighbor: Some("198.51.100.1".to_string()),
+                neighbor_v6: Some("2001:db8::1".to_string()),
+            }],
         });
         map.insert(Participant {
             asn: 64501,
             name: "Test Peer B".to_string(),
+            participant_type: None,
             ports: vec![ParticipantPort {
                 device: "switch01.sfo02".to_string(),
                 interface: "Ethernet3/2".to_string(),
@@ -331,25 +375,24 @@ mod tests {
     }
 
     #[test]
-    fn test_public_policy_allows_optics() {
+    fn test_public_policy_allows_optics_global() {
         let engine = PolicyEngine::default_public();
         let identity = Identity::anonymous();
-        let participants = ParticipantMap::empty();
+        let participants = test_participants();
 
         let cmd = parse_command("show optics").unwrap();
         assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
     }
 
-    // --- Per-ASN enforcement tests ---
+    // --- ASN-targeted port-scoped commands ---
 
     #[test]
-    fn test_anon_denied_participant_port_interface_detail() {
+    fn test_anon_denied_interface_detail_by_asn() {
         let engine = PolicyEngine::default_public();
         let identity = Identity::anonymous();
         let participants = test_participants();
 
-        // Ethernet3/1 is a participant port — anon should be denied
-        let cmd = parse_command("show interface Ethernet3/1").unwrap();
+        let cmd = parse_command("show interface 64500").unwrap();
         assert!(matches!(
             engine.evaluate(&cmd, &identity, &participants),
             PolicyDecision::Deny { .. }
@@ -357,43 +400,30 @@ mod tests {
     }
 
     #[test]
-    fn test_anon_allowed_infrastructure_port() {
-        let engine = PolicyEngine::default_public();
-        let identity = Identity::anonymous();
-        let participants = test_participants();
-
-        // Ethernet49/1 is NOT a participant port — anon should be allowed
-        let cmd = parse_command("show interface Ethernet49/1").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
-    }
-
-    #[test]
-    fn test_auth_owner_allowed_own_port() {
+    fn test_auth_owner_allowed_own_asn() {
         let engine = PolicyEngine::default_public();
         let participants = test_participants();
 
-        // AS64500 user querying their own port Ethernet3/1
         let identity = Identity::from_oidc_claims(
             "user@peer-a.net".to_string(),
             vec!["as64500".to_string()],
             "as",
         );
-        let cmd = parse_command("show interface Ethernet3/1").unwrap();
+        let cmd = parse_command("show interface 64500").unwrap();
         assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
-    fn test_auth_non_owner_denied_other_port() {
+    fn test_auth_non_owner_denied_other_asn() {
         let engine = PolicyEngine::default_public();
         let participants = test_participants();
 
-        // AS64501 user querying AS64500's port Ethernet3/1
         let identity = Identity::from_oidc_claims(
             "user@peer-b.net".to_string(),
             vec!["as64501".to_string()],
             "as",
         );
-        let cmd = parse_command("show interface Ethernet3/1").unwrap();
+        let cmd = parse_command("show interface 64500").unwrap();
         assert!(matches!(
             engine.evaluate(&cmd, &identity, &participants),
             PolicyDecision::Deny { .. }
@@ -401,28 +431,30 @@ mod tests {
     }
 
     #[test]
-    fn test_admin_allowed_any_port() {
+    fn test_admin_allowed_any_asn() {
         let engine = PolicyEngine::default_public();
         let participants = test_participants();
 
-        // Admin user (no ASN ownership) can see any participant port
         let identity = Identity::from_oidc_claims(
             "admin@sfmix.org".to_string(),
-            vec!["IX Administrators".to_string()],
+            vec![DEFAULT_ADMIN_GROUP.to_string()],
             "as",
         );
-        let cmd = parse_command("show interface Ethernet3/1").unwrap();
+        let cmd = parse_command("show interface 64500").unwrap();
         assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
-    fn test_anon_denied_optics_detail_participant_port() {
+    fn test_unknown_asn_denied() {
         let engine = PolicyEngine::default_public();
-        let identity = Identity::anonymous();
         let participants = test_participants();
 
-        // OpticsDetail for a participant port should be denied for anon
-        let cmd = parse_command("show optics Ethernet3/1").unwrap();
+        let identity = Identity::from_oidc_claims(
+            "user@example.com".to_string(),
+            vec!["as99999".to_string()],
+            "as",
+        );
+        let cmd = parse_command("show interface 99999").unwrap();
         assert!(matches!(
             engine.evaluate(&cmd, &identity, &participants),
             PolicyDecision::Deny { .. }
@@ -430,7 +462,20 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_owner_allowed_optics_detail_own_port() {
+    fn test_anon_denied_optics_detail_by_asn() {
+        let engine = PolicyEngine::default_public();
+        let identity = Identity::anonymous();
+        let participants = test_participants();
+
+        let cmd = parse_command("show optics 64500").unwrap();
+        assert!(matches!(
+            engine.evaluate(&cmd, &identity, &participants),
+            PolicyDecision::Deny { .. }
+        ));
+    }
+
+    #[test]
+    fn test_auth_owner_allowed_optics_detail_own_asn() {
         let engine = PolicyEngine::default_public();
         let participants = test_participants();
 
@@ -439,18 +484,64 @@ mod tests {
             vec!["as64500".to_string()],
             "as",
         );
-        let cmd = parse_command("show optics Ethernet3/1").unwrap();
+        let cmd = parse_command("show optics 64500").unwrap();
         assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
     }
 
+    // --- BGP neighbor ownership ---
+
     #[test]
-    fn test_anon_allowed_optics_global() {
+    fn test_anon_denied_bgp_neighbor_participant_session() {
         let engine = PolicyEngine::default_public();
         let identity = Identity::anonymous();
         let participants = test_participants();
 
-        // Global optics (no target) is public
-        let cmd = parse_command("show optics").unwrap();
+        let cmd = parse_command("show bgp neighbor 198.51.100.1").unwrap();
+        assert!(matches!(
+            engine.evaluate(&cmd, &identity, &participants),
+            PolicyDecision::Deny { .. }
+        ));
+    }
+
+    #[test]
+    fn test_auth_owner_allowed_bgp_neighbor_own_session() {
+        let engine = PolicyEngine::default_public();
+        let participants = test_participants();
+
+        let identity = Identity::from_oidc_claims(
+            "user@peer-a.net".to_string(),
+            vec!["as64500".to_string()],
+            "as",
+        );
+        let cmd = parse_command("show bgp neighbor 198.51.100.1").unwrap();
+        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+    }
+
+    #[test]
+    fn test_auth_non_owner_denied_bgp_neighbor_other_session() {
+        let engine = PolicyEngine::default_public();
+        let participants = test_participants();
+
+        let identity = Identity::from_oidc_claims(
+            "user@peer-b.net".to_string(),
+            vec!["as64501".to_string()],
+            "as",
+        );
+        let cmd = parse_command("show bgp neighbor 198.51.100.1").unwrap();
+        assert!(matches!(
+            engine.evaluate(&cmd, &identity, &participants),
+            PolicyDecision::Deny { .. }
+        ));
+    }
+
+    #[test]
+    fn test_anon_allowed_bgp_neighbor_infrastructure() {
+        let engine = PolicyEngine::default_public();
+        let identity = Identity::anonymous();
+        let participants = test_participants();
+
+        // 10.0.0.1 is not a participant session — infrastructure BGP, allowed
+        let cmd = parse_command("show bgp neighbor 10.0.0.1").unwrap();
         assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
     }
 }
