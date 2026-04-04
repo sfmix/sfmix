@@ -12,6 +12,9 @@ ixp_portal_oidc_provider_url: "https://login.sfmix.org/application/o/portal"
 # Data source (NetBox)
 ixp_portal_netbox_url: "https://netbox.sfmix.org"
 
+# Looking Glass REST API (via alice.sfmix.org nginx proxy)
+ixp_portal_looking_glass_url: "https://alice.sfmix.org"
+
 # Prometheus metrics — CIDRs allowed to scrape /metrics/
 ixp_portal_prometheus_trusted_networks: "127.0.0.0/8,::1/128"
 
