@@ -7,13 +7,13 @@ A new open-source looking glass service for IXPs, designed to be generally appli
 1. **SSH/Telnet CLI** — interactive text interface for network debugging
 2. **MCP (Model Context Protocol) interface** — LLM agent access to IXP state
 3. **Device backend** — rate-limited, policy-controlled interaction with network devices
-4. **Identity-aware access control** — unauthenticated public queries and authenticated per-ASN views via OpenID Connect (opkssh + Authentik)
+4. **Identity-aware access control** — unauthenticated public queries and authenticated per-ASN views via built-in OIDC device authorization flow (Authentik)
 
 ### Goals
 
 - **Open source and general-purpose**: usable by any IXP, not hard-coded to SFMIX
 - **Compact and portable**: single statically-linked Rust binary, minimal resource footprint, suitable for deployment on embedded/router platforms
-- **Distributed**: can run as a lightweight daemon on out-of-band management routers at each site, close to the devices it queries
+- **Centralized**: primary deployment model is a single central instance reaching all devices over the management network
 - **Platform-flexible**: device interaction via textual CLI (SSH/NETCONF), not vendor-specific APIs
 - **Defense in depth**: policy engine controls what commands reach devices, per-user and per-role
 - **Minimal device load**: global rate limiter prevents query floods from overwhelming network gear
@@ -116,13 +116,18 @@ Core/infrastructure ports (uplinks, fabric links, router-facing ports) are alway
 
 #### 1b. SSH Server (Authenticated)
 
-Binds on port 2222 (or configurable). Uses **opkssh** for authentication:
+Binds on port 2222 (or configurable). The looking glass is its own SSH Certificate Authority and OIDC client, using the **OIDC device authorization flow** (RFC 8628):
 
-- User connects with `ssh -p 2222 lg.sfmix.org`
-- opkssh redirects user to `login.sfmix.org` (Authentik) for OIDC authentication
-- Authentik returns an OIDC token; opkssh issues an SSH certificate
-- The looking glass extracts claims from the certificate (email, groups including `as{ASN}`)
-- The session is tagged with the user's ASN list
+- User connects with `ssh -A -p 2222 lg.sfmix.org` (agent forwarding recommended)
+- Anonymous session starts with public-tier access
+- User types `login` to initiate authentication
+- LG starts OIDC device authorization flow with Authentik, displays verification URL and user code
+- User opens URL in browser, enters code, authenticates via PeeringDB or GitHub
+- LG polls token endpoint, verifies JWT signature against Authentik JWKS
+- On success: generates ephemeral Ed25519 keypair, signs an SSH user certificate embedding OIDC claims (email, groups) as extensions, with 12-hour lifetime
+- If SSH agent is forwarded: injects the certificate into the user's agent for fast re-authentication on subsequent connections
+- If no agent: session-only authentication (must re-login next session)
+- On reconnection with a valid certificate: LG verifies cert against its own CA key, extracts identity from extensions, grants authenticated access immediately
 
 Authenticated users get the full public command set **plus**:
 - `show interface <port>` — detailed counters/errors for **their own participant ports** (matched by ASN ↔ port mapping from NetBox or config)
@@ -288,33 +293,60 @@ Each platform driver translates structured `Command` objects into the platform's
 
 ### 6. Authentication
 
-#### opkssh for SSH Access
+#### Built-in SSH CA + OIDC Device Authorization Flow
 
-[opkssh](https://github.com/openpubkey/opkssh) enables SSH authentication via OpenID Connect. Users authenticate via their browser (redirected to `login.sfmix.org`), and opkssh provisions an SSH certificate with OIDC claims embedded.
+The looking glass is its own SSH Certificate Authority and OIDC client. No external tools (opkssh, etc.) are required on the client side — users need only a standard SSH client.
 
-Integration flow:
-1. User runs `opkssh lg.sfmix.org` (or standard SSH with opkssh client-side helper)
-2. Browser opens to `login.sfmix.org`, user authenticates via PeeringDB or GitHub
-3. Authentik issues an OIDC token with claims: `email`, `groups` (including `as{ASN}`)
-4. opkssh mints an SSH certificate with these claims
-5. The looking glass SSH server validates the certificate and extracts the identity
-6. Session proceeds with appropriate access level
+**First-time authentication flow:**
+1. User connects: `ssh -A -p 2222 lg.sfmix.org` (agent forwarding recommended)
+2. Anonymous session starts with public-tier access
+3. User types `login`
+4. LG initiates OIDC device authorization flow (RFC 8628) with Authentik
+5. LG displays verification URL (`https://login.sfmix.org/application/o/device/`) and user code
+6. User opens URL in browser, enters code, authenticates via PeeringDB or GitHub
+7. LG polls Authentik token endpoint until approval or timeout
+8. LG verifies the ID token JWT signature against Authentik's JWKS
+9. LG extracts claims: `email`, `groups` (including `as{ASN}` from PeeringDB federation)
+10. LG generates an ephemeral Ed25519 keypair and signs an SSH user certificate:
+    - Embeds `email` and `groups` (comma-separated) as certificate extensions
+    - Principal: `looking-glass`
+    - Lifetime: 12 hours
+    - Signed by LG's CA key
+11. If SSH agent is forwarded: injects the key+certificate into the user's agent with a 12-hour lifetime constraint
+12. Session identity is upgraded to authenticated
 
-**Authentik OIDC provider configuration** (new application):
+**Subsequent connections (within 12 hours):**
+1. User connects: `ssh -A -p 2222 lg.sfmix.org`
+2. SSH client offers the certificate from the agent
+3. LG verifies certificate signature against its own CA key and checks validity period
+4. LG extracts identity from certificate extensions
+5. Session starts immediately with authenticated access — no browser interaction needed
 
-| Parameter    | Value                                             |
-|--------------|---------------------------------------------------|
-| Client ID    | `looking-glass`                                   |
-| Redirect URI | TBD (opkssh callback)                             |
-| Scopes       | `openid profile email groups`                     |
-| Flow         | `default-provider-authorization-implicit-consent` |
-| Policy       | None (all authenticated users allowed)            |
+**Telnet login:**
+The `login` command is also available on telnet. It performs the same OIDC device flow but cannot inject certificates (no SSH agent). Authentication is session-only.
+
+**Authentik OIDC provider configuration:**
+
+| Parameter              | Value                                                    |
+|------------------------|----------------------------------------------------------|
+| Client ID              | `looking-glass`                                          |
+| Authorization flow     | Device code (RFC 8628)                                   |
+| Device auth endpoint   | `https://login.sfmix.org/application/o/device/`          |
+| Token endpoint         | `https://login.sfmix.org/application/o/token/`           |
+| JWKS URI               | `https://login.sfmix.org/application/o/looking-glass/jwks/` |
+| Scopes                 | `openid profile email groups`                            |
+| Policy                 | None (all authenticated users allowed)                   |
 
 The `groups` scope returns all Authentik group memberships, including `as{ASN}` groups from PeeringDB federation (see design doc 003).
 
+**CA key management:**
+- CA private key stored at `/etc/looking-glass/ca_ed25519_key`
+- Generated once, deployed via Ansible Vault
+- Public key fingerprint logged at startup for verification
+
 #### OIDC Bearer Token for MCP Access
 
-The MCP HTTP/SSE endpoint accepts an `Authorization: Bearer <token>` header. The token is an OIDC access token issued by `login.sfmix.org`. The looking glass validates the token by calling the Authentik userinfo endpoint or verifying the JWT signature against the JWKS.
+The MCP HTTP/SSE endpoint accepts an `Authorization: Bearer <token>` header. The token is an OIDC access token issued by `login.sfmix.org`. The looking glass validates the token by verifying the JWT signature against the Authentik JWKS.
 
 ### 7. Configuration
 
@@ -341,6 +373,7 @@ listen:
     enabled: true
     bind: "[::]:2222"
     host_key: "/etc/looking-glass/ssh_host_ed25519_key"
+    ca_key: "/etc/looking-glass/ca_ed25519_key"
   mcp:
     enabled: true
     bind: "127.0.0.1:8080"   # behind nginx reverse proxy
@@ -350,7 +383,10 @@ auth:
   oidc:
     issuer: "https://login.sfmix.org/application/o/looking-glass/"
     client_id: "looking-glass"
-    # client_secret from environment variable LG_OIDC_CLIENT_SECRET
+    device_auth_endpoint: "https://login.sfmix.org/application/o/device/"
+    token_endpoint: "https://login.sfmix.org/application/o/token/"
+    jwks_uri: "https://login.sfmix.org/application/o/looking-glass/jwks/"
+    cert_lifetime_secs: 43200   # 12 hours
     scopes: ["openid", "profile", "email", "groups"]
     group_prefix: "as"   # groups matching "as{number}" are treated as ASN claims
     admin_group: "IX Administrators"
@@ -443,11 +479,12 @@ looking-glass/                    # standalone crate, potentially its own repo l
 │   ├── identity.rs               # Identity/auth types (anonymous, authenticated, admin)
 │   ├── policy.rs                 # Policy engine
 │   ├── command.rs                # Structured command types and routing
+│   ├── oidc.rs                  # OIDC device authorization flow + JWT verification
 │   ├── ratelimit.rs              # Rate limiter (token bucket)
 │   ├── frontend/
 │   │   ├── mod.rs
 │   │   ├── telnet.rs             # Telnet server
-│   │   ├── ssh.rs                # SSH server (opkssh integration)
+│   │   ├── ssh.rs                # SSH server (built-in CA + OIDC device flow)
 │   │   └── mcp.rs                # MCP server (SSE transport)
 │   ├── backend/
 │   │   ├── mod.rs                # Device backend pool
@@ -588,8 +625,11 @@ strip target/x86_64-unknown-linux-musl/release/looking-glass
 
 ### Phase 2: SSH + Authentication
 
-- [ ] SSH server with opkssh integration
-- [ ] OIDC token parsing and identity extraction
+- [x] SSH server with built-in CA and OIDC device authorization flow
+- [x] OIDC JWT verification against Authentik JWKS
+- [x] SSH certificate generation and agent injection
+- [x] Certificate-based fast re-authentication
+- [x] `login` command for SSH and telnet sessions
 - [ ] Participant port mapping (file-based)
 - [ ] Policy engine (authenticated tier)
 - [ ] Nokia SR-OS driver
@@ -625,7 +665,7 @@ strip target/x86_64-unknown-linux-musl/release/looking-glass
 - [x] ~~**Central instance deployment target**~~ — `alice.sfmix.org` (Linux)
 - [ ] Should we support a web UI as well, or is SSH + MCP sufficient? (A simple web UI could be added later as another frontend)
 - [ ] Should the ping/traceroute commands execute from the LG host or from the network devices?
-- [ ] What is the preferred opkssh deployment model — sidecar, library, or built-in?
+- [x] ~~What is the preferred opkssh deployment model?~~ — Built-in: LG is its own SSH CA and OIDC client, no external tools needed
 - [ ] Should we expose sflow/netflow data through the LG, or keep that exclusively in Grafana?
 - [ ] Should participant port mapping be real-time from NetBox, or a periodically-generated snapshot?
 - [ ] Should the LG binary also serve as a health-check endpoint for monitoring?

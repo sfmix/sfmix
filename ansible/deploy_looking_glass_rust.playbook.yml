@@ -1,0 +1,6 @@
+---
+- name: Looking Glass (Rust)
+  hosts: looking_glass_rust
+  gather_facts: true
+  roles:
+    - looking_glass

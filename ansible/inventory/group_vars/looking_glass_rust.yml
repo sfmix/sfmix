@@ -1,0 +1,68 @@
+---
+looking_glass_bind_address: "10.2.1.26"
+looking_glass_telnet_port: 2023
+looking_glass_device_password: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  66333763643339333363366365646432613864323630663732643835656538393764336566616236
+  6637363237386536616264313536323031386131333666610a356630303038353663383639356339
+  35346163643234386161343433396165393237373966303962653134383136643565653762626165
+  6163313665613237620a323631326438343966623033373462386162396361626333366536343435
+  38356664653337393836393166346434316262303935613330393138393131643665
+looking_glass_netbox_url: "https://netbox.sfmix.org"
+looking_glass_netbox_token: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          31346437373236363662323038663663356235613537656563353835316536346435376530363039
+          6437656538373962343064313362323865656564313565310a653137623134656134613437386135
+          30386333313637333338393762643330323238306434633333303264373033653033316265646538
+          6162616233353531370a643231643737323335343137323832393232656566333664663437363431
+          30333462636361393161356635653764306636636433623032646566373333656334633231326634
+          3766373361663132303332646332633130323531376339646431
+looking_glass_ssh_enabled: true
+looking_glass_ssh_port: 2222
+looking_glass_oidc_enabled: true
+looking_glass_oidc_issuer: "https://login.sfmix.org/application/o/looking-glass/"
+looking_glass_oidc_client_id: "looking-glass"
+looking_glass_oidc_device_auth_endpoint: "https://login.sfmix.org/application/o/device/"
+looking_glass_oidc_token_endpoint: "https://login.sfmix.org/application/o/token/"
+looking_glass_oidc_jwks_uri: "https://login.sfmix.org/application/o/looking-glass/jwks/"
+looking_glass_oidc_allowed_audiences:
+  - "portal"
+looking_glass_rest_enabled: true
+looking_glass_rest_port: 8081
+looking_glass_mcp_enabled: true
+looking_glass_mcp_port: 8080
+looking_glass_public_vlans:
+  - "998"
+  - "999"
+looking_glass_version: "0.1.0"
+looking_glass_devices:
+  - name: switch01.sfo01.sfmix.org
+    platform: arista_eos
+  - name: switch01.sfo02.sfmix.org
+    platform: arista_eos
+  - name: switch02.sfo02.sfmix.org
+    platform: arista_eos
+  - name: switch01.fmt01.sfmix.org
+    platform: arista_eos
+  - name: switch02.fmt01.sfmix.org
+    platform: arista_eos
+  - name: switch03.fmt01.sfmix.org
+    platform: arista_eos
+  - name: switch01.scl01.sfmix.org
+    platform: arista_eos
+  - name: switch01.scl02.sfmix.org
+    platform: arista_eos
+  - name: switch01.scl04.sfmix.org
+    platform: arista_eos
+  - name: switch01.sjc01.sfmix.org
+    platform: arista_eos
+  - name: switch02.sjc01.sfmix.org
+    platform: arista_eos
+  - name: switch03.sjc01.sfmix.org
+    platform: arista_eos
+  - name: switch04.sjc01.sfmix.org
+    platform: arista_eos
+  - name: switch01.sjc02.sfmix.org
+    platform: arista_eos
+  - name: switch01.scl05.sfmix.org
+    platform: arista_eos
