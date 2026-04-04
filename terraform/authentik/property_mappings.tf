@@ -13,12 +13,26 @@ gh_login = info.get("login", "")
 gh_email = info.get("email", "")
 gh_name = info.get("name", "") or gh_login
 
-# Fetch org teams using the OAuth token
-teams_url = "https://api.github.com/user/teams"
 headers = {
     "Authorization": f"Bearer {token['access_token']}",
     "Accept": "application/vnd.github+json",
 }
+
+# GitHub omits email from profile if the user has it set to private.
+# Fetch from /user/emails API to get the primary verified address.
+if not gh_email:
+    try:
+        emails_resp = requests.get("https://api.github.com/user/emails", headers=headers, timeout=10)
+        emails_resp.raise_for_status()
+        for entry in emails_resp.json():
+            if entry.get("primary") and entry.get("verified"):
+                gh_email = entry["email"]
+                break
+    except Exception:
+        pass
+
+# Fetch org teams using the OAuth token
+teams_url = "https://api.github.com/user/teams"
 try:
     resp = requests.get(teams_url, headers=headers, timeout=10)
     resp.raise_for_status()
@@ -76,9 +90,17 @@ pdb_email = info.get("email", "")
 pdb_sub = info.get("sub", str(info.get("id", "")))
 networks = info.get("networks", [])
 
+# PeeringDB may nest networks under a "data" key depending on scope version
+if isinstance(networks, dict):
+    networks = networks.get("data", [])
+if not isinstance(networks, list):
+    networks = []
+
 # Build ASN group list for GroupUpdateStage
 asn_groups = []
 for n in networks:
+    if not isinstance(n, dict):
+        continue
     asn = n.get("asn")
     if asn:
         asn_groups.append("as" + str(asn))
@@ -87,7 +109,7 @@ for n in networks:
 # Users who admin AS12276 (SFMIX) are IX Administrators
 sfmix_asns = {12276}
 is_ix_admin = any(
-    n.get("asn") in sfmix_asns
+    isinstance(n, dict) and n.get("asn") in sfmix_asns
     for n in networks
 )
 # Preserve manually-assigned groups not managed by OAuth sources
@@ -111,8 +133,8 @@ return {
         "peeringdb_id": pdb_sub,
         "peeringdb_name": pdb_name,
         "peeringdb_networks": [
-            {"asn": n["asn"], "name": n["name"]}
-            for n in networks if "asn" in n
+            {"asn": n.get("asn"), "name": n.get("name", "")}
+            for n in networks if isinstance(n, dict) and n.get("asn")
         ],
     },
 }
@@ -129,6 +151,11 @@ resource "authentik_property_mapping_source_oauth" "peeringdb_group" {
 resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "SFMIX: OpenID 'groups'"
   scope_name  = "groups"
-  description = "Include user group memberships"
-  expression  = "return {\"groups\": [group.name for group in request.user.ak_groups.all()]}"
+  description = "Include ASN groups and IX Administrators"
+  expression  = <<-EOT
+import re
+groups = [g.name for g in request.user.ak_groups.all()]
+# Filter to asNNNN pattern or IX Administrators
+return {"groups": [g for g in groups if re.match(r'^as\d+$', g, re.I) or g == "IX Administrators"]}
+EOT
 }
