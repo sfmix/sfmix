@@ -28,17 +28,17 @@ commands:
             help: Interface status summary (default)
             command: { verb: show, resource: interfaces_status }
           _arg:
-            name: "<name>"
-            help: Specific interface (e.g. Ethernet1)
-            command: { verb: show, resource: interface_detail, target: "$arg" }
+            name: "<asn>"
+            help: Filter by participant ASN (e.g. 13335)
+            command: { verb: show, resource: interfaces_status, filter_asn: "$arg" }
       optics:
         help: Transceiver/DOM information
         command: { verb: show, resource: optics }
         children:
           _arg:
-            name: "<name>"
-            help: Specific interface (e.g. Ethernet1)
-            command: { verb: show, resource: optics_detail, target: "$arg" }
+            name: "<asn>"
+            help: Filter by participant ASN (e.g. 13335)
+            command: { verb: show, resource: optics, filter_asn: "$arg" }
       ip:
         help: IP protocol information
         children:
@@ -107,45 +107,29 @@ commands:
             help: MAC address table
             command: { verb: show, resource: mac_address_table }
             children:
-              interface:
-                help: Filter by interface
+              vlan:
+                help: Filter by VLAN ID
                 children:
                   _arg:
-                    name: "<name>"
-                    help: Interface name
-                    command: { verb: show, resource: mac_address_table, target: "$arg" }
-          interface:
-            help: Filter by interface
+                    name: "<vlan>"
+                    help: VLAN ID (e.g. 998)
+                    command: { verb: show, resource: mac_address_table, filter_vlan: "$arg" }
+          vlan:
+            help: Filter by VLAN ID
             children:
               _arg:
-                name: "<name>"
-                help: Interface name
-                command: { verb: show, resource: mac_address_table, target: "$arg" }
+                name: "<vlan>"
+                help: VLAN ID (e.g. 998)
+                command: { verb: show, resource: mac_address_table, filter_vlan: "$arg" }
       arp:
         help: ARP table
         command: { verb: show, resource: arp_table }
-        children:
-          interface:
-            help: Filter by interface
-            children:
-              _arg:
-                name: "<name>"
-                help: Interface name
-                command: { verb: show, resource: arp_table, target: "$arg" }
       ipv6:
         help: IPv6 protocol information
         children:
           neighbors:
             help: IPv6 neighbor discovery table
             command: { verb: show, resource: nd_table, address_family: ipv6 }
-            children:
-              interface:
-                help: Filter by interface
-                children:
-                  _arg:
-                    name: "<name>"
-                    help: Interface name
-                    command: { verb: show, resource: nd_table, target: "$arg", address_family: ipv6 }
       lldp:
         help: LLDP neighbor information
         command: { verb: show, resource: lldp_neighbors }
@@ -171,6 +155,10 @@ commands:
         name: "<destination>"
         help: IP address or hostname
         command: { verb: traceroute, resource: network_reachability, target: "$arg" }
+
+  login:
+    help: Authenticate via OIDC (opens browser)
+    command: { verb: show, resource: login }
 
   help:
     help: Show available commands

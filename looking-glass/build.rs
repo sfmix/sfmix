@@ -16,7 +16,7 @@ enum Resource {
     InterfacesStatus, InterfaceDetail, BgpSummary, BgpNeighbor,
     MacAddressTable, ArpTable, NdTable, LldpNeighbors,
     Optics, OpticsDetail, Participants, VxlanVtep,
-    NetworkReachability, Help,
+    NetworkReachability, Help, Login,
 }
 
 #[derive(Deserialize)]

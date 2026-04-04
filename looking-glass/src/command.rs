@@ -13,6 +13,10 @@ pub struct Command {
     pub target: Option<String>,
     pub device: Option<String>,
     pub address_family: AddressFamily,
+    /// Filter output to ports belonging to this ASN (show interfaces/optics).
+    pub filter_asn: Option<u32>,
+    /// Filter output to this VLAN ID (show mac address-table).
+    pub filter_vlan: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -41,6 +45,8 @@ pub enum Resource {
     /// Ping/traceroute destination (resource is the destination address)
     NetworkReachability,
     Help,
+    /// Authenticate via OIDC device flow
+    Login,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -53,12 +59,12 @@ pub enum AddressFamily {
 }
 
 /// Result of executing a command against a device.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CommandResult {
     /// The device that was queried
     pub device: String,
-    /// Raw text output from the device
-    pub output: String,
+    /// Structured output from the device
+    pub output: crate::structured::CommandOutput,
     /// Whether the command executed successfully
     pub success: bool,
 }
