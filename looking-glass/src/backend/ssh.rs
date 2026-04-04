@@ -5,16 +5,23 @@ use anyhow::{Context, Result};
 use russh::client;
 use russh::client::KeyboardInteractiveAuthResponse;
 use russh::{ChannelMsg, Disconnect};
+use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, trace, warn};
 
 use crate::config::{DeviceAuthMethod, DeviceConfig};
 
 /// Timeout for SSH connect + auth.
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Timeout for command execution (output collection).
-const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
+const COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Timeout for streaming commands (ping/traceroute) — per-line idle timeout.
+const STREAM_LINE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Overall timeout for streaming commands.
+const STREAM_TOTAL_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// A thin wrapper around a russh SSH session that can execute a single
 /// CLI command and return the collected output.
@@ -60,16 +67,12 @@ impl client::Handler for ClientHandler {
     }
 }
 
-/// Execute a single CLI command on a device via SSH, returning the output text.
-///
-/// This connects, authenticates, opens a channel, sends the command, and
-/// collects all stdout data until the channel closes or EOF.
-pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String> {
+/// Connect and authenticate an SSH session to a device.
+async fn ssh_connect(config: &DeviceConfig) -> Result<client::Handle<ClientHandler>> {
     debug!(
         device = config.name,
         host = config.host,
-        command = cli_command,
-        "SSH exec"
+        "SSH connect"
     );
 
     let russh_config = client::Config {
@@ -77,7 +80,6 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
         ..Default::default()
     };
 
-    // Connect
     let mut session = timeout(
         CONNECT_TIMEOUT,
         client::connect(
@@ -92,7 +94,6 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
     .context("SSH connect timed out")?
     .context("SSH connect failed")?;
 
-    // Authenticate
     let authenticated = match config.auth_method {
         DeviceAuthMethod::SshKey => {
             let key_path = config
@@ -115,9 +116,6 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
             let password = std::env::var("LG_DEVICE_PASSWORD")
                 .context("LG_DEVICE_PASSWORD not set for password auth")?;
 
-            // Most network devices (EOS, SR-OS) use keyboard-interactive
-            // rather than plain password auth. Try keyboard-interactive first,
-            // fall back to password.
             let ki_result = session
                 .authenticate_keyboard_interactive_start(&config.username, None::<String>)
                 .await
@@ -142,8 +140,6 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
                     match reply {
                         KeyboardInteractiveAuthResponse::Success => true,
                         KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } if prompts.is_empty() => {
-                            // Some devices (EOS) send an empty InfoRequest after
-                            // accepting the password; respond to finalize.
                             let final_reply = session
                                 .authenticate_keyboard_interactive_respond(vec![])
                                 .await
@@ -162,21 +158,32 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
     }
 
     debug!(device = config.name, "SSH authenticated");
+    Ok(session)
+}
 
-    // Open a session channel and execute the command
+/// Execute a single CLI command on a device via SSH, returning the output text.
+///
+/// Connects, authenticates, opens a channel, sends the command, and
+/// collects all stdout data until the channel closes or EOF.
+pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String> {
+    debug!(
+        device = config.name,
+        command = cli_command,
+        "SSH exec"
+    );
+
+    let session = ssh_connect(config).await?;
+
     let mut channel = session
         .channel_open_session()
         .await
         .context("failed to open SSH channel")?;
 
-    // The caller (driver) prepends the appropriate pagination-disable
-    // preamble (e.g. "terminal length 0 ; " for EOS).
     channel
         .exec(true, cli_command)
         .await
         .context("failed to exec command")?;
 
-    // Collect output
     let mut output = Vec::new();
     let collect_result = timeout(COMMAND_TIMEOUT, async {
         loop {
@@ -211,11 +218,118 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
         anyhow::bail!("command timed out after {}s on {}", COMMAND_TIMEOUT.as_secs(), config.name);
     }
 
-    // Close session (best-effort)
     let _ = session
         .disconnect(Disconnect::ByApplication, "done", "en")
         .await;
 
     let text = String::from_utf8_lossy(&output).to_string();
     Ok(text)
+}
+
+/// Execute a CLI command and stream output line-by-line via an mpsc channel.
+///
+/// Returns a `Receiver<String>` that yields lines as they arrive from the
+/// SSH channel. The connection is managed by a background task that
+/// automatically disconnects when the channel closes or timeouts occur.
+///
+/// Used for long-running commands like ping and traceroute where the user
+/// should see incremental output rather than waiting for completion.
+pub async fn ssh_exec_stream(
+    config: &DeviceConfig,
+    cli_command: &str,
+) -> Result<mpsc::Receiver<String>> {
+    debug!(
+        device = config.name,
+        command = cli_command,
+        "SSH exec stream"
+    );
+
+    let session = ssh_connect(config).await?;
+
+    let mut channel = session
+        .channel_open_session()
+        .await
+        .context("failed to open SSH channel")?;
+
+    channel
+        .exec(true, cli_command)
+        .await
+        .context("failed to exec command")?;
+
+    let (tx, rx) = mpsc::channel::<String>(64);
+    let device_name = config.name.clone();
+
+    tokio::spawn(async move {
+        let mut line_buf = Vec::new();
+        let start = tokio::time::Instant::now();
+
+        loop {
+            if start.elapsed() > STREAM_TOTAL_TIMEOUT {
+                let _ = tx.send(format!(
+                    "[timed out after {}s]",
+                    STREAM_TOTAL_TIMEOUT.as_secs()
+                )).await;
+                break;
+            }
+
+            let msg = timeout(STREAM_LINE_TIMEOUT, channel.wait()).await;
+            match msg {
+                Err(_) => {
+                    // Per-line idle timeout — flush any partial line and stop
+                    if !line_buf.is_empty() {
+                        let line = String::from_utf8_lossy(&line_buf).to_string();
+                        let _ = tx.send(line).await;
+                        line_buf.clear();
+                    }
+                    let _ = tx.send("[timed out waiting for output]".to_string()).await;
+                    break;
+                }
+                Ok(Some(ChannelMsg::Data { data, .. })) => {
+                    // Buffer bytes and emit complete lines
+                    for &byte in data.iter() {
+                        if byte == b'\n' {
+                            let line = String::from_utf8_lossy(&line_buf).to_string();
+                            let line = line.trim_end_matches('\r').to_string();
+                            if tx.send(line).await.is_err() {
+                                // Receiver dropped
+                                break;
+                            }
+                            line_buf.clear();
+                        } else {
+                            line_buf.push(byte);
+                        }
+                    }
+                }
+                Ok(Some(ChannelMsg::ExtendedData { data, ext })) if ext == 1 => {
+                    for &byte in data.iter() {
+                        if byte == b'\n' {
+                            let line = String::from_utf8_lossy(&line_buf).to_string();
+                            let line = line.trim_end_matches('\r').to_string();
+                            let _ = tx.send(line).await;
+                            line_buf.clear();
+                        } else {
+                            line_buf.push(byte);
+                        }
+                    }
+                }
+                Ok(Some(ChannelMsg::Eof)) | Ok(None) => {
+                    // Flush any remaining partial line
+                    if !line_buf.is_empty() {
+                        let line = String::from_utf8_lossy(&line_buf).to_string();
+                        let line = line.trim_end_matches('\r').to_string();
+                        let _ = tx.send(line).await;
+                    }
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        trace!(device = device_name, "SSH stream task done");
+        let _ = session
+            .disconnect(Disconnect::ByApplication, "done", "en")
+            .await;
+    });
+
+    Ok(rx)
 }
