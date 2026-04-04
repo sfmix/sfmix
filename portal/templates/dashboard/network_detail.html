@@ -9,9 +9,66 @@
 <h1 class="text-2xl font-bold mb-1">AS{{ asn }}</h1>
 {% if member.description %}<p class="text-gray-600 mb-6">{{ member.description }}</p>{% endif %}
 
+{% if live_interfaces %}
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3">Live Interface Status</h2>
+  <p class="text-xs text-gray-500 mb-2">Real-time data from network devices</p>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500">
+        <tr>
+          <th class="px-4 py-2 font-medium">Interface</th>
+          <th class="px-4 py-2 font-medium">Device</th>
+          <th class="px-4 py-2 font-medium">Speed</th>
+          <th class="px-4 py-2 font-medium">Link</th>
+          <th class="px-4 py-2 font-medium">Protocol</th>
+          <th class="px-4 py-2 font-medium">TX Power</th>
+          <th class="px-4 py-2 font-medium">RX Power</th>
+          <th class="px-4 py-2 font-medium">Temp</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for iface in live_interfaces %}
+        <tr>
+          <td class="px-4 py-2 font-mono text-xs">{% if iface.is_lag_member %}<span class="text-gray-400">└ </span>{% endif %}{{ iface.name }}</td>
+          <td class="px-4 py-2 text-xs">{{ iface.device|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ iface.speed|default:"—" }}</td>
+          <td class="px-4 py-2">
+            {% if iface.link_status == "up" or iface.link_status == "connected" %}
+              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ iface.link_status|title }}</span>
+            {% else %}
+              <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{{ iface.link_status|default:"Down" }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2">
+            {% if iface.protocol_status == "up" %}
+              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Up</span>
+            {% else %}
+              <span class="inline-block bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">{{ iface.protocol_status|default:"—" }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs font-mono">{{ iface.tx_power|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs font-mono">{{ iface.rx_power|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ iface.temperature|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% elif lg_error %}
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3">Live Interface Status</h2>
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+    Unable to fetch live data: {{ lg_error }}
+  </div>
+</section>
+{% endif %}
+
 {% if peering_ports %}
 <section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Peering Ports</h2>
+  <h2 class="text-lg font-semibold mb-3">Peering Ports (NetBox)</h2>
+  <p class="text-xs text-gray-500 mb-2">Configuration from NetBox</p>
   <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-left text-gray-500">

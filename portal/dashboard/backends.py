@@ -26,16 +26,21 @@ class SFMIXOIDCBackend(OIDCAuthenticationBackend):
         self._pending_claims = claims
         return user
 
-    def _write_session(self, request, claims):
+    def _write_session(self, request, claims, id_token=None):
         groups = claims.get("groups", [])
         request.session["oidc_groups"] = groups
         request.session["oidc_asns"] = extract_asns(groups)
         request.session["oidc_is_ix_admin"] = "IX Administrators" in groups
+        # Store id_token for cross-service API calls (e.g., to looking-glass)
+        if id_token:
+            request.session["oidc_id_token"] = id_token
 
     def authenticate(self, request, **kwargs):
+        # Capture id_token before calling super() which may not preserve it
+        id_token = kwargs.get("id_token")
         user = super().authenticate(request, **kwargs)
         if user and request and hasattr(self, "_pending_claims"):
-            self._write_session(request, self._pending_claims)
+            self._write_session(request, self._pending_claims, id_token)
             del self._pending_claims
         return user
 

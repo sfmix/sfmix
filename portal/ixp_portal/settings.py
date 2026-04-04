@@ -93,6 +93,9 @@ OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = 900
 IXP_NETBOX_URL = os.environ.get("IXP_NETBOX_URL", "https://netbox.sfmix.org")
 IXP_NETBOX_TOKEN = os.environ.get("IXP_NETBOX_TOKEN", "")
 
+# --- Looking Glass REST API ---
+IXP_LOOKING_GLASS_URL = os.environ.get("IXP_LOOKING_GLASS_URL", "https://lg.sfmix.org:8081")
+
 # --- Prometheus metrics ---
 # Networks allowed to scrape /metrics/.  Accepts CIDR notation.
 _trusted_nets = os.environ.get("PROMETHEUS_TRUSTED_NETWORKS", "127.0.0.0/8,::1/128")

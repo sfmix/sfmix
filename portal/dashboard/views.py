@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from . import services
+from .lg_client import LookingGlassClient
 
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -76,11 +77,87 @@ def network_detail(request, asn):
     tenant_id = member.get("id")
     ip_addresses = services.get_participant_ips(tenant_id) if tenant_id else []
     peering_ports = services.get_participant_peering_ports(tenant_id) if tenant_id else []
+
+    # Fetch live interface status (with optics merged in) from Looking Glass
+    live_interfaces = []
+    lg_error = None
+    token = request.session.get("oidc_id_token")
+    try:
+        lg = LookingGlassClient()
+        if lg.base_url:
+            # Get interface status - LG filters by user's ASN via token
+            iface_results = lg.get_interfaces_status(token)
+            for device_result in iface_results:
+                if device_result.get("success") and device_result.get("data"):
+                    for iface in device_result["data"]:
+                        # Filter to interfaces matching this ASN
+                        desc = iface.get("description", "")
+                        if f"AS{asn}" in desc or f"(AS{asn})" in desc:
+                            iface["device"] = device_result.get("device", "")
+                            live_interfaces.append(iface)
+
+            # Discover LAG member interfaces from status data
+            # Build full interface lookup: (device, name) -> iface dict
+            all_ifaces_by_key = {}
+            for device_result in iface_results:
+                if device_result.get("success") and device_result.get("data"):
+                    dev = device_result.get("device", "")
+                    for iface in device_result["data"]:
+                        all_ifaces_by_key[(dev, iface["name"])] = iface
+
+            for iface in list(live_interfaces):
+                name = iface["name"]
+                device = iface.get("device", "")
+                # Extract base Port-Channel name (strip .VLAN suffix)
+                base_pc = name.split(".")[0] if "Port-Channel" in name and "." in name else name
+                if not base_pc.startswith("Port-Channel"):
+                    continue
+                # Look up member_interfaces from the base Port-Channel's status entry
+                base_entry = all_ifaces_by_key.get((device, base_pc))
+                if not base_entry:
+                    continue
+                for member_name in base_entry.get("member_interfaces", []):
+                    member = all_ifaces_by_key.get((device, member_name))
+                    if member:
+                        entry = dict(member)
+                        entry["device"] = device
+                        entry["is_lag_member"] = True
+                        entry["parent_lag"] = name
+                        live_interfaces.append(entry)
+
+            # Get optics and merge into matching interfaces
+            optics_results = lg.get_optics(token)
+            # Build lookup: (device, interface_name) -> optics data
+            optics_by_key = {}
+            for device_result in optics_results:
+                if device_result.get("success") and device_result.get("data"):
+                    dev = device_result.get("device", "")
+                    for optic in device_result["data"]:
+                        optics_by_key[(dev, optic.get("name", ""))] = optic
+            # Merge optics fields into each live interface
+            for iface in live_interfaces:
+                optic = optics_by_key.get((iface.get("device", ""), iface["name"]))
+                if optic and optic.get("dom_supported"):
+                    lanes = optic.get("lanes", [])
+                    if lanes:
+                        lane = lanes[0]
+                        tx = lane.get("tx_power_dbm")
+                        rx = lane.get("rx_power_dbm")
+                        iface["tx_power"] = f"{tx:.2f} dBm" if tx is not None else None
+                        iface["rx_power"] = f"{rx:.2f} dBm" if rx is not None else None
+                    temp = optic.get("temperature_c")
+                    iface["temperature"] = f"{temp:.1f}°C" if temp is not None else None
+                    iface["media_type"] = optic.get("media_type", "")
+    except Exception as e:
+        lg_error = str(e)
+
     return render(request, "dashboard/network_detail.html", {
         "asn": asn,
         "member": member,
         "ip_addresses": ip_addresses,
         "peering_ports": peering_ports,
+        "live_interfaces": live_interfaces,
+        "lg_error": lg_error,
         "is_ix_admin": _is_ix_admin(request),
     })
 
