@@ -8,19 +8,20 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::get,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::command::{AddressFamily, Command, Resource, Verb};
 use crate::identity::Identity;
 use crate::oidc::OidcClient;
 use crate::participants::Participant;
 use crate::service::{self, LookingGlass};
+use super::auth;
 use crate::structured::{
     ArpEntry, BgpSummary, InterfaceDetail, InterfaceOptics, InterfaceStatus,
     LldpNeighbor, NdEntry,
@@ -41,65 +42,19 @@ struct RequestIdentity(Identity);
 #[derive(Clone)]
 struct RateLimitKey(String);
 
-/// Extract Bearer token from Authorization header.
-fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("Authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .map(|s| s.to_string())
-}
-
-/// Extract client IP from X-Forwarded-For or X-Real-IP for rate limiting.
-fn extract_client_ip(headers: &HeaderMap) -> Option<std::net::IpAddr> {
-    headers
-        .get("X-Forwarded-For")
-        .or_else(|| headers.get("X-Real-IP"))
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .and_then(|s| s.trim().parse().ok())
-}
-
 /// Authentication middleware: verify Bearer token via OIDC.
 async fn auth_middleware(
     State(state): State<RestState>,
     mut request: axum::extract::Request,
     next: Next,
 ) -> Response {
-    let headers = request.headers();
-    let token = extract_bearer_token(headers);
-    let client_ip = extract_client_ip(headers);
-
-    let (identity, rate_key) = match (&state.oidc_client, token) {
-        (Some(oidc), Some(token)) => {
-            match oidc.verify_id_token(&token).await {
-                Ok(claims) => {
-                    debug!(email = %claims.email, groups = ?claims.groups, "REST: authenticated via Bearer token");
-                    let rate_key = claims.email.clone();
-                    let identity = Identity::from_oidc_claims(
-                        claims.email,
-                        claims.groups,
-                        &state.lg.group_prefix,
-                    );
-                    (identity, rate_key)
-                }
-                Err(e) => {
-                    debug!(error = %e, "REST: Bearer token verification failed");
-                    let rate_key = client_ip
-                        .map(crate::ratelimit::ip_to_rate_key)
-                        .unwrap_or_else(|| "anonymous".to_string());
-                    (Identity::anonymous(), rate_key)
-                }
-            }
-        }
-        _ => {
-            let rate_key = client_ip
-                .map(crate::ratelimit::ip_to_rate_key)
-                .unwrap_or_else(|| "anonymous".to_string());
-            debug!(rate_key = %rate_key, "REST: anonymous request");
-            (Identity::anonymous(), rate_key)
-        }
-    };
+    let (identity, rate_key) = auth::resolve_identity(
+        request.headers(),
+        &state.oidc_client,
+        &state.lg.group_prefix,
+        "REST",
+    )
+    .await;
 
     request.extensions_mut().insert(RequestIdentity(identity));
     request.extensions_mut().insert(RateLimitKey(rate_key));
