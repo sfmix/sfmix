@@ -88,12 +88,18 @@ impl DevicePool {
                     device = config.name,
                     "dispatching command to device"
                 );
-                match execute_on_device_inner(&config, &cmd, &id, &ag, &pmap, &pvlans).await {
-                    Ok(r) => { let _ = tx.send(r).await; }
+                let result = match execute_on_device_inner(&config, &cmd, &id, &ag, &pmap, &pvlans).await {
+                    Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
+                        CommandResult {
+                            device: config.name.clone(),
+                            output: CommandOutput::Error(e.to_string()),
+                            success: false,
+                        }
                     }
-                }
+                };
+                let _ = tx.send(result).await;
             });
             return Ok(rx);
         }
@@ -138,12 +144,18 @@ impl DevicePool {
             let pvlans: Vec<String> = public_vlans.to_vec();
             tokio::spawn(async move {
                 let _permit = device_permit;
-                match execute_on_device_inner(&config, &cmd, &id, &ag, &pmap, &pvlans).await {
-                    Ok(r) => { let _ = tx.send(r).await; }
+                let result = match execute_on_device_inner(&config, &cmd, &id, &ag, &pmap, &pvlans).await {
+                    Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
+                        CommandResult {
+                            device: config.name.clone(),
+                            output: CommandOutput::Error(e.to_string()),
+                            success: false,
+                        }
                     }
-                }
+                };
+                let _ = tx.send(result).await;
             });
         }
         // Drop our copy so rx closes when all tasks finish
@@ -292,6 +304,7 @@ fn filter_output_with_lookup(
         CommandOutput::VxlanVtep(entries) => CommandOutput::VxlanVtep(entries),
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
+        CommandOutput::Error(e) => CommandOutput::Error(e),
     }
 }
 

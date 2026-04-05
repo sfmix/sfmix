@@ -197,6 +197,10 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::VxlanVtep(entries) => render_vxlan_vtep(entries, color),
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
+        CommandOutput::Error(e) => match color {
+            ColorMode::Plain => format!("Error: {e}\n"),
+            _ => format!("{}\n", format!("Error: {e}").red()),
+        },
     }
 }
 
