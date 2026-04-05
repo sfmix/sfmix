@@ -218,6 +218,11 @@ impl PortMap {
     pub fn iter(&self) -> impl Iterator<Item = (&(String, String), &PortClass)> {
         self.ports.iter()
     }
+
+    /// Check if an interface name exists on any device in the port map.
+    pub fn known_interface(&self, interface: &str) -> bool {
+        self.ports.keys().any(|(_, iface)| iface == interface)
+    }
 }
 
 #[cfg(test)]
