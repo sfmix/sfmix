@@ -212,7 +212,7 @@ impl OidcClient {
         let verification_uri = da
             .verification_uri_complete
             .or(da.verification_uri)
-            .unwrap_or_else(|| "https://login.sfmix.org/device".to_string());
+            .context("OIDC provider did not return a verification URI")?;
 
         info!(user_code = da.user_code, "OIDC device auth started");
 

@@ -27,6 +27,7 @@ pub struct NetboxFetchResult {
 pub async fn fetch_port_map(
     url: &str,
     token: &str,
+    domain_suffix: Option<&str>,
 ) -> Result<NetboxFetchResult> {
     let graphql_url = format!("{}/graphql/", url.trim_end_matches('/'));
 
@@ -102,7 +103,7 @@ pub async fn fetch_port_map(
         if let Some(tenant_id) = iface.custom_fields.participant {
             let tid = tenant_id.to_string();
             if let Some((asn, _, _)) = tenants_by_id.get(&tid) {
-                let device_name = normalize_device_name(&iface.device.name);
+                let device_name = normalize_device_name(&iface.device.name, domain_suffix);
                 ports_by_asn
                     .entry(*asn)
                     .or_default()
@@ -126,7 +127,7 @@ pub async fn fetch_port_map(
     let core_ports: Vec<(String, String)> = data
         .core_ports
         .iter()
-        .map(|e| (normalize_device_name(&e.device.name), e.name.clone()))
+        .map(|e| (normalize_device_name(&e.device.name, domain_suffix), e.name.clone()))
         .collect();
 
     info!(
@@ -140,16 +141,17 @@ pub async fn fetch_port_map(
 
 /// Normalize a NetBox device name to FQDN.
 ///
-/// NetBox stores short names like `switch01.fmt01`. The looking-glass config
-/// uses FQDNs like `switch01.fmt01.sfmix.org`. If the name has fewer than
-/// 3 dot-separated components, append `.sfmix.org`.
-fn normalize_device_name(name: &str) -> String {
-    let parts: Vec<&str> = name.split('.').collect();
-    if parts.len() < 3 {
-        format!("{}.sfmix.org", name)
-    } else {
-        name.to_string()
+/// NetBox stores short names like `switch01.fmt01`. If a `domain_suffix` is
+/// provided and the name has fewer than 3 dot-separated components, append
+/// the suffix. Otherwise the name passes through unchanged.
+fn normalize_device_name(name: &str, domain_suffix: Option<&str>) -> String {
+    if let Some(suffix) = domain_suffix {
+        let parts: Vec<&str> = name.split('.').collect();
+        if parts.len() < 3 {
+            return format!("{name}.{suffix}");
+        }
     }
+    name.to_string()
 }
 
 // ── GraphQL response types ──────────────────────────────────────────
