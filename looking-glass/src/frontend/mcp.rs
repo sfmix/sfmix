@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use axum::extract::Request;
-use axum::http::HeaderMap;
 use axum::middleware::Next;
 use axum::response::Response;
 use rmcp::{
@@ -18,38 +17,19 @@ use rmcp::{
     },
 };
 use serde_json::json;
-use tracing::debug;
 
 use crate::oidc::OidcClient;
 
 use crate::command::{AddressFamily, Command, Resource, Verb};
 use crate::identity::Identity;
 use crate::service::{self, LookingGlass};
+use super::auth;
 
 tokio::task_local! {
     /// Per-request identity extracted from Bearer token.
     static CURRENT_IDENTITY: Identity;
     /// Per-request rate-limit key (email for authenticated, IP prefix for anonymous).
     static CURRENT_RATE_KEY: String;
-}
-
-/// Extract Bearer token from Authorization header.
-fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("Authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .map(|s| s.to_string())
-}
-
-/// Extract client IP from X-Forwarded-For or X-Real-IP for rate limiting.
-fn extract_client_ip(headers: &HeaderMap) -> Option<std::net::IpAddr> {
-    headers
-        .get("X-Forwarded-For")
-        .or_else(|| headers.get("X-Real-IP"))
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .and_then(|s| s.trim().parse().ok())
 }
 
 /// Authentication middleware: verify Bearer token via OIDC.
@@ -63,40 +43,13 @@ pub async fn auth_middleware(
     group_prefix: String,
     oidc_client: Option<OidcClient>,
 ) -> Response {
-    let headers = request.headers();
-    let token = extract_bearer_token(headers);
-    let client_ip = extract_client_ip(headers);
-
-    let (identity, rate_key) = match (&oidc_client, token) {
-        (Some(oidc), Some(token)) => {
-            match oidc.verify_id_token(&token).await {
-                Ok(claims) => {
-                    debug!(email = %claims.email, groups = ?claims.groups, "MCP: authenticated via Bearer token");
-                    let rate_key = claims.email.clone();
-                    let identity = Identity::from_oidc_claims(
-                        claims.email,
-                        claims.groups,
-                        &group_prefix,
-                    );
-                    (identity, rate_key)
-                }
-                Err(e) => {
-                    debug!(error = %e, "MCP: Bearer token verification failed");
-                    let rate_key = client_ip
-                        .map(crate::ratelimit::ip_to_rate_key)
-                        .unwrap_or_else(|| "anonymous".to_string());
-                    (Identity::anonymous(), rate_key)
-                }
-            }
-        }
-        _ => {
-            let rate_key = client_ip
-                .map(crate::ratelimit::ip_to_rate_key)
-                .unwrap_or_else(|| "anonymous".to_string());
-            debug!(rate_key = %rate_key, "MCP: anonymous request");
-            (Identity::anonymous(), rate_key)
-        }
-    };
+    let (identity, rate_key) = auth::resolve_identity(
+        request.headers(),
+        &oidc_client,
+        &group_prefix,
+        "MCP",
+    )
+    .await;
 
     CURRENT_IDENTITY.scope(identity, async {
         CURRENT_RATE_KEY.scope(rate_key, next.run(request)).await

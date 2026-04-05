@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod common;
 pub mod telnet;
 pub mod ssh;
