@@ -13,8 +13,10 @@ use tracing::{debug, info, warn};
 use crate::identity::Identity;
 use crate::oidc::OidcClient;
 
+use crate::service::LookingGlass;
+
 use super::common::{
-    SharedState, CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
+    CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
 };
 
 /// SSH frontend server.
@@ -25,7 +27,7 @@ use super::common::{
 /// SSH agent for fast re-authentication.
 pub struct SshFrontend {
     bind_addr: String,
-    state: Arc<SharedState>,
+    lg: Arc<LookingGlass>,
     config: Arc<server::Config>,
     /// CA private key for signing user certificates (None = cert issuance disabled)
     ca_key: Option<Arc<ssh_key::PrivateKey>>,
@@ -44,7 +46,7 @@ impl SshFrontend {
         ca_key_path: Option<&str>,
         oidc_client: Option<OidcClient>,
         cert_lifetime_secs: u64,
-        state: Arc<SharedState>,
+        lg: Arc<LookingGlass>,
     ) -> Result<Self> {
         let key = russh::keys::load_secret_key(host_key_path, None)
             .map_err(|e| anyhow::anyhow!("failed to load SSH host key {host_key_path}: {e}"))?;
@@ -68,14 +70,14 @@ impl SshFrontend {
         let config = server::Config {
             methods,
             keys: vec![key],
-            inactivity_timeout: Some(state.connection_tracker.idle_timeout),
+            inactivity_timeout: Some(lg.connection_tracker.idle_timeout),
             auth_rejection_time: std::time::Duration::from_secs(1),
             ..Default::default()
         };
 
         Ok(Self {
             bind_addr,
-            state,
+            lg,
             config: Arc::new(config),
             ca_key,
             ca_fingerprint,
@@ -89,7 +91,7 @@ impl SshFrontend {
         info!("SSH server listening on {}", self.bind_addr);
 
         let mut server_impl = SshServerImpl {
-            state: self.state.clone(),
+            lg: self.lg.clone(),
             ca_key: self.ca_key.clone(),
             ca_fingerprint: self.ca_fingerprint,
             oidc_client: self.oidc_client.clone(),
@@ -102,7 +104,7 @@ impl SshFrontend {
 
 /// russh Server trait implementation — factory for per-client handlers.
 struct SshServerImpl {
-    state: Arc<SharedState>,
+    lg: Arc<LookingGlass>,
     ca_key: Option<Arc<ssh_key::PrivateKey>>,
     ca_fingerprint: Option<Fingerprint>,
     oidc_client: Option<OidcClient>,
@@ -115,7 +117,7 @@ impl server::Server for SshServerImpl {
     fn new_client(&mut self, peer_addr: Option<std::net::SocketAddr>) -> Self::Handler {
         info!("SSH connection from {:?}", peer_addr);
         SshSessionHandler {
-            state: self.state.clone(),
+            lg: self.lg.clone(),
             ca_key: self.ca_key.clone(),
             ca_fingerprint: self.ca_fingerprint,
             oidc_client: self.oidc_client.clone(),
@@ -141,7 +143,7 @@ struct CertInfo {
 
 /// Per-client session handler.
 struct SshSessionHandler {
-    state: Arc<SharedState>,
+    lg: Arc<LookingGlass>,
     ca_key: Option<Arc<ssh_key::PrivateKey>>,
     ca_fingerprint: Option<Fingerprint>,
     oidc_client: Option<OidcClient>,
@@ -204,7 +206,7 @@ impl SshSessionHandler {
             .collect();
 
         info!(email, groups = ?groups, "extracted identity from SSH certificate");
-        Some(Identity::from_oidc_claims(email, groups, &self.state.group_prefix))
+        Some(Identity::from_oidc_claims(email, groups, &self.lg.group_prefix))
     }
 
     /// Kick off the OIDC login flow in a background task.
@@ -249,7 +251,7 @@ impl SshSessionHandler {
         };
         let ca_key = self.ca_key.clone();
         let cert_lifetime_secs = self.cert_lifetime_secs;
-        let group_prefix = self.state.group_prefix.clone();
+        let group_prefix = self.lg.group_prefix.clone();
         let identity = self.identity.clone();
         let login_in_progress = self.login_in_progress.clone();
 
@@ -368,7 +370,7 @@ impl SshSessionHandler {
             session,
         };
 
-        match super::common::dispatch_command(line, &self.state, &identity, &rate_key, self.color_mode(), &mut writer).await {
+        match super::common::dispatch_command(line, &self.lg, &identity, &rate_key, self.color_mode(), &mut writer).await {
             Ok(CommandAction::Quit) => {
                 if let Some(ch) = self.channel_id {
                     let _ = writer.session.close(ch);
@@ -489,7 +491,7 @@ impl server::Handler for SshSessionHandler {
         // Send service banner
         let mut banner = format!(
             "\n{}\n",
-            crate::format::format_banner(&self.state.service_name)
+            crate::format::format_banner(&self.lg.service_name)
         );
         // If authenticated via certificate, show identity/permissions banner
         let identity = self.identity.lock().unwrap().clone();
@@ -499,7 +501,7 @@ impl server::Handler for SshSessionHandler {
                 banner.push_str(&crate::format::format_auth_banner(
                     &identity,
                     ci.valid_before,
-                    self.state.policy.admin_group(),
+                    self.lg.admin_group(),
                 ));
             }
         }

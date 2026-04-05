@@ -17,20 +17,20 @@ mod policy;
 mod ratelimit;
 mod structured;
 mod format;
+mod service;
 
 mod backend;
 mod frontend;
 
 use backend::pool::DevicePool;
 use config::ParticipantsSourceConfig;
-use frontend::mcp::McpFrontend;
-use frontend::rest::RestFrontend;
+use frontend::http::HttpFrontend;
 use frontend::ssh::SshFrontend;
-use frontend::common::SharedState;
 use frontend::telnet::TelnetServer;
 use participants::{ParticipantMap, PortMap};
 use policy::PolicyEngine;
 use ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
+use service::LookingGlass;
 
 #[derive(Parser)]
 #[command(name = "looking-glass", about = "Multi-purpose IXP looking glass")]
@@ -141,14 +141,14 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Build shared state
+    // Build the central LookingGlass service
     let group_prefix = config
         .auth
         .as_ref()
         .map(|a| a.oidc.group_prefix.clone())
         .unwrap_or_else(|| "as".to_string());
     let public_vlans = config.vlans.public.clone();
-    let telnet_state = Arc::new(SharedState {
+    let lg = Arc::new(LookingGlass {
         service_name: config.service.name.clone(),
         policy,
         rate_limiter,
@@ -165,7 +165,7 @@ async fn main() -> Result<()> {
     // Start telnet server
     if let Some(ref telnet_config) = config.listen.telnet {
         if telnet_config.enabled {
-            let server = TelnetServer::new(telnet_config.bind.clone(), telnet_state.clone());
+            let server = TelnetServer::new(telnet_config.bind.clone(), lg.clone());
             tokio::spawn(async move {
                 if let Err(e) = server.run().await {
                     tracing::error!("Telnet server error: {e}");
@@ -174,7 +174,7 @@ async fn main() -> Result<()> {
         }
     } else {
         // Default: start telnet on [::]:23
-        let server = TelnetServer::new("[::]:23".to_string(), telnet_state.clone());
+        let server = TelnetServer::new("[::]:23".to_string(), lg.clone());
         tokio::spawn(async move {
             if let Err(e) = server.run().await {
                 tracing::error!("Telnet server error: {e}");
@@ -197,7 +197,7 @@ async fn main() -> Result<()> {
                 ssh_config.ca_key.as_deref(),
                 oidc_client,
                 cert_lifetime,
-                telnet_state.clone(),
+                lg.clone(),
             ) {
                 Ok(mut ssh_server) => {
                     tokio::spawn(async move {
@@ -213,37 +213,38 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Start MCP server
-    if let Some(ref mcp_config) = config.listen.mcp {
-        if mcp_config.enabled {
-            let mcp_server = McpFrontend::new(
-                mcp_config.bind.clone(),
-                telnet_state.clone(),
-            );
+    // Start unified HTTP server (REST + MCP)
+    //
+    // Precedence: listen.http > legacy listen.rest / listen.mcp
+    // If the old keys are present but listen.http is absent, fall back to
+    // starting separate legacy servers (REST-only or MCP-only).
+    if let Some(ref http_config) = config.listen.http {
+        if http_config.enabled {
+            let http_server = HttpFrontend::new(http_config.bind.clone(), lg.clone());
             tokio::spawn(async move {
-                if let Err(e) = mcp_server.run().await {
-                    tracing::error!("MCP server error: {e}");
+                if let Err(e) = http_server.run().await {
+                    tracing::error!("HTTP server error: {e}");
                 }
             });
         }
-    }
-
-    // Start REST API server
-    if let Some(ref rest_config) = config.listen.rest {
-        if rest_config.enabled {
-            let rest_oidc = config.auth.as_ref().and_then(|auth| {
-                oidc::OidcClient::new(&auth.oidc).ok()
-            });
-            let rest_server = RestFrontend::new(
-                rest_config.bind.clone(),
-                telnet_state.clone(),
-                rest_oidc,
-            );
-            tokio::spawn(async move {
-                if let Err(e) = rest_server.run().await {
-                    tracing::error!("REST API server error: {e}");
-                }
-            });
+    } else {
+        // Legacy: start separate REST and MCP servers if configured
+        if let Some(ref rest_config) = config.listen.rest {
+            if rest_config.enabled {
+                let rest_server = frontend::rest::RestFrontend::new(
+                    rest_config.bind.clone(),
+                    lg.clone(),
+                    config.auth.as_ref().and_then(|auth| oidc::OidcClient::new(&auth.oidc).ok()),
+                );
+                tokio::spawn(async move {
+                    if let Err(e) = rest_server.run().await {
+                        tracing::error!("REST API server error: {e}");
+                    }
+                });
+            }
+        }
+        if let Some(ref _mcp_config) = config.listen.mcp {
+            tracing::warn!("listen.mcp is deprecated — migrate to listen.http");
         }
     }
 
@@ -260,8 +261,8 @@ async fn main() -> Result<()> {
                     let pmap = ParticipantMap::build_from_netbox(&result.participants);
                     let port_map = PortMap::build(&result.participants, &result.core_ports);
                     info!("NetBox: {} participants, {} classified ports", pmap.all().count(), port_map.len());
-                    telnet_state.participants.store(Arc::new(pmap));
-                    telnet_state.port_map.store(Arc::new(port_map));
+                    lg.participants.store(Arc::new(pmap));
+                    lg.port_map.store(Arc::new(port_map));
                 }
                 Err(e) => {
                     tracing::warn!("NetBox initial fetch failed: {e}");
@@ -270,7 +271,7 @@ async fn main() -> Result<()> {
 
             // Background refresh
             if refresh_interval_secs > 0 {
-                let state = telnet_state.clone();
+                let state = lg.clone();
                 let url = url.clone();
                 let token = token.clone();
                 tokio::spawn(async move {

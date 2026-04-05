@@ -61,8 +61,13 @@ pub struct ListenConfig {
     pub telnet: Option<TelnetListenConfig>,
     #[serde(default)]
     pub ssh: Option<SshListenConfig>,
+    /// Unified HTTP frontend serving REST API + MCP on a single port.
+    #[serde(default)]
+    pub http: Option<HttpListenConfig>,
+    /// Deprecated: use `http` instead. Kept for backward compatibility.
     #[serde(default)]
     pub mcp: Option<McpListenConfig>,
+    /// Deprecated: use `http` instead. Kept for backward compatibility.
     #[serde(default)]
     pub rest: Option<RestListenConfig>,
 }
@@ -97,6 +102,14 @@ pub struct McpListenConfig {
     pub bind: String,
     #[serde(default = "default_mcp_transport")]
     pub transport: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpListenConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_http_bind")]
+    pub bind: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -272,6 +285,10 @@ fn default_mcp_bind() -> String {
 
 fn default_mcp_transport() -> String {
     "sse".to_string()
+}
+
+fn default_http_bind() -> String {
+    "[::]:8080".to_string()
 }
 
 fn default_rest_bind() -> String {

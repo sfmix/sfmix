@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::Request;
 use axum::http::HeaderMap;
-use axum::middleware::{self, Next};
+use axum::middleware::Next;
 use axum::response::Response;
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
@@ -18,14 +18,13 @@ use rmcp::{
     },
 };
 use serde_json::json;
-use tracing::{info, debug};
+use tracing::debug;
 
 use crate::oidc::OidcClient;
 
 use crate::command::{AddressFamily, Command, Resource, Verb};
-use crate::frontend::common::SharedState;
 use crate::identity::Identity;
-use crate::policy::PolicyDecision;
+use crate::service::{self, LookingGlass};
 
 tokio::task_local! {
     /// Per-request identity extracted from Bearer token.
@@ -58,7 +57,7 @@ fn extract_client_ip(headers: &HeaderMap) -> Option<std::net::IpAddr> {
 /// Identity is derived from cryptographically verified JWT claims only.
 /// No header-based trust (X-Forwarded-Email, etc.) — all identity must come
 /// from a valid Bearer token signed by the configured OIDC issuer.
-async fn auth_middleware(
+pub async fn auth_middleware(
     request: Request,
     next: Next,
     group_prefix: String,
@@ -104,62 +103,36 @@ async fn auth_middleware(
     }).await
 }
 
-/// MCP (Model Context Protocol) frontend server.
+/// Build the MCP axum router (mounted at `/mcp`).
 ///
-/// Exposes the looking glass as an MCP server over streamable HTTP,
-/// enabling LLM agents to query IXP state.
-pub struct McpFrontend {
-    bind_addr: String,
-    state: Arc<SharedState>,
+/// The returned router includes its own auth middleware that sets
+/// task-local identity for the rmcp handler.
+pub fn router(
+    lg: Arc<LookingGlass>,
+    ct: tokio_util::sync::CancellationToken,
+) -> axum::Router {
+    let config = StreamableHttpServerConfig::default()
+        .with_stateful_mode(false)
+        .with_cancellation_token(ct);
+
+    let service = StreamableHttpService::new(
+        move || {
+            // Read identity and rate key from task-locals set by auth middleware
+            let identity = CURRENT_IDENTITY
+                .try_with(|id| id.clone())
+                .unwrap_or_else(|_| Identity::anonymous());
+            let rate_key = CURRENT_RATE_KEY
+                .try_with(|k| k.clone())
+                .unwrap_or_else(|_| "anonymous".to_string());
+            Ok(LookingGlassMcp::new(lg.clone(), identity, rate_key))
+        },
+        LocalSessionManager::default().into(),
+        config,
+    );
+
+    axum::Router::new().nest_service("/mcp", service)
 }
 
-impl McpFrontend {
-    pub fn new(bind_addr: String, state: Arc<SharedState>) -> Self {
-        Self { bind_addr, state }
-    }
-
-    pub async fn run(&self) -> anyhow::Result<()> {
-        let state = self.state.clone();
-        let ct = tokio_util::sync::CancellationToken::new();
-
-        let config = StreamableHttpServerConfig::default()
-            .with_stateful_mode(false)
-            .with_cancellation_token(ct.child_token());
-
-        let service = StreamableHttpService::new(
-            move || {
-                // Read identity and rate key from task-locals set by auth middleware
-                let identity = CURRENT_IDENTITY
-                    .try_with(|id| id.clone())
-                    .unwrap_or_else(|_| Identity::anonymous());
-                let rate_key = CURRENT_RATE_KEY
-                    .try_with(|k| k.clone())
-                    .unwrap_or_else(|_| "anonymous".to_string());
-                Ok(LookingGlassMcp::new(state.clone(), identity, rate_key))
-            },
-            LocalSessionManager::default().into(),
-            config,
-        );
-
-        let group_prefix = self.state.group_prefix.clone();
-        let oidc_client = self.state.oidc_client.clone();
-        let router = axum::Router::new()
-            .nest_service("/mcp", service)
-            .layer(middleware::from_fn(move |req, next| {
-                auth_middleware(req, next, group_prefix.clone(), oidc_client.clone())
-            }));
-        let listener = tokio::net::TcpListener::bind(&self.bind_addr).await?;
-        info!("MCP server listening on {}", self.bind_addr);
-
-        axum::serve(listener, router)
-            .with_graceful_shutdown(async move {
-                tokio::signal::ctrl_c().await.ok();
-                ct.cancel();
-            })
-            .await?;
-        Ok(())
-    }
-}
 
 // --- Tool parameter types ---
 
@@ -190,7 +163,7 @@ struct DestinationParams {
 
 #[derive(Clone)]
 struct LookingGlassMcp {
-    state: Arc<SharedState>,
+    lg: Arc<LookingGlass>,
     identity: Identity,
     rate_key: String,
     tool_router: ToolRouter<Self>,
@@ -198,39 +171,33 @@ struct LookingGlassMcp {
 
 #[tool_router]
 impl LookingGlassMcp {
-    fn new(state: Arc<SharedState>, identity: Identity, rate_key: String) -> Self {
+    fn new(lg: Arc<LookingGlass>, identity: Identity, rate_key: String) -> Self {
         Self {
-            state,
+            lg,
             identity,
             rate_key,
             tool_router: Self::tool_router(),
         }
     }
 
-    /// Execute a parsed command through the policy engine, rate limiter, and device pool.
+    /// Execute a parsed command via the service layer.
     /// Returns JSON-serialized structured output for MCP/LLM consumption.
     async fn execute_command(&self, command: &Command) -> Result<String, McpError> {
-        if let PolicyDecision::Deny { reason } =
-            self.state.policy.evaluate(command, &self.identity, &self.state.participants.load())
-        {
-            return Err(McpError::invalid_request(reason, None));
-        }
+        let req = service::Request {
+            command: command.clone(),
+            identity: self.identity.clone(),
+            rate_key: self.rate_key.clone(),
+        };
 
-        self.state
-            .rate_limiter
-            .acquire(&self.rate_key)
-            .await
-            .map_err(|e| McpError::invalid_request(format!("rate limited: {e}"), None))?;
-
-        let mut rx = self.state
-            .device_pool
-            .execute(command, &self.identity, &self.state.device_rate_limiter, self.state.policy.admin_group(), &self.state.port_map.load(), &self.state.public_vlans)
-            .await
-            .map_err(|e| McpError::internal_error(format!("device error: {e}"), None))?;
+        let results = self.lg.execute(req).await.map_err(|e| match e {
+            service::Error::PolicyDenied(reason) => McpError::invalid_request(reason, None),
+            service::Error::RateLimited(reason) => McpError::invalid_request(format!("rate limited: {reason}"), None),
+            other => McpError::internal_error(other.to_string(), None),
+        })?;
 
         // Collect all device results, then serialize as JSON for LLM agents
         let mut json_results: Vec<serde_json::Value> = Vec::new();
-        while let Some(r) = rx.recv().await {
+        for r in results {
             let data = match r.output {
                 crate::structured::CommandOutput::Stream(mut stream_rx) => {
                     let text = crate::format::drain_stream(&mut stream_rx).await;
@@ -271,7 +238,7 @@ impl LookingGlassMcp {
 
     /// Format the participant list as "AS<n> <name> [type]" lines.
     fn format_participants(&self) -> String {
-        let participants = self.state.participants.load();
+        let participants = self.lg.participants();
         let mut entries: Vec<_> = participants.all().collect();
         entries.sort_by_key(|p| p.asn);
         if entries.is_empty() {
