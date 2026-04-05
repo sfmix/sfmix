@@ -5,8 +5,8 @@ A multi-purpose IXP looking glass with Telnet, SSH, and MCP (Model Context Proto
 ## Features
 
 - **Telnet frontend** (port 23) — unauthenticated public access with IOS-style Tab completion and `?` help
-- **SSH frontend** (port 2222) — authenticated via opkssh + OIDC, per-ASN port visibility
-- **MCP frontend** (port 8080) — LLM agent access over streamable HTTP
+- **SSH frontend** (port 2222) — authenticated via OIDC device flow + SSH certificates, per-ASN port visibility
+- **HTTP frontend** (port 8080) — REST API (`/api/v1/*`) + MCP (`/mcp`) on a single port
 - **Multi-platform backend** — Arista EOS and Nokia SR-OS via SSH
 - **Policy engine** — declarative YAML rules, first-match evaluation
 - **Rate limiting** — global concurrency, per-device concurrency, per-user sliding window
@@ -27,18 +27,23 @@ cp config/example.yml /etc/looking-glass/config.yml
 ./target/release/looking-glass --config /etc/looking-glass/config.yml
 ```
 
-Default ports: telnet `:23`, SSH `:2222`, MCP `:8080`.
+Default ports: telnet `:23`, SSH `:2222`, HTTP `:8080`.
 
 ## Architecture
 
 ```
-┌───────────┐  ┌───────────┐  ┌───────────┐
-│  Telnet   │  │    SSH     │  │    MCP    │
-│  :23      │  │   :2222    │  │   :8080   │
-│ anonymous │  │ OIDC certs │  │ HTTP+auth │
-└─────┬─────┘  └─────┬─────┘  └─────┬─────┘
-      │              │              │
-      └──────┬───────┴──────────────┘
+┌───────────┐  ┌───────────┐  ┌─────────────────────┐
+│  Telnet   │  │    SSH    │  │     HTTP :8080      │
+│  :23      │  │  :2222    │  │  /api/v1/* (REST)   │
+│ anonymous │  │ OIDC+cert │  │  /mcp     (MCP)     │
+└─────┬─────┘  └─────┬─────┘  └──────────┬──────────┘
+      │              │                   │
+      └──────┬───────┴───────────────────┘
+             │
+      ┌──────▼──────┐
+      │ LookingGlass│   Unified service core
+      │  execute()  │   (policy + rate limit + dispatch)
+      └──────┬──────┘
              │
       ┌──────▼──────┐
       │   Grammar   │   Declarative YAML command tree
@@ -88,9 +93,9 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 
 | Tier | Interface | Authentication | Capabilities |
 |------|-----------|----------------|--------------|
-| **Public** | Telnet, MCP | None | BGP summary, interface status, optics (global), LLDP, ARP/ND, ping, traceroute |
-| **Participant** | SSH, MCP | OIDC (PeeringDB/GitHub) | Public + own port details, own port optics |
-| **Administrator** | SSH, MCP | OIDC (IX Administrators group) | Full read-only access to all ports |
+| **Public** | Telnet, HTTP | None | BGP summary, interface status, optics (global), LLDP, ARP/ND, ping, traceroute |
+| **Participant** | SSH, HTTP | OIDC (PeeringDB/GitHub) | Public + own port details, own port optics |
+| **Administrator** | SSH, HTTP | OIDC (IX Administrators group) | Full read-only access to all ports |
 
 ## Documentation
 
