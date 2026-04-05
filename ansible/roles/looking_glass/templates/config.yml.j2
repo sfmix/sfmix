@@ -23,15 +23,10 @@ listen:
     ca_key: "{{ looking_glass_config_dir }}/ca_ed25519_key"
 {% endif %}
 {% endif %}
-{% if looking_glass_rest_enabled | default(false) %}
-  rest:
+{% if looking_glass_http_enabled | default(looking_glass_rest_enabled | default(false) or looking_glass_mcp_enabled | default(false)) %}
+  http:
     enabled: true
-    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_rest_port | default(8081) }}"
-{% endif %}
-{% if looking_glass_mcp_enabled | default(false) %}
-  mcp:
-    enabled: true
-    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_mcp_port | default(8080) }}"
+    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_http_port | default(8080) }}"
 {% endif %}
 
 {% if looking_glass_oidc_enabled %}

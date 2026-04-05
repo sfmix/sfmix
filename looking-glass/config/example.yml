@@ -35,11 +35,10 @@ listen:
   #   bind: "[::]:2222"   # default: [::]:2222
   #   host_key: "/etc/looking-glass/ssh_host_ed25519_key"
 
-  # Uncomment to enable the MCP frontend:
-  # mcp:
+  # Uncomment to enable the HTTP frontend (REST API + MCP on one port):
+  # http:
   #   enabled: true
   #   bind: "[::]:8080"   # default: [::]:8080
-  #   transport: "sse"    # default: "sse"
 
 # ---------------------------------------------------------------------------
 # Authentication — OIDC configuration for SSH cert and MCP header identity
