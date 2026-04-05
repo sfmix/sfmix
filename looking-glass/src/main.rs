@@ -27,6 +27,7 @@ use config::ParticipantsSourceConfig;
 use frontend::http::HttpFrontend;
 use frontend::ssh::SshFrontend;
 use frontend::telnet::TelnetServer;
+use netbox::NetboxStatus;
 use participants::{ParticipantMap, PortMap};
 use policy::PolicyEngine;
 use ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
@@ -160,6 +161,7 @@ async fn main() -> Result<()> {
         group_prefix,
         oidc_client: oidc_client.clone(),
         public_vlans,
+        netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
     });
 
     // Start telnet server
@@ -250,6 +252,19 @@ async fn main() -> Result<()> {
 
     // NetBox participant source: initial fetch + background refresh
     if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix }) = config.participants {
+        // Seed initial status as "configured but not yet fetched"
+        lg.netbox_status.store(Arc::new(NetboxStatus {
+            configured: true,
+            participant_count: 0,
+            peering_port_count: 0,
+            core_port_count: 0,
+            port_map_size: 0,
+            last_success: None,
+            last_error: None,
+            refresh_interval_secs,
+            url: Some(url.clone()),
+        }));
+
         let token = std::env::var(token_env).unwrap_or_else(|_| {
             tracing::warn!("NetBox token env var '{token_env}' not set");
             String::new()
@@ -260,12 +275,28 @@ async fn main() -> Result<()> {
                 Ok(result) => {
                     let pmap = ParticipantMap::build_from_netbox(&result.participants);
                     let port_map = PortMap::build(&result.participants, &result.core_ports);
-                    info!("NetBox: {} participants, {} classified ports", pmap.all().count(), port_map.len());
+                    let pc = pmap.all().count();
+                    let pmc = port_map.len();
+                    info!("NetBox: {} participants, {} classified ports", pc, pmc);
                     lg.participants.store(Arc::new(pmap));
                     lg.port_map.store(Arc::new(port_map));
+                    lg.netbox_status.store(Arc::new(NetboxStatus {
+                        configured: true,
+                        participant_count: pc,
+                        peering_port_count: result.participants.iter().map(|p| p.ports.len()).sum(),
+                        core_port_count: result.core_ports.len(),
+                        port_map_size: pmc,
+                        last_success: Some(std::time::Instant::now()),
+                        last_error: None,
+                        refresh_interval_secs,
+                        url: Some(url.clone()),
+                    }));
                 }
                 Err(e) => {
                     tracing::warn!("NetBox initial fetch failed: {e}");
+                    let mut status = (*lg.netbox_status.load_full()).clone();
+                    status.last_error = Some(e.to_string());
+                    lg.netbox_status.store(Arc::new(status));
                 }
             }
 
@@ -284,12 +315,28 @@ async fn main() -> Result<()> {
                             Ok(result) => {
                                 let pmap = ParticipantMap::build_from_netbox(&result.participants);
                                 let port_map = PortMap::build(&result.participants, &result.core_ports);
-                                info!("NetBox refresh: {} participants, {} classified ports", pmap.all().count(), port_map.len());
+                                let pc = pmap.all().count();
+                                let pmc = port_map.len();
+                                info!("NetBox refresh: {} participants, {} classified ports", pc, pmc);
                                 state.participants.store(Arc::new(pmap));
                                 state.port_map.store(Arc::new(port_map));
+                                state.netbox_status.store(Arc::new(NetboxStatus {
+                                    configured: true,
+                                    participant_count: pc,
+                                    peering_port_count: result.participants.iter().map(|p| p.ports.len()).sum(),
+                                    core_port_count: result.core_ports.len(),
+                                    port_map_size: pmc,
+                                    last_success: Some(std::time::Instant::now()),
+                                    last_error: None,
+                                    refresh_interval_secs,
+                                    url: Some(url.clone()),
+                                }));
                             }
                             Err(e) => {
                                 tracing::warn!("NetBox refresh failed: {e}");
+                                let mut status = (*state.netbox_status.load_full()).clone();
+                                status.last_error = Some(e.to_string());
+                                state.netbox_status.store(Arc::new(status));
                             }
                         }
                     }

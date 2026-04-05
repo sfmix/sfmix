@@ -5,6 +5,7 @@ use crate::backend::pool::DevicePool;
 use crate::command::{Command, Resource};
 use crate::format::ColorMode;
 use crate::identity::Identity;
+use crate::netbox::NetboxStatus;
 use crate::oidc::OidcClient;
 use crate::participants::{ParticipantMap, PortMap, PortClass};
 use crate::policy::{PolicyDecision, PolicyEngine};
@@ -64,6 +65,7 @@ pub struct LookingGlass {
     pub group_prefix: String,
     pub oidc_client: Option<OidcClient>,
     pub public_vlans: Vec<String>,
+    pub netbox_status: ArcSwap<NetboxStatus>,
 }
 
 impl LookingGlass {
@@ -76,6 +78,16 @@ impl LookingGlass {
         let identity = &req.identity;
 
         // Local resources — no device dispatch needed
+        if command.resource == Resource::NetboxCache {
+            let status = self.netbox_status.load();
+            let text = crate::format::format_netbox_status(&status, ColorMode::Plain);
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::NetboxStatus(text),
+            }]);
+        }
+
         if command.resource == Resource::Participants {
             let pmap = self.participants.load();
             let text = crate::format::format_participants(&pmap, ColorMode::Plain);

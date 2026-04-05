@@ -132,7 +132,7 @@ impl PolicyEngine {
         participants: &ParticipantMap,
     ) -> PolicyDecision {
         // Help, Whoami, and Logout are always allowed
-        if matches!(command.resource, Resource::Help | Resource::Whoami | Resource::Logout) {
+        if matches!(command.resource, Resource::Help | Resource::Whoami | Resource::Logout | Resource::NetboxCache) {
             return PolicyDecision::Allow;
         }
 
@@ -297,6 +297,7 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::Login => return "login".to_string(),
         Resource::Whoami => return "whoami".to_string(),
         Resource::Logout => return "logout".to_string(),
+        Resource::NetboxCache => return "show netbox".to_string(),
     };
     format!("{verb} {resource}")
 }

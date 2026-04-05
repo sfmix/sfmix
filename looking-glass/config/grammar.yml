@@ -139,6 +139,9 @@ commands:
       vxlan:
         help: VXLAN VTEP information
         command: { verb: show, resource: vxlan_vtep }
+      netbox:
+        help: NetBox cache status
+        command: { verb: show, resource: netbox_cache }
 
   ping:
     help: Send ICMP echo to a destination

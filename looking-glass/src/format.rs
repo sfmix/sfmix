@@ -107,6 +107,57 @@ fn participant_type_emoji(participant_type: Option<&str>) -> &'static str {
     }
 }
 
+/// Render NetBox cache status as a diagnostic summary.
+pub fn format_netbox_status(status: &crate::netbox::NetboxStatus, mode: ColorMode) -> String {
+    let mut out = String::new();
+
+    if !status.configured {
+        return "NetBox is not configured as a participant source.\n".to_string();
+    }
+
+    let _ = writeln!(out, "{}", bold_str("NetBox Cache Status", mode));
+    let _ = writeln!(out, "  URL:             {}", status.url.as_deref().unwrap_or("(unknown)"));
+    let _ = writeln!(out, "  Participants:    {}", status.participant_count);
+    let _ = writeln!(out, "  Peering ports:   {}", status.peering_port_count);
+    let _ = writeln!(out, "  Core ports:      {}", status.core_port_count);
+    let _ = writeln!(out, "  PortMap entries:  {}", status.port_map_size);
+
+    let age_str = match status.age_secs() {
+        Some(secs) => {
+            let h = secs / 3600;
+            let m = (secs % 3600) / 60;
+            let s = secs % 60;
+            if h > 0 {
+                format!("{h}h {m}m {s}s ago")
+            } else if m > 0 {
+                format!("{m}m {s}s ago")
+            } else {
+                format!("{s}s ago")
+            }
+        }
+        None => "never".to_string(),
+    };
+    let _ = writeln!(out, "  Last success:    {}", age_str);
+
+    if let Some(ref err) = status.last_error {
+        let err_str = if mode == ColorMode::Plain {
+            err.clone()
+        } else {
+            format!("{}", err.red())
+        };
+        let _ = writeln!(out, "  Last error:      {}", err_str);
+    }
+
+    let refresh = if status.refresh_interval_secs > 0 {
+        format!("{}s", status.refresh_interval_secs)
+    } else {
+        "disabled".to_string()
+    };
+    let _ = writeln!(out, "  Refresh:         {}", refresh);
+
+    out
+}
+
 /// Render the participant list as a table.
 ///
 /// In `Rich` mode, participant_type is shown as an emoji prefix on the name.
@@ -197,6 +248,7 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::VxlanVtep(entries) => render_vxlan_vtep(entries, color),
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
+        CommandOutput::NetboxStatus(s) => s.clone(),
         CommandOutput::Error(e) => match color {
             ColorMode::Plain => format!("Error: {e}\n"),
             _ => format!("{}\n", format!("Error: {e}").red()),

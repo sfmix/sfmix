@@ -28,6 +28,7 @@ Available commands:
   show ipv6 neighbors              IPv6 neighbor table
   show participants                IXP participant list
   show vxlan vtep                  VXLAN VTEP table
+  show netbox                      NetBox cache status
   ping <destination>               Ping from the looking glass host
   traceroute <destination>         Traceroute from the looking glass host
   login                            Authenticate via OIDC (opens browser)
@@ -359,6 +360,14 @@ pub async fn dispatch_command<W: SessionWriter>(
     // Participants
     if command.resource == Resource::Participants {
         let out = crate::format::format_participants(&lg.participants(), color);
+        writer.write_bytes(out.as_bytes()).await?;
+        return Ok(CommandAction::Continue);
+    }
+
+    // NetBox cache status
+    if command.resource == Resource::NetboxCache {
+        let status = lg.netbox_status.load();
+        let out = crate::format::format_netbox_status(&status, color);
         writer.write_bytes(out.as_bytes()).await?;
         return Ok(CommandAction::Continue);
     }

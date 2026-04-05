@@ -51,6 +51,8 @@ pub enum Resource {
     Whoami,
     /// Drop authentication (return to anonymous)
     Logout,
+    /// Show NetBox cache status
+    NetboxCache,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
