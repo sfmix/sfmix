@@ -198,6 +198,8 @@ pub enum CommandOutput {
     Stream(tokio::sync::mpsc::Receiver<String>),
     /// Pre-rendered participant list (local resource, no device dispatch).
     Participants(String),
+    /// Device-level error (e.g. SSH failure, timeout).
+    Error(String),
 }
 
 impl CommandOutput {
@@ -213,6 +215,7 @@ impl CommandOutput {
             CommandOutput::Optics(v) => v.is_empty(),
             CommandOutput::OpticsDetail(v) => v.is_empty(),
             CommandOutput::VxlanVtep(v) => v.is_empty(),
+            CommandOutput::Error(_) => true,
             _ => false,
         }
     }
@@ -234,6 +237,12 @@ impl Serialize for CommandOutput {
             CommandOutput::VxlanVtep(v) => v.serialize(serializer),
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
             CommandOutput::Participants(s) => serializer.serialize_str(s),
+            CommandOutput::Error(e) => {
+                let mut map = serializer.serialize_map(Some(1))?;
+                use serde::ser::SerializeMap;
+                map.serialize_entry("error", e)?;
+                map.end()
+            }
         }
     }
 }
