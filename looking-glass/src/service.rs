@@ -86,6 +86,35 @@ impl LookingGlass {
             }]);
         }
 
+        // Validate targets before touching any device
+        if let Some(ref target) = command.target {
+            match command.resource {
+                Resource::NetworkReachability => {
+                    if !is_valid_destination(target) {
+                        return Err(Error::BadRequest(format!(
+                            "invalid destination: {target}"
+                        )));
+                    }
+                }
+                Resource::BgpNeighbor => {
+                    if target.parse::<std::net::IpAddr>().is_err() {
+                        return Err(Error::BadRequest(format!(
+                            "invalid IP address: {target}"
+                        )));
+                    }
+                }
+                Resource::InterfaceDetail | Resource::OpticsDetail => {
+                    let pmap = self.port_map.load();
+                    if pmap.len() > 0 && !pmap.known_interface(target) {
+                        return Err(Error::BadRequest(format!(
+                            "unknown interface: {target}"
+                        )));
+                    }
+                }
+                _ => {}
+            }
+        }
+
         // Policy check
         match self.policy.evaluate(command, identity, &self.participants.load()) {
             PolicyDecision::Allow => {}
@@ -151,6 +180,31 @@ impl LookingGlass {
     pub fn admin_group(&self) -> &str {
         self.policy.admin_group()
     }
+}
+
+// ---------------------------------------------------------------------------
+// Target validation
+// ---------------------------------------------------------------------------
+
+/// Check if a string is a valid IP address or DNS hostname (RFC 1123).
+/// Rejects CLI metacharacters, pipes, semicolons, etc.
+fn is_valid_destination(s: &str) -> bool {
+    if s.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
+    // DNS hostname: labels separated by dots
+    if s.is_empty() || s.len() > 253 {
+        return false;
+    }
+    s.split('.').all(|label| {
+        !label.is_empty()
+            && label.len() <= 63
+            && label
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -513,6 +567,53 @@ mod tests {
             CommandOutput::MacAddressTable(v) => assert_eq!(v.len(), 1),
             _ => panic!("wrong variant"),
         }
+    }
+
+    // ── Target validation tests ──────────────────────────────────────
+
+    #[test]
+    fn valid_ipv4() {
+        assert!(is_valid_destination("192.0.2.1"));
+        assert!(is_valid_destination("10.0.0.1"));
+    }
+
+    #[test]
+    fn valid_ipv6() {
+        assert!(is_valid_destination("2001:db8::1"));
+        assert!(is_valid_destination("::1"));
+    }
+
+    #[test]
+    fn valid_hostname() {
+        assert!(is_valid_destination("example.com"));
+        assert!(is_valid_destination("a-b.example.com"));
+        assert!(is_valid_destination("host"));
+    }
+
+    #[test]
+    fn rejects_cli_injection() {
+        assert!(!is_valid_destination("8.8.8.8 | show run"));
+        assert!(!is_valid_destination("8.8.8.8; show run"));
+        assert!(!is_valid_destination("$(reboot)"));
+        assert!(!is_valid_destination("foo`reboot`"));
+        assert!(!is_valid_destination(""));
+    }
+
+    #[test]
+    fn rejects_bad_hostname() {
+        assert!(!is_valid_destination("-leading.com"));
+        assert!(!is_valid_destination("trailing-.com"));
+        assert!(!is_valid_destination(".leading-dot.com"));
+        assert!(!is_valid_destination("double..dot.com"));
+    }
+
+    #[test]
+    fn known_interface_lookup() {
+        let pmap = test_port_map();
+        assert!(pmap.known_interface("Ethernet5/1"));
+        assert!(pmap.known_interface("Ethernet50/1"));
+        assert!(!pmap.known_interface("Ethernet99/1"));
+        assert!(!pmap.known_interface("Ethernet5/1 | show run"));
     }
 
     #[test]
