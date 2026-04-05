@@ -3,6 +3,27 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ── Cache backend (swap to RedisCache / MemcachedCache via env) ──
+_cache_dir = os.environ.get("CACHE_DIR", str(BASE_DIR / "cache" / "django_cache"))
+os.makedirs(_cache_dir, exist_ok=True)
+
+CACHES = {
+    "default": {
+        "BACKEND": os.environ.get(
+            "CACHE_BACKEND",
+            "django.core.cache.backends.filebased.FileBasedCache",
+        ),
+        "LOCATION": _cache_dir,
+    }
+}
+
+# NetBox cache refresh interval and cross-worker lock file
+NETBOX_CACHE_TIMEOUT = int(os.environ.get("NETBOX_CACHE_TIMEOUT", str(4 * 3600)))
+NETBOX_CACHE_LOCK_FILE = os.environ.get(
+    "NETBOX_CACHE_LOCK_FILE",
+    str(BASE_DIR / "cache" / ".netbox_refresh.lock"),
+)
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-dev-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
@@ -102,6 +123,9 @@ _trusted_nets = os.environ.get("PROMETHEUS_TRUSTED_NETWORKS", "127.0.0.0/8,::1/1
 PROMETHEUS_TRUSTED_NETWORKS = [n.strip() for n in _trusted_nets.split(",") if n.strip()]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Ensure lock file parent directory exists
+os.makedirs(os.path.dirname(NETBOX_CACHE_LOCK_FILE), exist_ok=True)
 
 LOGGING = {
     "version": 1,
