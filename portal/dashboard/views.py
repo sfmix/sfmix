@@ -187,9 +187,9 @@ def netbox_status_view(request):
 
 @login_required
 @require_POST
-def netbox_clear_cache_view(request):
-    """Clear all cached NetBox data and trigger an immediate refresh."""
+def netbox_refresh_cache_view(request):
+    """Force an immediate synchronous refresh of the NetBox cache."""
     if not _is_ix_admin(request):
         return HttpResponseForbidden("IX Administrators only.")
-    services.clear_cache()
+    services.refresh_cache()
     return redirect("netbox_status")
