@@ -160,6 +160,14 @@ commands:
     help: Authenticate via OIDC (opens browser)
     command: { verb: show, resource: login }
 
+  whoami:
+    help: Show current identity and permissions
+    command: { verb: show, resource: whoami }
+
+  logout:
+    help: Drop authentication (return to public tier)
+    command: { verb: show, resource: logout }
+
   help:
     help: Show available commands
     command: { verb: show, resource: help }

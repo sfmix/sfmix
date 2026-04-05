@@ -131,8 +131,8 @@ impl PolicyEngine {
         identity: &Identity,
         participants: &ParticipantMap,
     ) -> PolicyDecision {
-        // Help is always allowed
-        if command.resource == Resource::Help {
+        // Help, Whoami, and Logout are always allowed
+        if matches!(command.resource, Resource::Help | Resource::Whoami | Resource::Logout) {
             return PolicyDecision::Allow;
         }
 
@@ -295,6 +295,8 @@ fn command_to_match_string(command: &Command) -> String {
         }
         Resource::Help => "help",
         Resource::Login => return "login".to_string(),
+        Resource::Whoami => return "whoami".to_string(),
+        Resource::Logout => return "logout".to_string(),
     };
     format!("{verb} {resource}")
 }

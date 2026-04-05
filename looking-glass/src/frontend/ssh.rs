@@ -383,6 +383,21 @@ impl SshSessionHandler {
                 self.start_login(session).await;
                 CommandAction::Login
             }
+            Ok(CommandAction::Logout) => {
+                let was_auth = {
+                    let mut id = self.identity.lock().unwrap();
+                    let was = id.authenticated;
+                    *id = Identity::anonymous();
+                    was
+                };
+                drop(writer);
+                if was_auth {
+                    self.write_data(session, b"Logged out. Returned to public tier.\n").await;
+                } else {
+                    self.write_data(session, b"Not authenticated.\n").await;
+                }
+                CommandAction::Continue
+            }
             Ok(CommandAction::Continue) => CommandAction::Continue,
             Err(e) => {
                 warn!(error = %e, "dispatch_command error");
@@ -500,7 +515,7 @@ impl server::Handler for SshSessionHandler {
                 banner.push('\n');
                 banner.push_str(&crate::format::format_auth_banner(
                     &identity,
-                    ci.valid_before,
+                    Some(ci.valid_before),
                     self.lg.admin_group(),
                 ));
             }

@@ -47,6 +47,10 @@ pub enum Resource {
     Help,
     /// Authenticate via OIDC device flow
     Login,
+    /// Show current identity
+    Whoami,
+    /// Drop authentication (return to anonymous)
+    Logout,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]

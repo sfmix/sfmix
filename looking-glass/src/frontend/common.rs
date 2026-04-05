@@ -31,6 +31,8 @@ Available commands:
   ping <destination>               Ping from the looking glass host
   traceroute <destination>         Traceroute from the looking glass host
   login                            Authenticate via OIDC (opens browser)
+  whoami                           Show current identity and permissions
+  logout                           Drop authentication (return to public tier)
   help                             Show this help
   quit / exit                      Disconnect
 ";
@@ -286,6 +288,8 @@ pub enum CommandAction {
     Quit,
     /// User requested login — frontend handles this its own way.
     Login,
+    /// User requested logout — frontend resets identity to anonymous.
+    Logout,
 }
 
 /// Shared command dispatch: parse → delegate to `LookingGlass::execute()` → render.
@@ -328,6 +332,22 @@ pub async fn dispatch_command<W: SessionWriter>(
     // Login — delegate to frontend
     if command.resource == Resource::Login {
         return Ok(CommandAction::Login);
+    }
+
+    // Logout — delegate to frontend (it owns the identity)
+    if command.resource == Resource::Logout {
+        return Ok(CommandAction::Logout);
+    }
+
+    // Whoami — show current identity
+    if command.resource == Resource::Whoami {
+        if identity.authenticated {
+            let banner = crate::format::format_auth_banner(identity, None, lg.admin_group());
+            writer.write_bytes(banner.as_bytes()).await?;
+        } else {
+            writer.write_bytes(b"Not authenticated. Use 'login' to authenticate.\n").await?;
+        }
+        return Ok(CommandAction::Continue);
     }
 
     // Help

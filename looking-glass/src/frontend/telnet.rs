@@ -138,6 +138,15 @@ async fn handle_telnet_session(
             CommandAction::Login => {
                 handle_telnet_login(&lg, &mut identity, &mut writer).await?;
             }
+            CommandAction::Logout => {
+                if identity.authenticated {
+                    identity = Identity::anonymous();
+                    writer.write_all(&to_crlf(b"Logged out. Returned to public tier.\n")).await?;
+                } else {
+                    writer.write_all(&to_crlf(b"Not authenticated.\n")).await?;
+                }
+                writer.flush().await?;
+            }
             CommandAction::Continue => {}
         }
     }

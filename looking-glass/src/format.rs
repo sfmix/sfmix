@@ -583,13 +583,14 @@ fn format_count(v: u64) -> String {
     }
 }
 
-/// Render an authentication banner for cert-authenticated SSH sessions.
+/// Render an authentication banner showing identity, role, ASNs, and
+/// optionally certificate validity in a colored Unicode box-drawing frame.
 ///
-/// Shows identity, role, ASNs, and certificate validity in a colored
-/// Unicode box-drawing frame.
+/// Used by the SSH login banner (with cert validity) and `whoami` (without).
+/// Pass `valid_before = None` when there is no certificate context.
 pub fn format_auth_banner(
     identity: &crate::identity::Identity,
-    valid_before: u64,
+    valid_before: Option<u64>,
     admin_group: &str,
 ) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -617,32 +618,27 @@ pub fn format_auth_banner(
         asns.join(", ")
     };
 
-    // Cert validity remaining
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let remaining = valid_before.saturating_sub(now);
-    let hours = remaining / 3600;
-    let mins = (remaining % 3600) / 60;
-    let validity_str = if remaining == 0 {
-        format!("{}", "expired".red().bold())
-    } else if hours == 0 {
-        format!("{}", format!("{mins}m").yellow())
-    } else {
-        format!("{}", format!("{hours}h {mins}m").green())
-    };
-
     // Build content lines (plain text for width calc, colored for display)
     let check = "\u{2714}"; // ✔
     let line1_plain = format!("  {} Authenticated as {}", check, email);
     let line2_plain = format!("  Role: {}", role_label);
     let line3_plain = if !asn_display.is_empty() { format!("  ASNs: {}", asn_list.iter().map(|a| format!("AS{a}")).collect::<Vec<_>>().join(", ")) } else { String::new() };
-    let line4_plain = format!("  Certificate valid for {}", if remaining == 0 { "expired".to_string() } else if hours == 0 { format!("{mins}m") } else { format!("{hours}h {mins}m") });
 
-    let mut plains = vec![&line1_plain, &line2_plain];
+    // Cert validity line (only when cert context is available)
+    let line4_plain = valid_before.map(|vb| {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let remaining = vb.saturating_sub(now);
+        let hours = remaining / 3600;
+        let mins = (remaining % 3600) / 60;
+        format!("  Certificate valid for {}", if remaining == 0 { "expired".to_string() } else if hours == 0 { format!("{mins}m") } else { format!("{hours}h {mins}m") })
+    });
+
+    let mut plains: Vec<&str> = vec![&line1_plain, &line2_plain];
     if !line3_plain.is_empty() { plains.push(&line3_plain); }
-    plains.push(&line4_plain);
+    if let Some(ref l4) = line4_plain { plains.push(l4); }
     let width = plains.iter().map(|l| l.chars().count()).max().unwrap_or(40) + 2;
 
     let line1 = format!("  {} Authenticated as {}",
@@ -650,7 +646,23 @@ pub fn format_auth_banner(
         email.cyan().bold());
     let line2 = format!("  Role: {}", role_colored);
     let line3 = if !asn_display.is_empty() { format!("  ASNs: {}", asn_display) } else { String::new() };
-    let line4 = format!("  Certificate valid for {}", validity_str);
+    let line4 = valid_before.map(|vb| {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let remaining = vb.saturating_sub(now);
+        let hours = remaining / 3600;
+        let mins = (remaining % 3600) / 60;
+        let validity_str = if remaining == 0 {
+            format!("{}", "expired".red().bold())
+        } else if hours == 0 {
+            format!("{}", format!("{mins}m").yellow())
+        } else {
+            format!("{}", format!("{hours}h {mins}m").green())
+        };
+        format!("  Certificate valid for {}", validity_str)
+    });
 
     // Box drawing
     let dim = |s: &str| format!("{}", s.dimmed());
@@ -669,7 +681,9 @@ pub fn format_auth_banner(
     if !line3.is_empty() {
         out.push_str(&format!("{bar_l}{line3}{}{bar_r}\n", pad(&line3_plain)));
     }
-    out.push_str(&format!("{bar_l}{line4}{}{bar_r}\n", pad(&line4_plain)));
+    if let (Some(ref l4), Some(ref l4p)) = (&line4, &line4_plain) {
+        out.push_str(&format!("{bar_l}{l4}{}{bar_r}\n", pad(l4p)));
+    }
     out.push_str(&bot);
     out.push('\n');
     out
