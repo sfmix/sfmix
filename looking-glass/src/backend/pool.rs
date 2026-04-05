@@ -196,6 +196,32 @@ async fn execute_on_device_inner(
     Ok(result)
 }
 
+/// Build the set of Port-Channel names (including base names without
+/// .VLAN suffixes) that are visible to the given identity on this device.
+fn visible_port_channels(
+    device: &str,
+    identity: &Identity,
+    pmap: &PortMap,
+    is_admin: bool,
+) -> std::collections::HashSet<String> {
+    let mut visible = std::collections::HashSet::new();
+    for (key, class) in pmap.iter() {
+        if key.0 == device
+            && key.1.starts_with("Port-Channel")
+            && match class {
+                PortClass::Core => true,
+                PortClass::Participant { asn } => is_admin || identity.asns.contains(asn),
+            }
+        {
+            visible.insert(key.1.clone());
+            if let Some(base) = key.1.split('.').next() {
+                visible.insert(base.to_string());
+            }
+        }
+    }
+    visible
+}
+
 /// Allowlist filter: only ports classified in the PortMap are visible.
 ///
 /// - Loopback: always visible (safety net)
@@ -213,24 +239,7 @@ fn filter_output_with_lookup(
     let is_admin = identity.is_admin(admin_group);
     match output {
         CommandOutput::InterfacesStatus(mut entries) => {
-            // First pass: determine which Port-Channels are visible.
-            // Also insert the base name (without .VLAN suffix) so that member
-            // interfaces referencing "Port-Channel114" are found when the PortMap
-            // entry is "Port-Channel114.998".
-            let mut visible_pcs: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for e in entries.iter() {
-                if e.name.starts_with("Port-Channel")
-                    && port_visible(device, &e.name, identity, pmap, is_admin)
-                {
-                    visible_pcs.insert(e.name.clone());
-                    if let Some(base) = e.name.split('.').next() {
-                        visible_pcs.insert(base.to_string());
-                    }
-                }
-            }
-
-            // Retain ports that are directly visible OR are members of a visible Port-Channel
+            let visible_pcs = visible_port_channels(device, identity, pmap, is_admin);
             entries.retain(|e| {
                 port_visible(device, &e.name, identity, pmap, is_admin)
                     || e.port_channel.as_ref().is_some_and(|pc| visible_pcs.contains(pc))
@@ -238,25 +247,7 @@ fn filter_output_with_lookup(
             CommandOutput::InterfacesStatus(entries)
         }
         CommandOutput::Optics(mut entries) => {
-            // Same Port-Channel member logic as InterfacesStatus: physical
-            // member interfaces (e.g. Ethernet7) aren't in the PortMap but
-            // should be visible when their parent Port-Channel is.
-            let mut visible_pcs: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for (key, class) in pmap.iter() {
-                if key.0 == device
-                    && key.1.starts_with("Port-Channel")
-                    && match class {
-                        PortClass::Core => true,
-                        PortClass::Participant { asn } => is_admin || identity.asns.contains(asn),
-                    }
-                {
-                    visible_pcs.insert(key.1.clone());
-                    if let Some(base) = key.1.split('.').next() {
-                        visible_pcs.insert(base.to_string());
-                    }
-                }
-            }
+            let visible_pcs = visible_port_channels(device, identity, pmap, is_admin);
             entries.retain(|e| {
                 port_visible(device, &e.name, identity, pmap, is_admin)
                     || e.port_channel.as_ref().is_some_and(|pc| visible_pcs.contains(pc))
@@ -264,22 +255,7 @@ fn filter_output_with_lookup(
             CommandOutput::Optics(entries)
         }
         CommandOutput::OpticsDetail(mut entries) => {
-            let mut visible_pcs: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for (key, class) in pmap.iter() {
-                if key.0 == device
-                    && key.1.starts_with("Port-Channel")
-                    && match class {
-                        PortClass::Core => true,
-                        PortClass::Participant { asn } => is_admin || identity.asns.contains(asn),
-                    }
-                {
-                    visible_pcs.insert(key.1.clone());
-                    if let Some(base) = key.1.split('.').next() {
-                        visible_pcs.insert(base.to_string());
-                    }
-                }
-            }
+            let visible_pcs = visible_port_channels(device, identity, pmap, is_admin);
             entries.retain(|e| {
                 port_visible(device, &e.name, identity, pmap, is_admin)
                     || e.port_channel.as_ref().is_some_and(|pc| visible_pcs.contains(pc))
@@ -295,12 +271,27 @@ fn filter_output_with_lookup(
             }
             CommandOutput::MacAddressTable(entries)
         }
-        CommandOutput::ArpTable(entries) => CommandOutput::ArpTable(entries),
-        CommandOutput::NdTable(entries) => CommandOutput::NdTable(entries),
-        CommandOutput::LldpNeighbors(entries) => CommandOutput::LldpNeighbors(entries),
+        CommandOutput::ArpTable(mut entries) => {
+            entries.retain(|e| port_visible(device, &e.interface, identity, pmap, is_admin));
+            CommandOutput::ArpTable(entries)
+        }
+        CommandOutput::NdTable(mut entries) => {
+            entries.retain(|e| port_visible(device, &e.interface, identity, pmap, is_admin));
+            CommandOutput::NdTable(entries)
+        }
+        CommandOutput::LldpNeighbors(mut entries) => {
+            entries.retain(|e| port_visible(device, &e.local_interface, identity, pmap, is_admin));
+            CommandOutput::LldpNeighbors(entries)
+        }
         CommandOutput::BgpSummary(summary) => CommandOutput::BgpSummary(summary),
         CommandOutput::BgpNeighborDetail(detail) => CommandOutput::BgpNeighborDetail(detail),
-        CommandOutput::InterfaceDetail(detail) => CommandOutput::InterfaceDetail(detail),
+        CommandOutput::InterfaceDetail(detail) => {
+            if port_visible(device, &detail.name, identity, pmap, is_admin) {
+                CommandOutput::InterfaceDetail(detail)
+            } else {
+                CommandOutput::Error(format!("access denied for interface {}", detail.name))
+            }
+        }
         CommandOutput::VxlanVtep(entries) => CommandOutput::VxlanVtep(entries),
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
@@ -334,7 +325,10 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
     use crate::netbox::NetboxParticipant;
-    use crate::structured::{InterfaceStatus, MacEntry};
+    use crate::structured::{
+        ArpEntry, InterfaceCounters, InterfaceDetail, InterfaceStatus,
+        LldpNeighbor, MacEntry, NdEntry,
+    };
 
     use crate::config::DEFAULT_ADMIN_GROUP as ADMIN_GROUP;
     const DEVICE: &str = "switch01.sfo02";
@@ -684,6 +678,143 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    fn test_interface_detail(name: &str) -> InterfaceDetail {
+        InterfaceDetail {
+            name: name.to_string(),
+            description: String::new(),
+            link_status: "up".to_string(),
+            protocol_status: "up".to_string(),
+            hardware_type: String::new(),
+            mac_address: String::new(),
+            mtu: 9214,
+            speed: "10G".to_string(),
+            bandwidth: "10G".to_string(),
+            counters: InterfaceCounters {
+                in_octets: 0, in_unicast_packets: 0, in_multicast_packets: 0,
+                in_broadcast_packets: 0, in_discards: 0, in_errors: 0,
+                out_octets: 0, out_unicast_packets: 0, out_multicast_packets: 0,
+                out_broadcast_packets: 0, out_discards: 0, out_errors: 0,
+            },
+            member_interfaces: vec![],
+        }
+    }
+
+    #[test]
+    fn arp_table_filtered_by_port_ownership() {
+        let pmap = test_pmap();
+        let entries = vec![
+            ArpEntry { ip_address: "10.0.0.1".into(), mac_address: "aa:bb:cc:00:00:01".into(), interface: "Ethernet49/1".into(), age: "00:05:00".into() },
+            ArpEntry { ip_address: "10.0.0.2".into(), mac_address: "aa:bb:cc:00:00:02".into(), interface: "Ethernet3/1".into(), age: "00:05:00".into() },
+            ArpEntry { ip_address: "10.0.0.3".into(), mac_address: "aa:bb:cc:00:00:03".into(), interface: "Ethernet3/2".into(), age: "00:05:00".into() },
+        ];
+        // Anonymous: only core port (Ethernet49/1)
+        let out = filter_output_with_lookup(
+            CommandOutput::ArpTable(entries.clone()), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        match out {
+            CommandOutput::ArpTable(e) => {
+                assert_eq!(e.len(), 1);
+                assert_eq!(e[0].interface, "Ethernet49/1");
+            }
+            _ => panic!("wrong variant"),
+        }
+        // AS 13335 owner: sees core + own port
+        let out = filter_output_with_lookup(
+            CommandOutput::ArpTable(entries.clone()), DEVICE, &user_with_asn(13335), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        match out {
+            CommandOutput::ArpTable(e) => {
+                assert_eq!(e.len(), 2);
+                let ifaces: Vec<_> = e.iter().map(|a| a.interface.as_str()).collect();
+                assert!(ifaces.contains(&"Ethernet49/1"));
+                assert!(ifaces.contains(&"Ethernet3/1"));
+            }
+            _ => panic!("wrong variant"),
+        }
+        // Admin: sees all classified ports
+        let out = filter_output_with_lookup(
+            CommandOutput::ArpTable(entries), DEVICE, &admin(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        match out {
+            CommandOutput::ArpTable(e) => assert_eq!(e.len(), 3),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn nd_table_filtered_by_port_ownership() {
+        let pmap = test_pmap();
+        let entries = vec![
+            NdEntry { ip_address: "fe80::1".into(), mac_address: "aa:bb:cc:00:00:01".into(), interface: "Ethernet49/1".into(), state: "REACH".into() },
+            NdEntry { ip_address: "fe80::2".into(), mac_address: "aa:bb:cc:00:00:02".into(), interface: "Ethernet3/1".into(), state: "REACH".into() },
+        ];
+        let out = filter_output_with_lookup(
+            CommandOutput::NdTable(entries), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        match out {
+            CommandOutput::NdTable(e) => {
+                assert_eq!(e.len(), 1);
+                assert_eq!(e[0].interface, "Ethernet49/1");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn lldp_filtered_by_port_ownership() {
+        let pmap = test_pmap();
+        let entries = vec![
+            LldpNeighbor { local_interface: "Ethernet49/1".into(), neighbor_device: "spine01".into(), neighbor_port: "Ethernet1".into(), ttl: "120".into() },
+            LldpNeighbor { local_interface: "Ethernet3/1".into(), neighbor_device: "customer-sw".into(), neighbor_port: "eth0".into(), ttl: "120".into() },
+        ];
+        let out = filter_output_with_lookup(
+            CommandOutput::LldpNeighbors(entries), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        match out {
+            CommandOutput::LldpNeighbors(e) => {
+                assert_eq!(e.len(), 1);
+                assert_eq!(e[0].local_interface, "Ethernet49/1");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn interface_detail_denied_for_others_port() {
+        let pmap = test_pmap();
+        let detail = test_interface_detail("Ethernet3/1"); // AS 13335's port
+        // Anonymous should get Error
+        let out = filter_output_with_lookup(
+            CommandOutput::InterfaceDetail(detail.clone()), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        assert!(matches!(out, CommandOutput::Error(_)));
+        // Wrong ASN should get Error
+        let out = filter_output_with_lookup(
+            CommandOutput::InterfaceDetail(detail.clone()), DEVICE, &user_with_asn(15169), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        assert!(matches!(out, CommandOutput::Error(_)));
+        // Owning ASN should see it
+        let out = filter_output_with_lookup(
+            CommandOutput::InterfaceDetail(detail.clone()), DEVICE, &user_with_asn(13335), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        assert!(matches!(out, CommandOutput::InterfaceDetail(_)));
+        // Admin should see it
+        let out = filter_output_with_lookup(
+            CommandOutput::InterfaceDetail(detail), DEVICE, &admin(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        assert!(matches!(out, CommandOutput::InterfaceDetail(_)));
+    }
+
+    #[test]
+    fn interface_detail_core_visible_to_all() {
+        let pmap = test_pmap();
+        let detail = test_interface_detail("Ethernet49/1"); // core port
+        let out = filter_output_with_lookup(
+            CommandOutput::InterfaceDetail(detail), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
+        );
+        assert!(matches!(out, CommandOutput::InterfaceDetail(_)));
     }
 
     #[test]
