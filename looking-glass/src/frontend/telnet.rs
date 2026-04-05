@@ -7,9 +7,10 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tracing::{info, warn};
 
 use crate::identity::Identity;
+use crate::service::LookingGlass;
 
 use super::common::{
-    SharedState, CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
+    CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
 };
 
 // Telnet protocol constants
@@ -56,12 +57,12 @@ impl<'a> SessionWriter for TelnetWriter<'a> {
 /// Presents a simple text menu and accepts line-oriented commands.
 pub struct TelnetServer {
     bind_addr: String,
-    state: Arc<SharedState>,
+    lg: Arc<LookingGlass>,
 }
 
 impl TelnetServer {
-    pub fn new(bind_addr: String, state: Arc<SharedState>) -> Self {
-        Self { bind_addr, state }
+    pub fn new(bind_addr: String, lg: Arc<LookingGlass>) -> Self {
+        Self { bind_addr, lg }
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -71,10 +72,10 @@ impl TelnetServer {
         loop {
             let (mut socket, addr) = listener.accept().await?;
             let source_key = crate::ratelimit::ip_to_rate_key(addr.ip());
-            let state = self.state.clone();
+            let lg = self.lg.clone();
 
             // Connection gating — reject before spawning session task
-            let conn_guard = match state.connection_tracker.try_admit(&source_key) {
+            let conn_guard = match lg.connection_tracker.try_admit(&source_key) {
                 Ok(guard) => guard,
                 Err(e) => {
                     warn!("Telnet connection rejected from {}: {}", addr, e);
@@ -86,7 +87,7 @@ impl TelnetServer {
             info!("Telnet connection from {}", addr);
             tokio::spawn(async move {
                 let _conn_guard = conn_guard;
-                if let Err(e) = handle_telnet_session(socket, addr, state).await {
+                if let Err(e) = handle_telnet_session(socket, addr, lg).await {
                     warn!("Telnet session error from {}: {}", addr, e);
                 }
                 info!("Telnet session ended for {}", addr);
@@ -98,7 +99,7 @@ impl TelnetServer {
 async fn handle_telnet_session(
     socket: tokio::net::TcpStream,
     peer_addr: std::net::SocketAddr,
-    state: Arc<SharedState>,
+    lg: Arc<LookingGlass>,
 ) -> Result<()> {
     let (mut reader, mut writer) = socket.into_split();
     let mut identity = Identity::anonymous();
@@ -112,7 +113,7 @@ async fn handle_telnet_session(
     // Banner
     let banner = format!(
         "\n{}\nType 'help' or '?' for available commands.\n\n",
-        crate::format::format_banner(&state.service_name)
+        crate::format::format_banner(&lg.service_name)
     );
     writer.write_all(&to_crlf(banner.as_bytes())).await?;
 
@@ -132,10 +133,10 @@ async fn handle_telnet_session(
         let rate_key = crate::ratelimit::ip_to_rate_key(peer_addr.ip());
         let mut tw = TelnetWriter { inner: &mut writer };
 
-        match super::common::dispatch_command(&line, &state, &identity, &rate_key, crate::format::ColorMode::Color, &mut tw).await? {
+        match super::common::dispatch_command(&line, &lg, &identity, &rate_key, crate::format::ColorMode::Color, &mut tw).await? {
             CommandAction::Quit => break,
             CommandAction::Login => {
-                handle_telnet_login(&state, &mut identity, &mut writer).await?;
+                handle_telnet_login(&lg, &mut identity, &mut writer).await?;
             }
             CommandAction::Continue => {}
         }
@@ -146,7 +147,7 @@ async fn handle_telnet_session(
 
 /// Handle the OIDC login flow for telnet (session-only, no certs).
 async fn handle_telnet_login(
-    state: &SharedState,
+    lg: &LookingGlass,
     identity: &mut Identity,
     writer: &mut OwnedWriteHalf,
 ) -> Result<()> {
@@ -157,7 +158,7 @@ async fn handle_telnet_login(
         writer.flush().await?;
         return Ok(());
     }
-    let oidc = match &state.oidc_client {
+    let oidc = match &lg.oidc_client {
         Some(c) => c.clone(),
         None => {
             writer.write_all(&to_crlf(b"OIDC authentication not configured.\n")).await?;
@@ -186,7 +187,7 @@ async fn handle_telnet_login(
             *identity = Identity::from_oidc_claims(
                 claims.email.clone(),
                 claims.groups.clone(),
-                &state.group_prefix,
+                &lg.group_prefix,
             );
             let asn_list: Vec<String> = identity.asns.iter().map(|a| format!("AS{a}")).collect();
             let asn_display = if asn_list.is_empty() {

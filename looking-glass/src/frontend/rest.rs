@@ -17,11 +17,10 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use crate::command::{AddressFamily, Command, Resource, Verb};
-use crate::frontend::common::SharedState;
 use crate::identity::Identity;
 use crate::oidc::OidcClient;
 use crate::participants::Participant;
-use crate::policy::PolicyDecision;
+use crate::service::{self, LookingGlass};
 use crate::structured::{
     ArpEntry, BgpSummary, InterfaceDetail, InterfaceOptics, InterfaceStatus,
     LldpNeighbor, NdEntry,
@@ -30,7 +29,7 @@ use crate::structured::{
 /// State shared across REST API handlers.
 #[derive(Clone)]
 pub struct RestState {
-    pub shared: Arc<SharedState>,
+    pub lg: Arc<LookingGlass>,
     pub oidc_client: Option<OidcClient>,
 }
 
@@ -80,7 +79,7 @@ async fn auth_middleware(
                     let identity = Identity::from_oidc_claims(
                         claims.email,
                         claims.groups,
-                        &state.shared.group_prefix,
+                        &state.lg.group_prefix,
                     );
                     (identity, rate_key)
                 }
@@ -139,59 +138,38 @@ fn api_err(status: StatusCode, msg: impl Into<String>) -> (StatusCode, Json<ApiE
     (status, Json(ApiError::new(msg)))
 }
 
-/// Execute a command and collect results from all devices.
+/// Execute a command via the service layer and collect results.
 async fn execute_command<T, F>(
     state: &RestState,
     identity: &Identity,
     rate_key: &str,
-    command: &Command,
+    command: Command,
     extract: F,
 ) -> ApiResult<Vec<DeviceResult<T>>>
 where
     T: Serialize,
     F: Fn(&crate::structured::CommandOutput) -> Option<T>,
 {
-    // Policy check
-    if let PolicyDecision::Deny { reason } = state
-        .shared
-        .policy
-        .evaluate(command, identity, &state.shared.participants.load())
-    {
-        return Err(api_err(StatusCode::FORBIDDEN, reason));
-    }
+    let req = service::Request {
+        command,
+        identity: identity.clone(),
+        rate_key: rate_key.to_string(),
+    };
 
-    // Rate limit
-    state
-        .shared
-        .rate_limiter
-        .acquire(rate_key)
-        .await
-        .map_err(|e| api_err(StatusCode::TOO_MANY_REQUESTS, format!("rate limited: {e}")))?;
+    let svc_results = state.lg.execute(req).await.map_err(|e| match e {
+        service::Error::PolicyDenied(reason) => api_err(StatusCode::FORBIDDEN, reason),
+        service::Error::RateLimited(reason) => api_err(StatusCode::TOO_MANY_REQUESTS, format!("rate limited: {reason}")),
+        other => api_err(StatusCode::INTERNAL_SERVER_ERROR, other.to_string()),
+    })?;
 
-    // Execute
-    let mut rx = state
-        .shared
-        .device_pool
-        .execute(
-            command,
-            identity,
-            &state.shared.device_rate_limiter,
-            state.shared.policy.admin_group(),
-            &state.shared.port_map.load(),
-            &state.shared.public_vlans,
-        )
-        .await
-        .map_err(|e| api_err(StatusCode::INTERNAL_SERVER_ERROR, format!("device error: {e}")))?;
-
-    let mut results = Vec::new();
-    while let Some(r) = rx.recv().await {
-        let data = extract(&r.output);
-        results.push(DeviceResult {
+    let results = svc_results
+        .into_iter()
+        .map(|r| DeviceResult {
             device: r.device,
             success: r.success,
-            data,
-        });
-    }
+            data: extract(&r.output),
+        })
+        .collect();
 
     Ok(Json(results))
 }
@@ -236,7 +214,7 @@ async fn get_interfaces_status(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::InterfacesStatus(v) = output {
             Some(v.clone())
         } else {
@@ -264,7 +242,7 @@ async fn get_interface_detail(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::InterfaceDetail(v) = output {
             Some(v.clone())
         } else {
@@ -291,7 +269,7 @@ async fn get_optics(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::Optics(v) = output {
             Some(v.clone())
         } else {
@@ -319,7 +297,7 @@ async fn get_optics_detail(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::OpticsDetail(v) = output {
             Some(v.clone())
         } else {
@@ -352,7 +330,7 @@ async fn get_bgp_summary(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::BgpSummary(v) = output {
             Some(v.clone())
         } else {
@@ -379,7 +357,7 @@ async fn get_lldp_neighbors(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::LldpNeighbors(v) = output {
             Some(v.clone())
         } else {
@@ -406,7 +384,7 @@ async fn get_arp_table(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::ArpTable(v) = output {
             Some(v.clone())
         } else {
@@ -433,7 +411,7 @@ async fn get_nd_table(
         filter_vlan: None,
     };
 
-    execute_command(&state, &identity, &rate_key, &cmd, |output| {
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
         if let crate::structured::CommandOutput::NdTable(v) = output {
             Some(v.clone())
         } else {
@@ -465,7 +443,7 @@ impl From<&Participant> for ParticipantInfo {
 async fn get_participants(
     State(state): State<RestState>,
 ) -> Json<Vec<ParticipantInfo>> {
-    let participants = state.shared.participants.load();
+    let participants = state.lg.participants();
     let mut entries: Vec<ParticipantInfo> = participants.all().map(ParticipantInfo::from).collect();
     entries.sort_by_key(|p| p.asn);
     Json(entries)
@@ -494,10 +472,10 @@ pub struct RestFrontend {
 }
 
 impl RestFrontend {
-    pub fn new(bind_addr: String, shared: Arc<SharedState>, oidc_client: Option<OidcClient>) -> Self {
+    pub fn new(bind_addr: String, lg: Arc<LookingGlass>, oidc_client: Option<OidcClient>) -> Self {
         Self {
             bind_addr,
-            state: RestState { shared, oidc_client },
+            state: RestState { lg, oidc_client },
         }
     }
 
