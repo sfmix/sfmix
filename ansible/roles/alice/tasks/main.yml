@@ -97,13 +97,27 @@
               ssl_dhparam /etc/ssl/certs/dhparam.pem;
               location /api/v1/ {
                 limit_req zone=ip burst=20 delay=10;
-                proxy_pass http://{{ looking_glass_bind_address }}:{{ looking_glass_rest_port | default(8081) }}/api/v1/;
+                proxy_pass http://{{ looking_glass_bind_address }}:{{ looking_glass_http_port | default(8080) }}/api/v1/;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                 proxy_set_header X-Forwarded-Proto $scheme;
                 proxy_set_header Authorization $http_authorization;
                 proxy_read_timeout 30s;
+              }
+              location /mcp {
+                limit_req zone=ip burst=10 delay=5;
+                proxy_pass http://{{ looking_glass_bind_address }}:{{ looking_glass_http_port | default(8080) }}/mcp;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Authorization $http_authorization;
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+                proxy_buffering off;
+                proxy_cache off;
+                proxy_read_timeout 300s;
               }
               location / {
                 limit_req zone=ip burst=12 delay=8;
