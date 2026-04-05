@@ -295,6 +295,7 @@ fn filter_output_with_lookup(
         CommandOutput::VxlanVtep(entries) => CommandOutput::VxlanVtep(entries),
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
+        CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),
         CommandOutput::Error(e) => CommandOutput::Error(e),
     }
 }

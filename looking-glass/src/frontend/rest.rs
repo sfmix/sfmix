@@ -23,8 +23,8 @@ use crate::participants::Participant;
 use crate::service::{self, LookingGlass};
 use super::auth;
 use crate::structured::{
-    ArpEntry, BgpSummary, InterfaceDetail, InterfaceOptics, InterfaceStatus,
-    LldpNeighbor, NdEntry,
+    ArpEntry, BgpNeighborDetail, BgpSummary, InterfaceDetail, InterfaceOptics,
+    InterfaceStatus, LldpNeighbor, MacEntry, NdEntry, VxlanVtep,
 };
 
 /// State shared across REST API handlers.
@@ -141,9 +141,27 @@ struct DeviceResult<T> {
 // --- Query parameters ---
 
 #[derive(Debug, Deserialize)]
+struct AsnFilterQuery {
+    /// Filter to ports belonging to this ASN.
+    asn: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
 struct BgpSummaryQuery {
     #[serde(default = "default_ipv4")]
     af: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BgpNeighborQuery {
+    #[serde(default = "default_ipv4")]
+    af: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MacTableQuery {
+    /// Filter by VLAN ID.
+    vlan: Option<String>,
 }
 
 fn default_ipv4() -> String {
@@ -154,6 +172,7 @@ fn default_ipv4() -> String {
 
 async fn get_interfaces_status(
     State(state): State<RestState>,
+    Query(query): Query<AsnFilterQuery>,
     request: axum::extract::Request,
 ) -> ApiResult<Vec<DeviceResult<Vec<InterfaceStatus>>>> {
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
@@ -165,7 +184,7 @@ async fn get_interfaces_status(
         target: None,
         device: None,
         address_family: AddressFamily::IPv4,
-        filter_asn: None,
+        filter_asn: query.asn,
         filter_vlan: None,
     };
 
@@ -209,6 +228,7 @@ async fn get_interface_detail(
 
 async fn get_optics(
     State(state): State<RestState>,
+    Query(query): Query<AsnFilterQuery>,
     request: axum::extract::Request,
 ) -> ApiResult<Vec<DeviceResult<Vec<InterfaceOptics>>>> {
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
@@ -220,7 +240,7 @@ async fn get_optics(
         target: None,
         device: None,
         address_family: AddressFamily::IPv4,
-        filter_asn: None,
+        filter_asn: query.asn,
         filter_vlan: None,
     };
 
@@ -322,6 +342,95 @@ async fn get_lldp_neighbors(
     .await
 }
 
+async fn get_bgp_neighbor(
+    State(state): State<RestState>,
+    Path(address): Path<String>,
+    Query(query): Query<BgpNeighborQuery>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<BgpNeighborDetail>>> {
+    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
+    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
+
+    let af = match query.af.as_str() {
+        "ipv6" | "IPv6" => AddressFamily::IPv6,
+        _ => AddressFamily::IPv4,
+    };
+
+    let cmd = Command {
+        verb: Verb::Show,
+        resource: Resource::BgpNeighbor,
+        target: Some(address),
+        device: None,
+        address_family: af,
+        filter_asn: None,
+        filter_vlan: None,
+    };
+
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
+        if let crate::structured::CommandOutput::BgpNeighborDetail(v) = output {
+            Some(v.clone())
+        } else {
+            None
+        }
+    })
+    .await
+}
+
+async fn get_mac_address_table(
+    State(state): State<RestState>,
+    Query(query): Query<MacTableQuery>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<MacEntry>>>> {
+    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
+    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
+
+    let cmd = Command {
+        verb: Verb::Show,
+        resource: Resource::MacAddressTable,
+        target: None,
+        device: None,
+        address_family: AddressFamily::IPv4,
+        filter_asn: None,
+        filter_vlan: query.vlan,
+    };
+
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
+        if let crate::structured::CommandOutput::MacAddressTable(v) = output {
+            Some(v.clone())
+        } else {
+            None
+        }
+    })
+    .await
+}
+
+async fn get_vxlan_vtep(
+    State(state): State<RestState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<VxlanVtep>>>> {
+    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
+    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
+
+    let cmd = Command {
+        verb: Verb::Show,
+        resource: Resource::VxlanVtep,
+        target: None,
+        device: None,
+        address_family: AddressFamily::IPv4,
+        filter_asn: None,
+        filter_vlan: None,
+    };
+
+    execute_command(&state, &identity, &rate_key, cmd, |output| {
+        if let crate::structured::CommandOutput::VxlanVtep(v) = output {
+            Some(v.clone())
+        } else {
+            None
+        }
+    })
+    .await
+}
+
 async fn get_arp_table(
     State(state): State<RestState>,
     request: axum::extract::Request,
@@ -413,6 +522,9 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/optics/{name}", get(get_optics_detail))
         .route("/api/v1/bgp/summary", get(get_bgp_summary))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
+        .route("/api/v1/bgp/neighbor/{address}", get(get_bgp_neighbor))
+        .route("/api/v1/mac-address-table", get(get_mac_address_table))
+        .route("/api/v1/vxlan/vtep", get(get_vxlan_vtep))
         .route("/api/v1/arp", get(get_arp_table))
         .route("/api/v1/nd", get(get_nd_table))
         .route("/api/v1/participants", get(get_participants))

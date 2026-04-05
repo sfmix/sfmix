@@ -1,8 +1,54 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde::de::{self, Deserializer};
 use std::collections::HashMap;
+use std::time::Instant;
 use tracing::info;
+
+/// Tracks the status of the NetBox cache for diagnostic display.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetboxStatus {
+    /// Whether NetBox is configured as the participant source.
+    pub configured: bool,
+    /// Number of participants in the current cache.
+    pub participant_count: usize,
+    /// Number of peering ports in the current cache.
+    pub peering_port_count: usize,
+    /// Number of core ports in the current cache.
+    pub core_port_count: usize,
+    /// Total classified ports in the PortMap.
+    pub port_map_size: usize,
+    /// Seconds since the last successful fetch, or None if never fetched.
+    #[serde(skip)]
+    pub last_success: Option<Instant>,
+    /// Error message from the last failed fetch, if any.
+    pub last_error: Option<String>,
+    /// Configured refresh interval in seconds (0 = disabled).
+    pub refresh_interval_secs: u64,
+    /// NetBox URL (for diagnostics).
+    pub url: Option<String>,
+}
+
+impl NetboxStatus {
+    pub fn unconfigured() -> Self {
+        Self {
+            configured: false,
+            participant_count: 0,
+            peering_port_count: 0,
+            core_port_count: 0,
+            port_map_size: 0,
+            last_success: None,
+            last_error: None,
+            refresh_interval_secs: 0,
+            url: None,
+        }
+    }
+
+    /// Seconds since the last successful fetch.
+    pub fn age_secs(&self) -> Option<u64> {
+        self.last_success.map(|t| t.elapsed().as_secs())
+    }
+}
 
 /// A participant entry fetched from NetBox, ready for `ParticipantMap::build_from_netbox()`.
 #[derive(Debug, Clone)]

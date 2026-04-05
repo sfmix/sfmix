@@ -198,6 +198,8 @@ pub enum CommandOutput {
     Stream(tokio::sync::mpsc::Receiver<String>),
     /// Pre-rendered participant list (local resource, no device dispatch).
     Participants(String),
+    /// NetBox cache status (local resource, no device dispatch).
+    NetboxStatus(String),
     /// Device-level error (e.g. SSH failure, timeout).
     Error(String),
 }
@@ -237,6 +239,7 @@ impl Serialize for CommandOutput {
             CommandOutput::VxlanVtep(v) => v.serialize(serializer),
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
             CommandOutput::Participants(s) => serializer.serialize_str(s),
+            CommandOutput::NetboxStatus(s) => serializer.serialize_str(s),
             CommandOutput::Error(e) => {
                 let mut map = serializer.serialize_map(Some(1))?;
                 use serde::ser::SerializeMap;
