@@ -70,22 +70,6 @@ Explain *why* a port is flagged red or orange — show the actual thresholds and
 
 ---
 
-## Session & Identity
-
-### `whoami`
-Show current identity:
-- Username / email
-- Authenticated ASNs
-- Group memberships (e.g., "IX Administrators")
-
-### `logout`
-Drop authentication but keep SSH connection open (return to anonymous/public tier).
-
-### Identity Display
-Print identity summary after successful `login` command (don't make user type `whoami`).
-
----
-
 ## Infrastructure & Backend
 
 ### Logs Integration
