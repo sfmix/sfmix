@@ -225,6 +225,10 @@ pub enum ParticipantsSourceConfig {
         token_env: String,
         #[serde(default = "default_refresh_interval")]
         refresh_interval_secs: u64,
+        /// Domain suffix appended to short NetBox device names (e.g. "sfmix.org").
+        /// If unset, device names are used as-is from NetBox.
+        #[serde(default)]
+        domain_suffix: Option<String>,
     },
 }
 

@@ -63,6 +63,9 @@ participants:
   url: "{{ looking_glass_netbox_url }}"
   token_env: "LG_NETBOX_TOKEN"
   refresh_interval_secs: {{ looking_glass_participants_refresh_interval | default(300) }}
+{% if looking_glass_netbox_domain_suffix is defined %}
+  domain_suffix: "{{ looking_glass_netbox_domain_suffix }}"
+{% endif %}
 
 vlans:
   public:

@@ -249,14 +249,14 @@ async fn main() -> Result<()> {
     }
 
     // NetBox participant source: initial fetch + background refresh
-    if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs }) = config.participants {
+    if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix }) = config.participants {
         let token = std::env::var(token_env).unwrap_or_else(|_| {
             tracing::warn!("NetBox token env var '{token_env}' not set");
             String::new()
         });
         if !token.is_empty() {
             info!("Fetching port map from NetBox: {url}");
-            match netbox::fetch_port_map(url, &token).await {
+            match netbox::fetch_port_map(url, &token, domain_suffix.as_deref()).await {
                 Ok(result) => {
                     let pmap = ParticipantMap::build_from_netbox(&result.participants);
                     let port_map = PortMap::build(&result.participants, &result.core_ports);
@@ -274,12 +274,13 @@ async fn main() -> Result<()> {
                 let state = lg.clone();
                 let url = url.clone();
                 let token = token.clone();
+                let suffix = domain_suffix.clone();
                 tokio::spawn(async move {
                     let mut tick = tokio::time::interval(std::time::Duration::from_secs(refresh_interval_secs));
                     tick.tick().await; // skip immediate first tick
                     loop {
                         tick.tick().await;
-                        match netbox::fetch_port_map(&url, &token).await {
+                        match netbox::fetch_port_map(&url, &token, suffix.as_deref()).await {
                             Ok(result) => {
                                 let pmap = ParticipantMap::build_from_netbox(&result.participants);
                                 let port_map = PortMap::build(&result.participants, &result.core_ports);
