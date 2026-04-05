@@ -196,6 +196,8 @@ pub enum CommandOutput {
     OpticsDetail(Vec<InterfaceOptics>),
     VxlanVtep(Vec<VxlanVtep>),
     Stream(tokio::sync::mpsc::Receiver<String>),
+    /// Pre-rendered participant list (local resource, no device dispatch).
+    Participants(String),
 }
 
 impl CommandOutput {
@@ -231,6 +233,7 @@ impl Serialize for CommandOutput {
             CommandOutput::OpticsDetail(v) => v.serialize(serializer),
             CommandOutput::VxlanVtep(v) => v.serialize(serializer),
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
+            CommandOutput::Participants(s) => serializer.serialize_str(s),
         }
     }
 }

@@ -1,37 +1,10 @@
 use anyhow::Result;
-use arc_swap::ArcSwap;
 
 use crate::command::{ParseError, Resource};
 use crate::format::ColorMode;
 use crate::grammar::{self, parse_command};
 use crate::identity::Identity;
-use crate::oidc::OidcClient;
-use crate::participants::{ParticipantMap, PortMap};
-use crate::policy::{PolicyDecision, PolicyEngine};
-use crate::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
-use crate::backend::pool::DevicePool;
-
-// ---------------------------------------------------------------------------
-// Shared state (used by telnet, SSH, and MCP frontends)
-// ---------------------------------------------------------------------------
-
-/// Shared state passed to each frontend session.
-pub struct SharedState {
-    pub service_name: String,
-    pub policy: PolicyEngine,
-    pub rate_limiter: RateLimiter,
-    pub device_rate_limiter: DeviceRateLimiter,
-    pub connection_tracker: ConnectionTracker,
-    pub participants: ArcSwap<ParticipantMap>,
-    pub port_map: ArcSwap<PortMap>,
-    pub device_pool: DevicePool,
-    /// OIDC group prefix for extracting ASN from group names (e.g. "as")
-    pub group_prefix: String,
-    /// OIDC client for device auth flow (None = login command disabled)
-    pub oidc_client: Option<OidcClient>,
-    /// VLAN IDs visible to all users in MAC address table output.
-    pub public_vlans: Vec<String>,
-}
+use crate::service::{self, LookingGlass};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -315,13 +288,13 @@ pub enum CommandAction {
     Login,
 }
 
-/// Shared command dispatch: parse, check policy, rate-limit, execute, render.
+/// Shared command dispatch: parse → delegate to `LookingGlass::execute()` → render.
 ///
 /// Login is NOT handled here — the frontend does that after receiving
 /// `CommandAction::Login`.
 pub async fn dispatch_command<W: SessionWriter>(
     line: &str,
-    state: &SharedState,
+    lg: &LookingGlass,
     identity: &Identity,
     rate_key: &str,
     color: ColorMode,
@@ -365,254 +338,78 @@ pub async fn dispatch_command<W: SessionWriter>(
 
     // Participants
     if command.resource == Resource::Participants {
-        let out = crate::format::format_participants(&state.participants.load(), color);
+        let out = crate::format::format_participants(&lg.participants(), color);
         writer.write_bytes(out.as_bytes()).await?;
         return Ok(CommandAction::Continue);
     }
 
-    // Policy check
-    match state.policy.evaluate(&command, identity, &state.participants.load()) {
-        PolicyDecision::Allow => {}
-        PolicyDecision::Deny { reason } => {
-            let msg = format!("Denied: {reason}\n");
-            writer.write_bytes(msg.as_bytes()).await?;
-            return Ok(CommandAction::Continue);
-        }
-    }
-
-    // Rate limit
-    let _guard = match state.rate_limiter.acquire(rate_key).await {
-        Ok(guard) => guard,
-        Err(e) => {
-            let msg = format!("Rate limited: {e}\n");
-            writer.write_bytes(msg.as_bytes()).await?;
-            return Ok(CommandAction::Continue);
-        }
-    };
-
-    // Dispatch to device backend
-    let multi_device = command.device.is_none() && state.device_pool.device_count() > 1;
-    let mut rx = match state
-        .device_pool
-        .execute(&command, identity, &state.device_rate_limiter, state.policy.admin_group(), &state.port_map.load(), &state.public_vlans)
-        .await
-    {
-        Ok(rx) => rx,
-        Err(e) => {
-            let msg = format!("Error: {e}\n");
-            writer.write_bytes(msg.as_bytes()).await?;
-            return Ok(CommandAction::Continue);
-        }
-    };
-
+    // Delegate to the service layer
+    let multi_device = command.device.is_none() && lg.device_count() > 1;
     let has_filter = command.filter_asn.is_some() || command.filter_vlan.is_some();
 
-    while let Some(mut r) = rx.recv().await {
-        // Post-filter: ASN scoping for interfaces/optics
-        if let Some(asn) = command.filter_asn {
-            let pmap = state.port_map.load();
-            r.output = apply_asn_filter(r.output, &r.device, asn, &pmap);
-        }
-        // Post-filter: VLAN scoping for MAC table
-        if let Some(ref vlan) = command.filter_vlan {
-            r.output = apply_vlan_filter(r.output, vlan);
-        }
-        // When a filter is active, skip devices with empty results
-        if has_filter && r.output.is_empty() {
-            continue;
-        }
-        if multi_device {
-            let header = crate::format::format_device_header(&r.device, color);
-            writer.write_bytes(header.as_bytes()).await?;
-        }
-        match r.output {
-            crate::structured::CommandOutput::Stream(mut stream_rx) => {
-                while let Some(line) = stream_rx.recv().await {
-                    writer.write_bytes(line.as_bytes()).await?;
-                    writer.write_bytes(b"\n").await?;
+    let req = service::Request {
+        command,
+        identity: identity.clone(),
+        rate_key: rate_key.to_string(),
+    };
+
+    match lg.execute(req).await {
+        Ok(results) => {
+            for r in results {
+                // When a filter is active, skip devices with empty results
+                if has_filter && r.output.is_empty() {
+                    continue;
                 }
-            }
-            other => {
-                let text = crate::format::render(&other, color);
-                if text.is_empty() || text.trim().is_empty() {
-                    writer.write_bytes(b"  [No data]\n").await?;
-                } else {
-                    writer.write_bytes(text.as_bytes()).await?;
-                    if !text.ends_with('\n') {
-                        writer.write_bytes(b"\n").await?;
+                if multi_device {
+                    let header = crate::format::format_device_header(&r.device, color);
+                    writer.write_bytes(header.as_bytes()).await?;
+                }
+                match r.output {
+                    crate::structured::CommandOutput::Stream(mut stream_rx) => {
+                        while let Some(line) = stream_rx.recv().await {
+                            writer.write_bytes(line.as_bytes()).await?;
+                            writer.write_bytes(b"\n").await?;
+                        }
+                    }
+                    other => {
+                        let text = crate::format::render(&other, color);
+                        if text.is_empty() || text.trim().is_empty() {
+                            writer.write_bytes(b"  [No data]\n").await?;
+                        } else {
+                            writer.write_bytes(text.as_bytes()).await?;
+                            if !text.ends_with('\n') {
+                                writer.write_bytes(b"\n").await?;
+                            }
+                        }
                     }
                 }
             }
+        }
+        Err(service::Error::PolicyDenied(reason)) => {
+            let msg = format!("Denied: {reason}\n");
+            writer.write_bytes(msg.as_bytes()).await?;
+        }
+        Err(service::Error::RateLimited(reason)) => {
+            let msg = format!("Rate limited: {reason}\n");
+            writer.write_bytes(msg.as_bytes()).await?;
+        }
+        Err(e) => {
+            let msg = format!("Error: {e}\n");
+            writer.write_bytes(msg.as_bytes()).await?;
         }
     }
 
     Ok(CommandAction::Continue)
 }
 
-/// Filter interfaces/optics output to only ports belonging to the given ASN.
-fn apply_asn_filter(
-    output: crate::structured::CommandOutput,
-    device: &str,
-    asn: u32,
-    pmap: &PortMap,
-) -> crate::structured::CommandOutput {
-    use crate::participants::PortClass;
-    use crate::structured::CommandOutput;
-
-    let matches_asn = |name: &str| -> bool {
-        matches!(pmap.classify(device, name), Some(PortClass::Participant { asn: a }) if *a == asn)
-    };
-
-    match output {
-        CommandOutput::InterfacesStatus(mut entries) => {
-            // First pass: find Port-Channels (including subinterfaces) that match the ASN.
-            // Collect both the full name and the base name (without .VLAN suffix) so that
-            // member interfaces referencing "Port-Channel114" are found when the PortMap
-            // entry is "Port-Channel114.998".
-            let mut matched_pcs: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for e in entries.iter() {
-                if e.name.starts_with("Port-Channel") && matches_asn(&e.name) {
-                    matched_pcs.insert(e.name.clone());
-                    // Also insert base name (strip .VLAN suffix)
-                    if let Some(base) = e.name.split('.').next() {
-                        matched_pcs.insert(base.to_string());
-                    }
-                }
-            }
-
-            // Keep entries that match the ASN directly OR are members of a matched PC
-            entries.retain(|e| {
-                matches_asn(&e.name)
-                    || e.port_channel.as_ref().is_some_and(|pc| matched_pcs.contains(pc))
-            });
-            CommandOutput::InterfacesStatus(entries)
-        }
-        CommandOutput::Optics(mut entries) => {
-            // Same Port-Channel member logic as InterfacesStatus
-            let mut matched_pcs: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for e in entries.iter() {
-                // Optics entries don't have Port-Channel entries themselves,
-                // but we need to find which Port-Channels match the ASN
-                // by checking if any entry's port_channel matches
-                if let Some(ref pc) = e.port_channel {
-                    if matches_asn(pc) {
-                        matched_pcs.insert(pc.clone());
-                        if let Some(base) = pc.split('.').next() {
-                            matched_pcs.insert(base.to_string());
-                        }
-                    }
-                }
-            }
-            // Also check the PortMap directly for Port-Channels belonging to this ASN
-            for (key, class) in pmap.iter() {
-                if key.0 == device {
-                    if let PortClass::Participant { asn: a } = *class {
-                        if a == asn && key.1.starts_with("Port-Channel") {
-                            matched_pcs.insert(key.1.clone());
-                            if let Some(base) = key.1.split('.').next() {
-                                matched_pcs.insert(base.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-            entries.retain(|e| {
-                matches_asn(&e.name)
-                    || e.port_channel.as_ref().is_some_and(|pc| matched_pcs.contains(pc))
-            });
-            CommandOutput::Optics(entries)
-        }
-        CommandOutput::OpticsDetail(mut entries) => {
-            // Same logic for OpticsDetail
-            let mut matched_pcs: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for (key, class) in pmap.iter() {
-                if key.0 == device {
-                    if let PortClass::Participant { asn: a } = *class {
-                        if a == asn && key.1.starts_with("Port-Channel") {
-                            matched_pcs.insert(key.1.clone());
-                            if let Some(base) = key.1.split('.').next() {
-                                matched_pcs.insert(base.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-            entries.retain(|e| {
-                matches_asn(&e.name)
-                    || e.port_channel.as_ref().is_some_and(|pc| matched_pcs.contains(pc))
-            });
-            CommandOutput::OpticsDetail(entries)
-        }
-        other => other,
-    }
-}
-
-/// Filter MAC table output to only entries matching the given VLAN.
-fn apply_vlan_filter(
-    output: crate::structured::CommandOutput,
-    vlan: &str,
-) -> crate::structured::CommandOutput {
-    use crate::structured::CommandOutput;
-
-    match output {
-        CommandOutput::MacAddressTable(mut entries) => {
-            entries.retain(|e| e.vlan == vlan);
-            CommandOutput::MacAddressTable(entries)
-        }
-        other => other,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::netbox::NetboxParticipant;
-    use crate::participants::PortMap;
     use crate::structured::*;
 
-    const DEVICE: &str = "switch03.fmt01.sfmix.org";
-
-    fn test_port_map() -> PortMap {
-        let participants = vec![
-            NetboxParticipant {
-                asn: 6939,
-                name: "Hurricane Electric".to_string(),
-                participant_type: Some("Member".to_string()),
-                ports: vec![
-                    (DEVICE.to_string(), "Port-Channel101".to_string()),
-                ],
-            },
-            NetboxParticipant {
-                asn: 6140,
-                name: "Two P".to_string(),
-                participant_type: Some("Member".to_string()),
-                ports: vec![
-                    ("switch01.fmt01.sfmix.org".to_string(), "Port-Channel114.998".to_string()),
-                ],
-            },
-            NetboxParticipant {
-                asn: 13335,
-                name: "Cloudflare".to_string(),
-                participant_type: Some("Member".to_string()),
-                ports: vec![
-                    (DEVICE.to_string(), "Ethernet5/1".to_string()),
-                ],
-            },
-        ];
-        let core_ports = vec![
-            (DEVICE.to_string(), "Ethernet50/1".to_string()),
-            (DEVICE.to_string(), "Ethernet51/1".to_string()),
-        ];
-        PortMap::build(&participants, &core_ports)
-    }
-
-    fn iface(name: &str, desc: &str, port_channel: Option<&str>) -> InterfaceStatus {
+    fn iface(name: &str) -> InterfaceStatus {
         InterfaceStatus {
             name: name.to_string(),
-            description: desc.to_string(),
+            description: String::new(),
             link_status: "connected".to_string(),
             protocol_status: "up".to_string(),
             speed: "100Gbps".to_string(),
@@ -620,7 +417,7 @@ mod tests {
             vlan: String::new(),
             auto_negotiate: false,
             member_interfaces: vec![],
-            port_channel: port_channel.map(|s| s.to_string()),
+            port_channel: None,
         }
     }
 
@@ -633,203 +430,10 @@ mod tests {
         }
     }
 
-    fn optic(name: &str) -> InterfaceOptics {
-        optic_with_pc(name, None)
-    }
-
-    fn optic_with_pc(name: &str, port_channel: Option<&str>) -> InterfaceOptics {
-        InterfaceOptics {
-            name: name.to_string(),
-            description: String::new(),
-            link_status: "connected".to_string(),
-            media_type: "100GBASE-LR".to_string(),
-            temperature_c: None,
-            voltage_v: None,
-            lanes: vec![],
-            dom_supported: false,
-            port_channel: port_channel.map(|s| s.to_string()),
-        }
-    }
-
-    // ── ASN filter: basic ──────────────────────────────────────────
-
-    #[test]
-    fn asn_filter_keeps_matching_port() {
-        let pmap = test_port_map();
-        let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet5/1", "Peer: Cloudflare (AS13335)", None),
-            iface("Ethernet50/1", "Core: transport", None),
-            iface("Ethernet6/1", "Peer: Someone else", None),
-        ]);
-        let filtered = apply_asn_filter(output, DEVICE, 13335, &pmap);
-        match filtered {
-            CommandOutput::InterfacesStatus(v) => {
-                assert_eq!(v.len(), 1);
-                assert_eq!(v[0].name, "Ethernet5/1");
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
-    fn asn_filter_empty_when_no_match() {
-        let pmap = test_port_map();
-        let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet50/1", "Core: transport", None),
-        ]);
-        let filtered = apply_asn_filter(output, DEVICE, 13335, &pmap);
-        match filtered {
-            CommandOutput::InterfacesStatus(v) => assert!(v.is_empty()),
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    // ── ASN filter: Port-Channel + members ─────────────────────────
-
-    #[test]
-    fn asn_filter_includes_port_channel_and_members() {
-        let pmap = test_port_map();
-        let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet1/1", "LAG: Hurricane Electric (AS6939)", Some("Port-Channel101")),
-            iface("Ethernet2/1", "LAG: Hurricane Electric (AS6939)", Some("Port-Channel101")),
-            iface("Port-Channel101", "Peer: Hurricane Electric (AS6939)", None),
-            iface("Ethernet50/1", "Core: transport", None),
-        ]);
-        let filtered = apply_asn_filter(output, DEVICE, 6939, &pmap);
-        match filtered {
-            CommandOutput::InterfacesStatus(v) => {
-                let names: Vec<&str> = v.iter().map(|e| e.name.as_str()).collect();
-                assert_eq!(names, &["Ethernet1/1", "Ethernet2/1", "Port-Channel101"]);
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    // ── ASN filter: subinterface Port-Channel (the bug fix) ────────
-
-    #[test]
-    fn asn_filter_includes_members_of_subinterface_port_channel() {
-        // Port-Channel114.998 is in the PortMap for AS6140.
-        // Member interfaces reference "Port-Channel114" (base name).
-        let pmap = test_port_map();
-        let device = "switch01.fmt01.sfmix.org";
-        let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet7", "LAG: Two P (AS6140)", Some("Port-Channel114")),
-            iface("Ethernet8", "LAG: Two P (AS6140)", Some("Port-Channel114")),
-            iface("Port-Channel114.998", "Peer: Two P (AS6140)", None),
-            iface("Ethernet50/1", "Core: transport", None),
-        ]);
-        let filtered = apply_asn_filter(output, device, 6140, &pmap);
-        match filtered {
-            CommandOutput::InterfacesStatus(v) => {
-                let names: Vec<&str> = v.iter().map(|e| e.name.as_str()).collect();
-                assert_eq!(names, &["Ethernet7", "Ethernet8", "Port-Channel114.998"]);
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
-    fn asn_filter_subinterface_no_false_positives() {
-        // Members of a DIFFERENT Port-Channel should not leak through
-        let pmap = test_port_map();
-        let device = "switch01.fmt01.sfmix.org";
-        let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet7", "LAG: Two P", Some("Port-Channel114")),
-            iface("Port-Channel114.998", "Peer: Two P (AS6140)", None),
-            iface("Ethernet9", "LAG: Other", Some("Port-Channel200")),
-            iface("Port-Channel200", "Other peer", None),
-        ]);
-        let filtered = apply_asn_filter(output, device, 6140, &pmap);
-        match filtered {
-            CommandOutput::InterfacesStatus(v) => {
-                let names: Vec<&str> = v.iter().map(|e| e.name.as_str()).collect();
-                assert_eq!(names, &["Ethernet7", "Port-Channel114.998"]);
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    // ── ASN filter: optics ────────────────────────────────────────
-
-    #[test]
-    fn asn_filter_optics() {
-        let pmap = test_port_map();
-        let output = CommandOutput::Optics(vec![
-            optic("Ethernet5/1"),
-            optic("Ethernet50/1"),
-        ]);
-        let filtered = apply_asn_filter(output, DEVICE, 13335, &pmap);
-        match filtered {
-            CommandOutput::Optics(v) => {
-                assert_eq!(v.len(), 1);
-                assert_eq!(v[0].name, "Ethernet5/1");
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
-    fn asn_filter_optics_includes_lag_members() {
-        // AS6939 has Port-Channel101 in the PortMap.
-        // Physical member interfaces (Ethernet1/1, Ethernet2/1) should be included
-        // when they have port_channel set to "Port-Channel101".
-        let pmap = test_port_map();
-        let output = CommandOutput::Optics(vec![
-            optic_with_pc("Ethernet1/1", Some("Port-Channel101")),
-            optic_with_pc("Ethernet2/1", Some("Port-Channel101")),
-            optic("Ethernet50/1"), // core port, no PC membership
-            optic("Ethernet6/1"),  // unrelated port
-        ]);
-        let filtered = apply_asn_filter(output, DEVICE, 6939, &pmap);
-        match filtered {
-            CommandOutput::Optics(v) => {
-                let names: Vec<&str> = v.iter().map(|e| e.name.as_str()).collect();
-                assert_eq!(names, vec!["Ethernet1/1", "Ethernet2/1"]);
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    // ── VLAN filter ───────────────────────────────────────────────
-
-    #[test]
-    fn vlan_filter_keeps_matching() {
-        let output = CommandOutput::MacAddressTable(vec![
-            mac_entry("998", "aa:bb:cc:dd:ee:01", "Ethernet1"),
-            mac_entry("999", "aa:bb:cc:dd:ee:02", "Ethernet2"),
-            mac_entry("998", "aa:bb:cc:dd:ee:03", "Ethernet3"),
-        ]);
-        let filtered = apply_vlan_filter(output, "998");
-        match filtered {
-            CommandOutput::MacAddressTable(v) => {
-                assert_eq!(v.len(), 2);
-                assert!(v.iter().all(|e| e.vlan == "998"));
-            }
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
-    fn vlan_filter_empty_when_no_match() {
-        let output = CommandOutput::MacAddressTable(vec![
-            mac_entry("999", "aa:bb:cc:dd:ee:01", "Ethernet1"),
-        ]);
-        let filtered = apply_vlan_filter(output, "100");
-        match filtered {
-            CommandOutput::MacAddressTable(v) => assert!(v.is_empty()),
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    // ── is_empty ──────────────────────────────────────────────────
-
     #[test]
     fn is_empty_interfaces() {
         assert!(CommandOutput::InterfacesStatus(vec![]).is_empty());
-        assert!(!CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet1", "", None),
-        ]).is_empty());
+        assert!(!CommandOutput::InterfacesStatus(vec![iface("Ethernet1")]).is_empty());
     }
 
     #[test]
@@ -843,32 +447,5 @@ mod tests {
     #[test]
     fn is_empty_optics() {
         assert!(CommandOutput::Optics(vec![]).is_empty());
-    }
-
-    // ── Passthrough for non-matching variants ─────────────────────
-
-    #[test]
-    fn asn_filter_passes_through_mac_table() {
-        let pmap = test_port_map();
-        let output = CommandOutput::MacAddressTable(vec![
-            mac_entry("998", "aa:bb:cc:dd:ee:01", "Ethernet1"),
-        ]);
-        let filtered = apply_asn_filter(output, DEVICE, 13335, &pmap);
-        match filtered {
-            CommandOutput::MacAddressTable(v) => assert_eq!(v.len(), 1),
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
-    fn vlan_filter_passes_through_interfaces() {
-        let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet1", "test", None),
-        ]);
-        let filtered = apply_vlan_filter(output, "998");
-        match filtered {
-            CommandOutput::InterfacesStatus(v) => assert_eq!(v.len(), 1),
-            _ => panic!("wrong variant"),
-        }
     }
 }

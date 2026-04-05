@@ -291,6 +291,7 @@ fn filter_output_with_lookup(
         CommandOutput::InterfaceDetail(detail) => CommandOutput::InterfaceDetail(detail),
         CommandOutput::VxlanVtep(entries) => CommandOutput::VxlanVtep(entries),
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
+        CommandOutput::Participants(s) => CommandOutput::Participants(s),
     }
 }
 

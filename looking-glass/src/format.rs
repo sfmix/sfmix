@@ -196,6 +196,7 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::OpticsDetail(entries) => render_optics_detail(entries, color),
         CommandOutput::VxlanVtep(entries) => render_vxlan_vtep(entries, color),
         CommandOutput::Stream(_) => String::new(),
+        CommandOutput::Participants(s) => s.clone(),
     }
 }
 
