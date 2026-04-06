@@ -35,12 +35,21 @@ class SFMIXOIDCBackend(OIDCAuthenticationBackend):
         if id_token:
             request.session["oidc_id_token"] = id_token
 
+    def get_token(self, payload):
+        """Override to capture the raw id_token JWT string before the
+        parent class decodes and discards it."""
+        token_info = super().get_token(payload)
+        self._raw_id_token = token_info.get("id_token")
+        return token_info
+
     def authenticate(self, request, **kwargs):
-        # Capture id_token before calling super() which may not preserve it
-        id_token = kwargs.get("id_token")
         user = super().authenticate(request, **kwargs)
         if user and request and hasattr(self, "_pending_claims"):
-            self._write_session(request, self._pending_claims, id_token)
+            self._write_session(
+                request,
+                self._pending_claims,
+                getattr(self, "_raw_id_token", None),
+            )
             del self._pending_claims
         return user
 
