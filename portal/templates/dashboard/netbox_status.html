@@ -8,15 +8,28 @@
 
 <h1 class="text-2xl font-bold mb-6">NetBox Data Source Status</h1>
 
+{% if health.error %}
+<div class="mb-6 flex items-center gap-3">
+  <span class="inline-flex items-center gap-1.5 bg-red-100 text-red-800 text-sm font-medium px-3 py-1 rounded-full">
+    <span class="w-2 h-2 bg-red-500 rounded-full"></span> Error
+  </span>
+  <span class="text-sm text-red-600">{{ health.error }}</span>
+</div>
+{% else %}
+
 <!-- Health summary -->
 <div class="mb-6 flex items-center gap-3">
-  {% if health.healthy %}
+  {% if health.configured and health.age_secs != None and not health.last_error %}
     <span class="inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
       <span class="w-2 h-2 bg-green-500 rounded-full"></span> Healthy
     </span>
-  {% elif health.last_success_time %}
+  {% elif health.configured and health.last_error %}
     <span class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-sm font-medium px-3 py-1 rounded-full">
       <span class="w-2 h-2 bg-amber-500 rounded-full"></span> Degraded
+    </span>
+  {% elif not health.configured %}
+    <span class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 text-sm font-medium px-3 py-1 rounded-full">
+      <span class="w-2 h-2 bg-gray-400 rounded-full"></span> Not configured
     </span>
   {% else %}
     <span class="inline-flex items-center gap-1.5 bg-red-100 text-red-800 text-sm font-medium px-3 py-1 rounded-full">
@@ -31,45 +44,45 @@
     <h2 class="text-lg font-semibold mb-3">Cache</h2>
     <dl class="space-y-2 text-sm">
       <div class="flex justify-between">
+        <dt class="text-gray-500">Source URL</dt>
+        <dd class="font-mono text-xs">{{ health.url|default:"—" }}</dd>
+      </div>
+      <div class="flex justify-between">
         <dt class="text-gray-500">Cache age</dt>
         <dd class="font-mono">
-          {% if health.cache_age >= 0 %}
-            {{ health.cache_age|floatformat:0 }}s
+          {% if health.age_secs != None %}
+            {{ health.age_secs }}s
           {% else %}
             <span class="text-gray-400">never refreshed</span>
           {% endif %}
         </dd>
       </div>
       <div class="flex justify-between">
-        <dt class="text-gray-500">Last refresh duration</dt>
-        <dd class="font-mono">{{ health.last_refresh_duration|floatformat:2 }}s</dd>
+        <dt class="text-gray-500">Refresh interval</dt>
+        <dd class="font-mono">{{ health.refresh_interval_secs }}s</dd>
       </div>
-      {% for type, count in health.item_counts.items %}
-      <div class="flex justify-between">
-        <dt class="text-gray-500">{{ type }}</dt>
-        <dd class="font-mono">{{ count }}</dd>
-      </div>
-      {% empty %}
-      <div class="text-gray-400 italic">No items cached</div>
-      {% endfor %}
     </dl>
   </div>
 
-  <!-- Refresh stats -->
+  <!-- Counts -->
   <div class="bg-white border border-gray-200 rounded-lg p-5">
-    <h2 class="text-lg font-semibold mb-3">Refresh History</h2>
+    <h2 class="text-lg font-semibold mb-3">Data Counts</h2>
     <dl class="space-y-2 text-sm">
       <div class="flex justify-between">
-        <dt class="text-gray-500">Total successes</dt>
-        <dd class="font-mono text-green-700">{{ health.total_successes }}</dd>
+        <dt class="text-gray-500">Participants</dt>
+        <dd class="font-mono">{{ health.participant_count }}</dd>
       </div>
       <div class="flex justify-between">
-        <dt class="text-gray-500">Total failures</dt>
-        <dd class="font-mono {% if health.total_failures %}text-red-700{% else %}text-gray-700{% endif %}">{{ health.total_failures }}</dd>
+        <dt class="text-gray-500">Peering ports</dt>
+        <dd class="font-mono">{{ health.peering_port_count }}</dd>
       </div>
       <div class="flex justify-between">
-        <dt class="text-gray-500">Consecutive failures</dt>
-        <dd class="font-mono {% if health.consecutive_failures %}text-red-700 font-bold{% endif %}">{{ health.consecutive_failures }}</dd>
+        <dt class="text-gray-500">Core ports</dt>
+        <dd class="font-mono">{{ health.core_port_count }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Port map entries</dt>
+        <dd class="font-mono">{{ health.port_map_size }}</dd>
       </div>
       {% if health.last_error %}
       <div>
@@ -81,18 +94,9 @@
   </div>
 </div>
 
-<!-- Actions -->
-<div class="mt-6">
-  <form method="post" action="{% url 'netbox_refresh_cache' %}">
-    {% csrf_token %}
-    <button type="submit"
-            class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-            onclick="return confirm('Fetch fresh data from NetBox now? This may take 15–20 seconds.')">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
-      Refresh Now
-    </button>
-  </form>
-</div>
+<p class="mt-4 text-xs text-gray-400">
+  Data is refreshed automatically by the Looking Glass service every {{ health.refresh_interval_secs }}s.
+</p>
+
+{% endif %}
 {% endblock %}

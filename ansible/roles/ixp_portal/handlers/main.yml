@@ -2,7 +2,7 @@
 - name: Restart ixp_portal
   become: true
   ansible.builtin.command:
-    cmd: docker-compose restart
+    cmd: docker-compose up -d --build --force-recreate
     chdir: "{{ ixp_portal_install_dir }}"
 
 - name: Reload nginx

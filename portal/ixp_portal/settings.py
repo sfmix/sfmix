@@ -37,7 +37,6 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "dashboard.middleware.NetBoxCacheMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -71,7 +70,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": BASE_DIR / "db" / "db.sqlite3",
     }
 }
 
@@ -109,10 +108,6 @@ OIDC_OP_JWKS_ENDPOINT = f"{_OIDC_ISSUER}/jwks/"
 
 # Re-check OIDC claims every 15 minutes
 OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = 900
-
-# --- IXP data source (NetBox) ---
-IXP_NETBOX_URL = os.environ.get("IXP_NETBOX_URL", "https://netbox.sfmix.org")
-IXP_NETBOX_TOKEN = os.environ.get("IXP_NETBOX_TOKEN", "")
 
 # --- Looking Glass REST API ---
 IXP_LOOKING_GLASS_URL = os.environ.get("IXP_LOOKING_GLASS_URL", "https://lg.sfmix.org:8081")
