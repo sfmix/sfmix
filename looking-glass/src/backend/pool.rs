@@ -372,12 +372,16 @@ mod tests {
                 name: "Cloudflare".to_string(),
                 participant_type: None,
                 ports: vec![(DEVICE.to_string(), "Ethernet3/1".to_string())],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
             NetboxParticipant {
                 asn: 15169,
                 name: "Google".to_string(),
                 participant_type: None,
                 ports: vec![(DEVICE.to_string(), "Ethernet3/2".to_string())],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
         ];
         let core_ports = vec![
@@ -562,6 +566,8 @@ mod tests {
                 name: "Cloudflare".to_string(),
                 participant_type: None,
                 ports: vec![(DEVICE.to_string(), "Port-Channel1".to_string())],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
         ];
         let core_ports = vec![];
@@ -617,6 +623,8 @@ mod tests {
                 name: "Two P".to_string(),
                 participant_type: None,
                 ports: vec![(DEVICE.to_string(), "Port-Channel114.998".to_string())],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
         ];
         let core_ports = vec![];

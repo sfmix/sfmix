@@ -239,6 +239,8 @@ mod tests {
                     ("switch01.sfo02".to_string(), "Ethernet3/1".to_string()),
                     ("switch02.sfo02".to_string(), "Ethernet3/1".to_string()),
                 ],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
             NetboxParticipant {
                 asn: 15169,
@@ -247,6 +249,8 @@ mod tests {
                 ports: vec![
                     ("switch01.sfo02".to_string(), "Ethernet3/2".to_string()),
                 ],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
         ];
         ParticipantMap::build_from_netbox(&entries)

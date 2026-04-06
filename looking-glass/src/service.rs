@@ -5,7 +5,7 @@ use crate::backend::pool::DevicePool;
 use crate::command::{Command, Resource};
 use crate::format::ColorMode;
 use crate::identity::Identity;
-use crate::netbox::NetboxStatus;
+use crate::netbox::{NetboxIxpData, NetboxStatus};
 use crate::oidc::OidcClient;
 use crate::participants::{ParticipantMap, PortMap, PortClass};
 use crate::policy::{PolicyDecision, PolicyEngine};
@@ -63,9 +63,13 @@ pub struct LookingGlass {
     pub port_map: ArcSwap<PortMap>,
     pub device_pool: DevicePool,
     pub group_prefix: String,
+    pub admin_group: String,
     pub oidc_client: Option<OidcClient>,
     pub public_vlans: Vec<String>,
     pub netbox_status: ArcSwap<NetboxStatus>,
+    pub ixp_data: ArcSwap<NetboxIxpData>,
+    /// Full NetBox participant data (with enriched ports + IPs) for REST API.
+    pub netbox_participants: ArcSwap<Vec<crate::netbox::NetboxParticipant>>,
 }
 
 impl LookingGlass {
@@ -346,6 +350,8 @@ mod tests {
                 ports: vec![
                     (DEVICE.to_string(), "Port-Channel101".to_string()),
                 ],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
             NetboxParticipant {
                 asn: 6140,
@@ -354,6 +360,8 @@ mod tests {
                 ports: vec![
                     ("switch01.fmt01.sfmix.org".to_string(), "Port-Channel114.998".to_string()),
                 ],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
             NetboxParticipant {
                 asn: 13335,
@@ -362,6 +370,8 @@ mod tests {
                 ports: vec![
                     (DEVICE.to_string(), "Ethernet5/1".to_string()),
                 ],
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
             },
         ];
         let core_ports = vec![

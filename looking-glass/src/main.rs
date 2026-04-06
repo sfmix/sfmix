@@ -27,7 +27,7 @@ use config::ParticipantsSourceConfig;
 use frontend::http::HttpFrontend;
 use frontend::ssh::SshFrontend;
 use frontend::telnet::TelnetServer;
-use netbox::NetboxStatus;
+use netbox::{NetboxIxpData, NetboxStatus};
 use participants::{ParticipantMap, PortMap};
 use policy::PolicyEngine;
 use ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
@@ -159,9 +159,12 @@ async fn main() -> Result<()> {
         port_map: ArcSwap::from_pointee(PortMap::empty()),
         device_pool,
         group_prefix,
+        admin_group: config.auth.as_ref().map(|a| a.oidc.admin_group.clone()).unwrap_or_else(|| "IX Administrators".to_string()),
         oidc_client: oidc_client.clone(),
         public_vlans,
         netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
+        ixp_data: ArcSwap::from_pointee(NetboxIxpData { switches: Vec::new(), vlans: Vec::new() }),
+        netbox_participants: ArcSwap::from_pointee(Vec::new()),
     });
 
     // Start telnet server
@@ -222,7 +225,11 @@ async fn main() -> Result<()> {
     // starting separate legacy servers (REST-only or MCP-only).
     if let Some(ref http_config) = config.listen.http {
         if http_config.enabled {
-            let http_server = HttpFrontend::new(http_config.bind.clone(), lg.clone());
+            let http_server = HttpFrontend::new(
+                http_config.bind.clone(),
+                lg.clone(),
+                config.auth.as_ref().map(|a| a.service_tokens.clone()).unwrap_or_default(),
+            );
             tokio::spawn(async move {
                 if let Err(e) = http_server.run().await {
                     tracing::error!("HTTP server error: {e}");
@@ -237,6 +244,7 @@ async fn main() -> Result<()> {
                     rest_config.bind.clone(),
                     lg.clone(),
                     config.auth.as_ref().and_then(|auth| oidc::OidcClient::new(&auth.oidc).ok()),
+                    config.auth.as_ref().map(|a| a.service_tokens.clone()).unwrap_or_default(),
                 );
                 tokio::spawn(async move {
                     if let Err(e) = rest_server.run().await {
@@ -277,14 +285,18 @@ async fn main() -> Result<()> {
                     let port_map = PortMap::build(&result.participants, &result.core_ports);
                     let pc = pmap.all().count();
                     let pmc = port_map.len();
+                    let pp_count = result.participants.iter().map(|p| p.ports.len()).sum();
+                    let core_count = result.core_ports.len();
                     info!("NetBox: {} participants, {} classified ports", pc, pmc);
                     lg.participants.store(Arc::new(pmap));
                     lg.port_map.store(Arc::new(port_map));
+                    lg.ixp_data.store(Arc::new(result.ixp_data));
+                    lg.netbox_participants.store(Arc::new(result.participants));
                     lg.netbox_status.store(Arc::new(NetboxStatus {
                         configured: true,
                         participant_count: pc,
-                        peering_port_count: result.participants.iter().map(|p| p.ports.len()).sum(),
-                        core_port_count: result.core_ports.len(),
+                        peering_port_count: pp_count,
+                        core_port_count: core_count,
                         port_map_size: pmc,
                         last_success: Some(std::time::Instant::now()),
                         last_error: None,
@@ -317,14 +329,18 @@ async fn main() -> Result<()> {
                                 let port_map = PortMap::build(&result.participants, &result.core_ports);
                                 let pc = pmap.all().count();
                                 let pmc = port_map.len();
+                                let pp_count = result.participants.iter().map(|p| p.ports.len()).sum();
+                                let core_count = result.core_ports.len();
                                 info!("NetBox refresh: {} participants, {} classified ports", pc, pmc);
                                 state.participants.store(Arc::new(pmap));
                                 state.port_map.store(Arc::new(port_map));
+                                state.ixp_data.store(Arc::new(result.ixp_data));
+                                state.netbox_participants.store(Arc::new(result.participants));
                                 state.netbox_status.store(Arc::new(NetboxStatus {
                                     configured: true,
                                     participant_count: pc,
-                                    peering_port_count: result.participants.iter().map(|p| p.ports.len()).sum(),
-                                    core_port_count: result.core_ports.len(),
+                                    peering_port_count: pp_count,
+                                    core_port_count: core_count,
                                     port_map_size: pmc,
                                     last_success: Some(std::time::Instant::now()),
                                     last_error: None,
