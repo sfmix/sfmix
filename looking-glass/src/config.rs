@@ -124,6 +124,10 @@ pub struct RestListenConfig {
 #[allow(dead_code)]
 pub struct AuthConfig {
     pub oidc: OidcConfig,
+    /// Service API tokens for trusted server-to-server calls (e.g., portal).
+    /// Requests with a matching X-API-Key header get admin-level access.
+    #[serde(default)]
+    pub service_tokens: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -142,6 +146,11 @@ pub struct OidcConfig {
     /// e.g. ["portal"] to accept tokens issued for the portal app.
     #[serde(default)]
     pub allowed_audiences: Vec<String>,
+    /// Additional issuers to accept for cross-service token verification.
+    /// Tokens with `iss` matching issuer OR any value in this list are accepted.
+    /// e.g. ["https://login.sfmix.org/application/o/portal/"] for portal tokens.
+    #[serde(default)]
+    pub allowed_issuers: Vec<String>,
     /// Device authorization endpoint (RFC 8628).
     /// e.g. "https://login.sfmix.org/application/o/device/"
     #[serde(default)]
