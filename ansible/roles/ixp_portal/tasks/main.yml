@@ -33,6 +33,7 @@
       - "--exclude=db.sqlite3"
       - "--exclude=staticfiles"
       - "--exclude=.env"
+      - "--exclude=cache"
   notify: Restart ixp_portal
 
 - name: Template portal .env file

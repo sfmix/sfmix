@@ -7,7 +7,7 @@
 </div>
 
 <h1 class="text-2xl font-bold mb-1">AS{{ asn }}</h1>
-{% if member.description %}<p class="text-gray-600 mb-6">{{ member.description }}</p>{% endif %}
+{% if member.name %}<p class="text-gray-600 mb-6">{{ member.name }}</p>{% endif %}
 
 {% if live_interfaces %}
 <section class="mb-8">
@@ -82,10 +82,10 @@
       <tbody class="divide-y divide-gray-100">
         {% for port in peering_ports %}
         <tr>
-          <td class="px-4 py-2 font-mono text-xs">{{ port.name }}</td>
-          <td class="px-4 py-2">{{ port.device.display|default:"—" }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ port.interface }}</td>
+          <td class="px-4 py-2">{{ port.device|default:"—" }}</td>
           <td class="px-4 py-2">
-            {% if port.speed %}{{ port.speed|floatformat:"0" }} kbps{% else %}—{% endif %}
+            {% if port.speed %}{{ port.speed }} Mbps{% else %}—{% endif %}
           </td>
           <td class="px-4 py-2">
             {% if port.enabled %}
@@ -119,13 +119,13 @@
         {% for ip in ip_addresses %}
         <tr>
           <td class="px-4 py-2 font-mono text-xs">{{ ip.address }}</td>
-          <td class="px-4 py-2 text-xs">{{ ip.family.label }}</td>
-          <td class="px-4 py-2 font-mono text-xs">{{ ip.custom_fields.participant_mac_address|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ ip.family }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ ip.mac_address|default:"—" }}</td>
           <td class="px-4 py-2">
-            {% if ip.status.value == "active" %}
-              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ ip.status.label }}</span>
+            {% if ip.status == "active" %}
+              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Active</span>
             {% else %}
-              <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ ip.status.label }}</span>
+              <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ ip.status|title }}</span>
             {% endif %}
           </td>
         </tr>
@@ -135,6 +135,32 @@
   </div>
 </section>
 {% endif %}
+
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3">Live Network Data</h2>
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+    <a href="{% url 'network_bgp' asn %}"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
+      <div class="font-medium text-indigo-700">BGP Sessions</div>
+      <div class="text-xs text-gray-500 mt-0.5">Route server peering status</div>
+    </a>
+    <a href="{% url 'network_mac_table' asn %}"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
+      <div class="font-medium text-indigo-700">MAC Table</div>
+      <div class="text-xs text-gray-500 mt-0.5">Learned MAC addresses</div>
+    </a>
+    <a href="{% url 'network_arp' asn %}"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
+      <div class="font-medium text-indigo-700">ARP Table</div>
+      <div class="text-xs text-gray-500 mt-0.5">IPv4 ARP entries</div>
+    </a>
+    <a href="{% url 'network_nd' asn %}"
+       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
+      <div class="font-medium text-indigo-700">IPv6 Neighbors</div>
+      <div class="text-xs text-gray-500 mt-0.5">ND table entries</div>
+    </a>
+  </div>
+</section>
 
 <section>
   <h2 class="text-lg font-semibold mb-3">Quick Links</h2>
@@ -147,9 +173,9 @@
        class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
       PeeringDB
     </a>
-    <a href="https://sfmix.org/participants/" target="_blank"
+    <a href="{% url 'participants_list' %}"
        class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
-      Public Participant List
+      Participant List
     </a>
   </div>
 </section>
