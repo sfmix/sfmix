@@ -46,6 +46,12 @@ auth:
       - "{{ aud }}"
 {% endfor %}
 {% endif %}
+{% if looking_glass_oidc_allowed_issuers is defined %}
+    allowed_issuers:
+{% for iss in looking_glass_oidc_allowed_issuers %}
+      - "{{ iss }}"
+{% endfor %}
+{% endif %}
 {% endif %}
 
 devices:

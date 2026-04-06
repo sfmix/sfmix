@@ -36,6 +36,18 @@ impl Identity {
         self.asns.contains(&asn)
     }
 
+    /// Service identity for trusted server-to-server calls (admin-level access).
+    pub fn service(admin_group: &str) -> Self {
+        let mut groups = HashSet::new();
+        groups.insert(admin_group.to_string());
+        Self {
+            authenticated: true,
+            email: Some("service".to_string()),
+            asns: HashSet::new(),
+            groups,
+        }
+    }
+
     /// Build an authenticated identity from OIDC claims.
     pub fn from_oidc_claims(
         email: String,

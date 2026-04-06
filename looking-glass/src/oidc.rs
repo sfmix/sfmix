@@ -315,7 +315,11 @@ impl OidcClient {
             audiences.push(aud);
         }
         validation.set_audience(&audiences);
-        validation.set_issuer(&[&self.config.issuer]);
+        let mut issuers: Vec<&str> = vec![&self.config.issuer];
+        for iss in &self.config.allowed_issuers {
+            issuers.push(iss);
+        }
+        validation.set_issuer(&issuers);
 
         let token_data = decode::<IdTokenClaims>(token, &decoding_key, &validation)
             .context("JWT verification failed")?;
