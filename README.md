@@ -6,9 +6,9 @@
 
 ---
 
-## 🌐 `website/`
+## 🌐 Website
 
-The public-facing Hugo static site for [sfmix.org](https://sfmix.org/). Pushes to `main` that touch `website/` automatically build and deploy via GitHub Actions. See [`website/README.md`](website/README.md) for local dev and content editing.
+The public-facing Hugo static site now lives in its own repo: [sfmix/website](https://github.com/sfmix/website). Deployed to [web.sfmix.org](https://web.sfmix.org/) via GitHub Pages.
 
 ## 🔧 `ansible/`
 
