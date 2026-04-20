@@ -37,7 +37,7 @@ def post_data(arin_api_key, org_id, rpsl_text):
         response.raise_for_status()
         return response
     except requests.RequestException as e:
-        print(f"POST request failed: {e}")
+        print(f"POST request failed: {str(e).replace(arin_api_key, '***')}")
         print(f"POST request response: {response.content!r}")
         return None
 
@@ -54,7 +54,7 @@ def put_data(arin_api_key, as_set_name, rpsl_text):
         response.raise_for_status()
         return response
     except requests.RequestException as e:
-        print(f"PUT request failed: {e}")
+        print(f"PUT request failed: {str(e).replace(arin_api_key, '***')}")
         print(f"PUT request response: {response.content!r}")
         return None
 
