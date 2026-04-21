@@ -161,6 +161,11 @@ pub struct OidcConfig {
     /// If not set, derived from issuer's .well-known/openid-configuration.
     #[serde(default)]
     pub jwks_uri: Option<String>,
+    /// Authorization server URL for OAuth Protected Resource Metadata (RFC 9728).
+    /// e.g. "https://login.sfmix.org/application/o/looking-glass-api/"
+    /// Used by MCP clients to discover where to obtain tokens.
+    #[serde(default)]
+    pub authorization_server: Option<String>,
     /// Lifetime of issued SSH certificates in seconds (default: 43200 = 12h).
     #[serde(default = "default_cert_lifetime")]
     pub cert_lifetime_secs: u64,
