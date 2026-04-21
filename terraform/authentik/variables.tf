@@ -25,6 +25,12 @@ variable "portal_client_secret" {
   sensitive   = true
 }
 
+variable "looking_glass_api_client_secret" {
+  description = "Looking Glass HTTP API OIDC provider client secret"
+  type        = string
+  sensitive   = true
+}
+
 variable "admin_group_name" {
   description = "Name of the administrative group in Authentik (e.g. IX Administrators)"
   type        = string

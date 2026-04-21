@@ -59,6 +59,37 @@ resource "authentik_provider_oauth2" "looking_glass" {
   ]
 }
 
+resource "authentik_provider_oauth2" "looking_glass_api" {
+  name               = "Looking Glass API"
+  client_id          = "looking-glass-api"
+  client_secret      = var.looking_glass_api_client_secret
+  client_type        = "confidential"
+  authorization_flow = data.authentik_flow.default_implicit_consent.id
+  invalidation_flow  = data.authentik_flow.default_invalidation.id
+  signing_key        = data.authentik_certificate_key_pair.self_signed.id
+
+  allowed_redirect_uris = [
+    {
+      matching_mode = "regex"
+      url           = "https://lg-ng\\.sfmix\\.org/.*"
+    },
+  ]
+
+  access_code_validity   = "minutes=5"
+  access_token_validity  = "hours=1"
+  refresh_token_validity = "days=30"
+  sub_mode               = "hashed_user_id"
+  issuer_mode            = "per_provider"
+  include_claims_in_id_token = true
+
+  property_mappings = [
+    data.authentik_property_mapping_provider_scope.openid.id,
+    data.authentik_property_mapping_provider_scope.email.id,
+    data.authentik_property_mapping_provider_scope.profile.id,
+    authentik_property_mapping_provider_scope.groups.id,
+  ]
+}
+
 resource "authentik_provider_oauth2" "portal" {
   name               = "portal"
   client_id          = "portal"
