@@ -23,3 +23,9 @@
     name: alice
     restart: true
     state: started
+
+- name: Reload nginx
+  become: true
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded

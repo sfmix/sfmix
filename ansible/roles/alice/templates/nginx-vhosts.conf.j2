@@ -1,0 +1,57 @@
+{{ ansible_managed | comment }}
+
+# HTTP to HTTPS redirect
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+# Alice LG (alice.sfmix.org)
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ alice_domain }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ alice_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ alice_domain }}/privkey.pem;
+    ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+    location / {
+        limit_req zone=ip burst=12 delay=8;
+        proxy_pass http://127.0.0.1:7340;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+{% for vhost in alice_additional_vhosts %}
+# {{ vhost.domain }}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ vhost.domain }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ vhost.domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ vhost.domain }}/privkey.pem;
+    ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+    location / {
+{% if vhost.rate_limit | default(true) %}
+        limit_req zone=ip burst=12 delay=8;
+{% endif %}
+        proxy_pass http://127.0.0.1:{{ vhost.upstream_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+{% if vhost.extra_location_config is defined %}
+        {{ vhost.extra_location_config | indent(8) }}
+{% endif %}
+    }
+}
+
+{% endfor %}

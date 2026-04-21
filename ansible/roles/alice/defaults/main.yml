@@ -7,3 +7,9 @@ alice_config_file: /opt/alice/alice.conf
 alice_theme_directory: /opt/alice/theme
 alice_theme_repo_url: https://github.com/alice-lg/alice-theme-example
 alice_theme_repo_version: master
+
+# Additional vhosts on this host (list of dicts with domain, upstream_port)
+alice_additional_vhosts: []
+# Example:
+#   - domain: lg-ng.sfmix.org
+#     upstream_port: 8080
