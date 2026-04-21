@@ -34,4 +34,10 @@ auth:
 {% if looking_glass_oidc_resource_url is defined %}
     resource_url: "{{ looking_glass_oidc_resource_url }}"
 {% endif %}
+{% if looking_glass_oidc_authorization_endpoint is defined %}
+    authorization_endpoint: "{{ looking_glass_oidc_authorization_endpoint }}"
+{% endif %}
+{% if looking_glass_oidc_mcp_client_id is defined %}
+    mcp_client_id: "{{ looking_glass_oidc_mcp_client_id }}"
+{% endif %}
 {% endif %}

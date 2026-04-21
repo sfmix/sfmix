@@ -171,6 +171,16 @@ pub struct OidcConfig {
     /// Used in WWW-Authenticate headers to direct clients to /.well-known/oauth-protected-resource.
     #[serde(default)]
     pub resource_url: Option<String>,
+    /// OAuth2 authorization endpoint (e.g. Authentik's authorize URL).
+    /// e.g. "https://login.sfmix.org/application/o/authorize/"
+    /// Advertised in /.well-known/oauth-authorization-server for MCP clients.
+    #[serde(default)]
+    pub authorization_endpoint: Option<String>,
+    /// Public OAuth2 client_id to hand out via Dynamic Client Registration.
+    /// e.g. "looking-glass"
+    /// MCP clients that don't have a pre-registered client_id will receive this.
+    #[serde(default)]
+    pub mcp_client_id: Option<String>,
     /// Lifetime of issued SSH certificates in seconds (default: 43200 = 12h).
     #[serde(default = "default_cert_lifetime")]
     pub cert_lifetime_secs: u64,
