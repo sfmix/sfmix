@@ -28,4 +28,7 @@ auth:
       - "{{ iss }}"
 {% endfor %}
 {% endif %}
+{% if looking_glass_oidc_authorization_server is defined %}
+    authorization_server: "{{ looking_glass_oidc_authorization_server }}"
+{% endif %}
 {% endif %}

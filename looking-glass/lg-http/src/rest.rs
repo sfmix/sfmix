@@ -22,6 +22,8 @@ pub struct HttpState {
     pub rpc: RpcClient,
     pub oidc_client: Option<OidcClient>,
     pub group_prefix: String,
+    /// Authorization server URL for OAuth Protected Resource Metadata (RFC 9728).
+    pub authorization_server: Option<String>,
 }
 
 /// Per-request identity extracted from Bearer token.
@@ -444,11 +446,62 @@ async fn get_netbox_status(
 }
 
 // ---------------------------------------------------------------------------
+// OAuth Protected Resource Metadata (RFC 9728)
+// ---------------------------------------------------------------------------
+
+/// OAuth 2.0 Protected Resource Metadata (RFC 9728).
+/// Tells MCP clients where to obtain tokens.
+#[derive(Serialize)]
+struct ProtectedResourceMetadata {
+    /// The protected resource identifier (this server's URL).
+    resource: String,
+    /// List of authorization servers that can issue tokens for this resource.
+    authorization_servers: Vec<String>,
+    /// Scopes supported by this resource.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    scopes_supported: Vec<String>,
+    /// Token types accepted.
+    bearer_methods_supported: Vec<String>,
+}
+
+/// GET /.well-known/oauth-protected-resource
+async fn get_oauth_protected_resource(
+    State(state): State<HttpState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let Some(auth_server) = &state.authorization_server else {
+        return (StatusCode::NOT_FOUND, "OAuth not configured").into_response();
+    };
+
+    // Extract host from headers
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("localhost");
+
+    let resource = format!("https://{}", host);
+    let metadata = ProtectedResourceMetadata {
+        resource,
+        authorization_servers: vec![auth_server.clone()],
+        scopes_supported: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
+        bearer_methods_supported: vec!["header".to_string()],
+    };
+
+    Json(metadata).into_response()
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
 pub fn router(state: HttpState) -> Router {
     Router::new()
+        // OAuth metadata (no auth required)
+        .route(
+            "/.well-known/oauth-protected-resource",
+            get(get_oauth_protected_resource),
+        )
+        // API routes (with auth middleware)
         .route("/api/v1/interfaces/status", get(get_interfaces_status))
         .route("/api/v1/interfaces/{name}", get(get_interface_detail))
         .route("/api/v1/optics", get(get_optics))
