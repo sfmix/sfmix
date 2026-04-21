@@ -111,6 +111,24 @@ class LookingGlassClient:
         """Get IX-F Member Export (participants.json)."""
         return self._get("/api/v1/participants.json")
 
+    def get_bgp_sources(self, token: str | None = None) -> list[dict[str, Any]]:
+        """Get BGP data source status."""
+        return self._get("/api/v1/bgp/sources", token)
+
+    def get_bgp_routes(self, neighbor: str, token: str | None = None, source: str | None = None) -> list[dict[str, Any]]:
+        """Get BGP routes from a specific neighbor via route server sources."""
+        params = {}
+        if source is not None:
+            params["source"] = source
+        return self._get(f"/api/v1/bgp/routes/{neighbor}", token, params or None)
+
+    def get_bgp_route_lookup(self, prefix: str, token: str | None = None, source: str | None = None) -> list[dict[str, Any]]:
+        """Look up a prefix across all BGP sources."""
+        params = {}
+        if source is not None:
+            params["source"] = source
+        return self._get(f"/api/v1/bgp/route/{prefix}", token, params or None)
+
 
 def get_lg_client() -> LookingGlassClient:
     """Get a configured LookingGlassClient instance."""
