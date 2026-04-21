@@ -10,24 +10,9 @@ site:
   name: "central"
   display_name: "SFMIX Central Looking Glass"
 
-listen:
-  telnet:
-    enabled: true
-    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_telnet_port }}"
-{% if looking_glass_ssh_enabled %}
-  ssh:
-    enabled: true
-    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_ssh_port }}"
-    host_key: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
-{% if looking_glass_oidc_enabled %}
-    ca_key: "{{ looking_glass_config_dir }}/ca_ed25519_key"
-{% endif %}
-{% endif %}
-{% if looking_glass_http_enabled | default(false) %}
-  http:
-    enabled: true
-    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_http_port | default(8080) }}"
-{% endif %}
+rpc:
+  bind: "{{ looking_glass_rpc_bind }}"
+  secret_env: "LG_RPC_SECRET"
 
 {% if looking_glass_oidc_enabled %}
 auth:
@@ -62,6 +47,9 @@ devices:
     port: {{ device.port | default(22) }}
     username: "{{ looking_glass_device_username }}"
     auth_method: {{ looking_glass_device_auth_method }}
+{% if device.command_timeout_secs is defined %}
+    command_timeout_secs: {{ device.command_timeout_secs }}
+{% endif %}
 {% endfor %}
 
 participants:
