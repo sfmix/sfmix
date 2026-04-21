@@ -16,3 +16,21 @@ participants:
     sessions:
       - device: "switch01.sfo02"
         neighbor: "10.255.0.11"
+
+core_ports:
+  - device: "switch01.sfo01"
+    interface: "Ethernet1"
+  - device: "switch01.sfo01"
+    interface: "Management0"
+  - device: "switch01.sfo01"
+    interface: "Vlan998"
+  - device: "switch01.sfo01"
+    interface: "Vxlan1"
+  - device: "switch01.sfo02"
+    interface: "Ethernet1"
+  - device: "switch01.sfo02"
+    interface: "Management0"
+  - device: "switch01.sfo02"
+    interface: "Vlan998"
+  - device: "switch01.sfo02"
+    interface: "Vxlan1"

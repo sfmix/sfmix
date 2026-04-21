@@ -1,0 +1,690 @@
+{
+    "nokia-state:interface": [
+        {
+            "interface-name": "system",
+            "if-index": 1,
+            "system-if-index": 256,
+            "oper-state": "up",
+            "protocol": "ospfv2 mpls rsvp ospfv3",
+            "oper-ip-mtu": 1500,
+            "creation-origin": "manual",
+            "last-oper-change": "2026-01-17T07:00:47.9+00:00",
+            "statistics": {
+                "ip": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "2",
+                    "in-octets": "200",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                },
+                "mpls": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0"
+                }
+            },
+            "ipv4": {
+                "oper-state": "up",
+                "icmp": {
+                    "statistics": {
+                        "icmp-in-msgs": 2,
+                        "icmp-in-errors": 2,
+                        "icmp-in-dest-unreachables": 0,
+                        "icmp-in-redirects": 0,
+                        "icmp-in-echos": 0,
+                        "icmp-in-echo-replies": 0,
+                        "icmp-in-time-exceeds": 2,
+                        "icmp-in-src-quenches": 0,
+                        "icmp-in-timestamps": 0,
+                        "icmp-in-timestamp-replies": 0,
+                        "icmp-in-address-masks": 0,
+                        "icmp-in-address-mask-replies": 0,
+                        "icmp-in-parm-problems": 0,
+                        "icmp-out-msgs": 0,
+                        "icmp-out-errors": 0,
+                        "icmp-out-dest-unreachables": 0,
+                        "icmp-out-redirects": 0,
+                        "icmp-out-echos": 0,
+                        "icmp-out-echo-replies": 0,
+                        "icmp-out-time-exceeds": 0,
+                        "icmp-out-src-quenches": 0,
+                        "icmp-out-timestamps": 0,
+                        "icmp-out-timestamp-replies": 0,
+                        "icmp-out-address-masks": 0,
+                        "icmp-out-address-mask-replies": 0,
+                        "icmp-out-parm-problems": 0,
+                        "icmp-out-discards": 0
+                    }
+                },
+                "dhcp": {
+                    "statistics": {
+                        "total-rx-packets": {
+                            "received": 0,
+                            "malformed": 0,
+                            "untrusted": 0
+                        },
+                        "total-tx-packets": {
+                            "transmitted": 0
+                        },
+                        "client-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        },
+                        "server-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        }
+                    }
+                },
+                "statistics": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0",
+                    "out-discard-dbcast-packets": "0",
+                    "out-discard-dbcast-octets": "0",
+                    "in-ip-helper-redirects-packets": "0",
+                    "in-ip-helper-redirects-octets": "0"
+                },
+                "primary": {
+                    "oper-address": "149.112.115.246",
+                    "creation-origin": "manual"
+                }
+            },
+            "ipv6": {
+                "oper-state": "up",
+                "icmp6": {
+                    "statistics": {
+                        "icmp6-in-msgs": 0,
+                        "icmp6-in-errors": 0,
+                        "icmp6-in-dest-unreachables": 0,
+                        "icmp6-in-admin-prohibs": 0,
+                        "icmp6-in-time-exceeds": 0,
+                        "icmp6-in-parm-problems": 0,
+                        "icmp6-in-pkt-too-bigs": 0,
+                        "icmp6-in-echos": 0,
+                        "icmp6-in-echo-replies": 0,
+                        "icmp6-in-rtr-solicits": 0,
+                        "icmp6-in-rtr-advertisements": 0,
+                        "icmp6-in-nbr-solicits": 0,
+                        "icmp6-in-nbr-advertisements": 0,
+                        "icmp6-in-redirects": 0,
+                        "icmp6-in-grp-memb-queries": 0,
+                        "icmp6-in-grp-memb-repsonses": 0,
+                        "icmp6-in-grp-memb-reductions": 0,
+                        "icmp6-out-msgs": 0,
+                        "icmp6-out-errors": 0,
+                        "icmp6-out-dest-unreachables": 0,
+                        "icmp6-out-admin-prohibs": 0,
+                        "icmp6-out-time-exceeds": 0,
+                        "icmp6-out-parm-problems": 0,
+                        "icmp6-out-pkt-too-bigs": 0,
+                        "icmp6-out-echos": 0,
+                        "icmp6-out-echo-replies": 0,
+                        "icmp6-out-rtr-solicits": 0,
+                        "icmp6-out-rtr-advertisements": 0,
+                        "icmp6-out-nbr-solicits": 0,
+                        "icmp6-out-nbr-advertisements": 0,
+                        "icmp6-out-redirects": 0,
+                        "icmp6-out-grp-memb-queries": 0,
+                        "icmp6-out-grp-memb-responses": 0,
+                        "icmp6-out-grp-memb-reductions": 0,
+                        "icmp6-out-discards": 0
+                    }
+                },
+                "statistics": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                },
+                "address": [
+                    {
+                        "ipv6-address": "2620:11a:b002:2000::246",
+                        "address-state": "preferred",
+                        "oper-address": "2620:11a:b002:2000::246",
+                        "creation-origin": "manual",
+                        "primary-preferred": true
+                    }
+                ]
+            }
+        },
+        {
+            "interface-name": "lag-core-1-10",
+            "if-index": 3,
+            "system-if-index": 5,
+            "oper-state": "up",
+            "protocol": "",
+            "oper-ip-mtu": 9192,
+            "creation-origin": "manual",
+            "last-oper-change": "2026-04-03T02:50:09.3+00:00",
+            "statistics": {
+                "ip": {
+                    "out-packets": "2120259",
+                    "out-octets": "1271034958",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "60260",
+                    "in-octets": "8635317",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                },
+                "mpls": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0"
+                }
+            },
+            "ipv4": {
+                "oper-state": "up",
+                "icmp": {
+                    "statistics": {
+                        "icmp-in-msgs": 1758,
+                        "icmp-in-errors": 1756,
+                        "icmp-in-dest-unreachables": 0,
+                        "icmp-in-redirects": 0,
+                        "icmp-in-echos": 0,
+                        "icmp-in-echo-replies": 2,
+                        "icmp-in-time-exceeds": 1756,
+                        "icmp-in-src-quenches": 0,
+                        "icmp-in-timestamps": 0,
+                        "icmp-in-timestamp-replies": 0,
+                        "icmp-in-address-masks": 0,
+                        "icmp-in-address-mask-replies": 0,
+                        "icmp-in-parm-problems": 0,
+                        "icmp-out-msgs": 210,
+                        "icmp-out-errors": 208,
+                        "icmp-out-dest-unreachables": 208,
+                        "icmp-out-redirects": 0,
+                        "icmp-out-echos": 2,
+                        "icmp-out-echo-replies": 0,
+                        "icmp-out-time-exceeds": 0,
+                        "icmp-out-src-quenches": 0,
+                        "icmp-out-timestamps": 0,
+                        "icmp-out-timestamp-replies": 0,
+                        "icmp-out-address-masks": 0,
+                        "icmp-out-address-mask-replies": 0,
+                        "icmp-out-parm-problems": 0,
+                        "icmp-out-discards": 500
+                    }
+                },
+                "dhcp": {
+                    "statistics": {
+                        "total-rx-packets": {
+                            "received": 0,
+                            "malformed": 0,
+                            "untrusted": 0
+                        },
+                        "total-tx-packets": {
+                            "transmitted": 0
+                        },
+                        "client-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        },
+                        "server-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        }
+                    }
+                },
+                "statistics": {
+                    "out-packets": "2120257",
+                    "out-octets": "1271034786",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0",
+                    "out-discard-dbcast-packets": "0",
+                    "out-discard-dbcast-octets": "0",
+                    "in-ip-helper-redirects-packets": "0",
+                    "in-ip-helper-redirects-octets": "0"
+                },
+                "primary": {
+                    "oper-address": "100.64.50.103",
+                    "creation-origin": "manual"
+                }
+            },
+            "ipv6": {
+                "oper-state": "down",
+                "down-reason": "protocol-down",
+                "icmp6": {
+                    "statistics": {
+                        "icmp6-in-msgs": 32,
+                        "icmp6-in-errors": 0,
+                        "icmp6-in-dest-unreachables": 0,
+                        "icmp6-in-admin-prohibs": 0,
+                        "icmp6-in-time-exceeds": 0,
+                        "icmp6-in-parm-problems": 0,
+                        "icmp6-in-pkt-too-bigs": 0,
+                        "icmp6-in-echos": 0,
+                        "icmp6-in-echo-replies": 0,
+                        "icmp6-in-rtr-solicits": 0,
+                        "icmp6-in-rtr-advertisements": 0,
+                        "icmp6-in-nbr-solicits": 0,
+                        "icmp6-in-nbr-advertisements": 0,
+                        "icmp6-in-redirects": 0,
+                        "icmp6-in-grp-memb-queries": 0,
+                        "icmp6-in-grp-memb-repsonses": 0,
+                        "icmp6-in-grp-memb-reductions": 0,
+                        "icmp6-out-msgs": 4,
+                        "icmp6-out-errors": 0,
+                        "icmp6-out-dest-unreachables": 0,
+                        "icmp6-out-admin-prohibs": 0,
+                        "icmp6-out-time-exceeds": 0,
+                        "icmp6-out-parm-problems": 0,
+                        "icmp6-out-pkt-too-bigs": 0,
+                        "icmp6-out-echos": 0,
+                        "icmp6-out-echo-replies": 0,
+                        "icmp6-out-rtr-solicits": 0,
+                        "icmp6-out-rtr-advertisements": 0,
+                        "icmp6-out-nbr-solicits": 4,
+                        "icmp6-out-nbr-advertisements": 0,
+                        "icmp6-out-redirects": 0,
+                        "icmp6-out-grp-memb-queries": 0,
+                        "icmp6-out-grp-memb-responses": 0,
+                        "icmp6-out-grp-memb-reductions": 0,
+                        "icmp6-out-discards": 0
+                    }
+                },
+                "statistics": {
+                    "out-packets": "2",
+                    "out-octets": "172",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                }
+            }
+        },
+        {
+            "interface-name": "transit-peering-lan",
+            "if-index": 5,
+            "system-if-index": 6,
+            "oper-state": "up",
+            "protocol": "ospfv2 mpls rsvp ospfv3",
+            "oper-ip-mtu": 9182,
+            "creation-origin": "manual",
+            "last-oper-change": "2026-04-03T02:50:09.3+00:00",
+            "statistics": {
+                "ip": {
+                    "out-packets": "29466476",
+                    "out-octets": "16378971276",
+                    "out-discard-packets": "1",
+                    "out-discard-octets": "91",
+                    "in-packets": "13139097",
+                    "in-octets": "1246731722",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                },
+                "mpls": {
+                    "out-packets": "4478451330627",
+                    "out-octets": "5361821539365093",
+                    "in-packets": "2124568705893",
+                    "in-octets": "2034540987702050"
+                }
+            },
+            "ipv4": {
+                "oper-state": "up",
+                "icmp": {
+                    "statistics": {
+                        "icmp-in-msgs": 83410,
+                        "icmp-in-errors": 83394,
+                        "icmp-in-dest-unreachables": 83394,
+                        "icmp-in-redirects": 0,
+                        "icmp-in-echos": 14,
+                        "icmp-in-echo-replies": 2,
+                        "icmp-in-time-exceeds": 0,
+                        "icmp-in-src-quenches": 0,
+                        "icmp-in-timestamps": 0,
+                        "icmp-in-timestamp-replies": 0,
+                        "icmp-in-address-masks": 0,
+                        "icmp-in-address-mask-replies": 0,
+                        "icmp-in-parm-problems": 0,
+                        "icmp-out-msgs": 47816500,
+                        "icmp-out-errors": 47810775,
+                        "icmp-out-dest-unreachables": 69826,
+                        "icmp-out-redirects": 45,
+                        "icmp-out-echos": 27,
+                        "icmp-out-echo-replies": 5653,
+                        "icmp-out-time-exceeds": 47740949,
+                        "icmp-out-src-quenches": 0,
+                        "icmp-out-timestamps": 0,
+                        "icmp-out-timestamp-replies": 0,
+                        "icmp-out-address-masks": 0,
+                        "icmp-out-address-mask-replies": 0,
+                        "icmp-out-parm-problems": 0,
+                        "icmp-out-discards": 25029983
+                    }
+                },
+                "dhcp": {
+                    "statistics": {
+                        "total-rx-packets": {
+                            "received": 0,
+                            "malformed": 0,
+                            "untrusted": 0
+                        },
+                        "total-tx-packets": {
+                            "transmitted": 0
+                        },
+                        "client-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        },
+                        "server-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        }
+                    }
+                },
+                "statistics": {
+                    "out-packets": "28654700",
+                    "out-octets": "16290566812",
+                    "out-discard-packets": "1",
+                    "out-discard-octets": "91",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0",
+                    "out-discard-dbcast-packets": "0",
+                    "out-discard-dbcast-octets": "0",
+                    "in-ip-helper-redirects-packets": "0",
+                    "in-ip-helper-redirects-octets": "0"
+                },
+                "primary": {
+                    "oper-address": "149.112.115.213",
+                    "creation-origin": "manual"
+                },
+                "neighbor-discovery": {
+                    "neighbor": [
+                        {
+                            "ipv4-address": "149.112.115.211",
+                            "oper-state": "up",
+                            "mac-address": "cc:e1:94:09:85:44",
+                            "type": "dynamic",
+                            "timer": 14377
+                        },
+                        {
+                            "ipv4-address": "149.112.115.212",
+                            "oper-state": "up",
+                            "mac-address": "cc:e1:94:0b:55:44",
+                            "type": "dynamic",
+                            "timer": 13647
+                        },
+                        {
+                            "ipv4-address": "149.112.115.214",
+                            "oper-state": "up",
+                            "mac-address": "9c:47:f4:6d:26:31",
+                            "type": "dynamic",
+                            "timer": 8057
+                        }
+                    ]
+                }
+            },
+            "ipv6": {
+                "oper-state": "up",
+                "icmp6": {
+                    "statistics": {
+                        "icmp6-in-msgs": 24503,
+                        "icmp6-in-errors": 52,
+                        "icmp6-in-dest-unreachables": 52,
+                        "icmp6-in-admin-prohibs": 0,
+                        "icmp6-in-time-exceeds": 0,
+                        "icmp6-in-parm-problems": 0,
+                        "icmp6-in-pkt-too-bigs": 0,
+                        "icmp6-in-echos": 0,
+                        "icmp6-in-echo-replies": 0,
+                        "icmp6-in-rtr-solicits": 0,
+                        "icmp6-in-rtr-advertisements": 0,
+                        "icmp6-in-nbr-solicits": 12223,
+                        "icmp6-in-nbr-advertisements": 12228,
+                        "icmp6-in-redirects": 0,
+                        "icmp6-in-grp-memb-queries": 0,
+                        "icmp6-in-grp-memb-repsonses": 0,
+                        "icmp6-in-grp-memb-reductions": 0,
+                        "icmp6-out-msgs": 37929,
+                        "icmp6-out-errors": 12985,
+                        "icmp6-out-dest-unreachables": 692,
+                        "icmp6-out-admin-prohibs": 0,
+                        "icmp6-out-time-exceeds": 12293,
+                        "icmp6-out-parm-problems": 0,
+                        "icmp6-out-pkt-too-bigs": 0,
+                        "icmp6-out-echos": 0,
+                        "icmp6-out-echo-replies": 274,
+                        "icmp6-out-rtr-solicits": 0,
+                        "icmp6-out-rtr-advertisements": 0,
+                        "icmp6-out-nbr-solicits": 12447,
+                        "icmp6-out-nbr-advertisements": 12223,
+                        "icmp6-out-redirects": 0,
+                        "icmp6-out-grp-memb-queries": 0,
+                        "icmp6-out-grp-memb-responses": 0,
+                        "icmp6-out-grp-memb-reductions": 0,
+                        "icmp6-out-discards": 3206
+                    }
+                },
+                "link-local-address": {
+                    "oper-address": "fe80::9e47:f4ff:fe6d:4231",
+                    "address-state": "preferred"
+                },
+                "statistics": {
+                    "out-packets": "811776",
+                    "out-octets": "88404464",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                },
+                "address": [
+                    {
+                        "ipv6-address": "2620:11a:b002:1000::213",
+                        "address-state": "preferred",
+                        "oper-address": "2620:11a:b002:1000::213",
+                        "creation-origin": "manual",
+                        "primary-preferred": true
+                    }
+                ],
+                "neighbor-discovery": {
+                    "neighbor": [
+                        {
+                            "ipv6-address": "fe80::cee1:9405:7f09:8544",
+                            "state": "stale",
+                            "is-router": true,
+                            "mtu": 9182,
+                            "mac-address": "cc:e1:94:09:85:44",
+                            "type": "dynamic",
+                            "timer": 13644
+                        },
+                        {
+                            "ipv6-address": "fe80::cee1:9405:7f0b:5544",
+                            "state": "stale",
+                            "is-router": true,
+                            "mtu": 9182,
+                            "mac-address": "cc:e1:94:0b:55:44",
+                            "type": "dynamic",
+                            "timer": 13860
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "interface-name": "lag-equinix-1",
+            "if-index": 13,
+            "system-if-index": 7,
+            "oper-state": "dormant",
+            "protocol": "",
+            "oper-ip-mtu": 0,
+            "creation-origin": "manual",
+            "last-oper-change": "2026-01-07T11:02:32.5+00:00",
+            "statistics": {
+                "ip": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                },
+                "mpls": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0"
+                }
+            },
+            "ipv4": {
+                "oper-state": "down",
+                "down-reason": "invalid-port-configuration",
+                "icmp": {
+                    "statistics": {
+                        "icmp-in-msgs": 0,
+                        "icmp-in-errors": 0,
+                        "icmp-in-dest-unreachables": 0,
+                        "icmp-in-redirects": 0,
+                        "icmp-in-echos": 0,
+                        "icmp-in-echo-replies": 0,
+                        "icmp-in-time-exceeds": 0,
+                        "icmp-in-src-quenches": 0,
+                        "icmp-in-timestamps": 0,
+                        "icmp-in-timestamp-replies": 0,
+                        "icmp-in-address-masks": 0,
+                        "icmp-in-address-mask-replies": 0,
+                        "icmp-in-parm-problems": 0,
+                        "icmp-out-msgs": 0,
+                        "icmp-out-errors": 0,
+                        "icmp-out-dest-unreachables": 0,
+                        "icmp-out-redirects": 0,
+                        "icmp-out-echos": 0,
+                        "icmp-out-echo-replies": 0,
+                        "icmp-out-time-exceeds": 0,
+                        "icmp-out-src-quenches": 0,
+                        "icmp-out-timestamps": 0,
+                        "icmp-out-timestamp-replies": 0,
+                        "icmp-out-address-masks": 0,
+                        "icmp-out-address-mask-replies": 0,
+                        "icmp-out-parm-problems": 0,
+                        "icmp-out-discards": 0
+                    }
+                },
+                "dhcp": {
+                    "statistics": {
+                        "total-rx-packets": {
+                            "received": 0,
+                            "malformed": 0,
+                            "untrusted": 0
+                        },
+                        "total-tx-packets": {
+                            "transmitted": 0
+                        },
+                        "client-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        },
+                        "server-packets": {
+                            "dropped": 0,
+                            "relayed": 0,
+                            "snooped": 0
+                        }
+                    }
+                },
+                "statistics": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0",
+                    "out-discard-dbcast-packets": "0",
+                    "out-discard-dbcast-octets": "0",
+                    "in-ip-helper-redirects-packets": "0",
+                    "in-ip-helper-redirects-octets": "0"
+                }
+            },
+            "ipv6": {
+                "oper-state": "down",
+                "down-reason": "protocol-down invalid-port-configuration",
+                "icmp6": {
+                    "statistics": {
+                        "icmp6-in-msgs": 0,
+                        "icmp6-in-errors": 0,
+                        "icmp6-in-dest-unreachables": 0,
+                        "icmp6-in-admin-prohibs": 0,
+                        "icmp6-in-time-exceeds": 0,
+                        "icmp6-in-parm-problems": 0,
+                        "icmp6-in-pkt-too-bigs": 0,
+                        "icmp6-in-echos": 0,
+                        "icmp6-in-echo-replies": 0,
+                        "icmp6-in-rtr-solicits": 0,
+                        "icmp6-in-rtr-advertisements": 0,
+                        "icmp6-in-nbr-solicits": 0,
+                        "icmp6-in-nbr-advertisements": 0,
+                        "icmp6-in-redirects": 0,
+                        "icmp6-in-grp-memb-queries": 0,
+                        "icmp6-in-grp-memb-repsonses": 0,
+                        "icmp6-in-grp-memb-reductions": 0,
+                        "icmp6-out-msgs": 0,
+                        "icmp6-out-errors": 0,
+                        "icmp6-out-dest-unreachables": 0,
+                        "icmp6-out-admin-prohibs": 0,
+                        "icmp6-out-time-exceeds": 0,
+                        "icmp6-out-parm-problems": 0,
+                        "icmp6-out-pkt-too-bigs": 0,
+                        "icmp6-out-echos": 0,
+                        "icmp6-out-echo-replies": 0,
+                        "icmp6-out-rtr-solicits": 0,
+                        "icmp6-out-rtr-advertisements": 0,
+                        "icmp6-out-nbr-solicits": 0,
+                        "icmp6-out-nbr-advertisements": 0,
+                        "icmp6-out-redirects": 0,
+                        "icmp6-out-grp-memb-queries": 0,
+                        "icmp6-out-grp-memb-responses": 0,
+                        "icmp6-out-grp-memb-reductions": 0,
+                        "icmp6-out-discards": 0
+                    }
+                },
+                "statistics": {
+                    "out-packets": "0",
+                    "out-octets": "0",
+                    "out-discard-packets": "0",
+                    "out-discard-octets": "0",
+                    "in-packets": "0",
+                    "in-octets": "0",
+                    "urpf-check-fail-packets": "0",
+                    "urpf-check-fail-octets": "0"
+                }
+            }
+        }
+    ]
+}
+
+[/]

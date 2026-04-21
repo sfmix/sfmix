@@ -32,38 +32,48 @@ Default ports: telnet `:23`, SSH `:2222`, HTTP `:8080`.
 ## Architecture
 
 ```
-┌───────────┐  ┌───────────┐  ┌─────────────────────┐
-│  Telnet   │  │    SSH    │  │     HTTP :8080      │
-│  :23      │  │  :2222    │  │  /api/v1/* (REST)   │
-│ anonymous │  │ OIDC+cert │  │  /mcp     (MCP)     │
-└─────┬─────┘  └─────┬─────┘  └──────────┬──────────┘
-      │              │                   │
-      └──────┬───────┴───────────────────┘
-             │
-      ┌──────▼──────┐
-      │ LookingGlass│   Unified service core
-      │  execute()  │   (policy + rate limit + dispatch)
-      └──────┬──────┘
-             │
-      ┌──────▼──────┐
-      │   Grammar   │   Declarative YAML command tree
-      │   Engine    │   (parse + complete)
-      └──────┬──────┘
-             │
-      ┌──────▼──────┐
-      │   Policy    │   First-match rules + port ownership checks
-      │   Engine    │
-      └──────┬──────┘
-             │
-      ┌──────▼──────┐
-      │    Rate     │   Global concurrency + per-user CPM
-      │   Limiter   │   + per-device concurrency
-      └──────┬──────┘
-             │
-      ┌──────▼──────┐
-      │   Device    │   SSH to network devices
-      │    Pool     │   Platform drivers (EOS, SR-OS)
-      └─────────────┘
+  lg-cli                          lg-http
+┌──────────────────────┐        ┌─────────────────────┐
+│ ┌────────┐┌────────┐ │        │     HTTP :8080      │
+│ │ Telnet ││  SSH   │ │        │ /api/v1/*     /mcp  │
+│ │  :23   ││ :2222  │ │        └──────────┬──────────┘
+│ └───┬────┘└───┬────┘ │                   │
+│     └────┬────┘      │                   │
+│   ┌──────▼──────┐    │                   │
+│   │     CLI     │    │                   │
+│   │   Grammar   │    │                   │
+│   │   Engine    │    │                   │
+│   └──────┬──────┘    │                   │
+└──────────┼───────────┘                   │
+           └───────────┬───────────────────┘
+                       │
+              ╔════════▼════════╗
+              ║  Authenticated  ║
+              ║       RPC       ║
+              ╚════════╤════════╝
+                       │
+                   lg-server
+┌───────────┐ ┌──────┼──────────────────┐ ┌───────────┐
+│           │ │ ┌────▼─────┐            │ │   State   │
+│  Netbox   ├─▶ │Execution │            │ │   Cache   │
+│           │ │ │  Core    │            │◀┤           │
+└───────────┘ │ └────┬─────┘            │ └───────────┘
+              │      │                  │
+              │ ┌────▼─────┐ ┌────────────────┐
+              │ │ Policy   ├▶│ Rate Limiter   │
+              │ │ Engine   │ │ (Requestor)    │
+              │ └────┬─────┘ └────────────────┘
+              │      │                  │
+              │ ┌────▼─────┐ ┌────────────────┐
+              │ │ Device   ├▶│ Rate Limiter   │
+              │ │  Pool    │ │ (Device)       │
+              │ └────┬─────┘ └────────────────┘
+              │      │                  │
+              └──────┼──────────────────┘
+                     │
+                 ╱───▼───╲
+                 │Devices│
+                 ╲───────╱
 ```
 
 ## Commands
