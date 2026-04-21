@@ -1,0 +1,35 @@
+# Test config for debugging Nokia SR-OS
+# Run with: cargo run --release -- --config config/test-nokia.yml
+
+service:
+  name: "Test Looking Glass"
+
+site:
+  name: "test"
+
+listen:
+  telnet:
+    enabled: true
+    bind: "127.0.0.1:2023"
+
+devices:
+  - name: "cr1.sjc01.transit"
+    platform: nokia_sros
+    host: "cr1.sjc01.transit.sfmix.org"
+    port: 22
+    username: "looking-glass"
+    auth_method: password
+    command_timeout_secs: 120
+
+rate_limits:
+  global:
+    max_concurrent: 10
+    commands_per_minute: 60
+  per_device:
+    max_concurrent: 2
+    commands_per_minute: 20
+  per_user:
+    commands_per_minute: 30
+
+vlans:
+  public: ["998", "999"]

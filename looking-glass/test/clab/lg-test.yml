@@ -43,6 +43,11 @@ rate_limits:
   per_user:
     commands_per_minute: 30
 
+vlans:
+  public:
+    - "998"
+    - "1006"
+
 participants:
   source: "file"
   file: "test/clab/participants.yml"
