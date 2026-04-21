@@ -8,10 +8,17 @@ looking_glass_ssh_port: 2222
 looking_glass_user: looking-glass
 looking_glass_group: looking-glass
 looking_glass_config_dir: /etc/looking-glass
-looking_glass_binary_path: /usr/local/bin/looking-glass
 looking_glass_device_username: looking-glass
 looking_glass_device_auth_method: password
 looking_glass_devices: []
+
+# RPC settings
+looking_glass_rpc_bind: "127.0.0.1:9090"
+
+# HTTP frontend
+looking_glass_http_enabled: false
+looking_glass_http_port: 8080
+looking_glass_http_bind: "127.0.0.1"
 
 # OIDC auth (optional — set looking_glass_oidc_enabled: true to enable)
 looking_glass_oidc_enabled: false

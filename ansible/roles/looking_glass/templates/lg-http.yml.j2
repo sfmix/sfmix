@@ -1,0 +1,35 @@
+{{ ansible_managed | comment }}
+
+rpc_url: "http://{{ looking_glass_rpc_bind }}"
+rpc_secret_env: "LG_RPC_SECRET"
+
+bind: "{{ looking_glass_http_bind }}:{{ looking_glass_http_port }}"
+
+{% if looking_glass_oidc_enabled %}
+auth:
+  oidc:
+    issuer: "{{ looking_glass_oidc_issuer }}"
+    client_id: "{{ looking_glass_oidc_client_id }}"
+    device_auth_endpoint: "{{ looking_glass_oidc_device_auth_endpoint }}"
+    token_endpoint: "{{ looking_glass_oidc_token_endpoint }}"
+    jwks_uri: "{{ looking_glass_oidc_jwks_uri }}"
+    group_prefix: "{{ looking_glass_oidc_group_prefix }}"
+    admin_group: "{{ looking_glass_oidc_admin_group }}"
+    cert_lifetime_secs: {{ looking_glass_oidc_cert_lifetime_secs }}
+{% if looking_glass_oidc_allowed_audiences is defined %}
+    allowed_audiences:
+{% for aud in looking_glass_oidc_allowed_audiences %}
+      - "{{ aud }}"
+{% endfor %}
+{% endif %}
+{% if looking_glass_oidc_allowed_issuers is defined %}
+    allowed_issuers:
+{% for iss in looking_glass_oidc_allowed_issuers %}
+      - "{{ iss }}"
+{% endfor %}
+{% endif %}
+  service_tokens:
+{% for token in looking_glass_service_tokens | default([]) %}
+    - "{{ token }}"
+{% endfor %}
+{% endif %}

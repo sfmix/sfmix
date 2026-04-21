@@ -1,0 +1,31 @@
+{{ ansible_managed | comment }}
+
+rpc_url: "http://{{ looking_glass_rpc_bind }}"
+rpc_secret_env: "LG_RPC_SECRET"
+
+telnet:
+  enabled: true
+  bind: "{{ looking_glass_bind_address }}:{{ looking_glass_telnet_port }}"
+
+ssh:
+  enabled: {{ looking_glass_ssh_enabled | lower }}
+{% if looking_glass_ssh_enabled %}
+  bind: "{{ looking_glass_bind_address }}:{{ looking_glass_ssh_port }}"
+  host_key: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
+{% if looking_glass_oidc_enabled %}
+  ca_key: "{{ looking_glass_config_dir }}/ca_ed25519_key"
+{% endif %}
+{% endif %}
+
+{% if looking_glass_oidc_enabled %}
+auth:
+  oidc:
+    issuer: "{{ looking_glass_oidc_issuer }}"
+    client_id: "{{ looking_glass_oidc_client_id }}"
+    device_auth_endpoint: "{{ looking_glass_oidc_device_auth_endpoint }}"
+    token_endpoint: "{{ looking_glass_oidc_token_endpoint }}"
+    jwks_uri: "{{ looking_glass_oidc_jwks_uri }}"
+    group_prefix: "{{ looking_glass_oidc_group_prefix }}"
+    admin_group: "{{ looking_glass_oidc_admin_group }}"
+    cert_lifetime_secs: {{ looking_glass_oidc_cert_lifetime_secs }}
+{% endif %}

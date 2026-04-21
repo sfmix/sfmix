@@ -1,6 +1,19 @@
 ---
-- name: Restart looking-glass
+- name: Restart lg-server
   become: true
   ansible.builtin.systemd_service:
-    name: looking-glass
+    name: lg-server
     state: restarted
+
+- name: Restart lg-cli
+  become: true
+  ansible.builtin.systemd_service:
+    name: lg-cli
+    state: restarted
+
+- name: Restart lg-http
+  become: true
+  ansible.builtin.systemd_service:
+    name: lg-http
+    state: restarted
+  when: looking_glass_http_enabled | default(false)

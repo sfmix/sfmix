@@ -1,4 +1,6 @@
 ---
+# ── Common setup ──────────────────────────────────────────────────────
+
 - name: Create looking-glass system group
   become: true
   ansible.builtin.group:
@@ -23,24 +25,12 @@
     group: "{{ looking_glass_group }}"
     mode: "0750"
 
-- name: Download looking-glass binary from GitHub Releases
-  become: true
-  ansible.builtin.get_url:
-    url: "https://github.com/{{ looking_glass_github_repo }}/releases/download/looking-glass-v{{ looking_glass_version }}/looking-glass-linux-amd64"
-    dest: "{{ looking_glass_binary_path }}"
-    owner: root
-    group: root
-    mode: "0755"
-    force: true
-  notify: Restart looking-glass
-
 - name: Generate SSH host key
   become: true
   ansible.builtin.command:
     cmd: ssh-keygen -t ed25519 -f {{ looking_glass_config_dir }}/ssh_host_ed25519_key -N ""
     creates: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
   when: looking_glass_ssh_enabled
-  notify: Restart looking-glass
 
 - name: Set SSH host key permissions
   become: true
@@ -57,7 +47,6 @@
     cmd: ssh-keygen -t ed25519 -f {{ looking_glass_config_dir }}/ca_ed25519_key -N ""
     creates: "{{ looking_glass_config_dir }}/ca_ed25519_key"
   when: looking_glass_ssh_enabled and looking_glass_oidc_enabled
-  notify: Restart looking-glass
 
 - name: Set CA key permissions
   become: true
@@ -68,17 +57,7 @@
     mode: "0600"
   when: looking_glass_ssh_enabled and looking_glass_oidc_enabled
 
-- name: Template looking-glass config
-  become: true
-  ansible.builtin.template:
-    src: config.yml.j2
-    dest: "{{ looking_glass_config_dir }}/config.yml"
-    owner: "{{ looking_glass_user }}"
-    group: "{{ looking_glass_group }}"
-    mode: "0640"
-  notify: Restart looking-glass
-
-- name: Template looking-glass environment file
+- name: Template environment file
   become: true
   ansible.builtin.template:
     src: looking-glass.env.j2
@@ -86,51 +65,184 @@
     owner: "{{ looking_glass_user }}"
     group: "{{ looking_glass_group }}"
     mode: "0640"
-  notify: Restart looking-glass
+  notify:
+    - Restart lg-server
+    - Restart lg-cli
+    - Restart lg-http
 
-- name: Create looking-glass systemd service
+# ── Download binaries ─────────────────────────────────────────────────
+
+- name: Download split binaries from GitHub Releases
+  become: true
+  ansible.builtin.get_url:
+    url: "https://github.com/{{ looking_glass_github_repo }}/releases/download/looking-glass-v{{ looking_glass_version }}/{{ item.artifact }}"
+    dest: "/usr/local/bin/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0755"
+    force: true
+  loop:
+    - { name: lg-server, artifact: lg-server-linux-amd64 }
+    - { name: lg-cli, artifact: lg-cli-linux-amd64 }
+    - { name: lg-http, artifact: lg-http-linux-amd64 }
+  notify:
+    - Restart lg-server
+    - Restart lg-cli
+    - Restart lg-http
+
+# ── Config templates ──────────────────────────────────────────────────
+
+- name: Template lg-server config
+  become: true
+  ansible.builtin.template:
+    src: lg-server.yml.j2
+    dest: "{{ looking_glass_config_dir }}/lg-server.yml"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0640"
+  notify: Restart lg-server
+
+- name: Template lg-cli config
+  become: true
+  ansible.builtin.template:
+    src: lg-cli.yml.j2
+    dest: "{{ looking_glass_config_dir }}/lg-cli.yml"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0640"
+  notify: Restart lg-cli
+
+- name: Template lg-http config
+  become: true
+  ansible.builtin.template:
+    src: lg-http.yml.j2
+    dest: "{{ looking_glass_config_dir }}/lg-http.yml"
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
+    mode: "0640"
+  when: looking_glass_http_enabled | default(false)
+  notify: Restart lg-http
+
+# ── Systemd services ──────────────────────────────────────────────────
+
+- name: Create lg-server systemd service
   become: true
   ansible.builtin.copy:
     content: |
       [Unit]
-      Description=SFMIX Looking Glass
+      Description=SFMIX Looking Glass RPC Server
       After=network.target
 
       [Service]
       Type=simple
-      ExecStart={{ looking_glass_binary_path }} --config {{ looking_glass_config_dir }}/config.yml
+      ExecStart=/usr/local/bin/lg-server --config {{ looking_glass_config_dir }}/lg-server.yml
       Restart=always
       RestartSec=5
       User={{ looking_glass_user }}
       Group={{ looking_glass_group }}
       EnvironmentFile={{ looking_glass_config_dir }}/looking-glass.env
 
-      # Hardening
       ProtectSystem=strict
       ProtectHome=true
       PrivateTmp=true
       NoNewPrivileges=true
       ReadOnlyPaths={{ looking_glass_config_dir }}
 
-      # Allow binding to privileged ports if needed
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/lg-server.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart lg-server
+
+- name: Create lg-cli systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=SFMIX Looking Glass CLI Frontend (Telnet/SSH)
+      After=network.target lg-server.service
+      Requires=lg-server.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/lg-cli --config {{ looking_glass_config_dir }}/lg-cli.yml
+      Restart=always
+      RestartSec=5
+      User={{ looking_glass_user }}
+      Group={{ looking_glass_group }}
+      EnvironmentFile={{ looking_glass_config_dir }}/looking-glass.env
+
+      ProtectSystem=strict
+      ProtectHome=true
+      PrivateTmp=true
+      NoNewPrivileges=true
+      ReadOnlyPaths={{ looking_glass_config_dir }}
       AmbientCapabilities=CAP_NET_BIND_SERVICE
 
       [Install]
       WantedBy=multi-user.target
-    dest: /etc/systemd/system/looking-glass.service
+    dest: /etc/systemd/system/lg-cli.service
     owner: root
     group: root
     mode: "0644"
-  notify: Restart looking-glass
+  notify: Restart lg-cli
+
+- name: Create lg-http systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=SFMIX Looking Glass HTTP Frontend (REST API + MCP)
+      After=network.target lg-server.service
+      Requires=lg-server.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/lg-http --config {{ looking_glass_config_dir }}/lg-http.yml
+      Restart=always
+      RestartSec=5
+      User={{ looking_glass_user }}
+      Group={{ looking_glass_group }}
+      EnvironmentFile={{ looking_glass_config_dir }}/looking-glass.env
+
+      ProtectSystem=strict
+      ProtectHome=true
+      PrivateTmp=true
+      NoNewPrivileges=true
+      ReadOnlyPaths={{ looking_glass_config_dir }}
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/lg-http.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: looking_glass_http_enabled | default(false)
+  notify: Restart lg-http
+
+# ── Systemd enable ────────────────────────────────────────────────────
 
 - name: Reload systemd daemon
   become: true
   ansible.builtin.systemd_service:
     daemon_reload: true
 
-- name: Enable and start looking-glass service
+- name: Enable and start services
   become: true
   ansible.builtin.systemd_service:
-    name: looking-glass
+    name: "{{ item }}"
     enabled: true
     state: started
+  loop:
+    - lg-server
+    - lg-cli
+
+- name: Enable and start lg-http service
+  become: true
+  ansible.builtin.systemd_service:
+    name: lg-http
+    enabled: true
+    state: started
+  when: looking_glass_http_enabled | default(false)
