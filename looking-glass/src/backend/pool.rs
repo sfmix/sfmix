@@ -210,6 +210,7 @@ fn visible_port_channels(
             && key.1.starts_with("Port-Channel")
             && match class {
                 PortClass::Core => true,
+                PortClass::AdminOnly => is_admin,
                 PortClass::Participant { asn } => is_admin || identity.asns.contains(asn),
             }
         {
@@ -296,6 +297,9 @@ fn filter_output_with_lookup(
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
         CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),
+        CommandOutput::BgpSources(v) => CommandOutput::BgpSources(v),
+        CommandOutput::BgpRoutes(v) => CommandOutput::BgpRoutes(v),
+        CommandOutput::BgpRouteLookup(v) => CommandOutput::BgpRouteLookup(v),
         CommandOutput::Error(e) => CommandOutput::Error(e),
     }
 }
@@ -312,9 +316,18 @@ fn port_visible(
     if interface.starts_with("Loopback") || interface.starts_with("Lo") {
         return true;
     }
+    // Nokia SR-OS router interfaces (system, lag-*, etc.) are always visible
+    // They don't follow Arista naming and aren't participant-facing ports
+    if interface == "system"
+        || interface.starts_with("lag-")
+        || interface.contains("-peering-")
+    {
+        return true;
+    }
     match pmap.classify(device, interface) {
         None => false, // not in map → hidden
         Some(PortClass::Core) => true,
+        Some(PortClass::AdminOnly) => is_admin,
         Some(PortClass::Participant { asn }) => {
             is_admin || identity.asns.contains(asn)
         }
@@ -388,7 +401,7 @@ mod tests {
             (DEVICE.to_string(), "Ethernet49/1".to_string()),
             (DEVICE.to_string(), "Ethernet50/1".to_string()),
         ];
-        PortMap::build(&participants, &core_ports)
+        PortMap::build(&participants, &core_ports, &[])
     }
 
     fn iface_status(name: &str) -> InterfaceStatus {
@@ -526,7 +539,7 @@ mod tests {
             (DEVICE.to_string(), "Port-Channel1".to_string()),
             (DEVICE.to_string(), "Ethernet49/1".to_string()),
         ];
-        let pmap = PortMap::build(&participants, &core_ports);
+        let pmap = PortMap::build(&participants, &core_ports, &[]);
 
         let mut eth1 = iface_status("Ethernet3/1");
         eth1.port_channel = Some("Port-Channel1".to_string());
@@ -571,7 +584,7 @@ mod tests {
             },
         ];
         let core_ports = vec![];
-        let pmap = PortMap::build(&participants, &core_ports);
+        let pmap = PortMap::build(&participants, &core_ports, &[]);
 
         let mut eth1 = iface_status("Ethernet3/1");
         eth1.port_channel = Some("Port-Channel1".to_string());
@@ -628,7 +641,7 @@ mod tests {
             },
         ];
         let core_ports = vec![];
-        let pmap = PortMap::build(&participants, &core_ports);
+        let pmap = PortMap::build(&participants, &core_ports, &[]);
 
         let mut eth7 = iface_status("Ethernet7");
         eth7.port_channel = Some("Port-Channel114".to_string());

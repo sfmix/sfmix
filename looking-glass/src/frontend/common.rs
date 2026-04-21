@@ -28,6 +28,9 @@ Available commands:
   show ipv6 neighbors              IPv6 neighbor table
   show participants                IXP participant list
   show vxlan vtep                  VXLAN VTEP table
+  show sources                     BGP data source status
+  show routes <neighbor>           BGP routes from a neighbor (via sources)
+  show route <prefix>              BGP route lookup across all sources
   show netbox                      NetBox cache status
   ping <destination>               Ping from the looking glass host
   traceroute <destination>         Traceroute from the looking glass host
@@ -36,6 +39,10 @@ Available commands:
   logout                           Drop authentication (return to public tier)
   help                             Show this help
   quit / exit                      Disconnect
+
+Device targeting:
+  @<device> anywhere in command   Target a specific device (e.g. show int @switch01)
+                                  Without @device, commands run on all devices
 ";
 
 // ---------------------------------------------------------------------------

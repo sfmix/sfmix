@@ -151,6 +151,10 @@ fn node_completion_list(children: &BTreeMap<String, GrammarNode>) -> Vec<(String
 // --- Parsing ---
 
 /// Parse user input into a structured Command using the grammar tree.
+///
+/// Device targeting: Use `@device` anywhere in the command to target a specific
+/// device (e.g., `show interfaces @cr1.sjc01.transit`). Without `@device`, the
+/// command fans out to all configured devices.
 pub fn parse_command(input: &str) -> Result<Command, ParseError> {
     let input = input.trim();
     if input.is_empty() {
@@ -165,12 +169,42 @@ pub fn parse_command(input: &str) -> Result<Command, ParseError> {
             address_family: AddressFamily::IPv4,
             filter_asn: None,
             filter_vlan: None,
+            filter_source: None,
         });
     }
 
+    // Extract @device targeting (can appear anywhere in the command)
+    let (clean_input, device) = extract_device_target(input);
+
     let g = grammar();
-    let tokens: Vec<&str> = input.split_whitespace().collect();
-    walk_parse(&g.commands, &tokens, None)
+    let tokens: Vec<&str> = clean_input.split_whitespace().collect();
+    let mut cmd = walk_parse(&g.commands, &tokens, None)?;
+    cmd.device = device;
+    Ok(cmd)
+}
+
+/// Extract `@device` from input, returning (remaining_input, Option<device_name>).
+///
+/// Examples:
+/// - `show interfaces @cr1.sjc01.transit` → (`show interfaces`, Some("cr1.sjc01.transit"))
+/// - `@switch01 show bgp summary` → (`show bgp summary`, Some("switch01"))
+/// - `show interfaces` → (`show interfaces`, None)
+fn extract_device_target(input: &str) -> (String, Option<String>) {
+    let mut device: Option<String> = None;
+    let mut remaining = Vec::new();
+
+    for token in input.split_whitespace() {
+        if let Some(dev) = token.strip_prefix('@') {
+            if !dev.is_empty() && device.is_none() {
+                device = Some(dev.to_string());
+            }
+            // Skip this token from the remaining input
+        } else {
+            remaining.push(token);
+        }
+    }
+
+    (remaining.join(" "), device)
 }
 
 fn walk_parse(
@@ -264,6 +298,7 @@ fn build_command(tpl: &CommandTemplate, captured_arg: Option<&str>) -> Result<Co
         address_family: tpl.address_family.unwrap_or_default(),
         filter_asn,
         filter_vlan,
+        filter_source: None,
     })
 }
 
@@ -515,5 +550,63 @@ mod tests {
         let c = get_completions(&["show", "ip", "bgp"], "");
         assert!(c.iter().any(|x| x.keyword == "summary"));
         assert!(c.iter().any(|x| x.keyword == "neighbor"));
+    }
+
+    // --- Device targeting tests ---
+
+    #[test]
+    fn test_device_target_suffix() {
+        let cmd = parse_command("show interfaces @cr1.sjc01.transit").unwrap();
+        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        assert_eq!(cmd.device.as_deref(), Some("cr1.sjc01.transit"));
+    }
+
+    #[test]
+    fn test_device_target_prefix() {
+        let cmd = parse_command("@switch01 show bgp summary").unwrap();
+        assert_eq!(cmd.resource, Resource::BgpSummary);
+        assert_eq!(cmd.device.as_deref(), Some("switch01"));
+    }
+
+    #[test]
+    fn test_device_target_middle() {
+        let cmd = parse_command("show @mydevice interfaces").unwrap();
+        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        assert_eq!(cmd.device.as_deref(), Some("mydevice"));
+    }
+
+    #[test]
+    fn test_no_device_target() {
+        let cmd = parse_command("show interfaces").unwrap();
+        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        assert!(cmd.device.is_none());
+    }
+
+    #[test]
+    fn test_device_target_with_filter() {
+        let cmd = parse_command("show interfaces 13335 @switch01").unwrap();
+        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        assert_eq!(cmd.filter_asn, Some(13335));
+        assert_eq!(cmd.device.as_deref(), Some("switch01"));
+    }
+
+    #[test]
+    fn test_extract_device_target() {
+        let (rest, dev) = extract_device_target("show interfaces @foo");
+        assert_eq!(rest, "show interfaces");
+        assert_eq!(dev.as_deref(), Some("foo"));
+
+        let (rest, dev) = extract_device_target("@bar ping 8.8.8.8");
+        assert_eq!(rest, "ping 8.8.8.8");
+        assert_eq!(dev.as_deref(), Some("bar"));
+
+        let (rest, dev) = extract_device_target("show interfaces");
+        assert_eq!(rest, "show interfaces");
+        assert!(dev.is_none());
+
+        // Empty @ is ignored
+        let (rest, dev) = extract_device_target("show @ interfaces");
+        assert_eq!(rest, "show interfaces");
+        assert!(dev.is_none());
     }
 }

@@ -6,32 +6,19 @@ use arc_swap::ArcSwap;
 use clap::Parser;
 use tracing::info;
 
-mod command;
-mod grammar;
-mod config;
-mod identity;
-mod netbox;
-mod oidc;
-mod participants;
-mod policy;
-mod ratelimit;
-mod structured;
-mod format;
-mod service;
-
-mod backend;
-mod frontend;
-
-use backend::pool::DevicePool;
-use config::ParticipantsSourceConfig;
-use frontend::http::HttpFrontend;
-use frontend::ssh::SshFrontend;
-use frontend::telnet::TelnetServer;
-use netbox::{NetboxIxpData, NetboxStatus};
-use participants::{ParticipantMap, PortMap};
-use policy::PolicyEngine;
-use ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
-use service::LookingGlass;
+use looking_glass::backend::pool::DevicePool;
+use looking_glass::config::{self, ParticipantsSourceConfig};
+use looking_glass::frontend::http::HttpFrontend;
+use looking_glass::frontend::ssh::SshFrontend;
+use looking_glass::frontend::telnet::TelnetServer;
+use looking_glass::netbox::{self, NetboxIxpData, NetboxStatus};
+use looking_glass::oidc;
+use looking_glass::participants::{ParticipantMap, PortMap};
+use looking_glass::policy::PolicyEngine;
+use looking_glass::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
+use looking_glass::service::LookingGlass;
+use looking_glass::bgp;
+use looking_glass::frontend;
 
 #[derive(Parser)]
 #[command(name = "looking-glass", about = "Multi-purpose IXP looking glass")]
@@ -57,22 +44,25 @@ async fn main() -> Result<()> {
 
     info!("Starting {} looking glass", config.service.name);
 
-    // Load participant mapping
-    let participants = match &config.participants {
+    // Load participant mapping (and port map if file-based)
+    let (participants, file_port_map) = match &config.participants {
         Some(ParticipantsSourceConfig::File { file }) => {
             info!("Loading participants from {}", file);
-            ParticipantMap::load_from_file(Path::new(file)).unwrap_or_else(|e| {
-                tracing::warn!("Failed to load participants: {e}, using empty map");
-                ParticipantMap::empty()
-            })
+            match ParticipantMap::load_with_port_map(Path::new(file)) {
+                Ok((pmap, port_map)) => (pmap, Some(port_map)),
+                Err(e) => {
+                    tracing::warn!("Failed to load participants: {e}, using empty map");
+                    (ParticipantMap::empty(), None)
+                }
+            }
         }
         Some(ParticipantsSourceConfig::Netbox { .. }) => {
             // Initial fetch happens after shared state is built (below)
-            ParticipantMap::empty()
+            (ParticipantMap::empty(), None)
         }
         None => {
             info!("No participant source configured, using empty map");
-            ParticipantMap::empty()
+            (ParticipantMap::empty(), None)
         }
     };
 
@@ -149,6 +139,17 @@ async fn main() -> Result<()> {
         .map(|a| a.oidc.group_prefix.clone())
         .unwrap_or_else(|| "as".to_string());
     let public_vlans = config.vlans.public.clone();
+
+    // Initialize BGP source pool if configured
+    let bgp_source_pool = if config.bgp_sources.is_empty() {
+        None
+    } else {
+        info!("Configuring {} BGP sources", config.bgp_sources.len());
+        let pool = Arc::new(bgp::pool::BgpSourcePool::new(config.bgp_sources));
+        pool.start_background_refresh();
+        Some(pool)
+    };
+
     let lg = Arc::new(LookingGlass {
         service_name: config.service.name.clone(),
         policy,
@@ -156,7 +157,7 @@ async fn main() -> Result<()> {
         device_rate_limiter,
         connection_tracker,
         participants: ArcSwap::from_pointee(participants),
-        port_map: ArcSwap::from_pointee(PortMap::empty()),
+        port_map: ArcSwap::from_pointee(file_port_map.unwrap_or_else(PortMap::empty)),
         device_pool,
         group_prefix,
         admin_group: config.auth.as_ref().map(|a| a.oidc.admin_group.clone()).unwrap_or_else(|| "IX Administrators".to_string()),
@@ -165,6 +166,7 @@ async fn main() -> Result<()> {
         netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
         ixp_data: ArcSwap::from_pointee(NetboxIxpData { switches: Vec::new(), vlans: Vec::new() }),
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
+        bgp_source_pool,
     });
 
     // Start telnet server
@@ -282,7 +284,7 @@ async fn main() -> Result<()> {
             match netbox::fetch_port_map(url, &token, domain_suffix.as_deref()).await {
                 Ok(result) => {
                     let pmap = ParticipantMap::build_from_netbox(&result.participants);
-                    let port_map = PortMap::build(&result.participants, &result.core_ports);
+                    let port_map = PortMap::build(&result.participants, &result.core_ports, &result.admin_ports);
                     let pc = pmap.all().count();
                     let pmc = port_map.len();
                     let pp_count = result.participants.iter().map(|p| p.ports.len()).sum();
@@ -326,7 +328,7 @@ async fn main() -> Result<()> {
                         match netbox::fetch_port_map(&url, &token, suffix.as_deref()).await {
                             Ok(result) => {
                                 let pmap = ParticipantMap::build_from_netbox(&result.participants);
-                                let port_map = PortMap::build(&result.participants, &result.core_ports);
+                                let port_map = PortMap::build(&result.participants, &result.core_ports, &result.admin_ports);
                                 let pc = pmap.all().count();
                                 let pmc = port_map.len();
                                 let pp_count = result.participants.iter().map(|p| p.ports.len()).sum();

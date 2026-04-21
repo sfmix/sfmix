@@ -188,6 +188,7 @@ impl LookingGlassMcp {
             address_family: af,
             filter_asn: None,
             filter_vlan: None,
+            filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
@@ -283,6 +284,7 @@ impl LookingGlassMcp {
             address_family: AddressFamily::IPv4,
             filter_asn: None,
             filter_vlan: None,
+            filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
@@ -301,6 +303,7 @@ impl LookingGlassMcp {
             address_family: AddressFamily::IPv4,
             filter_asn: None,
             filter_vlan: None,
+            filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))

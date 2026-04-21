@@ -89,6 +89,26 @@ devices:
     ssh_key: "/etc/looking-glass/device_key"
 
 # ---------------------------------------------------------------------------
+# BGP sources — route server looking glass backends (BIRDWatcher / bgplgd)
+# ---------------------------------------------------------------------------
+# Optional. Enables "show sources", "show routes <neighbor>", and
+# "show route <prefix>" commands plus /api/v1/bgp/sources, routes, route
+# endpoints. Each source is polled on a background timer.
+#
+# bgp_sources:
+#   - name: "rs-linux"
+#     display_name: "Route Server (BIRD)"
+#     source_type: birdwatcher            # birdwatcher | bgplgd
+#     api: "http://mgmt.rs-linux.sfmix.org:29184/"
+#     refresh_interval_secs: 60           # default: 60
+#
+#   - name: "rs-openbsd"
+#     display_name: "Route Server (OpenBGPD)"
+#     source_type: bgplgd
+#     api: "http://mgmt.rs-openbsd.sfmix.org/api/"
+#     refresh_interval_secs: 60
+
+# ---------------------------------------------------------------------------
 # Rate limits — protect network devices from query floods
 # ---------------------------------------------------------------------------
 rate_limits:
