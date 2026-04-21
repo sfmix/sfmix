@@ -107,6 +107,40 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 | **Participant** | SSH, HTTP | OIDC (PeeringDB/GitHub) | Public + own port details, own port optics |
 | **Administrator** | SSH, HTTP | OIDC (IX Administrators group) | Full read-only access to all ports |
 
+## MCP Interface
+
+The MCP (Model Context Protocol) endpoint at `/mcp/sse` allows LLM agents and tools (e.g. Windsurf, Claude Desktop) to query the looking glass programmatically.
+
+### Configuration
+
+In your MCP client, add the server URL:
+
+```json
+{
+  "mcpServers": {
+    "sfmix": {
+      "serverUrl": "https://lg-ng.sfmix.org/mcp/sse"
+    }
+  }
+}
+```
+
+### Authentication
+
+The MCP endpoint requires authentication. Compliant MCP clients (Windsurf, etc.) handle this automatically:
+
+1. Client connects → server returns `401 Unauthorized` with a `WWW-Authenticate` header
+2. Client fetches `/.well-known/oauth-protected-resource` to discover the authorization server
+3. Client fetches `/.well-known/oauth-authorization-server` and registers via `POST /oauth/register`
+4. Client opens a browser window for the OAuth consent flow (Authentik)
+5. After approval, subsequent requests carry `Authorization: Bearer <token>`
+
+No manual token configuration is needed in the MCP config — the client handles the OAuth flow automatically on first connection.
+
+### Anonymous access
+
+The MCP endpoint does not support anonymous access. All requests require a valid token from the OIDC provider. Authentication follows the same tiers as the HTTP REST API (Participant or Administrator).
+
 ## Documentation
 
 - **[Operations Guide](doc/operations.md)** — configuration reference, authentication, policy engine, deployment, systemd
