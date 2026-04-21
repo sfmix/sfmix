@@ -28,8 +28,4 @@ auth:
       - "{{ iss }}"
 {% endfor %}
 {% endif %}
-  service_tokens:
-{% for token in looking_glass_service_tokens | default([]) %}
-    - "{{ token }}"
-{% endfor %}
 {% endif %}

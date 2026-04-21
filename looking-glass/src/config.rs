@@ -126,10 +126,6 @@ pub struct RestListenConfig {
 #[allow(dead_code)]
 pub struct AuthConfig {
     pub oidc: OidcConfig,
-    /// Service API tokens for trusted server-to-server calls (e.g., portal).
-    /// Requests with a matching X-API-Key header get admin-level access.
-    #[serde(default)]
-    pub service_tokens: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
