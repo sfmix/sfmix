@@ -59,12 +59,17 @@ TF_VAR_portal_client_secret=$(ssh "${AUTHENTIK_HOST}" \
   "docker exec ${AUTHENTIK_CONTAINER} ak shell -c \
     \"from authentik.providers.oauth2.models import OAuth2Provider; print(OAuth2Provider.objects.get(name='portal').client_secret)\"" 2>/dev/null | tail -1)
 
+TF_VAR_looking_glass_api_client_secret=$(ssh "${AUTHENTIK_HOST}" \
+  "docker exec ${AUTHENTIK_CONTAINER} ak shell -c \
+    \"from authentik.providers.oauth2.models import OAuth2Provider; print(OAuth2Provider.objects.get(name='Looking Glass API').client_secret)\"" 2>/dev/null | tail -1)
+
 export AUTHENTIK_URL="https://${AUTHENTIK_HOST}/"
 export AUTHENTIK_TOKEN
 export TF_VAR_github_consumer_secret
 export TF_VAR_peeringdb_consumer_secret
 export TF_VAR_grafana_client_secret
 export TF_VAR_portal_client_secret
+export TF_VAR_looking_glass_api_client_secret
 
 echo "==> Ready. Token: ${TOKEN_ID} (user: ${AK_USER})"
 echo "    AUTHENTIK_URL=${AUTHENTIK_URL}"
