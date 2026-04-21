@@ -22,7 +22,23 @@ Ansible roles and playbooks that keep the lights on — network devices, servers
 - **`snappy`** — the speed test stack (LibreSpeed, OpenSpeedTest, TAUC TR-143, iperf3)
 - …and more (monitoring, flow collection, RPKI, etc.)
 
-## 🐍 `scripts/`
+## 🔭 `looking-glass/`
+
+A multi-frontend looking glass for IXP operations, written in Rust. Provides telnet (public), SSH (authenticated via OIDC), REST API, and MCP interfaces. Queries Arista EOS and Nokia SR-OS devices. Deployed on `alice.sfmix.org` as split-mode services (`lg-server`, `lg-cli`, `lg-http`).
+
+## 🖥️ `portal/`
+
+Django-based IXP participant portal at [portal.sfmix.org](https://portal.sfmix.org/). Fetches participant and network data from the looking glass REST API.
+
+## 🧪 `development_ixp/`
+
+Local development environment — Containerlab virtual network topologies, NetBox Docker, and monitoring stack for testing changes before production.
+
+## 🏗️ `terraform/`
+
+Terraform configs for managed services (Authentik SSO at [login.sfmix.org](https://login.sfmix.org/)).
+
+## 🛠️ `scripts/`
 
 Handy Python utilities for day-to-day IXP operations:
 
