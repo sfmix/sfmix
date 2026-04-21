@@ -4,7 +4,7 @@
 //! eliminates the duplication.
 
 use axum::http::HeaderMap;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::identity::Identity;
 use crate::oidc::OidcClient;
@@ -15,14 +15,6 @@ pub fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
-        .map(|s| s.to_string())
-}
-
-/// Extract service API key from X-API-Key header.
-pub fn extract_api_key(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("X-API-Key")
-        .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string())
 }
 
@@ -38,29 +30,15 @@ pub fn extract_client_ip(headers: &HeaderMap) -> Option<std::net::IpAddr> {
 
 /// Resolve identity and rate-limit key from HTTP headers.
 ///
-/// Priority: X-API-Key service token > Bearer OIDC token > anonymous.
+/// If a Bearer token is present, verify it as an OIDC JWT.
+/// Otherwise, return anonymous identity.
 pub async fn resolve_identity(
     headers: &HeaderMap,
     oidc_client: &Option<OidcClient>,
     group_prefix: &str,
-    admin_group: &str,
-    service_tokens: &[String],
     frontend: &str,
 ) -> (Identity, String) {
     let client_ip = extract_client_ip(headers);
-
-    // Check X-API-Key for service token auth first
-    if let Some(api_key) = extract_api_key(headers) {
-        if service_tokens.iter().any(|t| t == &api_key) {
-            info!("{frontend}: authenticated via service API key");
-            let identity = Identity::service(admin_group);
-            let rate_key = "service".to_string();
-            return (identity, rate_key);
-        } else {
-            debug!("{frontend}: invalid service API key");
-        }
-    }
-
     let token = extract_bearer_token(headers);
 
     match (oidc_client, token) {

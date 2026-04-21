@@ -41,16 +41,12 @@ pub async fn auth_middleware(
     request: Request,
     next: Next,
     group_prefix: String,
-    admin_group: String,
-    service_tokens: Vec<String>,
     oidc_client: Option<OidcClient>,
 ) -> Response {
     let (identity, rate_key) = auth::resolve_identity(
         request.headers(),
         &oidc_client,
         &group_prefix,
-        &admin_group,
-        &service_tokens,
         "MCP",
     )
     .await;

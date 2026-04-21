@@ -1,7 +1,5 @@
 //! REST API frontend that proxies commands through the RPC backend.
 
-use std::sync::Arc;
-
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
@@ -23,11 +21,8 @@ use looking_glass::structured::CommandOutput;
 #[derive(Clone)]
 pub struct HttpState {
     pub rpc: RpcClient,
-    pub info: ServiceInfo,
     pub oidc_client: Option<OidcClient>,
     pub group_prefix: String,
-    pub admin_group: String,
-    pub service_tokens: Vec<String>,
 }
 
 /// Per-request identity extracted from Bearer token.
@@ -48,8 +43,6 @@ async fn auth_middleware(
         request.headers(),
         &state.oidc_client,
         &state.group_prefix,
-        &state.admin_group,
-        &state.service_tokens,
         "REST",
     )
     .await;

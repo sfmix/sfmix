@@ -230,7 +230,6 @@ async fn main() -> Result<()> {
             let http_server = HttpFrontend::new(
                 http_config.bind.clone(),
                 lg.clone(),
-                config.auth.as_ref().map(|a| a.service_tokens.clone()).unwrap_or_default(),
             );
             tokio::spawn(async move {
                 if let Err(e) = http_server.run().await {
@@ -246,7 +245,6 @@ async fn main() -> Result<()> {
                     rest_config.bind.clone(),
                     lg.clone(),
                     config.auth.as_ref().and_then(|auth| oidc::OidcClient::new(&auth.oidc).ok()),
-                    config.auth.as_ref().map(|a| a.service_tokens.clone()).unwrap_or_default(),
                 );
                 tokio::spawn(async move {
                     if let Err(e) = rest_server.run().await {

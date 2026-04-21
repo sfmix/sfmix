@@ -14,12 +14,11 @@ use super::rest::{self, RestState};
 pub struct HttpFrontend {
     bind_addr: String,
     lg: Arc<LookingGlass>,
-    service_tokens: Vec<String>,
 }
 
 impl HttpFrontend {
-    pub fn new(bind_addr: String, lg: Arc<LookingGlass>, service_tokens: Vec<String>) -> Self {
-        Self { bind_addr, lg, service_tokens }
+    pub fn new(bind_addr: String, lg: Arc<LookingGlass>) -> Self {
+        Self { bind_addr, lg }
     }
 
     pub async fn run(&self) -> anyhow::Result<()> {
@@ -30,22 +29,17 @@ impl HttpFrontend {
         let rest_state = RestState {
             lg: self.lg.clone(),
             oidc_client: oidc_client.clone(),
-            service_tokens: self.service_tokens.clone(),
         };
         let rest_router = rest::router(rest_state);
 
         // MCP router — /mcp with task-local auth middleware
         let mcp_router = mcp::router(self.lg.clone(), ct.child_token());
         let group_prefix = self.lg.group_prefix.clone();
-        let admin_group = self.lg.admin_group.clone();
-        let mcp_service_tokens = self.service_tokens.clone();
         let mcp_oidc = oidc_client;
         let mcp_router = mcp_router.layer(middleware::from_fn(move |req, next| {
             let gp = group_prefix.clone();
-            let ag = admin_group.clone();
-            let st = mcp_service_tokens.clone();
             let oc = mcp_oidc.clone();
-            mcp::auth_middleware(req, next, gp, ag, st, oc)
+            mcp::auth_middleware(req, next, gp, oc)
         }));
 
         // Merge into one router

@@ -87,20 +87,11 @@ async fn main() -> Result<()> {
         .as_ref()
         .map(|a| a.oidc.group_prefix.clone())
         .unwrap_or_else(|| "as".to_string());
-    let admin_group = svc_info.admin_group.clone();
-    let service_tokens = config
-        .auth
-        .as_ref()
-        .map(|a| a.service_tokens.clone())
-        .unwrap_or_default();
 
     let state = rest::HttpState {
         rpc,
-        info: svc_info,
         oidc_client,
         group_prefix,
-        admin_group,
-        service_tokens,
     };
 
     // MCP router with its own auth middleware
@@ -108,16 +99,12 @@ async fn main() -> Result<()> {
     let mcp_rpc = state.rpc.clone();
     let mcp_oidc = state.oidc_client.clone();
     let mcp_group_prefix = state.group_prefix.clone();
-    let mcp_admin_group = state.admin_group.clone();
-    let mcp_service_tokens = state.service_tokens.clone();
 
     let mcp_router = mcp::router(mcp_rpc, ct.clone()).layer(
         axum::middleware::from_fn(move |req, next| {
             let gp = mcp_group_prefix.clone();
-            let ag = mcp_admin_group.clone();
-            let st = mcp_service_tokens.clone();
             let oc = mcp_oidc.clone();
-            mcp::auth_middleware(req, next, gp, ag, st, oc)
+            mcp::auth_middleware(req, next, gp, oc)
         }),
     );
 

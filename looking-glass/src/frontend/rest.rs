@@ -33,7 +33,6 @@ use crate::structured::{
 pub struct RestState {
     pub lg: Arc<LookingGlass>,
     pub oidc_client: Option<OidcClient>,
-    pub service_tokens: Vec<String>,
 }
 
 /// Per-request identity extracted from Bearer token.
@@ -54,8 +53,6 @@ async fn auth_middleware(
         request.headers(),
         &state.oidc_client,
         &state.lg.group_prefix,
-        &state.lg.admin_group,
-        &state.service_tokens,
         "REST",
     )
     .await;
@@ -712,10 +709,10 @@ pub struct RestFrontend {
 }
 
 impl RestFrontend {
-    pub fn new(bind_addr: String, lg: Arc<LookingGlass>, oidc_client: Option<OidcClient>, service_tokens: Vec<String>) -> Self {
+    pub fn new(bind_addr: String, lg: Arc<LookingGlass>, oidc_client: Option<OidcClient>) -> Self {
         Self {
             bind_addr,
-            state: RestState { lg, oidc_client, service_tokens },
+            state: RestState { lg, oidc_client },
         }
     }
 
