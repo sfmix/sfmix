@@ -1471,6 +1471,87 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
+name = "lg-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "lg-client",
+ "lg-types",
+ "looking-glass",
+ "rand 0.8.5",
+ "russh",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "lg-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "lg-types",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "lg-http"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "lg-client",
+ "lg-types",
+ "looking-glass",
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "lg-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "axum",
+ "clap",
+ "lg-types",
+ "looking-glass",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "lg-types"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.183"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1521,6 +1602,7 @@ dependencies = [
  "clap",
  "dashmap",
  "jsonwebtoken",
+ "lg-types",
  "owo-colors",
  "rand 0.8.5",
  "regex",

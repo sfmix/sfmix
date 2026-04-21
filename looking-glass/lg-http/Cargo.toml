@@ -1,0 +1,27 @@
+[package]
+name = "lg-http"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "Looking glass HTTP frontend (REST API + MCP)"
+
+[[bin]]
+name = "lg-http"
+path = "src/main.rs"
+
+[dependencies]
+lg-types = { path = "../lg-types" }
+lg-client = { path = "../lg-client" }
+looking-glass = { path = ".." }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+rmcp = { version = "1", features = ["server", "transport-streamable-http-server"] }
+schemars = "1"
+tokio-util = "0.7"
