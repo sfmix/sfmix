@@ -68,12 +68,9 @@
 - name: "Install HTTPS/Nginx Reverse Proxy"
   become: true
   block:
-    - name: "Install certbox and nginx"
+    - name: "Install certbot for alice domain"
       ansible.builtin.include_role:
-        name: "{{ item }}"
-      loop:
-        - geerlingguy.certbot
-        - geerlingguy.nginx
+        name: geerlingguy.certbot
       vars:
         certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
         certbot_create_if_missing: true
@@ -81,25 +78,35 @@
         certbot_certs:
           - domains:
               - "{{ alice_domain }}"
+
+    - name: "Install certbot for additional vhosts"
+      ansible.builtin.include_role:
+        name: geerlingguy.certbot
+      vars:
+        certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+        certbot_create_if_missing: true
+        certbot_create_standalone_stop_services: ["nginx.service"]
+        certbot_certs:
+          - domains:
+              - "{{ item.domain }}"
+      loop: "{{ alice_additional_vhosts }}"
+      when: alice_additional_vhosts | length > 0
+
+    - name: "Install nginx (base config only)"
+      ansible.builtin.include_role:
+        name: geerlingguy.nginx
+      vars:
         nginx_remove_default_vhost: true
         nginx_server_tokens: "off"
         nginx_extra_http_options: |
           limit_req_zone $binary_remote_addr zone=ip:10m rate=5r/s;
-        nginx_vhosts:
-          - listen: "80"
-            server_name: "_"
-            return: "301 https://$host$request_uri"
-          - listen: "443 ssl http2"
-            server_name: "{{ alice_domain }}"
-            extra_parameters: |
-              ssl_certificate /etc/letsencrypt/live/{{ alice_domain }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ alice_domain }}/privkey.pem;
-              ssl_dhparam /etc/ssl/certs/dhparam.pem;
-              location / {
-                limit_req zone=ip burst=12 delay=8;
-                proxy_pass http://127.0.0.1:7340;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-              }
+        nginx_vhosts: []
+
+    - name: "Template nginx vhosts config"
+      ansible.builtin.template:
+        src: nginx-vhosts.conf.j2
+        dest: /etc/nginx/conf.d/vhosts.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx

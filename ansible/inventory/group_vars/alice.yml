@@ -22,3 +22,9 @@ alice_git_repo_url: "https://github.com/jof/alice-lg.git"
 
 alice_theme_repo_url: https://github.com/sfmix/alice-theme
 alice_theme_repo_version: sfmix
+
+# Additional nginx vhosts on this host
+alice_additional_vhosts:
+  - domain: lg-ng.sfmix.org
+    upstream_port: 8080
+    rate_limit: true
