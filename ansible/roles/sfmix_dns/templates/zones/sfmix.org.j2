@@ -88,6 +88,7 @@ vlan100.gw.sfo02	IN	A	192.33.255.17
 vlan100.gw.sfo02	IN	AAAA	2620:11A:B000:100::1
 alice			IN	A	192.33.255.18
 alice			IN	AAAA	2620:11A:B000:100::2
+lg-ng			IN	CNAME	alice
 rpki-openbsd		IN	A	192.33.255.19
 rpki-openbsd		IN	AAAA	2620:11a:b000:100::19
 bcast-vlan100.gw.sfo02	IN	A	192.33.255.23
@@ -142,8 +143,7 @@ login			IN	A	192.33.255.71
 login			IN	AAAA	2620:11A:B000:110::71
 k6bgp-ampr-test		IN	A	192.33.255.72
 k6bgp-ampr-test		IN	AAAA	2620:11A:B000:110::72
-web			IN	A	192.33.255.73
-web			IN	AAAA	2620:11A:B000:110::73
+web			IN	CNAME	sfmix.github.io.
 ;host			IN	A	192.33.255.74
 ;host			IN	A	192.33.255.74
 ;host			IN	A	192.33.255.75
