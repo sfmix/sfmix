@@ -44,6 +44,13 @@ resource "authentik_provider_oauth2" "looking_glass" {
   invalidation_flow  = data.authentik_flow.default_invalidation.id
   signing_key        = data.authentik_certificate_key_pair.self_signed.id
 
+  allowed_redirect_uris = [
+    {
+      matching_mode = "regex"
+      url           = "http://127\\.0\\.0\\.1:\\d+/auth/callback"
+    },
+  ]
+
   access_code_validity   = "minutes=10"
   access_token_validity  = "hours=1"
   refresh_token_validity = "days=30"

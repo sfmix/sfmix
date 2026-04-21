@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,8 +22,16 @@ pub struct HttpState {
     pub rpc: RpcClient,
     pub oidc_client: Option<OidcClient>,
     pub group_prefix: String,
-    /// Authorization server URL for OAuth Protected Resource Metadata (RFC 9728).
-    pub authorization_server: Option<String>,
+    /// This server's public base URL (e.g. "https://lg-ng.sfmix.org").
+    pub resource_url: Option<String>,
+    /// OAuth2 authorization endpoint (Authentik's authorize URL).
+    pub authorization_endpoint: Option<String>,
+    /// Authentik's token endpoint, proxied in auth server metadata.
+    pub token_endpoint: Option<String>,
+    /// Authentik's JWKS URI, proxied in auth server metadata.
+    pub jwks_uri: Option<String>,
+    /// Public client_id to return from Dynamic Client Registration.
+    pub mcp_client_id: Option<String>,
 }
 
 /// Per-request identity extracted from Bearer token.
@@ -469,7 +477,7 @@ async fn get_oauth_protected_resource(
     State(state): State<HttpState>,
     headers: axum::http::HeaderMap,
 ) -> Response {
-    let Some(auth_server) = &state.authorization_server else {
+    let Some(resource_url) = &state.resource_url else {
         return (StatusCode::NOT_FOUND, "OAuth not configured").into_response();
     };
 
@@ -480,9 +488,10 @@ async fn get_oauth_protected_resource(
         .unwrap_or("localhost");
 
     let resource = format!("https://{}", host);
+    // Advertise ourselves as the authorization server (we proxy Authentik + handle DCR)
     let metadata = ProtectedResourceMetadata {
         resource,
-        authorization_servers: vec![auth_server.clone()],
+        authorization_servers: vec![resource_url.clone()],
         scopes_supported: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
         bearer_methods_supported: vec!["header".to_string()],
     };
@@ -491,17 +500,82 @@ async fn get_oauth_protected_resource(
 }
 
 // ---------------------------------------------------------------------------
+// OAuth Authorization Server Metadata (RFC 8414)
+// ---------------------------------------------------------------------------
+
+/// RFC 8414 Authorization Server Metadata.
+/// lg-http acts as an auth server proxy, advertising Authentik's real endpoints
+/// but adding a registration_endpoint so MCP clients can do Dynamic Client Registration.
+#[derive(Serialize)]
+struct AuthServerMetadata {
+    issuer: String,
+    authorization_endpoint: String,
+    token_endpoint: String,
+    jwks_uri: String,
+    registration_endpoint: String,
+    scopes_supported: Vec<String>,
+    response_types_supported: Vec<String>,
+    grant_types_supported: Vec<String>,
+    code_challenge_methods_supported: Vec<String>,
+    token_endpoint_auth_methods_supported: Vec<String>,
+}
+
+/// GET /.well-known/oauth-authorization-server
+async fn get_oauth_authorization_server_metadata(
+    State(state): State<HttpState>,
+) -> Response {
+    let (Some(resource_url), Some(authorization_endpoint), Some(token_endpoint), Some(jwks_uri)) = (
+        &state.resource_url,
+        &state.authorization_endpoint,
+        &state.token_endpoint,
+        &state.jwks_uri,
+    ) else {
+        return (StatusCode::NOT_FOUND, "OAuth not configured").into_response();
+    };
+
+    let metadata = AuthServerMetadata {
+        issuer: resource_url.clone(),
+        authorization_endpoint: authorization_endpoint.clone(),
+        token_endpoint: token_endpoint.clone(),
+        jwks_uri: jwks_uri.clone(),
+        registration_endpoint: format!("{}/oauth/register", resource_url),
+        scopes_supported: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
+        response_types_supported: vec!["code".to_string()],
+        grant_types_supported: vec!["authorization_code".to_string()],
+        code_challenge_methods_supported: vec!["S256".to_string()],
+        token_endpoint_auth_methods_supported: vec!["none".to_string()],
+    };
+
+    Json(metadata).into_response()
+}
+
+/// POST /oauth/register — Dynamic Client Registration (RFC 7591)
+/// Since Authentik doesn't support DCR, we return our shared public client_id.
+async fn post_oauth_register(
+    State(state): State<HttpState>,
+) -> Response {
+    let Some(client_id) = &state.mcp_client_id else {
+        return (StatusCode::NOT_IMPLEMENTED, "DCR not configured").into_response();
+    };
+
+    let response = serde_json::json!({
+        "client_id": client_id,
+        "client_name": "Looking Glass",
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code"],
+        "response_types": ["code"],
+    });
+
+    (StatusCode::CREATED, Json(response)).into_response()
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
 pub fn router(state: HttpState) -> Router {
-    Router::new()
-        // OAuth metadata (no auth required)
-        .route(
-            "/.well-known/oauth-protected-resource",
-            get(get_oauth_protected_resource),
-        )
-        // API routes (with auth middleware)
+    // API routes with auth middleware
+    let api_router = Router::new()
         .route("/api/v1/interfaces/status", get(get_interfaces_status))
         .route("/api/v1/interfaces/{name}", get(get_interface_detail))
         .route("/api/v1/optics", get(get_optics))
@@ -521,5 +595,19 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/bgp/routes/{neighbor}", get(get_bgp_routes))
         .route("/api/v1/bgp/route/{prefix}", get(get_bgp_route_lookup))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .with_state(state.clone());
+
+    // Public routes (no auth required) merged after
+    Router::new()
+        .route(
+            "/.well-known/oauth-protected-resource",
+            get(get_oauth_protected_resource),
+        )
+        .route(
+            "/.well-known/oauth-authorization-server",
+            get(get_oauth_authorization_server_metadata),
+        )
+        .route("/oauth/register", post(post_oauth_register))
         .with_state(state)
+        .merge(api_router)
 }

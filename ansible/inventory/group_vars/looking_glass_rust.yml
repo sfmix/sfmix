@@ -29,11 +29,15 @@ looking_glass_oidc_jwks_uri: "https://login.sfmix.org/application/o/looking-glas
 looking_glass_oidc_allowed_audiences:
   - "portal"
   - "looking-glass-api"
+  - "looking-glass"
 looking_glass_oidc_allowed_issuers:
   - "https://login.sfmix.org/application/o/portal/"
   - "https://login.sfmix.org/application/o/looking-glass-api/"
+  - "https://login.sfmix.org/application/o/looking-glass/"
 looking_glass_oidc_authorization_server: "https://login.sfmix.org/application/o/looking-glass-api/"
 looking_glass_oidc_resource_url: "https://lg-ng.sfmix.org"
+looking_glass_oidc_authorization_endpoint: "https://login.sfmix.org/application/o/authorize/"
+looking_glass_oidc_mcp_client_id: "looking-glass"
 looking_glass_api_client_secret: !vault |
           $ANSIBLE_VAULT;1.1;AES256
           66376131623262613233353634616535343066373764376335306361633966623731373638333462

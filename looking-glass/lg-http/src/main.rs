@@ -88,16 +88,40 @@ async fn main() -> Result<()> {
         .map(|a| a.oidc.group_prefix.clone())
         .unwrap_or_else(|| "as".to_string());
 
-    let authorization_server = config
+    let resource_url = config
         .auth
         .as_ref()
-        .and_then(|a| a.oidc.authorization_server.clone());
+        .and_then(|a| a.oidc.resource_url.clone());
+
+    let authorization_endpoint = config
+        .auth
+        .as_ref()
+        .and_then(|a| a.oidc.authorization_endpoint.clone());
+
+    let token_endpoint = config
+        .auth
+        .as_ref()
+        .and_then(|a| a.oidc.token_endpoint.clone());
+
+    let jwks_uri = config
+        .auth
+        .as_ref()
+        .and_then(|a| a.oidc.jwks_uri.clone());
+
+    let mcp_client_id = config
+        .auth
+        .as_ref()
+        .and_then(|a| a.oidc.mcp_client_id.clone());
 
     let state = rest::HttpState {
         rpc,
         oidc_client,
         group_prefix,
-        authorization_server,
+        resource_url,
+        authorization_endpoint,
+        token_endpoint,
+        jwks_uri,
+        mcp_client_id,
     };
 
     // MCP router with its own auth middleware
