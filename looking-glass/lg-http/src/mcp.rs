@@ -30,11 +30,14 @@ tokio::task_local! {
 }
 
 /// Authentication middleware for MCP requests.
+/// Returns 401 with WWW-Authenticate header if no valid Bearer token is present,
+/// triggering OAuth discovery flow in MCP clients (RFC 9728).
 pub async fn auth_middleware(
     request: Request,
     next: Next,
     group_prefix: String,
     oidc_client: Option<OidcClient>,
+    resource_metadata_url: Option<String>,
 ) -> Response {
     let (identity, rate_key) = auth::resolve_identity(
         request.headers(),
@@ -43,6 +46,18 @@ pub async fn auth_middleware(
         "MCP",
     )
     .await;
+
+    if !identity.authenticated {
+        let mut response = axum::http::Response::builder()
+            .status(axum::http::StatusCode::UNAUTHORIZED);
+
+        if let Some(ref url) = resource_metadata_url {
+            let header_value = format!("Bearer resource_metadata=\"{}\"", url);
+            response = response.header(axum::http::header::WWW_AUTHENTICATE, header_value);
+        }
+
+        return response.body(axum::body::Body::empty()).unwrap();
+    }
 
     CURRENT_IDENTITY.scope(identity, async {
         CURRENT_RATE_KEY.scope(rate_key, next.run(request)).await
