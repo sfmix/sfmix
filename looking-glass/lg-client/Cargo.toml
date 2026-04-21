@@ -1,0 +1,15 @@
+[package]
+name = "lg-client"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "RPC client for the looking glass backend"
+
+[dependencies]
+lg-types = { path = "../lg-types" }
+reqwest.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
