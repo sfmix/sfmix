@@ -106,11 +106,18 @@ async fn main() -> Result<()> {
     let mcp_oidc = state.oidc_client.clone();
     let mcp_group_prefix = state.group_prefix.clone();
 
+    let mcp_resource_metadata_url = config
+        .auth
+        .as_ref()
+        .and_then(|a| a.oidc.resource_url.as_ref())
+        .map(|base| format!("{}/.well-known/oauth-protected-resource", base.trim_end_matches('/')));
+
     let mcp_router = mcp::router(mcp_rpc, ct.clone()).layer(
         axum::middleware::from_fn(move |req, next| {
             let gp = mcp_group_prefix.clone();
             let oc = mcp_oidc.clone();
-            mcp::auth_middleware(req, next, gp, oc)
+            let rm = mcp_resource_metadata_url.clone();
+            mcp::auth_middleware(req, next, gp, oc, rm)
         }),
     );
 

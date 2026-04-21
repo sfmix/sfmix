@@ -31,4 +31,7 @@ auth:
 {% if looking_glass_oidc_authorization_server is defined %}
     authorization_server: "{{ looking_glass_oidc_authorization_server }}"
 {% endif %}
+{% if looking_glass_oidc_resource_url is defined %}
+    resource_url: "{{ looking_glass_oidc_resource_url }}"
+{% endif %}
 {% endif %}

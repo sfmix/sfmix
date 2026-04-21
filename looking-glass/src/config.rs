@@ -166,6 +166,11 @@ pub struct OidcConfig {
     /// Used by MCP clients to discover where to obtain tokens.
     #[serde(default)]
     pub authorization_server: Option<String>,
+    /// This server's public base URL, used to construct the resource metadata URL.
+    /// e.g. "https://lg-ng.sfmix.org"
+    /// Used in WWW-Authenticate headers to direct clients to /.well-known/oauth-protected-resource.
+    #[serde(default)]
+    pub resource_url: Option<String>,
     /// Lifetime of issued SSH certificates in seconds (default: 43200 = 12h).
     #[serde(default = "default_cert_lifetime")]
     pub cert_lifetime_secs: u64,
