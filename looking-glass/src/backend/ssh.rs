@@ -14,9 +14,6 @@ use crate::config::{DeviceAuthMethod, DeviceConfig};
 /// Timeout for SSH connect + auth.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Timeout for command execution (output collection).
-const COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
-
 /// Timeout for streaming commands (ping/traceroute) — per-line idle timeout.
 const STREAM_LINE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -75,8 +72,12 @@ async fn ssh_connect(config: &DeviceConfig) -> Result<client::Handle<ClientHandl
         "SSH connect"
     );
 
+    // Use the device's command timeout for SSH inactivity timeout.
+    // Nokia SR-OS `show port | as-json` can take 30+ seconds to produce output,
+    // during which no SSH protocol messages are exchanged.
+    let inactivity_timeout = Duration::from_secs(config.command_timeout_secs);
     let russh_config = client::Config {
-        inactivity_timeout: Some(Duration::from_secs(30)),
+        inactivity_timeout: Some(inactivity_timeout),
         ..Default::default()
     };
 
@@ -165,6 +166,9 @@ async fn ssh_connect(config: &DeviceConfig) -> Result<client::Handle<ClientHandl
 ///
 /// Connects, authenticates, opens a channel, sends the command, and
 /// collects all stdout data until the channel closes or EOF.
+///
+/// Note: Some devices (e.g., Nokia SR-OS) require a PTY for command execution.
+/// We request a PTY and use shell mode with the command followed by exit.
 pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String> {
     debug!(
         device = config.name,
@@ -179,33 +183,68 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
         .await
         .context("failed to open SSH channel")?;
 
+    // Request PTY - required for Nokia SR-OS and some other devices
+    // Use large terminal dimensions (65535 rows) to avoid pagination
     channel
-        .exec(true, cli_command)
+        .request_pty(false, "xterm", 0, 0, 65535, 65535, &[])
         .await
-        .context("failed to exec command")?;
+        .context("failed to request PTY")?;
 
+    // Use shell mode and send command + exit
+    channel
+        .request_shell(true)
+        .await
+        .context("failed to request shell")?;
+
+    // Send the command followed by exit
+    let cmd_with_exit = format!("{}\nexit\n", cli_command);
+    channel
+        .data(cmd_with_exit.as_bytes())
+        .await
+        .context("failed to send command")?;
+
+    let cmd_timeout = Duration::from_secs(config.command_timeout_secs);
+    // Idle timeout to detect when command output is complete
+    // Nokia SR-OS can have pauses between data bursts, so use 5 seconds
+    let idle_timeout = Duration::from_secs(5);
     let mut output = Vec::new();
-    let collect_result = timeout(COMMAND_TIMEOUT, async {
+    let mut last_data_time = tokio::time::Instant::now();
+    let mut got_data = false;
+    
+    let collect_result = timeout(cmd_timeout, async {
         loop {
-            match channel.wait().await {
-                Some(ChannelMsg::Data { data, .. }) => {
+            let wait_result = timeout(idle_timeout, channel.wait()).await;
+            match wait_result {
+                Err(_) => {
+                    // Idle timeout - if we've received data, assume command is done
+                    if got_data {
+                        trace!("SSH idle timeout after receiving data - command complete");
+                        break;
+                    }
+                    // No data yet, keep waiting
+                }
+                Ok(Some(ChannelMsg::Data { data, .. })) => {
                     trace!(bytes = data.len(), "SSH channel data");
                     output.extend_from_slice(&data);
+                    last_data_time = tokio::time::Instant::now();
+                    got_data = true;
                 }
-                Some(ChannelMsg::ExtendedData { data, ext }) => {
+                Ok(Some(ChannelMsg::ExtendedData { data, ext })) => {
                     if ext == 1 {
                         trace!(bytes = data.len(), "SSH channel stderr");
                         output.extend_from_slice(&data);
+                        last_data_time = tokio::time::Instant::now();
+                        got_data = true;
                     }
                 }
-                Some(ChannelMsg::ExitStatus { exit_status }) => {
+                Ok(Some(ChannelMsg::ExitStatus { exit_status })) => {
                     trace!(exit_status, "SSH channel exit status");
                 }
-                Some(ChannelMsg::Eof) => {
+                Ok(Some(ChannelMsg::Eof)) => {
                     trace!("SSH channel EOF");
                     break;
                 }
-                None => {
+                Ok(None) => {
                     break;
                 }
                 _ => {}
@@ -214,8 +253,10 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
     })
     .await;
 
+    let _ = last_data_time; // suppress unused warning
+    
     if collect_result.is_err() {
-        anyhow::bail!("command timed out after {}s on {}", COMMAND_TIMEOUT.as_secs(), config.name);
+        anyhow::bail!("command timed out after {}s on {}", cmd_timeout.as_secs(), config.name);
     }
 
     let _ = session
@@ -234,6 +275,8 @@ pub async fn ssh_exec(config: &DeviceConfig, cli_command: &str) -> Result<String
 ///
 /// Used for long-running commands like ping and traceroute where the user
 /// should see incremental output rather than waiting for completion.
+///
+/// Note: Uses PTY + shell mode for Nokia SR-OS compatibility.
 pub async fn ssh_exec_stream(
     config: &DeviceConfig,
     cli_command: &str,
@@ -251,10 +294,24 @@ pub async fn ssh_exec_stream(
         .await
         .context("failed to open SSH channel")?;
 
+    // Request PTY - required for Nokia SR-OS and some other devices
     channel
-        .exec(true, cli_command)
+        .request_pty(false, "xterm", 0, 0, 0, 0, &[])
         .await
-        .context("failed to exec command")?;
+        .context("failed to request PTY")?;
+
+    // Use shell mode and send command
+    channel
+        .request_shell(true)
+        .await
+        .context("failed to request shell")?;
+
+    // Send the command (no exit for streaming - let it run)
+    let cmd_line = format!("{}\n", cli_command);
+    channel
+        .data(cmd_line.as_bytes())
+        .await
+        .context("failed to send command")?;
 
     let (tx, rx) = mpsc::channel::<String>(64);
     let device_name = config.name.clone();

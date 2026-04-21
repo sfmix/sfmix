@@ -22,6 +22,8 @@ pub struct Config {
     pub frontend_limits: Option<FrontendLimitsConfig>,
     #[serde(default)]
     pub vlans: VlanVisibilityConfig,
+    #[serde(default)]
+    pub bgp_sources: Vec<BgpSourceConfig>,
 }
 
 /// VLAN visibility configuration for MAC address table output.
@@ -185,6 +187,11 @@ pub struct DeviceConfig {
     /// doesn't match. If unset, all host keys are accepted (TOFU model).
     #[serde(default)]
     pub host_key_fingerprint: Option<String>,
+    /// Timeout in seconds for command execution (output collection).
+    /// Defaults to 15s. Increase for devices with large output (e.g. Nokia SR-OS
+    /// `show port` can produce megabytes of JSON).
+    #[serde(default = "default_command_timeout")]
+    pub command_timeout_secs: u64,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -243,6 +250,28 @@ pub enum ParticipantsSourceConfig {
 
 fn default_refresh_interval() -> u64 {
     300
+}
+
+fn default_bgp_refresh_interval() -> u64 {
+    60
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BgpSourceConfig {
+    pub name: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    pub source_type: BgpSourceType,
+    pub api: String,
+    #[serde(default = "default_bgp_refresh_interval")]
+    pub refresh_interval_secs: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BgpSourceType {
+    Birdwatcher,
+    Bgplgd,
 }
 
 #[derive(Debug, Deserialize)]
@@ -321,6 +350,10 @@ fn default_admin_group() -> String {
 
 fn default_cert_lifetime() -> u64 {
     43200 // 12 hours
+}
+
+fn default_command_timeout() -> u64 {
+    15
 }
 
 fn default_ssh_port() -> u16 {

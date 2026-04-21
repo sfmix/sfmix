@@ -139,6 +139,23 @@ commands:
       vxlan:
         help: VXLAN VTEP information
         command: { verb: show, resource: vxlan_vtep }
+      route:
+        help: BGP route lookup across all sources
+        children:
+          _arg:
+            name: "<prefix>"
+            help: IP prefix to look up (e.g. 206.197.187.0/24)
+            command: { verb: show, resource: bgp_route_lookup, target: "$arg" }
+      routes:
+        help: BGP routes from a neighbor (via route server sources)
+        children:
+          _arg:
+            name: "<neighbor>"
+            help: Neighbor IP address
+            command: { verb: show, resource: bgp_routes, target: "$arg" }
+      sources:
+        help: BGP data source status
+        command: { verb: show, resource: bgp_sources }
       netbox:
         help: NetBox cache status
         command: { verb: show, resource: netbox_cache }

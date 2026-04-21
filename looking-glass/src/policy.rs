@@ -298,6 +298,13 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::Whoami => return "whoami".to_string(),
         Resource::Logout => return "logout".to_string(),
         Resource::NetboxCache => return "show netbox".to_string(),
+        Resource::BgpSources => return "show bgp sources".to_string(),
+        Resource::BgpRoutes => {
+            return format!("show bgp routes {}", command.target.as_deref().unwrap_or("*"));
+        }
+        Resource::BgpRouteLookup => {
+            return format!("show route {}", command.target.as_deref().unwrap_or("*"));
+        }
     };
     format!("{verb} {resource}")
 }

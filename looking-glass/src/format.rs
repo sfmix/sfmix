@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use chrono::Utc;
 use owo_colors::OwoColorize;
 use tabled::builder::Builder;
 use tabled::settings::Style;
@@ -197,11 +198,11 @@ pub fn format_device_header(device: &str, mode: ColorMode) -> String {
         format!("{}", device.bold().cyan())
     };
     
-    // Unicode box drawing for all modes
-    let dashes = "\u{2500}\u{2500}\u{2500}"; // ───
     if mode == ColorMode::Plain {
-        format!("\u{256d}{}\u{2500} {} \u{2500}{}\u{256e}\n", dashes, name, dashes)
+        let dashes = "---";
+        format!("+{}- {} -{}\n", dashes, name, dashes)
     } else {
+        let dashes = "\u{2500}\u{2500}\u{2500}"; // ───
         format!("{}{}\u{2500} {} \u{2500}{}{}\n",
             "\u{256d}".dimmed(),  // ╭
             dashes.dimmed(),
@@ -246,6 +247,9 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::Optics(entries) => render_optics(entries, color),
         CommandOutput::OpticsDetail(entries) => render_optics_detail(entries, color),
         CommandOutput::VxlanVtep(entries) => render_vxlan_vtep(entries, color),
+        CommandOutput::BgpSources(sources) => render_bgp_sources(sources, color),
+        CommandOutput::BgpRoutes(route_list) => render_bgp_route_list(route_list, color),
+        CommandOutput::BgpRouteLookup(routes) => render_bgp_routes(routes, color),
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
         CommandOutput::NetboxStatus(s) => s.clone(),
@@ -582,6 +586,107 @@ fn render_vxlan_vtep(entries: &[VxlanVtep], color: ColorMode) -> String {
         builder.push_record([
             e.vtep_address.clone(),
             e.learned_from.clone(),
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, color);
+    format!("{table}\n")
+}
+
+// ── BGP Sources ─────────────────────────────────────────────────
+
+fn render_bgp_sources(sources: &[BgpSourceStatus], color: ColorMode) -> String {
+    if sources.is_empty() {
+        return "No BGP sources configured.\n".to_string();
+    }
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("Source", color),
+        bold_str("Type", color),
+        bold_str("Router ID", color),
+        bold_str("Version", color),
+        bold_str("Neighbors", color),
+        bold_str("Status", color),
+    ]);
+    for s in sources {
+        let status = if let Some(ref err) = s.error {
+            if color == ColorMode::Plain { format!("error: {err}") } else { format!("{}", format!("error: {err}").red()) }
+        } else {
+            let age = s.last_refresh.map(|t| {
+                let secs = (Utc::now() - t).num_seconds().max(0) as u64;
+                if secs < 60 { format!("{secs}s ago") } else { format!("{}m ago", secs / 60) }
+            }).unwrap_or_else(|| "never".to_string());
+            if color == ColorMode::Plain { format!("ok ({age})") } else { format!("{}", format!("ok ({age})").green()) }
+        };
+        builder.push_record([
+            s.display_name.clone(),
+            s.source_type.clone(),
+            s.router_id.clone(),
+            s.version.clone(),
+            s.neighbor_count.to_string(),
+            status,
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, color);
+    format!("{table}\n")
+}
+
+// ── BGP Route List (per-neighbor) ───────────────────────────────
+
+fn render_bgp_route_list(rl: &BgpRouteList, color: ColorMode) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "Source: {}  Neighbor: {}", bold_str(&rl.source_name, color), rl.neighbor);
+    let _ = writeln!(out, "Accepted: {}  Filtered: {}  Not-exported: {}", rl.accepted_count, rl.filtered_count, rl.noexport_count);
+    if rl.routes.is_empty() {
+        let _ = writeln!(out, "No routes.");
+        return out;
+    }
+    let _ = writeln!(out);
+    out.push_str(&render_bgp_routes(&rl.routes, color));
+    out
+}
+
+// ── BGP Routes (table) ─────────────────────────────────────────
+
+fn render_bgp_routes(routes: &[BgpRoute], color: ColorMode) -> String {
+    if routes.is_empty() {
+        return "No routes found.\n".to_string();
+    }
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("*", color),
+        bold_str("Prefix", color),
+        bold_str("Next Hop", color),
+        bold_str("AS Path", color),
+        bold_str("LP", color),
+        bold_str("MED", color),
+        bold_str("Communities", color),
+        bold_str("Age", color),
+        bold_str("Source", color),
+    ]);
+    for r in routes {
+        let best = if r.primary { ">" } else { " " };
+        let as_path = r.as_path.iter().map(|a| a.to_string()).collect::<Vec<_>>().join(" ");
+        let lp = r.local_pref.map(|v| v.to_string()).unwrap_or_default();
+        let med = r.med.map(|v| v.to_string()).unwrap_or_default();
+        let comms = if r.communities.len() > 3 {
+            format!("{} (+{})", r.communities[..3].join(" "), r.communities.len() - 3)
+        } else {
+            r.communities.join(" ")
+        };
+        builder.push_record([
+            best.to_string(),
+            r.prefix.clone(),
+            r.next_hop.clone(),
+            as_path,
+            lp,
+            med,
+            comms,
+            r.age.clone(),
+            r.source_name.clone(),
         ]);
     }
     let mut table = builder.build();
