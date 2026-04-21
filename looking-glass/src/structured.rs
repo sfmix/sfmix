@@ -1,178 +1,12 @@
+// Re-export all data structs from lg-types::structured.
+pub use lg_types::structured::{
+    ArpEntry, BgpNeighborDetail, BgpPeerSummary, BgpRoute, BgpRouteList,
+    BgpSourceNeighbor, BgpSourceStatus, BgpSummary, InterfaceCounters,
+    InterfaceDetail, InterfaceOptics, InterfaceStatus, LldpNeighbor,
+    MacEntry, NdEntry, OpticalLane, VxlanVtep,
+};
+
 use serde::Serialize;
-
-/// Platform-independent structured response types.
-///
-/// These types represent the canonical data model for all looking glass
-/// queries. Drivers parse platform-specific output (EOS JSON, SR-OS JSON)
-/// into these types. Frontends render them for display (text tables for
-/// telnet/SSH, JSON for MCP).
-
-// ── Interface Status ────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InterfaceStatus {
-    pub name: String,
-    pub description: String,
-    pub link_status: String,
-    pub protocol_status: String,
-    pub speed: String,
-    pub interface_type: String,
-    pub vlan: String,
-    pub auto_negotiate: bool,
-    /// Member interfaces (for LAG/Port-Channel bundles)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub member_interfaces: Vec<String>,
-    /// Parent Port-Channel name (for member interfaces of a LAG)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub port_channel: Option<String>,
-}
-
-// ── Interface Detail ────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InterfaceDetail {
-    pub name: String,
-    pub description: String,
-    pub link_status: String,
-    pub protocol_status: String,
-    pub hardware_type: String,
-    pub mac_address: String,
-    pub mtu: u32,
-    pub speed: String,
-    pub bandwidth: String,
-    pub counters: InterfaceCounters,
-    /// Member interfaces (for LAG/Port-Channel bundles)
-    pub member_interfaces: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InterfaceCounters {
-    pub in_octets: u64,
-    pub in_unicast_packets: u64,
-    pub in_multicast_packets: u64,
-    pub in_broadcast_packets: u64,
-    pub in_discards: u64,
-    pub in_errors: u64,
-    pub out_octets: u64,
-    pub out_unicast_packets: u64,
-    pub out_multicast_packets: u64,
-    pub out_broadcast_packets: u64,
-    pub out_discards: u64,
-    pub out_errors: u64,
-}
-
-// ── BGP Summary ─────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct BgpSummary {
-    pub router_id: String,
-    pub local_as: u32,
-    pub peers: Vec<BgpPeerSummary>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct BgpPeerSummary {
-    pub neighbor: String,
-    pub remote_as: u32,
-    pub description: String,
-    pub state: String,
-    pub uptime: String,
-    pub prefixes_received: u32,
-    pub msg_received: u64,
-    pub msg_sent: u64,
-}
-
-// ── BGP Neighbor Detail ─────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct BgpNeighborDetail {
-    pub neighbor: String,
-    pub remote_as: u32,
-    pub local_as: u32,
-    pub description: String,
-    pub state: String,
-    pub uptime: String,
-    pub router_id: String,
-    pub hold_time: u32,
-    pub keepalive_interval: u32,
-    pub prefixes_received: u32,
-    pub prefixes_sent: u32,
-    pub messages_received: u64,
-    pub messages_sent: u64,
-}
-
-// ── MAC Address Table ───────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MacEntry {
-    pub vlan: String,
-    pub mac_address: String,
-    pub entry_type: String,
-    pub interface: String,
-}
-
-// ── ARP Table ───────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ArpEntry {
-    pub ip_address: String,
-    pub mac_address: String,
-    pub interface: String,
-    pub age: String,
-}
-
-// ── IPv6 Neighbor (ND) Table ────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NdEntry {
-    pub ip_address: String,
-    pub mac_address: String,
-    pub interface: String,
-    pub state: String,
-}
-
-// ── LLDP Neighbors ──────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct LldpNeighbor {
-    pub local_interface: String,
-    pub neighbor_device: String,
-    pub neighbor_port: String,
-    pub ttl: String,
-}
-
-// ── Optics (Transceiver DOM) ────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InterfaceOptics {
-    pub name: String,
-    pub description: String,
-    pub link_status: String,
-    pub media_type: String,
-    pub temperature_c: Option<f64>,
-    pub voltage_v: Option<f64>,
-    pub lanes: Vec<OpticalLane>,
-    /// Whether DOM monitoring is supported by this transceiver
-    pub dom_supported: bool,
-    /// Parent Port-Channel if this interface is a LAG member
-    pub port_channel: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct OpticalLane {
-    pub lane: u8,
-    pub tx_power_dbm: Option<f64>,
-    pub rx_power_dbm: Option<f64>,
-    pub tx_bias_ma: Option<f64>,
-}
-
-// ── VXLAN VTEP ──────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize)]
-pub struct VxlanVtep {
-    pub vtep_address: String,
-    pub learned_from: String,
-}
 
 // ── CommandOutput enum ──────────────────────────────────────────────
 
@@ -180,7 +14,8 @@ pub struct VxlanVtep {
 ///
 /// Each variant carries structured, platform-independent data.
 /// `Stream` is used for long-running commands (ping, traceroute) that
-/// produce output incrementally.
+/// produce output incrementally. This variant is not serializable and
+/// exists only in the in-process version (not in lg-types).
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum CommandOutput {
@@ -200,6 +35,12 @@ pub enum CommandOutput {
     Participants(String),
     /// NetBox cache status (local resource, no device dispatch).
     NetboxStatus(String),
+    /// BGP source status list (local resource, no device dispatch).
+    BgpSources(Vec<BgpSourceStatus>),
+    /// BGP route list from a BGP source (local resource, no device dispatch).
+    BgpRoutes(BgpRouteList),
+    /// BGP route lookup results across all sources.
+    BgpRouteLookup(Vec<BgpRoute>),
     /// Device-level error (e.g. SSH failure, timeout).
     Error(String),
 }
@@ -217,8 +58,69 @@ impl CommandOutput {
             CommandOutput::Optics(v) => v.is_empty(),
             CommandOutput::OpticsDetail(v) => v.is_empty(),
             CommandOutput::VxlanVtep(v) => v.is_empty(),
+            CommandOutput::BgpSources(v) => v.is_empty(),
+            CommandOutput::BgpRouteLookup(v) => v.is_empty(),
             CommandOutput::Error(_) => true,
             _ => false,
+        }
+    }
+
+    /// Convert an RPC-compatible CommandOutput back to the in-process version.
+    pub fn from_rpc(rpc: lg_types::structured::CommandOutput) -> Self {
+        match rpc {
+            lg_types::structured::CommandOutput::InterfacesStatus(v) => CommandOutput::InterfacesStatus(v),
+            lg_types::structured::CommandOutput::InterfaceDetail(v) => CommandOutput::InterfaceDetail(v),
+            lg_types::structured::CommandOutput::BgpSummary(v) => CommandOutput::BgpSummary(v),
+            lg_types::structured::CommandOutput::BgpNeighborDetail(v) => CommandOutput::BgpNeighborDetail(v),
+            lg_types::structured::CommandOutput::MacAddressTable(v) => CommandOutput::MacAddressTable(v),
+            lg_types::structured::CommandOutput::ArpTable(v) => CommandOutput::ArpTable(v),
+            lg_types::structured::CommandOutput::NdTable(v) => CommandOutput::NdTable(v),
+            lg_types::structured::CommandOutput::LldpNeighbors(v) => CommandOutput::LldpNeighbors(v),
+            lg_types::structured::CommandOutput::Optics(v) => CommandOutput::Optics(v),
+            lg_types::structured::CommandOutput::OpticsDetail(v) => CommandOutput::OpticsDetail(v),
+            lg_types::structured::CommandOutput::VxlanVtep(v) => CommandOutput::VxlanVtep(v),
+            lg_types::structured::CommandOutput::StreamLines(lines) => {
+                // Convert buffered stream lines into a channel receiver
+                let (tx, rx) = tokio::sync::mpsc::channel(lines.len().max(1));
+                tokio::spawn(async move {
+                    for line in lines {
+                        let _ = tx.send(line).await;
+                    }
+                });
+                CommandOutput::Stream(rx)
+            }
+            lg_types::structured::CommandOutput::Participants(s) => CommandOutput::Participants(s),
+            lg_types::structured::CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),
+            lg_types::structured::CommandOutput::BgpSources(v) => CommandOutput::BgpSources(v),
+            lg_types::structured::CommandOutput::BgpRoutes(v) => CommandOutput::BgpRoutes(v),
+            lg_types::structured::CommandOutput::BgpRouteLookup(v) => CommandOutput::BgpRouteLookup(v),
+            lg_types::structured::CommandOutput::Error(e) => CommandOutput::Error(e),
+        }
+    }
+
+    /// Convert this in-process CommandOutput to the RPC-compatible version.
+    /// Stream variants cannot be converted (returns Error).
+    #[allow(dead_code)]
+    pub fn into_rpc(self) -> lg_types::structured::CommandOutput {
+        match self {
+            CommandOutput::InterfacesStatus(v) => lg_types::structured::CommandOutput::InterfacesStatus(v),
+            CommandOutput::InterfaceDetail(v) => lg_types::structured::CommandOutput::InterfaceDetail(v),
+            CommandOutput::BgpSummary(v) => lg_types::structured::CommandOutput::BgpSummary(v),
+            CommandOutput::BgpNeighborDetail(v) => lg_types::structured::CommandOutput::BgpNeighborDetail(v),
+            CommandOutput::MacAddressTable(v) => lg_types::structured::CommandOutput::MacAddressTable(v),
+            CommandOutput::ArpTable(v) => lg_types::structured::CommandOutput::ArpTable(v),
+            CommandOutput::NdTable(v) => lg_types::structured::CommandOutput::NdTable(v),
+            CommandOutput::LldpNeighbors(v) => lg_types::structured::CommandOutput::LldpNeighbors(v),
+            CommandOutput::Optics(v) => lg_types::structured::CommandOutput::Optics(v),
+            CommandOutput::OpticsDetail(v) => lg_types::structured::CommandOutput::OpticsDetail(v),
+            CommandOutput::VxlanVtep(v) => lg_types::structured::CommandOutput::VxlanVtep(v),
+            CommandOutput::Stream(_) => lg_types::structured::CommandOutput::Error("cannot serialize live stream".into()),
+            CommandOutput::Participants(s) => lg_types::structured::CommandOutput::Participants(s),
+            CommandOutput::NetboxStatus(s) => lg_types::structured::CommandOutput::NetboxStatus(s),
+            CommandOutput::BgpSources(v) => lg_types::structured::CommandOutput::BgpSources(v),
+            CommandOutput::BgpRoutes(v) => lg_types::structured::CommandOutput::BgpRoutes(v),
+            CommandOutput::BgpRouteLookup(v) => lg_types::structured::CommandOutput::BgpRouteLookup(v),
+            CommandOutput::Error(e) => lg_types::structured::CommandOutput::Error(e),
         }
     }
 }
@@ -238,6 +140,9 @@ impl Serialize for CommandOutput {
             CommandOutput::OpticsDetail(v) => v.serialize(serializer),
             CommandOutput::VxlanVtep(v) => v.serialize(serializer),
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
+            CommandOutput::BgpSources(v) => v.serialize(serializer),
+            CommandOutput::BgpRoutes(v) => v.serialize(serializer),
+            CommandOutput::BgpRouteLookup(v) => v.serialize(serializer),
             CommandOutput::Participants(s) => serializer.serialize_str(s),
             CommandOutput::NetboxStatus(s) => serializer.serialize_str(s),
             CommandOutput::Error(e) => {

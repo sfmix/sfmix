@@ -42,6 +42,10 @@ pub struct Participant {
 #[derive(Debug, Deserialize)]
 struct ParticipantsFile {
     participants: Vec<Participant>,
+    #[serde(default)]
+    core_ports: Vec<ParticipantPort>,
+    #[serde(default)]
+    admin_ports: Vec<ParticipantPort>,
 }
 
 /// Maps ASNs to their ports and sessions, used by the policy engine
@@ -62,6 +66,37 @@ impl ParticipantMap {
             .map(|p| (p.asn, p))
             .collect();
         Ok(Self { by_asn })
+    }
+
+    /// Load participants from a YAML file and build both a ParticipantMap
+    /// and a PortMap (with core_ports and admin_ports from the file).
+    pub fn load_with_port_map(path: &Path) -> Result<(Self, PortMap)> {
+        let contents = std::fs::read_to_string(path)?;
+        let file: ParticipantsFile = serde_yaml::from_str(&contents)?;
+
+        let core_ports: Vec<(String, String)> = file.core_ports.iter()
+            .map(|p| (p.device.clone(), p.interface.clone()))
+            .collect();
+        let admin_ports: Vec<(String, String)> = file.admin_ports.iter()
+            .map(|p| (p.device.clone(), p.interface.clone()))
+            .collect();
+
+        // Build NetboxParticipant-compatible entries for PortMap::build
+        let nb_participants: Vec<NetboxParticipant> = file.participants.iter().map(|p| {
+            NetboxParticipant {
+                asn: p.asn,
+                name: p.name.clone(),
+                participant_type: p.participant_type.clone(),
+                ports: p.ports.iter().map(|pp| (pp.device.clone(), pp.interface.clone())).collect(),
+                enriched_ports: Vec::new(),
+                ip_addresses: Vec::new(),
+            }
+        }).collect();
+
+        let port_map = PortMap::build(&nb_participants, &core_ports, &admin_ports);
+
+        let by_asn = file.participants.into_iter().map(|p| (p.asn, p)).collect();
+        Ok((Self { by_asn }, port_map))
     }
 
     pub fn empty() -> Self {
@@ -159,27 +194,56 @@ pub enum PortClass {
     Core,
     /// Participant peering port — visible only to the owning ASN or admins.
     Participant { asn: u32 },
+    /// Admin-only port — visible only to IX Administrators.
+    AdminOnly,
+}
+
+/// Extract the parent connector name from a Nokia breakout port name.
+///
+/// Nokia breakout ports are named like `1/1/c1/1` where `1/1/c1` is the
+/// connector and `/1` is the breakout lane. Returns `Some("1/1/c1")` for
+/// `1/1/c1/1`, or `None` if the name doesn't match the breakout pattern.
+fn nokia_parent_connector(interface: &str) -> Option<String> {
+    // Pattern: digit/digit/cN/digit (e.g., 1/1/c1/1, 1/1/c12/1)
+    let parts: Vec<&str> = interface.split('/').collect();
+    if parts.len() == 4 && parts[2].starts_with('c') {
+        // It's a breakout port — return the connector (first 3 parts)
+        Some(format!("{}/{}/{}", parts[0], parts[1], parts[2]))
+    } else {
+        None
+    }
 }
 
 /// Allowlist-based port visibility map.
 ///
-/// Built from NetBox data (peering_port + core_port tags). Only ports
-/// present in this map are shown; everything else is hidden. This
-/// eliminates disabled, unconfigured, and untagged interfaces from output.
+/// Built from NetBox data (peering_port, core_port, transit_peer, admin_port
+/// tags). Only ports present in this map are shown; everything else is hidden.
+/// This eliminates disabled, unconfigured, and untagged interfaces from output.
 #[derive(Debug, Clone)]
 pub struct PortMap {
     ports: HashMap<(String, String), PortClass>,
 }
 
 impl PortMap {
-    /// Build a PortMap from NetBox participant data and core port list.
+    /// Build a PortMap from NetBox participant data, core port list, and admin port list.
+    ///
+    /// Priority (highest wins): Core > Participant > AdminOnly.
     pub fn build(
         participants: &[NetboxParticipant],
         core_ports: &[(String, String)],
+        admin_ports: &[(String, String)],
     ) -> Self {
         let mut ports = HashMap::new();
 
-        // Insert participant (peering) ports
+        // Insert admin-only ports (lowest priority)
+        for (device, iface) in admin_ports {
+            ports.insert(
+                (device.clone(), iface.clone()),
+                PortClass::AdminOnly,
+            );
+        }
+
+        // Insert participant (peering + transit) ports
         for p in participants {
             for (device, iface) in &p.ports {
                 ports.insert(
@@ -189,7 +253,7 @@ impl PortMap {
             }
         }
 
-        // Insert core ports (overwrites if a port is tagged both ways — core wins)
+        // Insert core ports (highest priority — overwrites everything)
         for (device, iface) in core_ports {
             ports.insert(
                 (device.clone(), iface.clone()),
@@ -205,8 +269,19 @@ impl PortMap {
     }
 
     /// Classify a (device, interface) pair. Returns `None` if not in the map.
+    ///
+    /// For Nokia breakout ports (e.g., `1/1/c1/1`), also tries the parent connector
+    /// name (`1/1/c1`) if the exact name isn't found.
     pub fn classify(&self, device: &str, interface: &str) -> Option<&PortClass> {
-        self.ports.get(&(device.to_string(), interface.to_string()))
+        // Try exact match first
+        if let Some(class) = self.ports.get(&(device.to_string(), interface.to_string())) {
+            return Some(class);
+        }
+        // For Nokia breakout ports like "1/1/c1/1", try parent connector "1/1/c1"
+        if let Some(parent) = nokia_parent_connector(interface) {
+            return self.ports.get(&(device.to_string(), parent));
+        }
+        None
     }
 
     /// Total number of classified ports.

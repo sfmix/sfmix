@@ -139,6 +139,8 @@ pub struct NetboxFetchResult {
     pub participants: Vec<NetboxParticipant>,
     /// Core/infrastructure ports visible to everyone: (device_fqdn, interface_name)
     pub core_ports: Vec<(String, String)>,
+    /// Admin-only ports visible only to IX Administrators: (device_fqdn, interface_name)
+    pub admin_ports: Vec<(String, String)>,
     /// IXP infrastructure data for IX-F export.
     pub ixp_data: NetboxIxpData,
 }
@@ -170,6 +172,18 @@ pub async fn fetch_port_map(
         core_ports: interface_list(filters: { tags: { slug: { exact: "core_port" } } }) {
             name
             device { name }
+        }
+        admin_ports: interface_list(filters: { tags: { slug: { exact: "admin_port" } } }) {
+            name
+            device { name }
+        }
+        transit_peers: interface_list(filters: { tags: { slug: { exact: "transit_peer" } } }) {
+            id
+            name
+            speed
+            enabled
+            device { id name }
+            custom_fields
         }
         ip_addresses: ip_address_list(filters: { tags: { slug: { exact: "ixp_participant" } } }) {
             address
@@ -247,6 +261,22 @@ pub async fn fetch_port_map(
     // Group peering interfaces by ASN → (simple ports + enriched ports)
     let mut ports_by_asn: HashMap<u32, Vec<(String, String)>> = HashMap::new();
     let mut enriched_by_asn: HashMap<u32, Vec<EnrichedPort>> = HashMap::new();
+
+    // Process transit peer SAPs (participant custom field, no peering_port tag).
+    // These go into ports_by_asn for PortMap classification but NOT enriched ports.
+    for iface in &data.transit_peers {
+        if let Some(tenant_id) = iface.custom_fields.participant {
+            let tid = tenant_id.to_string();
+            if let Some((asn, _, _)) = tenants_by_id.get(&tid) {
+                let device_name = normalize_device_name(&iface.device.name, domain_suffix);
+                ports_by_asn
+                    .entry(*asn)
+                    .or_default()
+                    .push((device_name, iface.name.clone()));
+            }
+        }
+    }
+
     for iface in &data.peering_ports {
         if let Some(tenant_id) = iface.custom_fields.participant {
             let tid = tenant_id.to_string();
@@ -315,6 +345,13 @@ pub async fn fetch_port_map(
         .map(|e| (normalize_device_name(&e.device.name, domain_suffix), e.name.clone()))
         .collect();
 
+    // Collect admin-only ports
+    let admin_ports: Vec<(String, String)> = data
+        .admin_ports
+        .iter()
+        .map(|e| (normalize_device_name(&e.device.name, domain_suffix), e.name.clone()))
+        .collect();
+
     // Build IXP switch list
     let switches: Vec<IxpSwitch> = data.peering_switches.iter().map(|d| {
         let site = &d.site;
@@ -369,15 +406,16 @@ pub async fn fetch_port_map(
     let ixp_data = NetboxIxpData { switches, vlans };
 
     info!(
-        "NetBox: {} participants ({} peering ports), {} core ports, {} switches, {} vlans, {} IPs",
+        "NetBox: {} participants ({} peering ports), {} core ports, {} admin ports, {} switches, {} vlans, {} IPs",
         participants.len(),
         participants.iter().map(|p| p.ports.len()).sum::<usize>(),
         core_ports.len(),
+        admin_ports.len(),
         ixp_data.switches.len(),
         ixp_data.vlans.len(),
         participants.iter().map(|p| p.ip_addresses.len()).sum::<usize>(),
     );
-    Ok(NetboxFetchResult { participants, core_ports, ixp_data })
+    Ok(NetboxFetchResult { participants, core_ports, admin_ports, ixp_data })
 }
 
 /// Parse a CIDR prefix string into (network_address, mask_length).
@@ -390,13 +428,12 @@ fn parse_prefix(prefix: &str) -> Option<(String, u32)> {
 
 /// Normalize a NetBox device name to FQDN.
 ///
-/// NetBox stores short names like `switch01.fmt01`. If a `domain_suffix` is
-/// provided and the name has fewer than 3 dot-separated components, append
-/// the suffix. Otherwise the name passes through unchanged.
+/// NetBox stores short names like `switch01.fmt01` or `cr1.sjc01.transit`.
+/// If a `domain_suffix` is provided and the name doesn't already end with it,
+/// append the suffix. Otherwise the name passes through unchanged.
 fn normalize_device_name(name: &str, domain_suffix: Option<&str>) -> String {
     if let Some(suffix) = domain_suffix {
-        let parts: Vec<&str> = name.split('.').collect();
-        if parts.len() < 3 {
+        if !name.ends_with(suffix) {
             return format!("{name}.{suffix}");
         }
     }
@@ -421,6 +458,8 @@ struct GraphQlData {
     tenant_list: Vec<TenantEntry>,
     peering_ports: Vec<InterfaceEntry>,
     core_ports: Vec<CorePortEntry>,
+    admin_ports: Vec<CorePortEntry>,
+    transit_peers: Vec<InterfaceEntry>,
     ip_addresses: Vec<IpAddressEntry>,
     peering_switches: Vec<DeviceEntry>,
     peering_vlans: Vec<VlanEntry>,
