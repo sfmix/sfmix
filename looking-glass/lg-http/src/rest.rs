@@ -11,7 +11,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use lg_client::client::{ExecuteEvent, RpcClient};
-use lg_types::rpc::ServiceInfo;
 use looking_glass::command::{AddressFamily, Command, Resource, Verb};
 use looking_glass::identity::Identity;
 use looking_glass::oidc::OidcClient;

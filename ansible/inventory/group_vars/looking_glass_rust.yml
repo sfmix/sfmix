@@ -28,8 +28,10 @@ looking_glass_oidc_token_endpoint: "https://login.sfmix.org/application/o/token/
 looking_glass_oidc_jwks_uri: "https://login.sfmix.org/application/o/looking-glass/jwks/"
 looking_glass_oidc_allowed_audiences:
   - "portal"
+  - "looking-glass-api"
 looking_glass_oidc_allowed_issuers:
   - "https://login.sfmix.org/application/o/portal/"
+  - "https://login.sfmix.org/application/o/looking-glass-api/"
 looking_glass_http_enabled: true
 looking_glass_http_bind: "127.0.0.1"
 looking_glass_http_port: 8080
