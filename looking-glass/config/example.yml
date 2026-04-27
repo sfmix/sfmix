@@ -41,6 +41,15 @@ listen:
   #   bind: "[::]:8080"   # default: [::]:8080
 
 # ---------------------------------------------------------------------------
+# MCP tool namespace — scopes MCP tool names to this deployment
+# ---------------------------------------------------------------------------
+# Set this to a short, slug-like identifier for your network or organization.
+# It prefixes all MCP tool names: looking_glass__{network_slug}__show_interfaces_status
+# This prevents name collisions when an MCP client connects to multiple looking glasses.
+#
+# network_slug: "sfmix"   # default: "my_network"
+
+# ---------------------------------------------------------------------------
 # Authentication — OIDC configuration for SSH cert and MCP header identity
 # ---------------------------------------------------------------------------
 # Required for SSH and authenticated MCP access. If omitted, only Telnet

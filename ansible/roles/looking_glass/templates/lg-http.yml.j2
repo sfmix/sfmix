@@ -5,6 +5,8 @@ rpc_secret_env: "LG_RPC_SECRET"
 
 bind: "{{ looking_glass_http_bind }}:{{ looking_glass_http_port }}"
 
+network_slug: "{{ looking_glass_network_slug }}"
+
 {% if looking_glass_oidc_enabled %}
 auth:
   oidc:
