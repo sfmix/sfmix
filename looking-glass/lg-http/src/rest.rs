@@ -553,10 +553,18 @@ async fn get_oauth_authorization_server_metadata(
 /// Since Authentik doesn't support DCR, we return our shared public client_id.
 async fn post_oauth_register(
     State(state): State<HttpState>,
+    body: Option<Json<serde_json::Value>>,
 ) -> Response {
     let Some(client_id) = &state.mcp_client_id else {
         return (StatusCode::NOT_IMPLEMENTED, "DCR not configured").into_response();
     };
+
+    // Echo back redirect_uris from the request if provided (RFC 7591 requires it in response).
+    let redirect_uris = body
+        .as_ref()
+        .and_then(|b| b.get("redirect_uris"))
+        .cloned()
+        .unwrap_or(serde_json::json!([]));
 
     let response = serde_json::json!({
         "client_id": client_id,
@@ -564,6 +572,7 @@ async fn post_oauth_register(
         "token_endpoint_auth_method": "none",
         "grant_types": ["authorization_code"],
         "response_types": ["code"],
+        "redirect_uris": redirect_uris,
     });
 
     (StatusCode::CREATED, Json(response)).into_response()
