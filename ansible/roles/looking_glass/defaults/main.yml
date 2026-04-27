@@ -19,6 +19,7 @@ looking_glass_rpc_bind: "127.0.0.1:9090"
 looking_glass_http_enabled: false
 looking_glass_http_port: 8080
 looking_glass_http_bind: "127.0.0.1"
+looking_glass_network_slug: "my_network"
 
 # OIDC auth (optional — set looking_glass_oidc_enabled: true to enable)
 looking_glass_oidc_enabled: false

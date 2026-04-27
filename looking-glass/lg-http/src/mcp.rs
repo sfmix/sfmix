@@ -3,14 +3,17 @@
 use axum::extract::Request;
 use axum::middleware::Next;
 use axum::response::Response;
+use std::borrow::Cow;
+
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::router::tool::ToolRouter,
+    handler::server::tool::ToolCallContext,
     handler::server::wrapper::Parameters,
     model::*,
     schemars,
     service::RequestContext,
-    tool, tool_handler, tool_router,
+    tool, tool_router,
     transport::streamable_http_server::{
         StreamableHttpServerConfig, StreamableHttpService,
         session::local::LocalSessionManager,
@@ -68,6 +71,7 @@ pub async fn auth_middleware(
 pub fn router(
     rpc: RpcClient,
     ct: tokio_util::sync::CancellationToken,
+    network_slug: String,
 ) -> axum::Router {
     let config = StreamableHttpServerConfig::default()
         .with_stateful_mode(false)
@@ -81,7 +85,7 @@ pub fn router(
             let rate_key = CURRENT_RATE_KEY
                 .try_with(|k| k.clone())
                 .unwrap_or_else(|_| "anonymous".to_string());
-            Ok(McpHandler::new(rpc.clone(), identity, rate_key))
+            Ok(McpHandler::new(rpc.clone(), identity, rate_key, network_slug.clone()))
         },
         LocalSessionManager::default().into(),
         config,
@@ -122,16 +126,18 @@ struct McpHandler {
     rpc: RpcClient,
     identity: Identity,
     rate_key: String,
+    network_slug: String,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl McpHandler {
-    fn new(rpc: RpcClient, identity: Identity, rate_key: String) -> Self {
+    fn new(rpc: RpcClient, identity: Identity, rate_key: String, network_slug: String) -> Self {
         Self {
             rpc,
             identity,
             rate_key,
+            network_slug,
             tool_router: Self::tool_router(),
         }
     }
@@ -348,9 +354,13 @@ impl McpHandler {
     }
 }
 
-#[tool_handler]
 impl ServerHandler for McpHandler {
     fn get_info(&self) -> ServerInfo {
+        let prefix = format!("looking_glass__{}", self.network_slug);
+        let tool_names: Vec<String> = self.tool_router.list_all()
+            .into_iter()
+            .map(|t| format!("{}__{}", prefix, t.name))
+            .collect();
         ServerInfo::new(
             ServerCapabilities::builder()
                 .enable_tools()
@@ -358,16 +368,53 @@ impl ServerHandler for McpHandler {
                 .build(),
         )
         .with_server_info(
-            Implementation::new("sfmix-looking-glass", env!("CARGO_PKG_VERSION"))
-                .with_description("SFMIX IXP Looking Glass"),
+            Implementation::new(
+                format!("{}-looking-glass", self.network_slug),
+                env!("CARGO_PKG_VERSION"),
+            )
+            .with_description(format!("{} Looking Glass", self.network_slug)),
         )
-        .with_instructions(
-            "SFMIX Looking Glass — query IXP switch and router state. \
-             Available tools: show_interfaces_status, show_interface_detail, \
-             show_optics, show_optics_detail, show_bgp_summary, \
-             show_lldp_neighbors, show_arp_table, show_nd_table, \
-             show_participants, ping, traceroute.",
-        )
+        .with_instructions(format!(
+            "Looking Glass for {} — query network switch and router state. \
+             Available tools: {}.",
+            self.network_slug,
+            tool_names.join(", "),
+        ))
+    }
+
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, McpError> {
+        let prefix = format!("looking_glass__{}", self.network_slug);
+        let tools = self.tool_router.list_all()
+            .into_iter()
+            .map(|mut t| {
+                t.name = Cow::Owned(format!("{}__{}", prefix, t.name));
+                t
+            })
+            .collect();
+        Ok(ListToolsResult { tools, meta: None, next_cursor: None })
+    }
+
+    async fn call_tool(
+        &self,
+        mut request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        let prefix = format!("looking_glass__{}__", self.network_slug);
+        if let Some(bare) = request.name.strip_prefix(prefix.as_str()) {
+            request.name = Cow::Owned(bare.to_string());
+        }
+        let tcc = ToolCallContext::new(self, request, context);
+        self.tool_router.call(tcc).await
+    }
+
+    fn get_tool(&self, name: &str) -> Option<Tool> {
+        let prefix = format!("looking_glass__{}__", self.network_slug);
+        let bare = name.strip_prefix(prefix.as_str()).unwrap_or(name);
+        self.tool_router.get(bare).cloned()
     }
 
     async fn list_resources(

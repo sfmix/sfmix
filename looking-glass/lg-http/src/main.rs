@@ -31,6 +31,10 @@ struct HttpConfig {
     /// OIDC config for Bearer token verification
     #[serde(default)]
     auth: Option<looking_glass::config::AuthConfig>,
+    /// Short slug identifying this network/deployment, used to namespace MCP tool names.
+    /// e.g. "sfmix" produces tools named "looking_glass__sfmix__show_interfaces_status"
+    #[serde(default = "default_network_slug")]
+    network_slug: String,
 }
 
 fn default_bind() -> String {
@@ -38,6 +42,9 @@ fn default_bind() -> String {
 }
 fn default_rpc_secret_env() -> String {
     "LG_RPC_SECRET".to_string()
+}
+fn default_network_slug() -> String {
+    "my_network".to_string()
 }
 
 #[tokio::main]
@@ -136,7 +143,7 @@ async fn main() -> Result<()> {
         .and_then(|a| a.oidc.resource_url.as_ref())
         .map(|base| format!("{}/.well-known/oauth-protected-resource", base.trim_end_matches('/')));
 
-    let mcp_router = mcp::router(mcp_rpc, ct.clone()).layer(
+    let mcp_router = mcp::router(mcp_rpc, ct.clone(), config.network_slug.clone()).layer(
         axum::middleware::from_fn(move |req, next| {
             let gp = mcp_group_prefix.clone();
             let oc = mcp_oidc.clone();
