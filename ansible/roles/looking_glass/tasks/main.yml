@@ -89,6 +89,9 @@
     - Restart lg-server
     - Restart lg-cli
     - Restart lg-http
+  tags:
+    - download
+    - binaries
 
 # ── Config templates ──────────────────────────────────────────────────
 
