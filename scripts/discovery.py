@@ -521,10 +521,14 @@ class DeviceDiscovery(ABC):
         return self.nb_device.role.slug
 
     @abstractmethod
-    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
+    def discover_hardware_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         """Sync physical interfaces to NetBox."""
 
-    def discover_logical_interfaces(self, dry_run: bool = False) -> None:
+    def discover_logical_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         """Sync logical/virtual interfaces to NetBox. Default: no-op."""
 
     @abstractmethod
@@ -564,7 +568,9 @@ class NetconfSSHDevice(DeviceDiscovery):
 class AristaEOSDevice(DeviceDiscovery):
     """Discovery and NetBox sync for Arista EOS devices."""
 
-    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
+    def discover_hardware_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         netbox = netbox_api_client()
         connection_params = get_eapi_connection_parameters()
         connection_params["host"] = self.device_name
@@ -589,16 +595,21 @@ class AristaEOSDevice(DeviceDiscovery):
         exchange_vlan_map = {
             exchange_vlan.vid: exchange_vlan for exchange_vlan in exchange_vlans
         }
-        on_device_interfaces = interfaces_response.keys()
+        on_device_interfaces = set(interfaces_response.keys())
         for netbox_interface in netbox.dcim.interfaces.filter(device=self.device_name):
             if netbox_interface.name not in on_device_interfaces:
-                logger.warning(
-                    f"Would delete interface (uncomment the code): {netbox_interface.device!r}/{netbox_interface!r}"
-                )
-                # logger.info(
-                #     f"Deleting interface: {netbox_interface.device!r}/{netbox_interface!r}"
-                # )
-                # netbox_interface.delete()
+                if delete_interfaces:
+                    logger.info(
+                        f"{'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
+                        f" interface: {netbox_interface.device!r}/{netbox_interface!r}"
+                    )
+                    if not dry_run:
+                        netbox_interface.delete()
+                else:
+                    logger.debug(
+                        f"Stale interface (use --delete-interfaces to remove):"
+                        f" {netbox_interface.device!r}/{netbox_interface!r}"
+                    )
 
         netbox_interface_type = None
         for interface_name, interface_details in interfaces_response.items():
@@ -920,7 +931,9 @@ class AristaEOSDevice(DeviceDiscovery):
 class NokiaSROSDevice(NetconfSSHDevice):
     """Discovery and NetBox sync for Nokia SR-OS devices."""
 
-    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
+    def discover_hardware_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         netbox = netbox_api_client()
         creds = self._get_ssh_credentials()
         logger.info(
@@ -933,6 +946,7 @@ class NokiaSROSDevice(NetconfSSHDevice):
         )
         logger.info(f"  Found {len(ports)} ports via NETCONF")
 
+        on_device_ports = set()
         for port_info in ports:
             port_id = port_info["port-id"]
             port_class = port_info.get("port-class", "")
@@ -941,6 +955,7 @@ class NokiaSROSDevice(NetconfSSHDevice):
             if port_class == "connector":
                 continue
 
+            on_device_ports.add(port_id)
             nb_type, nb_speed = SROS_PORT_TYPE_MAP.get(port_type, ("other", 0))
 
             existing = list(
@@ -972,7 +987,22 @@ class NokiaSROSDevice(NetconfSSHDevice):
                 else:
                     logger.debug(f"  No change for {self.device_name} / {port_id}")
 
-    def discover_logical_interfaces(self, dry_run: bool = False) -> None:
+        if delete_interfaces:
+            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+                # Only sweep physical ports (no "/"), not VPRN SAPs
+                if "/" in nb_iface.name:
+                    continue
+                if nb_iface.name not in on_device_ports:
+                    logger.info(
+                        f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
+                        f" interface: {self.device_name} / {nb_iface.name}"
+                    )
+                    if not dry_run:
+                        nb_iface.delete()
+
+    def discover_logical_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         """Discover VPRN SAP interfaces via NETCONF and sync to NetBox."""
         netbox = netbox_api_client()
         creds = self._get_ssh_credentials()
@@ -1019,6 +1049,22 @@ class NokiaSROSDevice(NetconfSSHDevice):
                     if not dry_run:
                         iface.description = desc
                         iface.save()
+
+        if delete_interfaces:
+            on_device_names = {
+                f"{i['vprn_name']}/{i['interface_name']}" for i in vprn_ifaces
+            }
+            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+                # Only sweep VPRN SAPs (contain "/"), not physical ports
+                if "/" not in nb_iface.name:
+                    continue
+                if nb_iface.name not in on_device_names:
+                    logger.info(
+                        f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
+                        f" VPRN interface: {self.device_name} / {nb_iface.name}"
+                    )
+                    if not dry_run:
+                        nb_iface.delete()
 
     def sync_port_tags(self, dry_run: bool = False) -> None:
         """Classify and tag Nokia VPRN SAP interfaces in NetBox.
@@ -1137,7 +1183,9 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 return nb_type, speed
         return None, None
 
-    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
+    def discover_hardware_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         netbox = netbox_api_client()
         logger.info(
             f"discover_hardware_interfaces: {self.device_name}"
@@ -1149,6 +1197,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         finally:
             dev.close()
 
+        on_device_ifaces = set()
         for phy_iface in iface_info.findall("physical-interface"):
             name = (phy_iface.findtext("name") or "").strip()
             if not name:
@@ -1161,6 +1210,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 logger.debug(f"  Skipping unknown interface type: {name}")
                 continue
 
+            on_device_ifaces.add(name)
             existing = list(
                 netbox.dcim.interfaces.filter(device=self.device_name, name=name)
             )
@@ -1192,7 +1242,22 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 else:
                     logger.debug(f"  No change for {self.device_name} / {name}")
 
-    def discover_logical_interfaces(self, dry_run: bool = False) -> None:
+        if delete_interfaces:
+            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+                # Only sweep physical interfaces (no "/"), not routing instance ones
+                if "/" in nb_iface.name:
+                    continue
+                if nb_iface.name not in on_device_ifaces:
+                    logger.info(
+                        f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
+                        f" interface: {self.device_name} / {nb_iface.name}"
+                    )
+                    if not dry_run:
+                        nb_iface.delete()
+
+    def discover_logical_interfaces(
+        self, dry_run: bool = False, delete_interfaces: bool = False
+    ) -> None:
         """Discover routing instance interfaces and sync to NetBox as virtual interfaces.
 
         Analogous to Nokia VPRN SAP discovery. Each interface is stored as
@@ -1209,6 +1274,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         finally:
             dev.close()
 
+        on_device_ri_ifaces = set()
         created = 0
         for instance in ri_info.findall("instance-core"):
             ri_name = (instance.findtext("instance-name") or "").strip()
@@ -1220,6 +1286,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                     continue
                 base_name = iface_name.split(".")[0] if "." in iface_name else iface_name
                 nb_name = f"{ri_name}/{base_name}"
+                on_device_ri_ifaces.add(nb_name)
 
                 existing = list(
                     netbox.dcim.interfaces.filter(device=self.device_name, name=nb_name)
@@ -1243,6 +1310,18 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                     )
 
         logger.info(f"  {'Would create' if dry_run else 'Created'} {created} routing instance interfaces")
+
+        if delete_interfaces:
+            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+                if "/" not in nb_iface.name:
+                    continue
+                if nb_iface.name not in on_device_ri_ifaces:
+                    logger.info(
+                        f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
+                        f" routing instance interface: {self.device_name} / {nb_iface.name}"
+                    )
+                    if not dry_run:
+                        nb_iface.delete()
 
     def sync_port_tags(self, dry_run: bool = False) -> None:
         """Tag Juniper interfaces analogously to Nokia SAP classification.
@@ -1587,6 +1666,11 @@ if __name__ == "__main__":
         action="store_true",
         help="List available peering device hostnames and exit",
     )
+    parser.add_argument(
+        "--delete-interfaces",
+        action="store_true",
+        help="Delete interfaces in NetBox that no longer exist on the device",
+    )
     args = parser.parse_args()
 
     devices = list(enumerate_peering_devices())
@@ -1619,8 +1703,14 @@ if __name__ == "__main__":
 
     if args.sync_hardware_interfaces:
         for device in devices:
-            device.discover_hardware_interfaces(dry_run=args.dry_run)
-            device.discover_logical_interfaces(dry_run=args.dry_run)
+            device.discover_hardware_interfaces(
+                dry_run=args.dry_run,
+                delete_interfaces=args.delete_interfaces,
+            )
+            device.discover_logical_interfaces(
+                dry_run=args.dry_run,
+                delete_interfaces=args.delete_interfaces,
+            )
     else:
         logger.info(
             "Skipping hardware interface discovery. To enable: --sync-hardware-interfaces"
