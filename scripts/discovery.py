@@ -542,15 +542,17 @@ class DeviceDiscovery(ABC):
 class NetconfSSHDevice(DeviceDiscovery):
     """Shared base for devices accessed via NETCONF over SSH.
 
-    Provides the management VRF hostname convention and SSH credentials.
+    Provides the management IP (from NetBox primary_ip4) and SSH credentials.
     Transport-level sharing only — not role-based.
     """
 
     @property
     def management_host(self) -> str:
-        if self.device_name.endswith(".sfmix.org"):
-            return f"management.{self.device_name}"
-        return f"management.{self.device_name}.sfmix.org"
+        if not self.nb_device.primary_ip4:
+            raise RuntimeError(
+                f"No primary IPv4 set in NetBox for {self.device_name}"
+            )
+        return str(ipaddress.ip_interface(self.nb_device.primary_ip4.address).ip)
 
     def _get_ssh_credentials(self) -> Dict[str, str]:
         return _get_netconf_ssh_credentials()
@@ -1118,10 +1120,11 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 "junos-eznc is not installed. Run: pipenv install"
             )
         creds = self._get_ssh_credentials()
+        ssh_config = os.path.expanduser("~/.ssh/config")
         dev = JunosDevice(
             host=self.management_host,
             user=creds["username"],
-            password=creds["password"],
+            ssh_config=ssh_config if os.path.exists(ssh_config) else None,
         )
         dev.open()
         return dev
@@ -1589,10 +1592,20 @@ if __name__ == "__main__":
     devices = list(enumerate_peering_devices())
 
     if args.list_devices:
+        missing_ip = []
         for d in sorted(devices, key=lambda d: d.device_name):
             mfr = d.nb_device.device_type.manufacturer.name
             model = d.nb_device.device_type.model
-            print(f"{d.device_name}  ({mfr} {model}, role={d.role})")
+            if d.nb_device.primary_ip4:
+                mgmt = str(ipaddress.ip_interface(d.nb_device.primary_ip4.address).ip)
+            else:
+                mgmt = "NO PRIMARY IP"
+                missing_ip.append(d.device_name)
+            print(f"{d.device_name}  ({mfr} {model}, role={d.role}, mgmt={mgmt})")
+        if missing_ip:
+            print(f"\nWARNING: {len(missing_ip)} device(s) have no primary IPv4 set:")
+            for name in missing_ip:
+                print(f"  {name}")
         raise SystemExit(0)
 
     if args.device:
