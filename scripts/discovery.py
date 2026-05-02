@@ -192,7 +192,7 @@ def netbox_api_client() -> pynetbox.core.api.Api:
 def list_peering_switch_hostnames() -> List[str]:
     """
     List the Peering Switches in Netbox, and return a listing of the associated
-    hostnames
+    hostnames.  Excludes transit routers (Nokia SR-OS cr1.* devices).
     """
     logger.debug("Listing all Peering Switches from Netbox")
     netbox = netbox_api_client()
@@ -201,6 +201,17 @@ def list_peering_switch_hostnames() -> List[str]:
         if not "cr1" in device.name:
           peering_switches.append(device.name)
     return peering_switches
+
+
+def list_transit_router_hostnames() -> List[str]:
+    """List Nokia SR-OS transit routers from Netbox (cr1.* devices with peering_switch role)."""
+    logger.debug("Listing all Transit Routers from Netbox")
+    netbox = netbox_api_client()
+    routers = []
+    for device in netbox.dcim.devices.filter(role="peering_switch"):
+        if "cr1" in device.name:
+            routers.append(device.name)
+    return routers
 
 
 def discover_vlan_mac_port_map(switch_hostname: str) -> Dict[VLAN_MAC, PORT]:
@@ -478,6 +489,454 @@ def update_netbox_peering_port_tags_by_vlan() -> None:
 CORE_PORT_DESCRIPTION_PREFIXES = ("Core:", "Transport", "Transit:", "Access:")
 
 
+# ── Nokia SR-OS NETCONF helpers ──────────────────────────────────────
+
+NOKIA_SROS_STATE_NS = "urn:nokia.com:sros:ns:yang:sr:state"
+NETCONF_EOM = "]]>]]>"
+
+# Map SR-OS port type strings to NetBox interface types and speeds (kbps)
+SROS_PORT_TYPE_MAP = {
+    "400-gig-ethernet":        ("400gbase-x-qsfpdd", 400_000_000),
+    "100-gig-ethernet":        ("100gbase-x-qsfp28", 100_000_000),
+    "40-gig-ethernet":         ("40gbase-x-qsfpp",    40_000_000),
+    "25-gig-ethernet":         ("25gbase-x-sfp28",    25_000_000),
+    "10-gig-ethernet":         ("10gbase-x-sfpp",     10_000_000),
+    "gig-ethernet":            ("1000base-x-sfp",      1_000_000),
+    "gig-ethernet-sfp":        ("1000base-x-sfp",      1_000_000),
+    "10/100/gig-ethernet-tx":  ("1000base-t",           1_000_000),
+    "10/100/gig-ethernet-sfp": ("1000base-x-sfp",      1_000_000),
+}
+
+
+def get_nokia_ssh_parameters() -> Dict[str, str]:
+    """Get SSH credentials for Nokia SR-OS devices.
+
+    Checks NOKIA_SSH_USERNAME / NOKIA_SSH_PASSWORD env vars first,
+    then falls back to the 'sfmix.org' netrc entry.
+    """
+    username = os.environ.get("NOKIA_SSH_USERNAME")
+    password = os.environ.get("NOKIA_SSH_PASSWORD")
+    if username and password:
+        return {"username": username, "password": password}
+    netrc_file = netrc.netrc()
+    auth_info = netrc_file.authenticators("sfmix.org")
+    if not auth_info:
+        raise ValueError(
+            "No Nokia SSH credentials found. "
+            "Set NOKIA_SSH_USERNAME/NOKIA_SSH_PASSWORD or add sfmix.org to ~/.netrc"
+        )
+    username, _, password = auth_info
+    if not (username and password):
+        raise ValueError("Incomplete Nokia credentials in netrc")
+    return {"username": username, "password": password}
+
+
+def nokia_management_hostname(device_name: str) -> str:
+    """Derive the management VRF hostname from a Nokia device name.
+
+    Convention: management.cr1.sjc01.transit.sfmix.org
+    Handles both short names (cr1.sjc01.transit) and FQDNs.
+    """
+    if device_name.endswith(".sfmix.org"):
+        return f"management.{device_name}"
+    return f"management.{device_name}.sfmix.org"
+
+
+def nokia_netconf_get_ports(management_host: str, username: str, password: str) -> List[Dict[str, str]]:
+    """Query Nokia SR-OS via NETCONF for port state and return a list of port dicts.
+
+    Each dict has keys: port_id, oper_state, port_class, port_type.
+    """
+    import xml.etree.ElementTree as ET
+
+    hello = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">'
+        '<capabilities><capability>urn:ietf:params:netconf:base:1.0</capability></capabilities>'
+        f'</hello>{NETCONF_EOM}'
+    )
+    rpc = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1">'
+        '<get><filter type="subtree">'
+        f'<state xmlns="{NOKIA_SROS_STATE_NS}"><port/></state>'
+        f'</filter></get></rpc>{NETCONF_EOM}'
+    )
+    close_rpc = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">'
+        f'<close-session/></rpc>{NETCONF_EOM}'
+    )
+
+    result = subprocess.run(
+        [
+            "sshpass", f"-p{password}",
+            "ssh",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-p", "830",
+            f"{username}@{management_host}",
+            "-s", "netconf",
+        ],
+        input=(hello + rpc + close_rpc).encode(),
+        capture_output=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"NETCONF to {management_host} failed: {stderr}")
+
+    output = result.stdout.decode("utf-8", errors="replace")
+    parts = output.split(NETCONF_EOM)
+    if len(parts) < 2:
+        raise RuntimeError(f"NETCONF: no RPC reply from {management_host}")
+    reply_xml = parts[1].strip()
+
+    if "<rpc-error>" in reply_xml:
+        raise RuntimeError(f"NETCONF RPC error from {management_host}")
+
+    # Strip namespace prefixes for easier parsing
+    reply_xml = re.sub(r'</?[a-zA-Z0-9_-]+:', '<', reply_xml)
+    reply_xml = re.sub(r'xmlns[^"]*"[^"]*"', '', reply_xml)
+
+    # Extract <data>...</data>
+    m = re.search(r'<data[^>]*>(.*)</data>', reply_xml, re.DOTALL)
+    if not m:
+        return []
+    data_xml = m.group(1).strip()
+    if not data_xml:
+        return []
+
+    ports = []
+    try:
+        root = ET.fromstring(f"<root>{data_xml}</root>")
+    except ET.ParseError as e:
+        logger.error(f"Failed to parse NETCONF XML from {management_host}: {e}")
+        return []
+
+    for state_elem in root:
+        tag = state_elem.tag.split("}")[-1] if "}" in state_elem.tag else state_elem.tag
+        if tag != "state":
+            continue
+        for port_elem in state_elem:
+            ptag = port_elem.tag.split("}")[-1] if "}" in port_elem.tag else port_elem.tag
+            if ptag != "port":
+                continue
+            port_info: Dict[str, str] = {}
+            for child in port_elem:
+                ctag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                if ctag in ("port-id", "oper-state", "port-class", "type") and child.text:
+                    port_info[ctag] = child.text.strip()
+            if "port-id" in port_info:
+                ports.append(port_info)
+
+    return ports
+
+
+def nokia_netconf_get_vprn_interfaces(
+    management_host: str, username: str, password: str
+) -> List[Dict[str, str]]:
+    """Query Nokia SR-OS via NETCONF for VPRN service interfaces (SAPs).
+
+    Returns a list of dicts with keys: vprn_name, interface_name, oper_state, sap_id.
+    """
+    import xml.etree.ElementTree as ET
+
+    hello = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">'
+        '<capabilities><capability>urn:ietf:params:netconf:base:1.0</capability></capabilities>'
+        f'</hello>{NETCONF_EOM}'
+    )
+    rpc = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1">'
+        '<get><filter type="subtree">'
+        f'<state xmlns="{NOKIA_SROS_STATE_NS}">'
+        '<service><vprn><interface/></vprn></service>'
+        f'</state>'
+        f'</filter></get></rpc>{NETCONF_EOM}'
+    )
+    close_rpc = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">'
+        f'<close-session/></rpc>{NETCONF_EOM}'
+    )
+
+    result = subprocess.run(
+        [
+            "sshpass", f"-p{password}",
+            "ssh",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-p", "830",
+            f"{username}@{management_host}",
+            "-s", "netconf",
+        ],
+        input=(hello + rpc + close_rpc).encode(),
+        capture_output=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"NETCONF VPRN query to {management_host} failed: {stderr}")
+
+    output = result.stdout.decode("utf-8", errors="replace")
+    parts = output.split(NETCONF_EOM)
+    if len(parts) < 2:
+        raise RuntimeError(f"NETCONF: no RPC reply from {management_host}")
+    reply_xml = parts[1].strip()
+
+    if "<rpc-error>" in reply_xml:
+        raise RuntimeError(f"NETCONF VPRN RPC error from {management_host}")
+
+    # Strip namespace prefixes for easier parsing
+    reply_xml = re.sub(r'</?[a-zA-Z0-9_-]+:', '<', reply_xml)
+    reply_xml = re.sub(r'xmlns[^"]*"[^"]*"', '', reply_xml)
+
+    m = re.search(r'<data[^>]*>(.*)</data>', reply_xml, re.DOTALL)
+    if not m:
+        return []
+    data_xml = m.group(1).strip()
+    if not data_xml:
+        return []
+
+    interfaces = []
+    try:
+        root = ET.fromstring(f"<root>{data_xml}</root>")
+    except ET.ParseError as e:
+        logger.error(f"Failed to parse VPRN NETCONF XML from {management_host}: {e}")
+        return []
+
+    # Navigate: root > state > service > vprn > ...
+    for state_elem in root.iter():
+        tag = state_elem.tag.split("}")[-1] if "}" in state_elem.tag else state_elem.tag
+        if tag != "vprn":
+            continue
+        vprn_name = ""
+        for child in state_elem:
+            ctag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+            if ctag == "service-name" and child.text:
+                vprn_name = child.text.strip()
+        if not vprn_name:
+            continue
+        for child in state_elem:
+            ctag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+            if ctag != "interface":
+                continue
+            iface_info: Dict[str, str] = {"vprn_name": vprn_name}
+            for fc in child:
+                ftag = fc.tag.split("}")[-1] if "}" in fc.tag else fc.tag
+                if ftag == "interface-name" and fc.text:
+                    iface_info["interface_name"] = fc.text.strip()
+                elif ftag == "oper-state" and fc.text:
+                    iface_info["oper_state"] = fc.text.strip()
+                elif ftag == "sap":
+                    for sc in fc:
+                        stag = sc.tag.split("}")[-1] if "}" in sc.tag else sc.tag
+                        if stag == "sap-id" and sc.text:
+                            iface_info["sap_id"] = sc.text.strip()
+            if "interface_name" in iface_info:
+                interfaces.append(iface_info)
+
+    return interfaces
+
+
+# SAP interface names that indicate core/infrastructure function
+NOKIA_CORE_SAP_NAMES = {"transit-peering-lan", "lag-core-1"}
+
+# Regex to extract ASN from tenant SAP interface names (e.g. "as13335-peering")
+NOKIA_TENANT_SAP_RE = re.compile(r"^as(\d+)", re.IGNORECASE)
+
+
+def discover_nokia_vprn_interfaces(device_hostname: str) -> None:
+    """Discover VPRN SAP interfaces on a Nokia SR-OS transit router via NETCONF
+    and synchronize them to NetBox as virtual interfaces."""
+    netbox = netbox_api_client()
+    creds = get_nokia_ssh_parameters()
+    mgmt_host = nokia_management_hostname(device_hostname)
+    logger.info(f"discover_nokia_vprn_interfaces: {device_hostname} (via {mgmt_host})")
+
+    vprn_ifaces = nokia_netconf_get_vprn_interfaces(
+        mgmt_host, creds["username"], creds["password"]
+    )
+    logger.info(f"  Found {len(vprn_ifaces)} VPRN interfaces via NETCONF")
+
+    for iface_info in vprn_ifaces:
+        vprn_name = iface_info["vprn_name"]
+        iface_name = iface_info["interface_name"]
+        # NetBox interface name matches the looking-glass display name
+        nb_name = f"{vprn_name}/{iface_name}"
+        sap_id = iface_info.get("sap_id", "")
+
+        existing = list(netbox.dcim.interfaces.filter(device=device_hostname, name=nb_name))
+        desc = f"SAP {sap_id}" if sap_id else ""
+        if not existing:
+            logger.info(f"  Creating VPRN interface: {device_hostname} / {nb_name}")
+            netbox.dcim.interfaces.create(
+                device={"name": device_hostname},
+                name=nb_name,
+                type="virtual",
+                description=desc,
+            )
+        else:
+            iface = existing[0]
+            if iface.description != desc and desc:
+                logger.info(f"  Updating description: {nb_name}: {iface.description!r} -> {desc!r}")
+                iface.description = desc
+                iface.save()
+
+
+def update_nokia_sap_tags(router_hostnames: List[str], dry_run: bool = False) -> None:
+    """Classify and tag Nokia VPRN SAP interfaces in NetBox.
+
+    - Core SAPs (transit-peering-lan, lag-core-1) → core_port tag
+    - Tenant SAPs (as<ASN>-*) → transit_peer tag + participant custom field
+    - Remaining SAPs → admin_port tag
+    Physical ports keep their existing core_port tag.
+    """
+    netbox = netbox_api_client()
+    for hostname in router_hostnames:
+        logger.debug(f"Classifying SAP tags on Nokia router {hostname}")
+        for interface in netbox.dcim.interfaces.filter(device=hostname):
+            tag_slugs = [tag["slug"] for tag in interface.tags]
+            name = interface.name
+
+            # Physical ports (start with digit or single letter/) → core_port
+            if "/" not in name or (name[0].isdigit() or (len(name.split("/")[0]) == 1 and name[0].isupper())):
+                if "core_port" not in tag_slugs:
+                    new_tag_slugs = tag_slugs + ["core_port"]
+                    logger.info(
+                        f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                        f" tags: [{', '.join(sorted(tag_slugs))}] -> [{', '.join(sorted(new_tag_slugs))}]"
+                        f" on {hostname} / {name}"
+                    )
+                    if not dry_run:
+                        interface.tags = [{"slug": s} for s in new_tag_slugs]
+                        interface.save()
+                continue
+
+            # VPRN SAP interface: "vprn-name/interface-name"
+            parts = name.split("/", 1)
+            if len(parts) != 2:
+                continue
+            _vprn_name, iface_name = parts
+
+            if iface_name in NOKIA_CORE_SAP_NAMES:
+                # Core SAP
+                desired_tag = "core_port"
+                remove_tags = {"admin_port", "transit_peer"}
+            else:
+                asn_match = NOKIA_TENANT_SAP_RE.match(iface_name)
+                if asn_match:
+                    # Tenant SAP — set participant custom field
+                    asn = int(asn_match.group(1))
+                    asn_slug = f"as{asn}"
+                    participants = list(netbox.tenancy.tenants.filter(slug=asn_slug))
+                    if len(participants) == 1:
+                        participant = participants[0]
+                        if interface.custom_fields.get("participant") != participant.id:
+                            old_participant = interface.custom_fields.get("participant")
+                            logger.info(
+                                f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                                f" participant: {old_participant!r} -> {asn_slug} on {hostname} / {name}"
+                            )
+                            if not dry_run:
+                                interface.custom_fields["participant"] = participant.id
+                                interface.save()
+                    else:
+                        logger.warning(
+                            f"Could not find unique tenant for {asn_slug}"
+                            f" ({len(participants)} results) — skipping participant assignment"
+                        )
+                    desired_tag = "transit_peer"
+                    remove_tags = {"admin_port", "core_port"}
+                else:
+                    # Admin-only SAP
+                    desired_tag = "admin_port"
+                    remove_tags = {"core_port", "transit_peer"}
+
+            # Apply tag changes
+            new_tags = [s for s in tag_slugs if s not in remove_tags]
+            if desired_tag not in new_tags:
+                new_tags.append(desired_tag)
+            if set(new_tags) != set(tag_slugs):
+                logger.info(
+                    f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                    f" tags: [{', '.join(sorted(tag_slugs))}] -> [{', '.join(sorted(new_tags))}]"
+                    f" on {hostname} / {name}"
+                )
+                if not dry_run:
+                    interface.tags = [{"slug": s} for s in new_tags]
+                    interface.save()
+
+
+def discover_nokia_hardware_interfaces(device_hostname: str) -> None:
+    """Discover interfaces on a Nokia SR-OS transit router via NETCONF
+    and synchronize them to NetBox."""
+    netbox = netbox_api_client()
+    creds = get_nokia_ssh_parameters()
+    mgmt_host = nokia_management_hostname(device_hostname)
+    logger.info(f"discover_nokia_hardware_interfaces: {device_hostname} (via {mgmt_host})")
+
+    ports = nokia_netconf_get_ports(mgmt_host, creds["username"], creds["password"])
+    logger.info(f"  Found {len(ports)} ports via NETCONF")
+
+    for port_info in ports:
+        port_id = port_info["port-id"]
+        port_class = port_info.get("port-class", "")
+        port_type = port_info.get("type", "")
+
+        # Skip connector-level ports (e.g. 1/1/c1) — only track breakout/physical ports
+        if port_class == "connector":
+            continue
+
+        nb_type, nb_speed = SROS_PORT_TYPE_MAP.get(port_type, ("other", 0))
+
+        existing = list(netbox.dcim.interfaces.filter(device=device_hostname, name=port_id))
+        if not existing:
+            logger.info(f"  Creating interface: {device_hostname} / {port_id} ({nb_type})")
+            netbox.dcim.interfaces.create(
+                device={"name": device_hostname},
+                name=port_id,
+                type=nb_type,
+                speed=nb_speed,
+            )
+        else:
+            iface = existing[0]
+            changed = False
+            if iface.speed != nb_speed and nb_speed > 0:
+                logger.info(f"  Updating speed: {iface.speed} -> {nb_speed}")
+                iface.speed = nb_speed
+                changed = True
+            if changed:
+                iface.save()
+            else:
+                logger.debug(f"  No change for {device_hostname} / {port_id}")
+
+
+def update_nokia_core_port_tags(router_hostnames: List[str], dry_run: bool = False) -> None:
+    """Tag all non-connector Nokia transit router interfaces as core_port.
+
+    Nokia transit routers are infrastructure-only — every physical port is a core port.
+    """
+    netbox = netbox_api_client()
+    for hostname in router_hostnames:
+        logger.debug(f"Checking core_port tags on Nokia router {hostname}")
+        for interface in netbox.dcim.interfaces.filter(device=hostname):
+            tag_slugs = [tag["slug"] for tag in interface.tags]
+            if "core_port" not in tag_slugs:
+                new_tag_slugs = tag_slugs + ["core_port"]
+                logger.info(
+                    f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                    f" tags: [{', '.join(sorted(tag_slugs))}] -> [{', '.join(sorted(new_tag_slugs))}]"
+                    f" on {hostname} / {interface.name}"
+                )
+                if not dry_run:
+                    interface.tags = [{"slug": s} for s in new_tag_slugs]
+                    interface.save()
+
+
 def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> bool:
     """Return True if this interface should carry the 'core_port' tag."""
     if "peering_port" in tag_slugs:
@@ -670,21 +1129,27 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     peering_switch_hostnames = list_peering_switch_hostnames()
+    transit_router_hostnames = list_transit_router_hostnames()
+    all_device_hostnames = peering_switch_hostnames + transit_router_hostnames
 
     if args.list_devices:
-        for hostname in sorted(peering_switch_hostnames):
+        for hostname in sorted(all_device_hostnames):
             print(hostname)
         raise SystemExit(0)
 
     if args.device:
-        unknown = set(args.device) - set(peering_switch_hostnames)
+        unknown = set(args.device) - set(all_device_hostnames)
         if unknown:
             parser.error(f"Unknown device(s): {', '.join(sorted(unknown))}. Use --list-devices to see available devices.")
         peering_switch_hostnames = [h for h in peering_switch_hostnames if h in args.device]
+        transit_router_hostnames = [h for h in transit_router_hostnames if h in args.device]
 
     if args.sync_hardware_interfaces:
         for peering_switch_hostname in peering_switch_hostnames:
             discover_hardware_interfaces(peering_switch_hostname)
+        for router_hostname in transit_router_hostnames:
+            discover_nokia_hardware_interfaces(router_hostname)
+            discover_nokia_vprn_interfaces(router_hostname)
     else:
         logger.info(
             "Skipping hardware interface discovery. To enable: --sync-hardware-interfaces"
@@ -729,6 +1194,7 @@ if __name__ == "__main__":
 
     if args.sync_core_port_tags:
         update_netbox_core_port_tags(peering_switch_hostnames, dry_run=args.dry_run)
+        update_nokia_sap_tags(transit_router_hostnames, dry_run=args.dry_run)
     else:
         logger.info(
             "Skipping core port tag sync. To enable: --sync-core-port-tags"
