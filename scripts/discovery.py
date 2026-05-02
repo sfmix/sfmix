@@ -73,7 +73,6 @@ NOKIA_TENANT_SAP_RE = re.compile(r"^as(\d+)", re.IGNORECASE)
 
 # ── Juniper JunOS constants ───────────────────────────────────────────
 
-# Maps interface name prefix to (netbox_type, speed_kbps)
 JUNIPER_IFACE_TYPE_MAP: Dict[str, Tuple[str, Optional[int]]] = {
     "et-":  ("100gbase-x-qsfp28", 100_000_000),
     "xe-":  ("10gbase-x-sfpp",     10_000_000),
@@ -84,17 +83,14 @@ JUNIPER_IFACE_TYPE_MAP: Dict[str, Tuple[str, Optional[int]]] = {
     "fxp":  ("1000base-t",          1_000_000),
 }
 
-# Management interface names for setting device primary IP
 JUNIPER_MGMT_INTERFACES = ("fxp0", "em0", "em1")
 
-# Internal/software-only interface prefixes to skip
 JUNIPER_INTERNAL_PREFIXES = (
     "pfe-", "pfh-", "cbp", "dsc", "esi", "gre", "ipip",
     "jsrv", "lsi", "mtun", "pimd", "pime", "pip0", "pp0",
     "rbeb", "tap", "vtep",
 )
 
-# Routing instance names that are built-in Junos infrastructure
 JUNIPER_BUILTIN_INSTANCES = frozenset({
     "master", "__juniper_private1__", "__juniper_private2__",
     "__juniper_private3__", "__juniper_private4__", "__juniper_mgmt_evo__",
@@ -231,7 +227,9 @@ def list_ips_for_peering_lan(peering_lan: str) -> List[str]:
     ]
 
 
-def update_netbox_ip_macs(vlan_ip_mac_map: Dict[VLAN_IP, str]) -> None:
+def update_netbox_ip_macs(
+    vlan_ip_mac_map: Dict[VLAN_IP, str], dry_run: bool = False
+) -> None:
     netbox = netbox_api_client()
     for (vlan, ip), new_mac in vlan_ip_mac_map.items():
         try:
@@ -249,9 +247,13 @@ def update_netbox_ip_macs(vlan_ip_mac_map: Dict[VLAN_IP, str]) -> None:
             )
         old_mac = existing_ip.custom_fields["participant_mac_address"]
         if old_mac != new_mac:
-            logger.info(f"Updating MAC address: {ip} {old_mac} -> {new_mac}")
-            existing_ip.custom_fields["participant_mac_address"] = new_mac
-            existing_ip.save()
+            logger.info(
+                f"{'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                f" MAC address: {ip} {old_mac} -> {new_mac}"
+            )
+            if not dry_run:
+                existing_ip.custom_fields["participant_mac_address"] = new_mac
+                existing_ip.save()
         else:
             logger.debug(f"Existing MAC Matches IP: {ip} -> {new_mac}")
 
@@ -275,7 +277,9 @@ def list_peering_lans() -> List[Tuple[int, str]]:
     return peering_lans
 
 
-def update_netbox_ip_participant_lag(ip_port_map: Dict[str, PORT]) -> None:
+def update_netbox_ip_participant_lag(
+    ip_port_map: Dict[str, PORT], dry_run: bool = False
+) -> None:
     netbox = netbox_api_client()
     for ip, (hostname, interface) in ip_port_map.items():
         nb_interface = netbox.dcim.interfaces.get(device=hostname, name=interface)
@@ -287,10 +291,13 @@ def update_netbox_ip_participant_lag(ip_port_map: Dict[str, PORT]) -> None:
             or nb_ip_address.custom_fields["participant_lag"]["id"] != nb_interface.id
         ):
             logger.info(
-                f"Updating participant_lag for IP address: {ip} -> {nb_interface.device!r}/{nb_interface!r}"
+                f"{'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                f" participant_lag for IP address:"
+                f" {ip} -> {nb_interface.device!r}/{nb_interface!r}"
             )
-            nb_ip_address.custom_fields["participant_lag"] = nb_interface.id
-            nb_ip_address.save()
+            if not dry_run:
+                nb_ip_address.custom_fields["participant_lag"] = nb_interface.id
+                nb_ip_address.save()
         else:
             logger.debug(f"No change for IP address: {ip}")
 
@@ -500,6 +507,9 @@ class DeviceDiscovery(ABC):
     Each subclass handles a specific vendor/OS. Role-specific behavior is
     derived from self.role at runtime, allowing the same platform class to
     serve different device roles (e.g., peering switch vs transit router).
+
+    All NetBox-modifying methods accept dry_run=True to log proposed changes
+    without writing anything.
     """
 
     def __init__(self, device_name: str, nb_device: Any) -> None:
@@ -511,17 +521,17 @@ class DeviceDiscovery(ABC):
         return self.nb_device.role.slug
 
     @abstractmethod
-    def discover_hardware_interfaces(self) -> None:
+    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
         """Sync physical interfaces to NetBox."""
 
-    def discover_logical_interfaces(self) -> None:
+    def discover_logical_interfaces(self, dry_run: bool = False) -> None:
         """Sync logical/virtual interfaces to NetBox. Default: no-op."""
 
     @abstractmethod
     def sync_port_tags(self, dry_run: bool = False) -> None:
         """Classify and tag interfaces in NetBox."""
 
-    def sync_interface_ips(self) -> None:
+    def sync_interface_ips(self, dry_run: bool = False) -> None:
         """Sync interface IP addresses to NetBox. Default: no-op."""
 
     def get_vlan_mac_port_map(self) -> Dict[VLAN_MAC, PORT]:
@@ -552,7 +562,7 @@ class NetconfSSHDevice(DeviceDiscovery):
 class AristaEOSDevice(DeviceDiscovery):
     """Discovery and NetBox sync for Arista EOS devices."""
 
-    def discover_hardware_interfaces(self) -> None:
+    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
         netbox = netbox_api_client()
         connection_params = get_eapi_connection_parameters()
         connection_params["host"] = self.device_name
@@ -670,28 +680,40 @@ class AristaEOSDevice(DeviceDiscovery):
             )
             if not existing_interfaces:
                 if netbox_interface_type and netbox_interface_speed:
-                    logger.info(f"Creating interface: {self.device_name} / {interface_name}")
-                    netbox.dcim.interfaces.create(
-                        device={"name": self.device_name},
-                        name=interface_name,
-                        type=netbox_interface_type,
-                        speed=netbox_interface_speed,
+                    logger.info(
+                        f"{'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                        f" interface: {self.device_name} / {interface_name}"
                     )
+                    if not dry_run:
+                        netbox.dcim.interfaces.create(
+                            device={"name": self.device_name},
+                            name=interface_name,
+                            type=netbox_interface_type,
+                            speed=netbox_interface_speed,
+                        )
             else:
                 logger.debug(f"Examining Interface: {self.device_name} / {interface_name}:")
                 existing_interface = existing_interfaces[0]
+                changed = False
 
                 if existing_interface.speed != netbox_interface_speed:
                     logger.info(
-                        f"    Updating speed: {existing_interface.speed} -> {netbox_interface_speed}"
+                        f"    {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" speed: {existing_interface.speed} -> {netbox_interface_speed}"
                     )
-                    existing_interface.speed = netbox_interface_speed
+                    if not dry_run:
+                        existing_interface.speed = netbox_interface_speed
+                    changed = True
 
                 if existing_interface.description != interface_description:
                     logger.info(
-                        f"    Updating description: {existing_interface.description} -> {interface_description}"
+                        f"    {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" description: {existing_interface.description!r}"
+                        f" -> {interface_description!r}"
                     )
-                    existing_interface.description = interface_description
+                    if not dry_run:
+                        existing_interface.description = interface_description
+                    changed = True
 
                 if existing_interface.mode:
                     existing_mode = existing_interface.mode.value
@@ -699,41 +721,50 @@ class AristaEOSDevice(DeviceDiscovery):
                     existing_mode = None
                 if existing_mode != netbox_interface_mode:
                     logger.info(
-                        f"    Updating mode: {existing_mode} -> {netbox_interface_mode}"
+                        f"    {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" mode: {existing_mode} -> {netbox_interface_mode}"
                     )
-                    existing_interface.mode = netbox_interface_mode
+                    if not dry_run:
+                        existing_interface.mode = netbox_interface_mode
+                    changed = True
 
                 existing_tagged_vlan_ids = {
                     vlan["vid"] for vlan in existing_interface.tagged_vlans
                 }
                 if existing_tagged_vlan_ids != tagged_vlans:
                     logger.info(
-                        f"    Updating tagged VLANs: {existing_tagged_vlan_ids} -> {tagged_vlans}"
+                        f"    {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" tagged VLANs: {existing_tagged_vlan_ids} -> {tagged_vlans}"
                     )
-                    if tagged_vlans:
-                        existing_interface.tagged_vlans = [
-                            exchange_vlan_map[vlan_id].id for vlan_id in tagged_vlans
-                        ]
-                    else:
-                        existing_interface.tagged_vlans = []
+                    if not dry_run:
+                        if tagged_vlans:
+                            existing_interface.tagged_vlans = [
+                                exchange_vlan_map[vlan_id].id for vlan_id in tagged_vlans
+                            ]
+                        else:
+                            existing_interface.tagged_vlans = []
+                    changed = True
 
                 if existing_interface.untagged_vlan:
                     existing_untagged_vlan_id = existing_interface.untagged_vlan.vid
                 else:
                     existing_untagged_vlan_id = None
-
                 if existing_untagged_vlan_id != untagged_vlan:
                     logger.info(
-                        f"    Updating untagged VLAN: {existing_untagged_vlan_id} -> {untagged_vlan}"
+                        f"    {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" untagged VLAN: {existing_untagged_vlan_id} -> {untagged_vlan}"
                     )
-                    if untagged_vlan:
-                        existing_interface.untagged_vlan = exchange_vlan_map[
-                            untagged_vlan
-                        ].id
-                    else:
-                        existing_interface.untagged_vlan = None
+                    if not dry_run:
+                        if untagged_vlan:
+                            existing_interface.untagged_vlan = exchange_vlan_map[
+                                untagged_vlan
+                            ].id
+                        else:
+                            existing_interface.untagged_vlan = None
+                    changed = True
 
-                existing_interface.save()
+                if changed and not dry_run:
+                    existing_interface.save()
 
     def sync_port_tags(self, dry_run: bool = False) -> None:
         """Add or remove 'core_port' tag on interfaces based on description and name."""
@@ -768,7 +799,7 @@ class AristaEOSDevice(DeviceDiscovery):
                     ]
                     interface.save()
 
-    def sync_interface_ips(self) -> None:
+    def sync_interface_ips(self, dry_run: bool = False) -> None:
         """Sync interface IPs from EOS device to NetBox."""
         netbox = netbox_api_client()
         connection_params = get_eapi_connection_parameters()
@@ -802,13 +833,15 @@ class AristaEOSDevice(DeviceDiscovery):
 
             if not existing_ips:
                 logger.info(
-                    f"Creating IP {ip_with_mask} for {self.device_name}/{interface_name}"
+                    f"{'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                    f" IP {ip_with_mask} for {self.device_name}/{interface_name}"
                 )
-                netbox.ipam.ip_addresses.create(
-                    address=ip_with_mask,
-                    assigned_object_type="dcim.interface",
-                    assigned_object_id=nb_interface.id,
-                )
+                if not dry_run:
+                    netbox.ipam.ip_addresses.create(
+                        address=ip_with_mask,
+                        assigned_object_type="dcim.interface",
+                        assigned_object_id=nb_interface.id,
+                    )
             elif len(existing_ips) > 1:
                 logger.warning(
                     f"Multiple entries found for IP {ip_with_mask}"
@@ -817,22 +850,24 @@ class AristaEOSDevice(DeviceDiscovery):
                 continue
             elif existing_ips[0].assigned_object_id != nb_interface.id:
                 logger.info(
-                    f"Updating IP {ip_with_mask} assignment to"
-                    f" {self.device_name}/{interface_name}"
+                    f"{'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                    f" IP {ip_with_mask} assignment to {self.device_name}/{interface_name}"
                 )
-                existing_ip = existing_ips[0]
-                existing_ip.assigned_object_type = "dcim.interface"
-                existing_ip.assigned_object_id = nb_interface.id
-                existing_ip.save()
+                if not dry_run:
+                    existing_ip = existing_ips[0]
+                    existing_ip.assigned_object_type = "dcim.interface"
+                    existing_ip.assigned_object_id = nb_interface.id
+                    existing_ip.save()
 
         for nb_interface in netbox.dcim.interfaces.filter(device=self.device_name):
             for ip in netbox.ipam.ip_addresses.filter(interface_id=nb_interface.id):
                 if ip.address not in device_ips:
                     logger.info(
-                        f"Removing IP {ip.address} from"
-                        f" {self.device_name}/{nb_interface.name}"
+                        f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'}"
+                        f" IP {ip.address} from {self.device_name}/{nb_interface.name}"
                     )
-                    ip.delete()
+                    if not dry_run:
+                        ip.delete()
 
         management1_interface = netbox.dcim.interfaces.get(
             device=self.device_name, name="Management1"
@@ -843,21 +878,20 @@ class AristaEOSDevice(DeviceDiscovery):
             )
             if primary_ip:
                 device = netbox.dcim.devices.get(name=self.device_name)
-                logger.info(
-                    f"Setting primary IPv4 address of {self.device_name}"
-                    f" to {primary_ip.address}"
-                )
-                device.primary_ip4 = primary_ip
-                device.save()
+                if not device.primary_ip4 or device.primary_ip4.id != primary_ip.id:
+                    logger.info(
+                        f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                        f" primary IPv4 of {self.device_name} to {primary_ip.address}"
+                    )
+                    if not dry_run:
+                        device.primary_ip4 = primary_ip
+                        device.save()
             else:
                 logger.warning(
-                    f"No primary IPv4 address found on Management1 interface"
-                    f" of {self.device_name}"
+                    f"No primary IPv4 address found on Management1 of {self.device_name}"
                 )
         else:
-            logger.warning(
-                f"Management1 interface not found on {self.device_name}"
-            )
+            logger.warning(f"Management1 interface not found on {self.device_name}")
 
     def get_vlan_mac_port_map(self) -> Dict[VLAN_MAC, PORT]:
         """Query EOS MAC address table and return VLAN+MAC → port mapping."""
@@ -884,7 +918,7 @@ class AristaEOSDevice(DeviceDiscovery):
 class NokiaSROSDevice(NetconfSSHDevice):
     """Discovery and NetBox sync for Nokia SR-OS devices."""
 
-    def discover_hardware_interfaces(self) -> None:
+    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
         netbox = netbox_api_client()
         creds = self._get_ssh_credentials()
         logger.info(
@@ -912,27 +946,31 @@ class NokiaSROSDevice(NetconfSSHDevice):
             )
             if not existing:
                 logger.info(
-                    f"  Creating interface: {self.device_name} / {port_id} ({nb_type})"
+                    f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                    f" interface: {self.device_name} / {port_id} ({nb_type})"
                 )
-                netbox.dcim.interfaces.create(
-                    device={"name": self.device_name},
-                    name=port_id,
-                    type=nb_type,
-                    speed=nb_speed,
-                )
+                if not dry_run:
+                    netbox.dcim.interfaces.create(
+                        device={"name": self.device_name},
+                        name=port_id,
+                        type=nb_type,
+                        speed=nb_speed,
+                    )
             else:
                 iface = existing[0]
-                changed = False
                 if iface.speed != nb_speed and nb_speed > 0:
-                    logger.info(f"  Updating speed: {iface.speed} -> {nb_speed}")
-                    iface.speed = nb_speed
-                    changed = True
-                if changed:
-                    iface.save()
+                    logger.info(
+                        f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" speed: {self.device_name} / {port_id}:"
+                        f" {iface.speed} -> {nb_speed}"
+                    )
+                    if not dry_run:
+                        iface.speed = nb_speed
+                        iface.save()
                 else:
                     logger.debug(f"  No change for {self.device_name} / {port_id}")
 
-    def discover_logical_interfaces(self) -> None:
+    def discover_logical_interfaces(self, dry_run: bool = False) -> None:
         """Discover VPRN SAP interfaces via NETCONF and sync to NetBox."""
         netbox = netbox_api_client()
         creds = self._get_ssh_credentials()
@@ -951,30 +989,34 @@ class NokiaSROSDevice(NetconfSSHDevice):
             iface_name = iface_info["interface_name"]
             nb_name = f"{vprn_name}/{iface_name}"
             sap_id = iface_info.get("sap_id", "")
+            desc = f"SAP {sap_id}" if sap_id else ""
 
             existing = list(
                 netbox.dcim.interfaces.filter(device=self.device_name, name=nb_name)
             )
-            desc = f"SAP {sap_id}" if sap_id else ""
             if not existing:
                 logger.info(
-                    f"  Creating VPRN interface: {self.device_name} / {nb_name}"
+                    f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                    f" VPRN interface: {self.device_name} / {nb_name}"
                 )
-                netbox.dcim.interfaces.create(
-                    device={"name": self.device_name},
-                    name=nb_name,
-                    type="virtual",
-                    description=desc,
-                )
+                if not dry_run:
+                    netbox.dcim.interfaces.create(
+                        device={"name": self.device_name},
+                        name=nb_name,
+                        type="virtual",
+                        description=desc,
+                    )
             else:
                 iface = existing[0]
                 if iface.description != desc and desc:
                     logger.info(
-                        f"  Updating description: {nb_name}:"
+                        f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" description: {nb_name}:"
                         f" {iface.description!r} -> {desc!r}"
                     )
-                    iface.description = desc
-                    iface.save()
+                    if not dry_run:
+                        iface.description = desc
+                        iface.save()
 
     def sync_port_tags(self, dry_run: bool = False) -> None:
         """Classify and tag Nokia VPRN SAP interfaces in NetBox.
@@ -1092,7 +1134,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 return nb_type, speed
         return None, None
 
-    def discover_hardware_interfaces(self) -> None:
+    def discover_hardware_interfaces(self, dry_run: bool = False) -> None:
         netbox = netbox_api_client()
         logger.info(
             f"discover_hardware_interfaces: {self.device_name}"
@@ -1121,32 +1163,33 @@ class JuniperJunOSDevice(NetconfSSHDevice):
             )
             if not existing:
                 logger.info(
-                    f"  Creating interface: {self.device_name} / {name} ({nb_type})"
+                    f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                    f" interface: {self.device_name} / {name} ({nb_type})"
                 )
-                create_kwargs: Dict[str, Any] = {
-                    "device": {"name": self.device_name},
-                    "name": name,
-                    "type": nb_type,
-                }
-                if nb_speed is not None:
-                    create_kwargs["speed"] = nb_speed
-                netbox.dcim.interfaces.create(**create_kwargs)
+                if not dry_run:
+                    create_kwargs: Dict[str, Any] = {
+                        "device": {"name": self.device_name},
+                        "name": name,
+                        "type": nb_type,
+                    }
+                    if nb_speed is not None:
+                        create_kwargs["speed"] = nb_speed
+                    netbox.dcim.interfaces.create(**create_kwargs)
             else:
                 iface = existing[0]
-                changed = False
                 if nb_speed is not None and iface.speed != nb_speed:
                     logger.info(
-                        f"  Updating speed: {self.device_name} / {name}:"
+                        f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" speed: {self.device_name} / {name}:"
                         f" {iface.speed} -> {nb_speed}"
                     )
-                    iface.speed = nb_speed
-                    changed = True
-                if changed:
-                    iface.save()
+                    if not dry_run:
+                        iface.speed = nb_speed
+                        iface.save()
                 else:
                     logger.debug(f"  No change for {self.device_name} / {name}")
 
-    def discover_logical_interfaces(self) -> None:
+    def discover_logical_interfaces(self, dry_run: bool = False) -> None:
         """Discover routing instance interfaces and sync to NetBox as virtual interfaces.
 
         Analogous to Nokia VPRN SAP discovery. Each interface is stored as
@@ -1172,7 +1215,6 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 iface_name = (iface_elem.findtext("interface-name") or "").strip()
                 if not iface_name:
                     continue
-                # Use the interface name without logical unit suffix
                 base_name = iface_name.split(".")[0] if "." in iface_name else iface_name
                 nb_name = f"{ri_name}/{base_name}"
 
@@ -1181,14 +1223,15 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 )
                 if not existing:
                     logger.info(
-                        f"  Creating routing instance interface:"
-                        f" {self.device_name} / {nb_name}"
+                        f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                        f" routing instance interface: {self.device_name} / {nb_name}"
                     )
-                    netbox.dcim.interfaces.create(
-                        device={"name": self.device_name},
-                        name=nb_name,
-                        type="virtual",
-                    )
+                    if not dry_run:
+                        netbox.dcim.interfaces.create(
+                            device={"name": self.device_name},
+                            name=nb_name,
+                            type="virtual",
+                        )
                     created += 1
                 else:
                     logger.debug(
@@ -1196,7 +1239,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                         f" {self.device_name} / {nb_name}"
                     )
 
-        logger.info(f"  Created {created} new routing instance interfaces")
+        logger.info(f"  {'Would create' if dry_run else 'Created'} {created} routing instance interfaces")
 
     def sync_port_tags(self, dry_run: bool = False) -> None:
         """Tag Juniper interfaces analogously to Nokia SAP classification.
@@ -1225,7 +1268,6 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                         interface.save()
                 continue
 
-            # Routing instance interface: "routing-instance/interface-name"
             _ri_name, iface_name = name.split("/", 1)
 
             asn_match = JUNIPER_TENANT_IFACE_RE.match(iface_name)
@@ -1271,7 +1313,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                     interface.tags = [{"slug": s} for s in new_tags]
                     interface.save()
 
-    def sync_interface_ips(self) -> None:
+    def sync_interface_ips(self, dry_run: bool = False) -> None:
         """Sync interface IP addresses from Juniper device to NetBox."""
         netbox = netbox_api_client()
         logger.info(
@@ -1309,7 +1351,6 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                         addr = (if_addr.findtext("ifa-local") or "").strip()
                         if not addr or addr.startswith("fe80"):
                             continue
-                        # Extract prefix length from ifa-destination (e.g. "10.0.0.0/30")
                         dest = (if_addr.findtext("ifa-destination") or "").strip()
                         if dest and "/" in dest:
                             prefix_len = dest.split("/", 1)[1]
@@ -1323,29 +1364,31 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                         )
                         if not existing_ips:
                             logger.info(
-                                f"  Creating IP {ip_with_mask}"
-                                f" for {self.device_name}/{phy_name}"
+                                f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
+                                f" IP {ip_with_mask} for {self.device_name}/{phy_name}"
                             )
-                            netbox.ipam.ip_addresses.create(
-                                address=ip_with_mask,
-                                assigned_object_type="dcim.interface",
-                                assigned_object_id=nb_interface.id,
-                            )
+                            if not dry_run:
+                                netbox.ipam.ip_addresses.create(
+                                    address=ip_with_mask,
+                                    assigned_object_type="dcim.interface",
+                                    assigned_object_id=nb_interface.id,
+                                )
                         elif len(existing_ips) > 1:
                             logger.warning(
                                 f"  Multiple entries for IP {ip_with_mask} — skipping"
                             )
                         elif existing_ips[0].assigned_object_id != nb_interface.id:
                             logger.info(
-                                f"  Updating IP {ip_with_mask} assignment to"
+                                f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                                f" IP {ip_with_mask} assignment to"
                                 f" {self.device_name}/{phy_name}"
                             )
-                            existing_ip = existing_ips[0]
-                            existing_ip.assigned_object_type = "dcim.interface"
-                            existing_ip.assigned_object_id = nb_interface.id
-                            existing_ip.save()
+                            if not dry_run:
+                                existing_ip = existing_ips[0]
+                                existing_ip.assigned_object_type = "dcim.interface"
+                                existing_ip.assigned_object_id = nb_interface.id
+                                existing_ip.save()
 
-        # Set device primary IP from management interface
         for mgmt_iface_name in JUNIPER_MGMT_INTERFACES:
             mgmt_iface = netbox.dcim.interfaces.get(
                 device=self.device_name, name=mgmt_iface_name
@@ -1357,12 +1400,14 @@ class JuniperJunOSDevice(NetconfSSHDevice):
             )
             if primary_ip:
                 device = netbox.dcim.devices.get(name=self.device_name)
-                logger.info(
-                    f"  Setting primary IPv4 of {self.device_name}"
-                    f" to {primary_ip.address}"
-                )
-                device.primary_ip4 = primary_ip
-                device.save()
+                if not device.primary_ip4 or device.primary_ip4.id != primary_ip.id:
+                    logger.info(
+                        f"  {'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                        f" primary IPv4 of {self.device_name} to {primary_ip.address}"
+                    )
+                    if not dry_run:
+                        device.primary_ip4 = primary_ip
+                        device.save()
             break
 
 
@@ -1393,7 +1438,7 @@ def enumerate_peering_devices() -> Generator[DeviceDiscovery, None, None]:
 # ── Device-agnostic NetBox sync ───────────────────────────────────────
 
 
-def update_netbox_peering_port_tags_by_vlan() -> None:
+def update_netbox_peering_port_tags_by_vlan(dry_run: bool = False) -> None:
     netbox = netbox_api_client()
     main_peering_vlan = list(
         netbox.ipam.vlans.filter(group="exchange_fabric_vlans", vid=998)
@@ -1405,24 +1450,28 @@ def update_netbox_peering_port_tags_by_vlan() -> None:
             for tag_slug in ("peering_port", "ixp_infrastructure"):
                 if tag_slug not in [tag["slug"] for tag in interface.tags]:
                     logger.info(
-                        f"Adding {tag_slug} tag to"
+                        f"{'[DRY-RUN] Would add' if dry_run else 'Adding'}"
+                        f" {tag_slug} tag to"
                         f" {interface.device.name} / {interface.name}"
                     )
-                    interface.tags = [
-                        {"slug": tag["slug"]} for tag in interface.tags
-                    ] + [{"slug": tag_slug}]
-                    interface.save()
+                    if not dry_run:
+                        interface.tags = [
+                            {"slug": tag["slug"]} for tag in interface.tags
+                        ] + [{"slug": tag_slug}]
+                        interface.save()
             continue
         for tag_slug in ("peering_port", "ixp_participant"):
             if tag_slug not in [tag["slug"] for tag in interface.tags]:
                 logger.info(
-                    f"Adding {tag_slug} tag to"
+                    f"{'[DRY-RUN] Would add' if dry_run else 'Adding'}"
+                    f" {tag_slug} tag to"
                     f" {interface.device.name} / {interface.name}"
                 )
-                interface.tags = [
-                    {"slug": tag["slug"]} for tag in interface.tags
-                ] + [{"slug": tag_slug}]
-                interface.save()
+                if not dry_run:
+                    interface.tags = [
+                        {"slug": tag["slug"]} for tag in interface.tags
+                    ] + [{"slug": tag_slug}]
+                    interface.save()
     for interface in netbox.dcim.interfaces.filter(tag="peering_port"):
         interface_vlans = interface.tagged_vlans
         if interface.untagged_vlan:
@@ -1430,15 +1479,17 @@ def update_netbox_peering_port_tags_by_vlan() -> None:
         interface_vlan_ids = [vlan.id for vlan in interface_vlans]
         if main_peering_vlan.id not in interface_vlan_ids:
             logger.info(
-                f"Removing peering_port tag from"
+                f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'}"
+                f" peering_port tag from"
                 f" {interface.device.name} / {interface.name}"
             )
-            interface.tags = [
-                {"slug": tag["slug"]}
-                for tag in interface.tags
-                if tag.slug != "peering_port"
-            ]
-            interface.save()
+            if not dry_run:
+                interface.tags = [
+                    {"slug": tag["slug"]}
+                    for tag in interface.tags
+                    if tag.slug != "peering_port"
+                ]
+                interface.save()
 
 
 def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> bool:
@@ -1451,7 +1502,9 @@ def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> boo
     return any(desc.startswith(prefix) for prefix in CORE_PORT_DESCRIPTION_PREFIXES)
 
 
-def update_netbox_interface_description_asn_participant() -> None:
+def update_netbox_interface_description_asn_participant(
+    dry_run: bool = False,
+) -> None:
     netbox = netbox_api_client()
     for interface in netbox.dcim.interfaces.filter(tag="peering_port"):
         asn_from_description = re.search(r"\(AS(\d+)\)", interface.description)
@@ -1464,10 +1517,16 @@ def update_netbox_interface_description_asn_participant() -> None:
                     f"Could not find one participant for ASN {asn} ({asn_slug})"
                 )
             participant = participants[0]
-            interface.custom_fields["participant"] = participant.id
-            interface.save()
-        # else:
-        #     raise ValueError(f"Could not find ASN in interface description \"{interface.description}\" for {interface.device.name} / {interface.name}")
+            old = interface.custom_fields.get("participant")
+            if old != participant.id:
+                logger.info(
+                    f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                    f" participant: {old!r} -> {asn_slug}"
+                    f" on {interface.device.name} / {interface.name}"
+                )
+                if not dry_run:
+                    interface.custom_fields["participant"] = participant.id
+                    interface.save()
 
 
 if __name__ == "__main__":
@@ -1547,8 +1606,8 @@ if __name__ == "__main__":
 
     if args.sync_hardware_interfaces:
         for device in devices:
-            device.discover_hardware_interfaces()
-            device.discover_logical_interfaces()
+            device.discover_hardware_interfaces(dry_run=args.dry_run)
+            device.discover_logical_interfaces(dry_run=args.dry_run)
     else:
         logger.info(
             "Skipping hardware interface discovery. To enable: --sync-hardware-interfaces"
@@ -1560,7 +1619,7 @@ if __name__ == "__main__":
         vlan_ip_mac_map.update(vlan_ip_macs)
 
     if args.sync_ip_macs:
-        update_netbox_ip_macs(vlan_ip_mac_map)
+        update_netbox_ip_macs(vlan_ip_mac_map, dry_run=args.dry_run)
     else:
         logger.info("Skipping IP MAC sync. To enable: --sync-ip-macs")
 
@@ -1578,14 +1637,14 @@ if __name__ == "__main__":
         ip_port_map[ip] = port
 
     if args.sync_ip_participant_lag:
-        update_netbox_ip_participant_lag(ip_port_map)
+        update_netbox_ip_participant_lag(ip_port_map, dry_run=args.dry_run)
     else:
         logger.info(
             "Skipping IP participant lag sync. To enable: --sync-ip-participant-lag"
         )
 
     if args.sync_peering_port_tags_by_vlan:
-        update_netbox_peering_port_tags_by_vlan()
+        update_netbox_peering_port_tags_by_vlan(dry_run=args.dry_run)
     else:
         logger.info(
             "Skipping peering port tag sync. To enable: --sync-peering-port-tags-by-vlan"
@@ -1600,7 +1659,7 @@ if __name__ == "__main__":
         )
 
     if args.sync_interface_description_asn_participant:
-        update_netbox_interface_description_asn_participant()
+        update_netbox_interface_description_asn_participant(dry_run=args.dry_run)
     else:
         logger.info(
             "Skipping interface description ASN to participant sync."
@@ -1609,6 +1668,6 @@ if __name__ == "__main__":
 
     if args.sync_interface_ips:
         for device in devices:
-            device.sync_interface_ips()
+            device.sync_interface_ips(dry_run=args.dry_run)
     else:
         logger.info("Skipping interface IP sync. To enable: --sync-interface-ips")
