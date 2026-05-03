@@ -949,16 +949,15 @@ class AristaEOSDevice(DeviceDiscovery):
                     existing_ip.assigned_object_id = nb_iface_id
                     existing_ip.save()
 
-        # Remove IPs no longer on device — iterate GraphQL data, no extra REST calls
+        # Warn about IPs in NetBox that are no longer on the device — don't delete them;
+        # deleting IP records can cascade and clear primary_ip4 on the device.
         for ip_address, ip_info in nb_ips_by_addr.items():
             if ip_address not in device_ips:
-                logger.info(
-                    f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'}"
-                    f" IP {ip_address} from {self.device_name}/{ip_info['interface_name']}"
+                logger.warning(
+                    f"Stale IP {ip_address} is assigned to"
+                    f" {self.device_name}/{ip_info['interface_name']}"
+                    f" in NetBox but not found on device — remove manually if needed"
                 )
-                if not dry_run:
-                    ip_obj = netbox.ipam.ip_addresses.get(ip_info["id"])
-                    ip_obj.delete()
 
         mgmt_iface_info = nb_ifaces_gql.get("Management1")
         if mgmt_iface_info:
