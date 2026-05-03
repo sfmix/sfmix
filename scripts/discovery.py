@@ -287,15 +287,19 @@ def list_ips_for_peering_lan(peering_lan: str) -> List[str]:
 
 
 def update_netbox_ip_macs(
-    vlan_ip_mac_map: Dict[VLAN_IP, str], dry_run: bool = False
+    vlan_ip_mac_map: Dict[VLAN_IP, str],
+    peering_prefixes: List[str],
+    dry_run: bool = False,
 ) -> None:
     netbox = netbox_api_client()
+    # Bulk-fetch all IPs in each peering LAN prefix (2 calls instead of ~120)
+    nb_ips_by_address: Dict[str, Any] = {}
+    for prefix in peering_prefixes:
+        for nb_ip in netbox.ipam.ip_addresses.filter(parent=prefix):
+            plain_ip = str(ipaddress.ip_interface(nb_ip.address).ip)
+            nb_ips_by_address[plain_ip] = nb_ip
     for (vlan, ip), new_mac in vlan_ip_mac_map.items():
-        try:
-            existing_ip = netbox.ipam.ip_addresses.get(address=ip)
-        except ValueError as e:
-            logger.critical(f"Possible duplicate IP: {ip}")
-            raise e
+        existing_ip = nb_ips_by_address.get(ip)
         if not existing_ip:
             if ip == "2001:504:30::ba04:7787:1":
                 # FIXME
@@ -337,12 +341,29 @@ def list_peering_lans() -> List[Tuple[int, str]]:
 
 
 def update_netbox_ip_participant_lag(
-    ip_port_map: Dict[str, PORT], dry_run: bool = False
+    ip_port_map: Dict[str, PORT],
+    peering_prefixes: List[str],
+    dry_run: bool = False,
 ) -> None:
     netbox = netbox_api_client()
+    # Bulk-fetch interfaces per unique device (one call per device)
+    unique_devices = {hostname for hostname, _ in ip_port_map.values()}
+    nb_interfaces_by_device: Dict[str, Dict[str, Any]] = {
+        hostname: _prefetch_nb_interfaces(netbox, hostname)
+        for hostname in unique_devices
+    }
+    # Bulk-fetch all IPs in peering LAN prefixes (2 calls instead of ~160)
+    nb_ips_by_address: Dict[str, Any] = {}
+    for prefix in peering_prefixes:
+        for nb_ip in netbox.ipam.ip_addresses.filter(parent=prefix):
+            plain_ip = str(ipaddress.ip_interface(nb_ip.address).ip)
+            nb_ips_by_address[plain_ip] = nb_ip
     for ip, (hostname, interface) in ip_port_map.items():
-        nb_interface = netbox.dcim.interfaces.get(device=hostname, name=interface)
-        nb_ip_address = netbox.ipam.ip_addresses.get(address=ip)
+        nb_interface = nb_interfaces_by_device.get(hostname, {}).get(interface)
+        if nb_interface is None:
+            logger.warning(f"Interface not found in NetBox: {hostname}/{interface}")
+            continue
+        nb_ip_address = nb_ips_by_address.get(ip)
         if not nb_ip_address:
             raise RuntimeError(f"IP address is missing from Netbox: {ip}")
         if (
@@ -1655,17 +1676,18 @@ def update_netbox_interface_description_asn_participant(
     dry_run: bool = False,
 ) -> None:
     netbox = netbox_api_client()
+    # Prefetch all tenants once (one call instead of one per interface)
+    all_tenants = {t.slug: t for t in netbox.tenancy.tenants.all()}
     for interface in netbox.dcim.interfaces.filter(tag="peering_port"):
         asn_from_description = re.search(r"\(AS(\d+)\)", interface.description)
         if asn_from_description:
             asn = asn_from_description.group(1)
             asn_slug = f"as{asn}"
-            participants = list(netbox.tenancy.tenants.filter(slug=asn_slug))
-            if len(participants) != 1:
+            participant = all_tenants.get(asn_slug)
+            if participant is None:
                 raise ValueError(
-                    f"Could not find one participant for ASN {asn} ({asn_slug})"
+                    f"Could not find participant for ASN {asn} ({asn_slug})"
                 )
-            participant = participants[0]
             old = interface.custom_fields.get("participant")
             if old != participant.id:
                 logger.info(
@@ -1783,13 +1805,15 @@ if __name__ == "__main__":
             "Skipping hardware interface discovery. To enable: --sync-hardware-interfaces"
         )
 
+    peering_lans = list_peering_lans()
+    peering_prefixes = [prefix for _, prefix in peering_lans]
     vlan_ip_mac_map: Dict[VLAN_IP, str] = dict()
-    for vlan_id, peering_lan_prefix in list_peering_lans():
+    for vlan_id, peering_lan_prefix in peering_lans:
         vlan_ip_macs = discover_vlan_ip_mac_map(vlan_id, peering_lan_prefix)
         vlan_ip_mac_map.update(vlan_ip_macs)
 
     if args.sync_ip_macs:
-        update_netbox_ip_macs(vlan_ip_mac_map, dry_run=args.dry_run)
+        update_netbox_ip_macs(vlan_ip_mac_map, peering_prefixes, dry_run=args.dry_run)
     else:
         logger.info("Skipping IP MAC sync. To enable: --sync-ip-macs")
 
@@ -1807,7 +1831,7 @@ if __name__ == "__main__":
         ip_port_map[ip] = port
 
     if args.sync_ip_participant_lag:
-        update_netbox_ip_participant_lag(ip_port_map, dry_run=args.dry_run)
+        update_netbox_ip_participant_lag(ip_port_map, peering_prefixes, dry_run=args.dry_run)
     else:
         logger.info(
             "Skipping IP participant lag sync. To enable: --sync-ip-participant-lag"
