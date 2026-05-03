@@ -126,6 +126,65 @@ def netbox_api_client() -> pynetbox.core.api.Api:
     return pynetbox.api(get_netbox_api_endpoint(), token=get_netbox_api_token())
 
 
+def _graphql_query(query: str, variables: Optional[Dict] = None) -> Dict:
+    """Execute a GraphQL query against the NetBox /graphql/ endpoint."""
+    import urllib.request as _urlreq
+    endpoint = get_netbox_api_endpoint().rstrip("/") + "/graphql/"
+    payload = json.dumps({"query": query, "variables": variables or {}}).encode()
+    req = _urlreq.Request(
+        endpoint,
+        data=payload,
+        headers={
+            "Authorization": f"Token {get_netbox_api_token()}",
+            "Content-Type": "application/json",
+        },
+    )
+    with _urlreq.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read())
+    if "errors" in result:
+        raise RuntimeError(f"NetBox GraphQL error: {result['errors']}")
+    return result.get("data", {})
+
+
+def _prefetch_nb_interfaces(netbox: Any, device_name: str) -> Dict[str, Any]:
+    """Return {interface_name: pynetbox_object} for all interfaces on device_name (1 API call)."""
+    return {
+        iface.name: iface
+        for iface in netbox.dcim.interfaces.filter(device=device_name)
+    }
+
+
+def _prefetch_device_ips(device_name: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Fetch every interface and its assigned IPs for device_name via a single GraphQL query.
+
+    Returns (ifaces_by_name, ips_by_address):
+      ifaces_by_name  — {name: {"id": int}}
+      ips_by_address  — {address: {"id": int, "interface_id": int, "interface_name": str}}
+    """
+    data = _graphql_query(
+        """
+        query($device: String!) {
+          interface_list(device: $device) {
+            id name
+            ip_addresses { id address }
+          }
+        }
+        """,
+        {"device": device_name},
+    )
+    ifaces_by_name: Dict[str, Any] = {}
+    ips_by_address: Dict[str, Any] = {}
+    for iface in data.get("interface_list", []):
+        ifaces_by_name[iface["name"]] = {"id": int(iface["id"])}
+        for ip in iface.get("ip_addresses", []):
+            ips_by_address[ip["address"]] = {
+                "id": int(ip["id"]),
+                "interface_id": int(iface["id"]),
+                "interface_name": iface["name"],
+            }
+    return ifaces_by_name, ips_by_address
+
+
 # ── Credential helpers ────────────────────────────────────────────────
 
 
@@ -595,9 +654,13 @@ class AristaEOSDevice(DeviceDiscovery):
         exchange_vlan_map = {
             exchange_vlan.vid: exchange_vlan for exchange_vlan in exchange_vlans
         }
+
+        # Prefetch all existing NetBox interfaces in one call; reused for stale check and per-interface lookup
+        nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
         on_device_interfaces = set(interfaces_response.keys())
-        for netbox_interface in netbox.dcim.interfaces.filter(device=self.device_name):
-            if netbox_interface.name not in on_device_interfaces:
+
+        for iface_name, netbox_interface in nb_ifaces.items():
+            if iface_name not in on_device_interfaces:
                 if delete_interfaces:
                     logger.info(
                         f"{'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
@@ -688,10 +751,8 @@ class AristaEOSDevice(DeviceDiscovery):
                             .get("vlanId")
                         )
 
-            existing_interfaces = list(
-                netbox.dcim.interfaces.filter(device=self.device_name, name=interface_name)
-            )
-            if not existing_interfaces:
+            existing_interface = nb_ifaces.get(interface_name)
+            if existing_interface is None:
                 if netbox_interface_type and netbox_interface_speed:
                     logger.info(
                         f"{'[DRY-RUN] Would create' if dry_run else 'Creating'}"
@@ -706,7 +767,6 @@ class AristaEOSDevice(DeviceDiscovery):
                         )
             else:
                 logger.debug(f"Examining Interface: {self.device_name} / {interface_name}:")
-                existing_interface = existing_interfaces[0]
                 changed = False
 
                 if existing_interface.speed != netbox_interface_speed:
@@ -820,6 +880,9 @@ class AristaEOSDevice(DeviceDiscovery):
         switch = pyeapi.connect(**connection_params)
         response = switch.enable(["show ip interface brief"])
 
+        # One GraphQL call to get all interface IDs and their existing IPs
+        nb_ifaces_gql, nb_ips_by_addr = _prefetch_device_ips(self.device_name)
+
         device_ips: Set[str] = set()
 
         for interface_name, interface in response[0]["result"]["interfaces"].items():
@@ -833,18 +896,17 @@ class AristaEOSDevice(DeviceDiscovery):
             ip_with_mask = f"{ip_addr['address']}/{ip_addr['maskLen']}"
             device_ips.add(ip_with_mask)
 
-            nb_interface = netbox.dcim.interfaces.get(
-                device=self.device_name, name=interface_name
-            )
-            if not nb_interface:
+            nb_iface_info = nb_ifaces_gql.get(interface_name)
+            if not nb_iface_info:
                 logger.warning(
                     f"Interface not found in Netbox: {self.device_name}/{interface_name}"
                 )
                 continue
+            nb_iface_id = nb_iface_info["id"]
 
-            existing_ips = list(netbox.ipam.ip_addresses.filter(address=ip_with_mask))
+            existing_ip_info = nb_ips_by_addr.get(ip_with_mask)
 
-            if not existing_ips:
+            if existing_ip_info is None:
                 logger.info(
                     f"{'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                     f" IP {ip_with_mask} for {self.device_name}/{interface_name}"
@@ -853,51 +915,50 @@ class AristaEOSDevice(DeviceDiscovery):
                     netbox.ipam.ip_addresses.create(
                         address=ip_with_mask,
                         assigned_object_type="dcim.interface",
-                        assigned_object_id=nb_interface.id,
+                        assigned_object_id=nb_iface_id,
                     )
-            elif len(existing_ips) > 1:
-                logger.warning(
-                    f"Multiple entries found for IP {ip_with_mask}"
-                    f" (here, {self.device_name}/{interface_name}) - skipping update"
-                )
-                continue
-            elif existing_ips[0].assigned_object_id != nb_interface.id:
+            elif existing_ip_info["interface_id"] != nb_iface_id:
                 logger.info(
                     f"{'[DRY-RUN] Would update' if dry_run else 'Updating'}"
                     f" IP {ip_with_mask} assignment to {self.device_name}/{interface_name}"
                 )
                 if not dry_run:
-                    existing_ip = existing_ips[0]
+                    existing_ip = netbox.ipam.ip_addresses.get(existing_ip_info["id"])
                     existing_ip.assigned_object_type = "dcim.interface"
-                    existing_ip.assigned_object_id = nb_interface.id
+                    existing_ip.assigned_object_id = nb_iface_id
                     existing_ip.save()
 
-        for nb_interface in netbox.dcim.interfaces.filter(device=self.device_name):
-            for ip in netbox.ipam.ip_addresses.filter(interface_id=nb_interface.id):
-                if ip.address not in device_ips:
-                    logger.info(
-                        f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'}"
-                        f" IP {ip.address} from {self.device_name}/{nb_interface.name}"
-                    )
-                    if not dry_run:
-                        ip.delete()
+        # Remove IPs no longer on device — iterate GraphQL data, no extra REST calls
+        for ip_address, ip_info in nb_ips_by_addr.items():
+            if ip_address not in device_ips:
+                logger.info(
+                    f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'}"
+                    f" IP {ip_address} from {self.device_name}/{ip_info['interface_name']}"
+                )
+                if not dry_run:
+                    ip_obj = netbox.ipam.ip_addresses.get(ip_info["id"])
+                    ip_obj.delete()
 
-        management1_interface = netbox.dcim.interfaces.get(
-            device=self.device_name, name="Management1"
-        )
-        if management1_interface:
-            primary_ip = netbox.ipam.ip_addresses.get(
-                interface_id=management1_interface.id, family=4
+        mgmt_iface_info = nb_ifaces_gql.get("Management1")
+        if mgmt_iface_info:
+            primary_ip_info = next(
+                (
+                    ip for ip, info in nb_ips_by_addr.items()
+                    if info["interface_id"] == mgmt_iface_info["id"]
+                    and ":" not in ip  # IPv4 only
+                ),
+                None,
             )
-            if primary_ip:
+            if primary_ip_info:
+                primary_ip_id = nb_ips_by_addr[primary_ip_info]["id"]
                 device = netbox.dcim.devices.get(name=self.device_name)
-                if not device.primary_ip4 or device.primary_ip4.id != primary_ip.id:
+                if not device.primary_ip4 or device.primary_ip4.id != primary_ip_id:
                     logger.info(
                         f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
-                        f" primary IPv4 of {self.device_name} to {primary_ip.address}"
+                        f" primary IPv4 of {self.device_name} to {primary_ip_info}"
                     )
                     if not dry_run:
-                        device.primary_ip4 = primary_ip
+                        device.primary_ip4 = primary_ip_id
                         device.save()
             else:
                 logger.warning(
@@ -946,6 +1007,9 @@ class NokiaSROSDevice(NetconfSSHDevice):
         )
         logger.info(f"  Found {len(ports)} ports via NETCONF")
 
+        # Prefetch all NetBox interfaces once; reused for per-port lookup and stale sweep
+        nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
+
         on_device_ports = set()
         for port_info in ports:
             port_id = port_info["port-id"]
@@ -958,10 +1022,8 @@ class NokiaSROSDevice(NetconfSSHDevice):
             on_device_ports.add(port_id)
             nb_type, nb_speed = SROS_PORT_TYPE_MAP.get(port_type, ("other", 0))
 
-            existing = list(
-                netbox.dcim.interfaces.filter(device=self.device_name, name=port_id)
-            )
-            if not existing:
+            iface = nb_ifaces.get(port_id)
+            if iface is None:
                 logger.info(
                     f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                     f" interface: {self.device_name} / {port_id} ({nb_type})"
@@ -974,7 +1036,6 @@ class NokiaSROSDevice(NetconfSSHDevice):
                         speed=nb_speed,
                     )
             else:
-                iface = existing[0]
                 if iface.speed != nb_speed and nb_speed > 0:
                     logger.info(
                         f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
@@ -988,14 +1049,14 @@ class NokiaSROSDevice(NetconfSSHDevice):
                     logger.debug(f"  No change for {self.device_name} / {port_id}")
 
         if delete_interfaces:
-            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+            for nb_iface_name, nb_iface in nb_ifaces.items():
                 # Only sweep physical ports (no "/"), not VPRN SAPs
-                if "/" in nb_iface.name:
+                if "/" in nb_iface_name:
                     continue
-                if nb_iface.name not in on_device_ports:
+                if nb_iface_name not in on_device_ports:
                     logger.info(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
-                        f" interface: {self.device_name} / {nb_iface.name}"
+                        f" interface: {self.device_name} / {nb_iface_name}"
                     )
                     if not dry_run:
                         nb_iface.delete()
@@ -1016,6 +1077,9 @@ class NokiaSROSDevice(NetconfSSHDevice):
         )
         logger.info(f"  Found {len(vprn_ifaces)} VPRN interfaces via NETCONF")
 
+        # Prefetch all NetBox interfaces once for lookup and stale sweep
+        nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
+
         for iface_info in vprn_ifaces:
             vprn_name = iface_info["vprn_name"]
             iface_name = iface_info["interface_name"]
@@ -1023,10 +1087,8 @@ class NokiaSROSDevice(NetconfSSHDevice):
             sap_id = iface_info.get("sap_id", "")
             desc = f"SAP {sap_id}" if sap_id else ""
 
-            existing = list(
-                netbox.dcim.interfaces.filter(device=self.device_name, name=nb_name)
-            )
-            if not existing:
+            iface = nb_ifaces.get(nb_name)
+            if iface is None:
                 logger.info(
                     f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                     f" VPRN interface: {self.device_name} / {nb_name}"
@@ -1039,7 +1101,6 @@ class NokiaSROSDevice(NetconfSSHDevice):
                         description=desc,
                     )
             else:
-                iface = existing[0]
                 if iface.description != desc and desc:
                     logger.info(
                         f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
@@ -1054,14 +1115,14 @@ class NokiaSROSDevice(NetconfSSHDevice):
             on_device_names = {
                 f"{i['vprn_name']}/{i['interface_name']}" for i in vprn_ifaces
             }
-            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+            for nb_iface_name, nb_iface in nb_ifaces.items():
                 # Only sweep VPRN SAPs (contain "/"), not physical ports
-                if "/" not in nb_iface.name:
+                if "/" not in nb_iface_name:
                     continue
-                if nb_iface.name not in on_device_names:
+                if nb_iface_name not in on_device_names:
                     logger.info(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
-                        f" VPRN interface: {self.device_name} / {nb_iface.name}"
+                        f" VPRN interface: {self.device_name} / {nb_iface_name}"
                     )
                     if not dry_run:
                         nb_iface.delete()
@@ -1076,6 +1137,7 @@ class NokiaSROSDevice(NetconfSSHDevice):
         """
         netbox = netbox_api_client()
         logger.debug(f"Classifying SAP tags on Nokia router {self.device_name}")
+        all_tenants = {t.slug: t for t in netbox.tenancy.tenants.all()}
         for interface in netbox.dcim.interfaces.filter(device=self.device_name):
             tag_slugs = [tag["slug"] for tag in interface.tags]
             name = interface.name
@@ -1112,7 +1174,8 @@ class NokiaSROSDevice(NetconfSSHDevice):
                 if asn_match:
                     asn = int(asn_match.group(1))
                     asn_slug = f"as{asn}"
-                    participants = list(netbox.tenancy.tenants.filter(slug=asn_slug))
+                    tenant = all_tenants.get(asn_slug)
+                    participants = [tenant] if tenant else []
                     if len(participants) == 1:
                         participant = participants[0]
                         if interface.custom_fields.get("participant") != participant.id:
@@ -1197,6 +1260,9 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         finally:
             dev.close()
 
+        # Prefetch all NetBox interfaces once for lookup and stale sweep
+        nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
+
         on_device_ifaces = set()
         for phy_iface in iface_info.findall("physical-interface"):
             name = (phy_iface.findtext("name") or "").strip()
@@ -1211,10 +1277,8 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 continue
 
             on_device_ifaces.add(name)
-            existing = list(
-                netbox.dcim.interfaces.filter(device=self.device_name, name=name)
-            )
-            if not existing:
+            iface = nb_ifaces.get(name)
+            if iface is None:
                 logger.info(
                     f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                     f" interface: {self.device_name} / {name} ({nb_type})"
@@ -1229,7 +1293,6 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                         create_kwargs["speed"] = nb_speed
                     netbox.dcim.interfaces.create(**create_kwargs)
             else:
-                iface = existing[0]
                 if nb_speed is not None and iface.speed != nb_speed:
                     logger.info(
                         f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
@@ -1243,14 +1306,14 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                     logger.debug(f"  No change for {self.device_name} / {name}")
 
         if delete_interfaces:
-            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
+            for nb_iface_name, nb_iface in nb_ifaces.items():
                 # Only sweep physical interfaces (no "/"), not routing instance ones
-                if "/" in nb_iface.name:
+                if "/" in nb_iface_name:
                     continue
-                if nb_iface.name not in on_device_ifaces:
+                if nb_iface_name not in on_device_ifaces:
                     logger.info(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
-                        f" interface: {self.device_name} / {nb_iface.name}"
+                        f" interface: {self.device_name} / {nb_iface_name}"
                     )
                     if not dry_run:
                         nb_iface.delete()
@@ -1274,6 +1337,9 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         finally:
             dev.close()
 
+        # Prefetch all NetBox interfaces once for lookup and stale sweep
+        nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
+
         on_device_ri_ifaces = set()
         created = 0
         for instance in ri_info.findall("instance-core"):
@@ -1288,10 +1354,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 nb_name = f"{ri_name}/{base_name}"
                 on_device_ri_ifaces.add(nb_name)
 
-                existing = list(
-                    netbox.dcim.interfaces.filter(device=self.device_name, name=nb_name)
-                )
-                if not existing:
+                if nb_name not in nb_ifaces:
                     logger.info(
                         f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                         f" routing instance interface: {self.device_name} / {nb_name}"
@@ -1312,13 +1375,13 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         logger.info(f"  {'Would create' if dry_run else 'Created'} {created} routing instance interfaces")
 
         if delete_interfaces:
-            for nb_iface in netbox.dcim.interfaces.filter(device=self.device_name):
-                if "/" not in nb_iface.name:
+            for nb_iface_name, nb_iface in nb_ifaces.items():
+                if "/" not in nb_iface_name:
                     continue
-                if nb_iface.name not in on_device_ri_ifaces:
+                if nb_iface_name not in on_device_ri_ifaces:
                     logger.info(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
-                        f" routing instance interface: {self.device_name} / {nb_iface.name}"
+                        f" routing instance interface: {self.device_name} / {nb_iface_name}"
                     )
                     if not dry_run:
                         nb_iface.delete()
@@ -1332,6 +1395,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         """
         netbox = netbox_api_client()
         logger.debug(f"Classifying port tags on Juniper device {self.device_name}")
+        all_tenants = {t.slug: t for t in netbox.tenancy.tenants.all()}
         for interface in netbox.dcim.interfaces.filter(device=self.device_name):
             tag_slugs = [tag["slug"] for tag in interface.tags]
             name = interface.name
@@ -1356,7 +1420,8 @@ class JuniperJunOSDevice(NetconfSSHDevice):
             if asn_match:
                 asn = int(asn_match.group(1))
                 asn_slug = f"as{asn}"
-                participants = list(netbox.tenancy.tenants.filter(slug=asn_slug))
+                tenant = all_tenants.get(asn_slug)
+                participants = [tenant] if tenant else []
                 if len(participants) == 1:
                     participant = participants[0]
                     if interface.custom_fields.get("participant") != participant.id:
@@ -1407,6 +1472,9 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         finally:
             dev.close()
 
+        # One GraphQL call to get all interface IDs and their existing IPs
+        nb_ifaces_gql, nb_ips_by_addr = _prefetch_device_ips(self.device_name)
+
         device_ips: Set[str] = set()
 
         for phy_iface in iface_info.findall("physical-interface"):
@@ -1414,15 +1482,14 @@ class JuniperJunOSDevice(NetconfSSHDevice):
             if not phy_name:
                 continue
 
-            nb_interface = netbox.dcim.interfaces.get(
-                device=self.device_name, name=phy_name
-            )
-            if not nb_interface:
+            nb_iface_info = nb_ifaces_gql.get(phy_name)
+            if not nb_iface_info:
                 logger.debug(
                     f"  Interface not in NetBox, skipping IP sync:"
                     f" {self.device_name}/{phy_name}"
                 )
                 continue
+            nb_iface_id = nb_iface_info["id"]
 
             for log_iface in phy_iface.findall("logical-interface"):
                 for af in log_iface.findall("address-family"):
@@ -1441,10 +1508,8 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                             ip_with_mask = addr
                         device_ips.add(ip_with_mask)
 
-                        existing_ips = list(
-                            netbox.ipam.ip_addresses.filter(address=ip_with_mask)
-                        )
-                        if not existing_ips:
+                        existing_ip_info = nb_ips_by_addr.get(ip_with_mask)
+                        if existing_ip_info is None:
                             logger.info(
                                 f"  {'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                                 f" IP {ip_with_mask} for {self.device_name}/{phy_name}"
@@ -1453,42 +1518,44 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                                 netbox.ipam.ip_addresses.create(
                                     address=ip_with_mask,
                                     assigned_object_type="dcim.interface",
-                                    assigned_object_id=nb_interface.id,
+                                    assigned_object_id=nb_iface_id,
                                 )
-                        elif len(existing_ips) > 1:
-                            logger.warning(
-                                f"  Multiple entries for IP {ip_with_mask} — skipping"
-                            )
-                        elif existing_ips[0].assigned_object_id != nb_interface.id:
+                        elif existing_ip_info["interface_id"] != nb_iface_id:
                             logger.info(
                                 f"  {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
                                 f" IP {ip_with_mask} assignment to"
                                 f" {self.device_name}/{phy_name}"
                             )
                             if not dry_run:
-                                existing_ip = existing_ips[0]
+                                existing_ip = netbox.ipam.ip_addresses.get(
+                                    existing_ip_info["id"]
+                                )
                                 existing_ip.assigned_object_type = "dcim.interface"
-                                existing_ip.assigned_object_id = nb_interface.id
+                                existing_ip.assigned_object_id = nb_iface_id
                                 existing_ip.save()
 
         for mgmt_iface_name in JUNIPER_MGMT_INTERFACES:
-            mgmt_iface = netbox.dcim.interfaces.get(
-                device=self.device_name, name=mgmt_iface_name
-            )
-            if not mgmt_iface:
+            mgmt_iface_info = nb_ifaces_gql.get(mgmt_iface_name)
+            if not mgmt_iface_info:
                 continue
-            primary_ip = netbox.ipam.ip_addresses.get(
-                interface_id=mgmt_iface.id, family=4
+            mgmt_iface_id = mgmt_iface_info["id"]
+            primary_ip_addr = next(
+                (
+                    ip for ip, info in nb_ips_by_addr.items()
+                    if info["interface_id"] == mgmt_iface_id and ":" not in ip
+                ),
+                None,
             )
-            if primary_ip:
+            if primary_ip_addr:
+                primary_ip_id = nb_ips_by_addr[primary_ip_addr]["id"]
                 device = netbox.dcim.devices.get(name=self.device_name)
-                if not device.primary_ip4 or device.primary_ip4.id != primary_ip.id:
+                if not device.primary_ip4 or device.primary_ip4.id != primary_ip_id:
                     logger.info(
                         f"  {'[DRY-RUN] Would set' if dry_run else 'Setting'}"
-                        f" primary IPv4 of {self.device_name} to {primary_ip.address}"
+                        f" primary IPv4 of {self.device_name} to {primary_ip_addr}"
                     )
                     if not dry_run:
-                        device.primary_ip4 = primary_ip
+                        device.primary_ip4 = primary_ip_id
                         device.save()
             break
 
