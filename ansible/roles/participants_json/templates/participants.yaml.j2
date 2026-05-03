@@ -14,7 +14,7 @@ ixp_list:
       support_phone: "+1 415 634-6712"
       switch:
       {% for device in netbox_devices.values() %}
-      {%   if device.device_role.slug == "peering_switch" %}
+      {%   if device.role.slug == "peering_switch" %}
       {%     set site = netbox_sites[device.site.id] %}
         - id: {{ device.id }}
           name: "{{ device.name }}"
