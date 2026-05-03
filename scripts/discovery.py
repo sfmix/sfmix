@@ -1070,9 +1070,13 @@ class NokiaSROSDevice(NetconfSSHDevice):
                     logger.debug(f"  No change for {self.device_name} / {port_id}")
 
         if delete_interfaces:
+            # Derive the set of slot/shelf prefixes seen on this device (e.g. '1', '10', 'A').
+            # Only sweep NetBox interfaces whose first name component matches one of those
+            # prefixes — this avoids touching VPRN SAPs whose service names (e.g. 'FREE')
+            # happen to contain a '/'.
+            device_port_prefixes = {p.split("/", 1)[0] for p in on_device_ports}
             for nb_iface_name, nb_iface in nb_ifaces.items():
-                # Only sweep physical ports (no "/"), not VPRN SAPs
-                if "/" in nb_iface_name:
+                if nb_iface_name.split("/", 1)[0] not in device_port_prefixes:
                     continue
                 if nb_iface_name not in on_device_ports:
                     logger.info(
@@ -1136,9 +1140,12 @@ class NokiaSROSDevice(NetconfSSHDevice):
             on_device_names = {
                 f"{i['vprn_name']}/{i['interface_name']}" for i in vprn_ifaces
             }
+            # Collect known VPRN service names so we only sweep actual SAP entries.
+            # Physical Nokia ports like '1/1/c1' or 'A/3' must not be touched here.
+            vprn_names = {i["vprn_name"] for i in vprn_ifaces}
             for nb_iface_name, nb_iface in nb_ifaces.items():
-                # Only sweep VPRN SAPs (contain "/"), not physical ports
-                if "/" not in nb_iface_name:
+                first = nb_iface_name.split("/", 1)[0]
+                if first not in vprn_names:
                     continue
                 if nb_iface_name not in on_device_names:
                     logger.info(
