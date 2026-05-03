@@ -2,7 +2,7 @@
 - name: Detect OpenSSH server version
   become: true
   ansible.builtin.shell:
-    cmd: "sshd -V 2>&1 | grep -oP 'OpenSSH_\\K[0-9]+\\.[0-9]+' | head -1"
+    cmd: "sshd -V 2>&1 | sed -n 's/.*OpenSSH_\\([0-9]*\\.[0-9]*\\).*/\\1/p' | head -1"
   register: _sshd_version
   changed_when: false
 
@@ -22,7 +22,7 @@
     regexp: '^PerSourceMaxStartups\s+'
     line: "PerSourceMaxStartups 10"
     validate: sshd -t -f %s
-  when: _sshd_version.stdout is version('9.2', '>=')
+  when: _sshd_version.stdout | length > 0 and _sshd_version.stdout is version('9.2', '>=')
   notify: Restart sshd
 
 - name: Configure sshd PerSourcePenaltyExemptList
@@ -32,5 +32,5 @@
     regexp: '^PerSourcePenaltyExemptList\s+'
     line: "PerSourcePenaltyExemptList {{ ixp_admin_source_subnets | join(',') }}"
     validate: sshd -t -f %s
-  when: _sshd_version.stdout is version('9.8', '>=')
+  when: _sshd_version.stdout | length > 0 and _sshd_version.stdout is version('9.8', '>=')
   notify: Restart sshd
