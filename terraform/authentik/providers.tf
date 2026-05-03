@@ -49,6 +49,10 @@ resource "authentik_provider_oauth2" "looking_glass" {
       matching_mode = "regex"
       url           = "http://127\\.0\\.0\\.1:\\d+/auth/callback"
     },
+    {
+      matching_mode = "regex"
+      url           = "http://localhost:\\d+/callback"
+    },
   ]
 
   access_code_validity   = "minutes=10"
