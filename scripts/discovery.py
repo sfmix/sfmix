@@ -1206,11 +1206,13 @@ class NokiaSROSDevice(NetconfSSHDevice):
                     participants = [tenant] if tenant else []
                     if len(participants) == 1:
                         participant = participants[0]
-                        if interface.custom_fields.get("participant") != participant.id:
-                            old_participant = interface.custom_fields.get("participant")
+                        old_participant = interface.custom_fields.get("participant")
+                        existing_id = old_participant["id"] if isinstance(old_participant, dict) else old_participant
+                        if existing_id != participant.id:
+                            old_slug = old_participant.get("slug") if isinstance(old_participant, dict) else old_participant
                             logger.info(
                                 f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
-                                f" participant: {old_participant!r} -> {asn_slug}"
+                                f" participant: {old_slug!r} -> {asn_slug}"
                                 f" on {self.device_name} / {name}"
                             )
                             if not dry_run:
@@ -1452,11 +1454,13 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 participants = [tenant] if tenant else []
                 if len(participants) == 1:
                     participant = participants[0]
-                    if interface.custom_fields.get("participant") != participant.id:
-                        old_participant = interface.custom_fields.get("participant")
+                    old_participant = interface.custom_fields.get("participant")
+                    existing_id = old_participant["id"] if isinstance(old_participant, dict) else old_participant
+                    if existing_id != participant.id:
+                        old_slug = old_participant.get("slug") if isinstance(old_participant, dict) else old_participant
                         logger.info(
                             f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
-                            f" participant: {old_participant!r} -> {asn_slug}"
+                            f" participant: {old_slug!r} -> {asn_slug}"
                             f" on {self.device_name} / {name}"
                         )
                         if not dry_run:
@@ -1696,10 +1700,12 @@ def update_netbox_interface_description_asn_participant(
                     f"Could not find participant for ASN {asn} ({asn_slug})"
                 )
             old = interface.custom_fields.get("participant")
-            if old != participant.id:
+            existing_id = old["id"] if isinstance(old, dict) else old
+            if existing_id != participant.id:
+                old_slug = old.get("slug") if isinstance(old, dict) else old
                 logger.info(
                     f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
-                    f" participant: {old!r} -> {asn_slug}"
+                    f" participant: {old_slug!r} -> {asn_slug}"
                     f" on {interface.device.name} / {interface.name}"
                 )
                 if not dry_run:
