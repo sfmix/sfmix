@@ -164,7 +164,7 @@ def _prefetch_device_ips(device_name: str) -> Tuple[Dict[str, Any], Dict[str, An
     data = _graphql_query(
         """
         query($device: String!) {
-          interface_list(device: $device) {
+          interface_list(filters: { device: { name: { exact: $device } } }) {
             id name
             ip_addresses { id address }
           }
