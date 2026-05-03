@@ -680,6 +680,19 @@ class AristaEOSDevice(DeviceDiscovery):
         nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
         on_device_interfaces = set(interfaces_response.keys())
 
+        # Build LAG→speed map from member interfaces (EOS reports memberInterfaces:{} when
+        # the LAG is down, but each Ethernet member still reports its real bandwidth and
+        # its interfaceMembership field regardless of link state).
+        lag_configured_speed: Dict[str, int] = {}
+        for iname, idetails in interfaces_response.items():
+            membership = idetails.get("interfaceMembership", "")
+            if membership.startswith("Member of "):
+                pc_name = membership[len("Member of "):]
+                lag_configured_speed[pc_name] = (
+                    lag_configured_speed.get(pc_name, 0)
+                    + int(idetails.get("bandwidth", 0) / 1_000)
+                )
+
         for iface_name, netbox_interface in nb_ifaces.items():
             if iface_name not in on_device_interfaces:
                 if delete_interfaces:
@@ -743,6 +756,11 @@ class AristaEOSDevice(DeviceDiscovery):
                     f" for {self.device_name} / {interface_name}"
                 )
             netbox_interface_speed = int(interface_details["bandwidth"] / 1_000)
+            # For LAGs, EOS reports bandwidth=0 when all members are down.
+            # Use the pre-built member speed map instead (keyed from interfaceMembership
+            # on each Ethernet member, which reports real bandwidth regardless of link state).
+            if eapi_interface_type == "portChannel" and netbox_interface_speed == 0:
+                netbox_interface_speed = lag_configured_speed.get(interface_name, 0)
             interface_description = interface_details["description"]
 
             netbox_interface_mode = None
@@ -1262,7 +1280,11 @@ class JuniperJunOSDevice(NetconfSSHDevice):
         dev = JunosDevice(
             host=self.management_host,
             user=creds["username"],
+            password=creds["password"],
             ssh_config=ssh_config if os.path.exists(ssh_config) else None,
+            # Disable SSH agent: paramiko's agent handling has a public_blob bug
+            # that causes AuthenticationError when an agent is running.
+            gather_facts=False,
         )
         dev.open()
         return dev
@@ -1805,14 +1827,17 @@ if __name__ == "__main__":
 
     if args.sync_hardware_interfaces:
         for device in devices:
-            device.discover_hardware_interfaces(
-                dry_run=args.dry_run,
-                delete_interfaces=args.delete_interfaces,
-            )
-            device.discover_logical_interfaces(
-                dry_run=args.dry_run,
-                delete_interfaces=args.delete_interfaces,
-            )
+            try:
+                device.discover_hardware_interfaces(
+                    dry_run=args.dry_run,
+                    delete_interfaces=args.delete_interfaces,
+                )
+                device.discover_logical_interfaces(
+                    dry_run=args.dry_run,
+                    delete_interfaces=args.delete_interfaces,
+                )
+            except Exception as e:
+                logger.error(f"Hardware interface discovery failed for {device.device_name}: {e}")
     else:
         logger.info(
             "Skipping hardware interface discovery. To enable: --sync-hardware-interfaces"

@@ -29,9 +29,12 @@ participants:
         {%     if peering_port.custom_fields.rate_limit_bps %}
       - speed: {{ (peering_port.custom_fields.rate_limit_bps / 1000000000) | int }} Gbit/s
         speed_bps: {{ peering_port.custom_fields.rate_limit_bps | int }}
-        {%     else %}
+        {%     elif peering_port.speed %}
       - speed: {{ (peering_port.speed / 1000000) | int }} Gbit/s
         speed_bps: {{ (peering_port.speed * 1000) | int }}
+        {%     else %}
+      - speed: null
+        speed_bps: 0
         {%     endif %}
         location: {{ netbox_sites[netbox_devices[peering_port.device.id].site.id].facility }}
           {% set ip_map = namespace(ipv4=none, ipv6=none) %}
