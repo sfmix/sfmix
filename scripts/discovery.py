@@ -1529,14 +1529,15 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                         continue
                     for if_addr in af.findall("interface-address"):
                         addr = (if_addr.findtext("ifa-local") or "").strip()
-                        if not addr or addr.startswith("fe80"):
+                        if not addr or addr.startswith("fe80") or addr == "127.0.0.1" or addr == "::1":
                             continue
                         dest = (if_addr.findtext("ifa-destination") or "").strip()
                         if dest and "/" in dest:
                             prefix_len = dest.split("/", 1)[1]
                             ip_with_mask = f"{addr}/{prefix_len}"
                         else:
-                            ip_with_mask = addr
+                            # No prefix from destination (e.g. loopback) — use host mask
+                            ip_with_mask = f"{addr}/{'128' if ':' in addr else '32'}"
                         device_ips.add(ip_with_mask)
 
                         existing_ip_info = nb_ips_by_addr.get(ip_with_mask)
