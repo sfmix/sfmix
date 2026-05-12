@@ -117,6 +117,17 @@
     mode: "0644"
   notify: Reload nginx
 
+- name: Install certbot deploy hook to reload nginx
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+    content: |
+      #!/bin/bash
+      systemctl reload nginx
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Ensure certbot renewal timer is enabled
   become: true
   ansible.builtin.systemd_service:
