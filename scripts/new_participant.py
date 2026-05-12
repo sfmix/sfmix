@@ -23,7 +23,6 @@ from sgqlc.endpoint.http import HTTPEndpoint
 import ipaddress
 
 from rich.console import Console
-from rich.panel import Panel
 import questionary
 
 console = Console()
@@ -284,7 +283,7 @@ def main(
             peering_port.description = (
                 f"{peeringdb_asn_name} LAG Member (AS{new_participant_asn})"
             )
-            peering_port.custom_fields = {"lacp_mode": "on"}
+            peering_port.custom_fields = {"lacp_mode": "on", "participant": netbox_tenant.id}
             peering_port.save()
         console.print(f"Configured physical port in [bold]{port_channel_name}[/bold]: {peering_port.url}")
 
@@ -348,36 +347,25 @@ def main(
             if loa_info:
                 break
 
-    # Summary panel
-    summary_lines = [
-        f"[bold]Participant:[/bold] {peeringdb_asn_name} (AS{new_participant_asn})",
-        f"[bold]Site:[/bold] {new_participant_site}",
-        f"[bold]LAG:[/bold] {selected_port['device']['name']}/{port_channel_interface.name}",
-    ]
-    if not selected_port.get("is_lag"):
-        summary_lines.append(
-            f"[bold]Physical Port:[/bold] {selected_port['device']['name']}/{selected_port['name']}"
-        )
-    summary_lines.extend([
-        f"[bold]IPv4:[/bold] {ipv4_address.address}",
-        f"[bold]IPv6:[/bold] {ipv6_address.address}",
-    ])
-    if loa_info:
-        summary_lines.append("")
-        summary_lines.append("[bold underline]LOA Landing[/bold underline]")
-        summary_lines.append(f"  Patch Panel: {loa_info['patch_panel']}")
-        if loa_info["rack"]:
-            summary_lines.append(f"  Rack: {loa_info['rack']}")
-        else:
-            summary_lines.append("  Rack: [yellow]Unknown \u2014 rack this patch panel in Netbox[/yellow]")
-        summary_lines.append(f"  Ports: {loa_info['ports']}")
-
+    # Summary
     console.print()
-    console.print(Panel(
-        "\n".join(summary_lines),
-        title="[bold green]New Participant Provisioned[/bold green]",
-        border_style="green",
-    ))
+    console.print("[bold green]New Participant Provisioned[/bold green]")
+    console.print(f"  [bold]Participant:[/bold] {peeringdb_asn_name} (AS{new_participant_asn})")
+    console.print(f"  [bold]Site:[/bold] {new_participant_site}")
+    console.print(f"  [bold]LAG:[/bold] {selected_port['device']['name']}/{port_channel_interface.name}")
+    if not selected_port.get("is_lag"):
+        console.print(f"  [bold]Physical Port:[/bold] {selected_port['device']['name']}/{selected_port['name']}")
+    console.print(f"  [bold]IPv4:[/bold] {ipv4_address.address}")
+    console.print(f"  [bold]IPv6:[/bold] {ipv6_address.address}")
+    if loa_info:
+        console.print()
+        console.print("  [bold]LOA Landing[/bold]")
+        console.print(f"    Patch Panel: {loa_info['patch_panel']}")
+        if loa_info["rack"]:
+            console.print(f"    Rack: {loa_info['rack']}")
+        else:
+            console.print("    Rack: [yellow]Unknown \u2014 rack this patch panel in Netbox[/yellow]")
+        console.print(f"    Ports: {loa_info['ports']}")
 
 
 def apply_ipv6_mask(ipv6_addr, offset, hex_byte):
@@ -489,7 +477,7 @@ def load_operator_config():
 if __name__ == "__main__":
     operator_config = load_operator_config()
 
-    console.print(Panel("[bold]SFMIX New Participant Setup[/bold]", border_style="blue"))
+    console.print("[bold blue]SFMIX New Participant Setup[/bold blue]\n")
 
     new_participant_asn = questionary.text(
         "New participant ASN:",
