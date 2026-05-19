@@ -15,12 +15,17 @@
     - lldpd
     - locate
     - net-tools
-    - ntp
     - smartmontools
     - sysstat
     - traceroute
     - vim
     - zlib1g-dev
+
+- name: Install NTP daemon
+  become: true
+  ansible.builtin.apt:
+    name: "{{ 'ntp' if ansible_distribution_major_version | int < 12 else 'chrony' }}"
+    state: present
 
 - name: "Place /usr/local/bin/proxmox"
   become: true

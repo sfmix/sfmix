@@ -82,6 +82,8 @@ all:
         pve02-paulave200-sfo.sfmix.org:
         pve01-warmspringsblvd48233-fmt.sfmix.org:
         pve02-warmspringsblvd48233-fmt.sfmix.org:
+        pve01.scl04.sfmix.org:
+          ansible_user: root
     obscreen:
       hosts:
         obscreen.sfmix.org:
