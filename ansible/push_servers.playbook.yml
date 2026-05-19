@@ -237,13 +237,15 @@
 - name: "Proxmox Hypervisors"
   hosts: proxmox_hypervisors
   tasks:
-    - name: Apply scoped sfmix_server tasks
+    - name: "Apply scoped sfmix_server tasks: {{ task_file }}"
       ansible.builtin.include_role:
         name: sfmix_server
-        tasks_from: "{{ item }}"
+        tasks_from: "{{ task_file }}"
       loop:
         - proxmox_node.yml
         - snmp_agent.yml
+      loop_control:
+        loop_var: task_file
 
 - name: "Tailscale"
   hosts: tailscale
