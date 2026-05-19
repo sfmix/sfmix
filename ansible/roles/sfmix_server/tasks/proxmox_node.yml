@@ -6,6 +6,7 @@
     update_cache: true
     state: present
   loop:
+    - build-essential
     - cpanminus
     - ethtool
     - freeipmi-tools
@@ -16,6 +17,7 @@
     - locate
     - net-tools
     - smartmontools
+    - sudo
     - sysstat
     - traceroute
     - vim
