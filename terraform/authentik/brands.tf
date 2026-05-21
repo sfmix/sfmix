@@ -11,8 +11,8 @@ resource "authentik_brand" "sfmix" {
   domain           = "login.sfmix.org"
   default          = true
   branding_title   = "SFMIX"
-  branding_logo    = "https://sfmix.org/wp-content/uploads/2022/10/SFMIX-logo.png"
-  branding_favicon = "https://sfmix.org/wp-content/uploads/2022/10/SFMIX-logo.png"
+  branding_logo    = "https://sfmix.org/img/sfmix-logo-large.png"
+  branding_favicon = "https://sfmix.org/img/sfmix-logo-large.png"
 
   flow_authentication = authentik_flow.sfmix_authentication.uuid
   flow_invalidation   = data.authentik_flow.default_invalidation.id

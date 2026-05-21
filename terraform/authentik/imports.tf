@@ -70,6 +70,16 @@ import {
   id = "2"
 }
 
+import {
+  to = authentik_provider_oauth2.looking_glass
+  id = "3"
+}
+
+import {
+  to = authentik_provider_oauth2.looking_glass_api
+  id = "4"
+}
+
 # --- Applications ---
 
 import {
@@ -80,6 +90,16 @@ import {
 import {
   to = authentik_application.portal
   id = "portal"
+}
+
+import {
+  to = authentik_application.looking_glass
+  id = "looking-glass"
+}
+
+import {
+  to = authentik_application.looking_glass_api
+  id = "looking-glass-api"
 }
 
 # --- Policies ---
@@ -106,6 +126,11 @@ import {
 import {
   to = authentik_flow.sfmix_authentication
   id = "sfmix-authentication"
+}
+
+import {
+  to = authentik_flow.device_code
+  id = "default-device-code-flow"
 }
 
 import {
