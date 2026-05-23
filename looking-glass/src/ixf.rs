@@ -173,15 +173,15 @@ fn build_connection_list(
             Vec::new()
         };
 
-        let mut conn = serde_json::json!({
+        let mut connection = serde_json::json!({
             "ixp_id": 155,
             "state": "active",
             "if_list": [if_entry],
         });
         if !vlan_list.is_empty() {
-            conn["vlan_list"] = serde_json::json!(vlan_list);
+            connection["vlan_list"] = serde_json::json!(vlan_list);
         }
-        connections.push(conn);
+        connections.push(connection);
     }
 
     connections

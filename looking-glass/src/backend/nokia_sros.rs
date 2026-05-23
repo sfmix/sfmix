@@ -27,8 +27,8 @@ impl NokiaSrosDriver {
     /// The `| no-more` pipe disables pagination.
     #[allow(dead_code)]
     async fn exec_json<T: for<'de> Deserialize<'de>>(&self, state_path: &str) -> Result<T> {
-        let cmd = format!("info json /state {state_path} | no-more");
-        let raw = ssh_exec(&self.config, &cmd).await?;
+        let cli_command = format!("info json /state {state_path} | no-more");
+        let raw = ssh_exec(&self.config, &cli_command).await?;
         let clean = extract_sros_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse SR-OS JSON for '/state {state_path}': {e}"))
@@ -39,8 +39,8 @@ impl NokiaSrosDriver {
     /// Note: Uses PTY mode for Nokia SR-OS compatibility.
     /// The `| no-more` pipe disables pagination.
     async fn exec_json_value(&self, state_path: &str) -> Result<Value> {
-        let cmd = format!("info json /state {state_path} | no-more");
-        let raw = ssh_exec(&self.config, &cmd).await?;
+        let cli_command = format!("info json /state {state_path} | no-more");
+        let raw = ssh_exec(&self.config, &cli_command).await?;
         let clean = extract_sros_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse SR-OS JSON for '/state {state_path}': {e}"))
@@ -52,7 +52,7 @@ impl NokiaSrosDriver {
         // SR-OS JSON from "info json /state router interface *" has structure:
         // { "nokia-state:interface": [ { "interface-name": "...", ... }, ... ] }
         // Note: JSON pointer can't handle colons, so use direct key access
-        let iface_list = if let Some(arr) = val.get("nokia-state:interface").and_then(|v| v.as_array()) {
+        let interface_list = if let Some(arr) = val.get("nokia-state:interface").and_then(|v| v.as_array()) {
             arr.clone()
         } else if let Some(arr) = val.get("interface").and_then(|v| v.as_array()) {
             arr.clone()
@@ -61,11 +61,11 @@ impl NokiaSrosDriver {
             val.as_array().cloned().unwrap_or_default()
         };
 
-        for iface in &iface_list {
-            let name = json_str(iface, "interface-name");
-            let oper_state = json_str(iface, "oper-state");
-            let protocol = json_str(iface, "protocol");
-            let mtu = iface.get("oper-ip-mtu")
+        for interface_entry in &interface_list {
+            let name = json_str(interface_entry, "interface-name");
+            let oper_state = json_str(interface_entry, "oper-state");
+            let protocol = json_str(interface_entry, "protocol");
+            let mtu = interface_entry.get("oper-ip-mtu")
                 .and_then(|v| v.as_u64())
                 .map(|m| m.to_string())
                 .unwrap_or_default();
@@ -232,9 +232,9 @@ impl NokiaSrosDriver {
             .unwrap_or_default();
 
         let mut result = Vec::new();
-        for iface in &entries {
-            let iface_name = json_str(iface, "interface-name");
-            let neighbors = iface.pointer("/ipv4/neighbor")
+        for interface_entry in &entries {
+            let interface_name = json_str(interface_entry, "interface-name");
+            let neighbors = interface_entry.pointer("/ipv4/neighbor")
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
@@ -242,7 +242,7 @@ impl NokiaSrosDriver {
                 result.push(ArpEntry {
                     ip_address: json_str(n, "ipv4-address"),
                     mac_address: json_str(n, "mac-address"),
-                    interface: iface_name.clone(),
+                    interface: interface_name.clone(),
                     age: json_str(n, "expiry-time"),
                 });
             }
@@ -258,9 +258,9 @@ impl NokiaSrosDriver {
             .unwrap_or_default();
 
         let mut result = Vec::new();
-        for iface in &entries {
-            let iface_name = json_str(iface, "interface-name");
-            let neighbors = iface.pointer("/ipv6/neighbor")
+        for interface_entry in &entries {
+            let interface_name = json_str(interface_entry, "interface-name");
+            let neighbors = interface_entry.pointer("/ipv6/neighbor")
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
@@ -268,7 +268,7 @@ impl NokiaSrosDriver {
                 result.push(NdEntry {
                     ip_address: json_str(n, "ipv6-address"),
                     mac_address: json_str(n, "mac-address"),
-                    interface: iface_name.clone(),
+                    interface: interface_name.clone(),
                     state: json_str(n, "state"),
                 });
             }
@@ -318,33 +318,33 @@ impl NokiaSrosDriver {
             let description = json_str(port, "description");
             let link_status = json_str(port, "oper-state");
 
-            let xcvr = port.pointer("/transceiver");
-            let media_type = xcvr
+            let transceiver = port.pointer("/transceiver");
+            let media_type = transceiver
                 .and_then(|x| x.get("type"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
 
-            let temperature = xcvr
+            let temperature = transceiver
                 .and_then(|x| x.get("temperature"))
                 .and_then(|v| v.as_f64());
-            let voltage = xcvr
+            let voltage = transceiver
                 .and_then(|x| x.get("supply-voltage"))
                 .and_then(|v| v.as_f64());
 
             // Parse per-lane data from transceiver/channel or digital-diagnostic-monitoring
-            let ddm = xcvr.and_then(|x| x.get("digital-diagnostic-monitoring"));
-            let lanes_arr = ddm
+            let diagnostic_monitoring = transceiver.and_then(|x| x.get("digital-diagnostic-monitoring"));
+            let lanes_arr = diagnostic_monitoring
                 .and_then(|d| d.get("lane"))
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
 
             let lanes: Vec<OpticalLane> = if lanes_arr.is_empty() {
-                // Single-lane: check top-level DDM
-                let tx_power = ddm.and_then(|d| d.get("tx-output-power")).and_then(|v| v.as_f64());
-                let rx_power = ddm.and_then(|d| d.get("rx-optical-power")).and_then(|v| v.as_f64());
-                let tx_bias = ddm.and_then(|d| d.get("tx-bias-current")).and_then(|v| v.as_f64());
+                // Single-lane: check top-level diagnostic monitoring
+                let tx_power = diagnostic_monitoring.and_then(|d| d.get("tx-output-power")).and_then(|v| v.as_f64());
+                let rx_power = diagnostic_monitoring.and_then(|d| d.get("rx-optical-power")).and_then(|v| v.as_f64());
+                let tx_bias = diagnostic_monitoring.and_then(|d| d.get("tx-bias-current")).and_then(|v| v.as_f64());
                 if tx_power.is_some() || rx_power.is_some() || tx_bias.is_some() {
                     vec![OpticalLane {
                         lane: 1,
@@ -481,12 +481,12 @@ impl DeviceDriver for NokiaSrosDriver {
                     .as_deref()
                     .ok_or_else(|| anyhow::anyhow!("destination required"))?;
                 // Ping/traceroute are streaming commands - output streams directly
-                let cmd = match command.verb {
+                let cli_command = match command.verb {
                     Verb::Ping => format!("ping {target}"),
                     Verb::Traceroute => format!("traceroute {target}"),
                     _ => unreachable!(),
                 };
-                let rx = ssh_exec_stream(&self.config, &cmd).await?;
+                let rx = ssh_exec_stream(&self.config, &cli_command).await?;
                 CommandOutput::Stream(rx)
             }
             _ => anyhow::bail!("unsupported command for Nokia SR-OS"),

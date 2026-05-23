@@ -178,9 +178,9 @@ pub fn parse_command(input: &str) -> Result<Command, ParseError> {
 
     let g = grammar();
     let tokens: Vec<&str> = clean_input.split_whitespace().collect();
-    let mut cmd = walk_parse(&g.commands, &tokens, None)?;
-    cmd.device = device;
-    Ok(cmd)
+    let mut command = walk_parse(&g.commands, &tokens, None)?;
+    command.device = device;
+    Ok(command)
 }
 
 /// Extract `@device` from input, returning (remaining_input, Option<device_name>).
@@ -360,52 +360,52 @@ mod tests {
 
     #[test]
     fn test_parse_show_interfaces_status() {
-        let cmd = parse_command("show interfaces status").unwrap();
-        assert_eq!(cmd.verb, Verb::Show);
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert!(cmd.target.is_none());
+        let command = parse_command("show interfaces status").unwrap();
+        assert_eq!(command.verb, Verb::Show);
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert!(command.target.is_none());
     }
 
     #[test]
     fn test_parse_show_interfaces_filter_asn() {
-        let cmd = parse_command("show interfaces 13335").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert_eq!(cmd.filter_asn, Some(13335));
-        assert!(cmd.target.is_none());
+        let command = parse_command("show interfaces 13335").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert_eq!(command.filter_asn, Some(13335));
+        assert!(command.target.is_none());
     }
 
     #[test]
     fn test_parse_show_optics() {
-        let cmd = parse_command("show optics").unwrap();
-        assert_eq!(cmd.resource, Resource::Optics);
+        let command = parse_command("show optics").unwrap();
+        assert_eq!(command.resource, Resource::Optics);
 
-        let cmd = parse_command("show optics 13335").unwrap();
-        assert_eq!(cmd.resource, Resource::Optics);
-        assert_eq!(cmd.filter_asn, Some(13335));
+        let command = parse_command("show optics 13335").unwrap();
+        assert_eq!(command.resource, Resource::Optics);
+        assert_eq!(command.filter_asn, Some(13335));
     }
 
     #[test]
     fn test_parse_bgp_summary() {
-        let cmd = parse_command("show ip bgp summary").unwrap();
-        assert_eq!(cmd.resource, Resource::BgpSummary);
-        assert_eq!(cmd.address_family, AddressFamily::IPv4);
+        let command = parse_command("show ip bgp summary").unwrap();
+        assert_eq!(command.resource, Resource::BgpSummary);
+        assert_eq!(command.address_family, AddressFamily::IPv4);
 
-        let cmd = parse_command("show bgp ipv6 unicast summary").unwrap();
-        assert_eq!(cmd.resource, Resource::BgpSummary);
-        assert_eq!(cmd.address_family, AddressFamily::IPv6);
+        let command = parse_command("show bgp ipv6 unicast summary").unwrap();
+        assert_eq!(command.resource, Resource::BgpSummary);
+        assert_eq!(command.address_family, AddressFamily::IPv6);
     }
 
     #[test]
     fn test_parse_ping() {
-        let cmd = parse_command("ping 8.8.8.8").unwrap();
-        assert_eq!(cmd.verb, Verb::Ping);
-        assert_eq!(cmd.target.as_deref(), Some("8.8.8.8"));
+        let command = parse_command("ping 8.8.8.8").unwrap();
+        assert_eq!(command.verb, Verb::Ping);
+        assert_eq!(command.target.as_deref(), Some("8.8.8.8"));
     }
 
     #[test]
     fn test_parse_help() {
-        let cmd = parse_command("help").unwrap();
-        assert_eq!(cmd.resource, Resource::Help);
+        let command = parse_command("help").unwrap();
+        assert_eq!(command.resource, Resource::Help);
     }
 
     #[test]
@@ -426,59 +426,59 @@ mod tests {
 
     #[test]
     fn test_abbrev_sh_int_st() {
-        let cmd = parse_command("sh int st").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        let command = parse_command("sh int st").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
     }
 
     #[test]
     fn test_abbrev_sh_int() {
-        let cmd = parse_command("sh int").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
+        let command = parse_command("sh int").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
     }
 
     #[test]
     fn test_abbrev_sh_int_asn() {
-        let cmd = parse_command("sh int 13335").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert_eq!(cmd.filter_asn, Some(13335));
+        let command = parse_command("sh int 13335").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert_eq!(command.filter_asn, Some(13335));
     }
 
     #[test]
     fn test_abbrev_sh_ip_bgp_sum() {
-        let cmd = parse_command("sh ip b sum").unwrap();
-        assert_eq!(cmd.resource, Resource::BgpSummary);
-        assert_eq!(cmd.address_family, AddressFamily::IPv4);
+        let command = parse_command("sh ip b sum").unwrap();
+        assert_eq!(command.resource, Resource::BgpSummary);
+        assert_eq!(command.address_family, AddressFamily::IPv4);
     }
 
     #[test]
     fn test_abbrev_sh_bgp_ipv6_sum() {
-        let cmd = parse_command("sh bgp ipv6 sum").unwrap();
-        assert_eq!(cmd.resource, Resource::BgpSummary);
-        assert_eq!(cmd.address_family, AddressFamily::IPv6);
+        let command = parse_command("sh bgp ipv6 sum").unwrap();
+        assert_eq!(command.resource, Resource::BgpSummary);
+        assert_eq!(command.address_family, AddressFamily::IPv6);
     }
 
     #[test]
     fn test_abbrev_sh_l() {
-        let cmd = parse_command("sh l").unwrap();
-        assert_eq!(cmd.resource, Resource::LldpNeighbors);
+        let command = parse_command("sh l").unwrap();
+        assert_eq!(command.resource, Resource::LldpNeighbors);
     }
 
     #[test]
     fn test_abbrev_sh_a() {
-        let cmd = parse_command("sh a").unwrap();
-        assert_eq!(cmd.resource, Resource::ArpTable);
+        let command = parse_command("sh a").unwrap();
+        assert_eq!(command.resource, Resource::ArpTable);
     }
 
     #[test]
     fn test_abbrev_pi() {
-        let cmd = parse_command("pi 8.8.8.8").unwrap();
-        assert_eq!(cmd.verb, Verb::Ping);
+        let command = parse_command("pi 8.8.8.8").unwrap();
+        assert_eq!(command.verb, Verb::Ping);
     }
 
     #[test]
     fn test_abbrev_tr() {
-        let cmd = parse_command("tr 8.8.8.8").unwrap();
-        assert_eq!(cmd.verb, Verb::Traceroute);
+        let command = parse_command("tr 8.8.8.8").unwrap();
+        assert_eq!(command.verb, Verb::Traceroute);
     }
 
     #[test]
@@ -491,8 +491,8 @@ mod tests {
 
     #[test]
     fn test_abbrev_show_bgp_neighbors_spelling() {
-        let cmd = parse_command("show bgp neighbors 10.0.0.1").unwrap();
-        assert_eq!(cmd.resource, Resource::BgpNeighbor);
+        let command = parse_command("show bgp neighbors 10.0.0.1").unwrap();
+        assert_eq!(command.resource, Resource::BgpNeighbor);
     }
 
     // --- Completion tests ---
@@ -556,38 +556,38 @@ mod tests {
 
     #[test]
     fn test_device_target_suffix() {
-        let cmd = parse_command("show interfaces @cr1.sjc01.transit").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert_eq!(cmd.device.as_deref(), Some("cr1.sjc01.transit"));
+        let command = parse_command("show interfaces @cr1.sjc01.transit").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert_eq!(command.device.as_deref(), Some("cr1.sjc01.transit"));
     }
 
     #[test]
     fn test_device_target_prefix() {
-        let cmd = parse_command("@switch01 show bgp summary").unwrap();
-        assert_eq!(cmd.resource, Resource::BgpSummary);
-        assert_eq!(cmd.device.as_deref(), Some("switch01"));
+        let command = parse_command("@switch01 show bgp summary").unwrap();
+        assert_eq!(command.resource, Resource::BgpSummary);
+        assert_eq!(command.device.as_deref(), Some("switch01"));
     }
 
     #[test]
     fn test_device_target_middle() {
-        let cmd = parse_command("show @mydevice interfaces").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert_eq!(cmd.device.as_deref(), Some("mydevice"));
+        let command = parse_command("show @mydevice interfaces").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert_eq!(command.device.as_deref(), Some("mydevice"));
     }
 
     #[test]
     fn test_no_device_target() {
-        let cmd = parse_command("show interfaces").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert!(cmd.device.is_none());
+        let command = parse_command("show interfaces").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert!(command.device.is_none());
     }
 
     #[test]
     fn test_device_target_with_filter() {
-        let cmd = parse_command("show interfaces 13335 @switch01").unwrap();
-        assert_eq!(cmd.resource, Resource::InterfacesStatus);
-        assert_eq!(cmd.filter_asn, Some(13335));
-        assert_eq!(cmd.device.as_deref(), Some("switch01"));
+        let command = parse_command("show interfaces 13335 @switch01").unwrap();
+        assert_eq!(command.resource, Resource::InterfacesStatus);
+        assert_eq!(command.filter_asn, Some(13335));
+        assert_eq!(command.device.as_deref(), Some("switch01"));
     }
 
     #[test]

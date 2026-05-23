@@ -179,7 +179,7 @@ async fn get_interfaces_status(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::InterfacesStatus,
         target: None,
@@ -190,7 +190,7 @@ async fn get_interfaces_status(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::InterfacesStatus(v) = output {
             Some(v.clone())
         } else {
@@ -208,7 +208,7 @@ async fn get_interface_detail(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::InterfaceDetail,
         target: Some(name),
@@ -219,7 +219,7 @@ async fn get_interface_detail(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::InterfaceDetail(v) = output {
             Some(v.clone())
         } else {
@@ -237,7 +237,7 @@ async fn get_optics(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::Optics,
         target: None,
@@ -248,7 +248,7 @@ async fn get_optics(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::Optics(v) = output {
             Some(v.clone())
         } else {
@@ -266,7 +266,7 @@ async fn get_optics_detail(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::OpticsDetail,
         target: Some(name),
@@ -277,7 +277,7 @@ async fn get_optics_detail(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::OpticsDetail(v) = output {
             Some(v.clone())
         } else {
@@ -300,7 +300,7 @@ async fn get_bgp_summary(
         _ => AddressFamily::IPv4,
     };
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::BgpSummary,
         target: None,
@@ -311,7 +311,7 @@ async fn get_bgp_summary(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::BgpSummary(v) = output {
             Some(v.clone())
         } else {
@@ -328,7 +328,7 @@ async fn get_lldp_neighbors(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::LldpNeighbors,
         target: None,
@@ -339,7 +339,7 @@ async fn get_lldp_neighbors(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::LldpNeighbors(v) = output {
             Some(v.clone())
         } else {
@@ -363,7 +363,7 @@ async fn get_bgp_neighbor(
         _ => AddressFamily::IPv4,
     };
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::BgpNeighbor,
         target: Some(address),
@@ -374,7 +374,7 @@ async fn get_bgp_neighbor(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::BgpNeighborDetail(v) = output {
             Some(v.clone())
         } else {
@@ -392,7 +392,7 @@ async fn get_mac_address_table(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::MacAddressTable,
         target: None,
@@ -403,7 +403,7 @@ async fn get_mac_address_table(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::MacAddressTable(v) = output {
             Some(v.clone())
         } else {
@@ -420,7 +420,7 @@ async fn get_vxlan_vtep(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::VxlanVtep,
         target: None,
@@ -431,7 +431,7 @@ async fn get_vxlan_vtep(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::VxlanVtep(v) = output {
             Some(v.clone())
         } else {
@@ -448,7 +448,7 @@ async fn get_arp_table(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::ArpTable,
         target: None,
@@ -459,7 +459,7 @@ async fn get_arp_table(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::ArpTable(v) = output {
             Some(v.clone())
         } else {
@@ -476,7 +476,7 @@ async fn get_nd_table(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::NdTable,
         target: None,
@@ -487,7 +487,7 @@ async fn get_nd_table(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::NdTable(v) = output {
             Some(v.clone())
         } else {
@@ -590,7 +590,7 @@ async fn get_bgp_sources(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::BgpSources,
         target: None,
@@ -601,7 +601,7 @@ async fn get_bgp_sources(
         filter_source: None,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::BgpSources(v) = output {
             Some(v.clone())
         } else {
@@ -626,7 +626,7 @@ async fn get_bgp_routes(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::BgpRoutes,
         target: Some(neighbor),
@@ -637,7 +637,7 @@ async fn get_bgp_routes(
         filter_source: query.source,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::BgpRoutes(v) = output {
             Some(v.clone())
         } else {
@@ -656,7 +656,7 @@ async fn get_bgp_route_lookup(
     let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
     let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
 
-    let cmd = Command {
+    let command = Command {
         verb: Verb::Show,
         resource: Resource::BgpRouteLookup,
         target: Some(prefix),
@@ -667,7 +667,7 @@ async fn get_bgp_route_lookup(
         filter_source: query.source,
     };
 
-    execute_command(&state, &identity, &rate_key, cmd, |output| {
+    execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::BgpRouteLookup(v) = output {
             Some(v.clone())
         } else {
