@@ -251,9 +251,9 @@ impl PolicyEngine {
     }
 
     fn command_matches_allow_list(&self, command: &Command, allow: &[String]) -> bool {
-        let cmd_str = command_to_match_string(command);
+        let command_str = command_to_match_string(command);
         for pattern in allow {
-            if pattern_matches(&cmd_str, pattern) {
+            if pattern_matches(&command_str, pattern) {
                 return true;
             }
         }
@@ -360,8 +360,8 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = ParticipantMap::empty();
 
-        let cmd = parse_command("show interfaces status").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show interfaces status").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
@@ -370,8 +370,8 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = ParticipantMap::empty();
 
-        let cmd = parse_command("ping 8.8.8.8").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("ping 8.8.8.8").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
@@ -380,8 +380,8 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = ParticipantMap::empty();
 
-        let cmd = parse_command("help").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("help").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
@@ -390,8 +390,8 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = test_participants();
 
-        let cmd = parse_command("show optics").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show optics").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     // --- ASN-targeted port-scoped commands ---
@@ -402,9 +402,9 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = test_participants();
 
-        let cmd = parse_command("show interface 64500").unwrap();
+        let command = parse_command("show interface 64500").unwrap();
         assert!(matches!(
-            engine.evaluate(&cmd, &identity, &participants),
+            engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }
         ));
     }
@@ -419,8 +419,8 @@ mod tests {
             vec!["as64500".to_string()],
             "as",
         );
-        let cmd = parse_command("show interface 64500").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show interface 64500").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
@@ -433,9 +433,9 @@ mod tests {
             vec!["as64501".to_string()],
             "as",
         );
-        let cmd = parse_command("show interface 64500").unwrap();
+        let command = parse_command("show interface 64500").unwrap();
         assert!(matches!(
-            engine.evaluate(&cmd, &identity, &participants),
+            engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }
         ));
     }
@@ -450,8 +450,8 @@ mod tests {
             vec![DEFAULT_ADMIN_GROUP.to_string()],
             "as",
         );
-        let cmd = parse_command("show interface 64500").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show interface 64500").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
@@ -464,9 +464,9 @@ mod tests {
             vec!["as99999".to_string()],
             "as",
         );
-        let cmd = parse_command("show interface 99999").unwrap();
+        let command = parse_command("show interface 99999").unwrap();
         assert!(matches!(
-            engine.evaluate(&cmd, &identity, &participants),
+            engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }
         ));
     }
@@ -477,9 +477,9 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = test_participants();
 
-        let cmd = parse_command("show optics 64500").unwrap();
+        let command = parse_command("show optics 64500").unwrap();
         assert!(matches!(
-            engine.evaluate(&cmd, &identity, &participants),
+            engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }
         ));
     }
@@ -494,8 +494,8 @@ mod tests {
             vec!["as64500".to_string()],
             "as",
         );
-        let cmd = parse_command("show optics 64500").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show optics 64500").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     // --- BGP neighbor ownership ---
@@ -506,9 +506,9 @@ mod tests {
         let identity = Identity::anonymous();
         let participants = test_participants();
 
-        let cmd = parse_command("show bgp neighbor 198.51.100.1").unwrap();
+        let command = parse_command("show bgp neighbor 198.51.100.1").unwrap();
         assert!(matches!(
-            engine.evaluate(&cmd, &identity, &participants),
+            engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }
         ));
     }
@@ -523,8 +523,8 @@ mod tests {
             vec!["as64500".to_string()],
             "as",
         );
-        let cmd = parse_command("show bgp neighbor 198.51.100.1").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show bgp neighbor 198.51.100.1").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
     #[test]
@@ -537,9 +537,9 @@ mod tests {
             vec!["as64501".to_string()],
             "as",
         );
-        let cmd = parse_command("show bgp neighbor 198.51.100.1").unwrap();
+        let command = parse_command("show bgp neighbor 198.51.100.1").unwrap();
         assert!(matches!(
-            engine.evaluate(&cmd, &identity, &participants),
+            engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }
         ));
     }
@@ -551,7 +551,7 @@ mod tests {
         let participants = test_participants();
 
         // 10.0.0.1 is not a participant session — infrastructure BGP, allowed
-        let cmd = parse_command("show bgp neighbor 10.0.0.1").unwrap();
-        assert_eq!(engine.evaluate(&cmd, &identity, &participants), PolicyDecision::Allow);
+        let command = parse_command("show bgp neighbor 10.0.0.1").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 }

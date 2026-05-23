@@ -442,10 +442,10 @@ mod tests {
         PortMap::build(&participants, &core_ports, &[])
     }
 
-    fn iface(name: &str, desc: &str, port_channel: Option<&str>) -> InterfaceStatus {
+    fn interface_status(name: &str, description: &str, port_channel: Option<&str>) -> InterfaceStatus {
         InterfaceStatus {
             name: name.to_string(),
-            description: desc.to_string(),
+            description: description.to_string(),
             link_status: "connected".to_string(),
             protocol_status: "up".to_string(),
             speed: "100Gbps".to_string(),
@@ -457,12 +457,12 @@ mod tests {
         }
     }
 
-    fn mac_entry(vlan: &str, mac: &str, iface: &str) -> MacEntry {
+    fn mac_entry(vlan: &str, mac: &str, interface: &str) -> MacEntry {
         MacEntry {
             vlan: vlan.to_string(),
             mac_address: mac.to_string(),
             entry_type: "Dynamic".to_string(),
-            interface: iface.to_string(),
+            interface: interface.to_string(),
         }
     }
 
@@ -488,9 +488,9 @@ mod tests {
     fn asn_filter_keeps_matching_port() {
         let pmap = test_port_map();
         let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet5/1", "Peer: Cloudflare (AS13335)", None),
-            iface("Ethernet50/1", "Core: transport", None),
-            iface("Ethernet6/1", "Peer: Someone else", None),
+            interface_status("Ethernet5/1", "Peer: Cloudflare (AS13335)", None),
+            interface_status("Ethernet50/1", "Core: transport", None),
+            interface_status("Ethernet6/1", "Peer: Someone else", None),
         ]);
         let filtered = apply_asn_filter(output, DEVICE, 13335, &pmap);
         match filtered {
@@ -506,7 +506,7 @@ mod tests {
     fn asn_filter_empty_when_no_match() {
         let pmap = test_port_map();
         let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet50/1", "Core: transport", None),
+            interface_status("Ethernet50/1", "Core: transport", None),
         ]);
         let filtered = apply_asn_filter(output, DEVICE, 13335, &pmap);
         match filtered {
@@ -519,10 +519,10 @@ mod tests {
     fn asn_filter_includes_port_channel_and_members() {
         let pmap = test_port_map();
         let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet1/1", "LAG: Hurricane Electric (AS6939)", Some("Port-Channel101")),
-            iface("Ethernet2/1", "LAG: Hurricane Electric (AS6939)", Some("Port-Channel101")),
-            iface("Port-Channel101", "Peer: Hurricane Electric (AS6939)", None),
-            iface("Ethernet50/1", "Core: transport", None),
+            interface_status("Ethernet1/1", "LAG: Hurricane Electric (AS6939)", Some("Port-Channel101")),
+            interface_status("Ethernet2/1", "LAG: Hurricane Electric (AS6939)", Some("Port-Channel101")),
+            interface_status("Port-Channel101", "Peer: Hurricane Electric (AS6939)", None),
+            interface_status("Ethernet50/1", "Core: transport", None),
         ]);
         let filtered = apply_asn_filter(output, DEVICE, 6939, &pmap);
         match filtered {
@@ -539,10 +539,10 @@ mod tests {
         let pmap = test_port_map();
         let device = "switch01.fmt01.sfmix.org";
         let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet7", "LAG: Two P (AS6140)", Some("Port-Channel114")),
-            iface("Ethernet8", "LAG: Two P (AS6140)", Some("Port-Channel114")),
-            iface("Port-Channel114.998", "Peer: Two P (AS6140)", None),
-            iface("Ethernet50/1", "Core: transport", None),
+            interface_status("Ethernet7", "LAG: Two P (AS6140)", Some("Port-Channel114")),
+            interface_status("Ethernet8", "LAG: Two P (AS6140)", Some("Port-Channel114")),
+            interface_status("Port-Channel114.998", "Peer: Two P (AS6140)", None),
+            interface_status("Ethernet50/1", "Core: transport", None),
         ]);
         let filtered = apply_asn_filter(output, device, 6140, &pmap);
         match filtered {
@@ -559,10 +559,10 @@ mod tests {
         let pmap = test_port_map();
         let device = "switch01.fmt01.sfmix.org";
         let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet7", "LAG: Two P", Some("Port-Channel114")),
-            iface("Port-Channel114.998", "Peer: Two P (AS6140)", None),
-            iface("Ethernet9", "LAG: Other", Some("Port-Channel200")),
-            iface("Port-Channel200", "Other peer", None),
+            interface_status("Ethernet7", "LAG: Two P", Some("Port-Channel114")),
+            interface_status("Port-Channel114.998", "Peer: Two P (AS6140)", None),
+            interface_status("Ethernet9", "LAG: Other", Some("Port-Channel200")),
+            interface_status("Port-Channel200", "Other peer", None),
         ]);
         let filtered = apply_asn_filter(output, device, 6140, &pmap);
         match filtered {
@@ -702,7 +702,7 @@ mod tests {
     #[test]
     fn vlan_filter_passes_through_interfaces() {
         let output = CommandOutput::InterfacesStatus(vec![
-            iface("Ethernet1", "test", None),
+            interface_status("Ethernet1", "test", None),
         ]);
         let filtered = apply_vlan_filter(output, "998");
         match filtered {

@@ -269,10 +269,10 @@ impl OidcClient {
                         return Err(anyhow!("access denied by user"));
                     }
                     other => {
-                        let desc = token_resp
+                        let description = token_resp
                             .error_description
                             .unwrap_or_else(|| other.to_string());
-                        return Err(anyhow!("OIDC error: {desc}"));
+                        return Err(anyhow!("OIDC error: {description}"));
                     }
                 }
             }

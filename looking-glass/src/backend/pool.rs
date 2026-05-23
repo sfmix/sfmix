@@ -68,9 +68,9 @@ impl DevicePool {
                 .get(name)
                 .ok_or_else(|| anyhow!("unknown device: {name}"))?
                 .clone();
-            let cmd = command.clone();
-            let id = identity.clone();
-            let ag = admin_group.to_string();
+            let command = command.clone();
+            let identity = identity.clone();
+            let admin_group = admin_group.to_string();
             let (tx, rx) = mpsc::channel(1);
 
             // Acquire per-device permit (concurrency + CPM) — rejects immediately
@@ -88,7 +88,7 @@ impl DevicePool {
                     device = config.name,
                     "dispatching command to device"
                 );
-                let result = match execute_on_device_inner(&config, &cmd, &id, &ag, &pmap, &pvlans).await {
+                let result = match execute_on_device_inner(&config, &command, &identity, &admin_group, &pmap, &pvlans).await {
                     Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
@@ -109,7 +109,7 @@ impl DevicePool {
             return Err(anyhow!("no devices configured"));
         }
 
-        let ag = admin_group.to_string();
+        let admin_group = admin_group.to_string();
         let (tx, rx) = mpsc::channel(self.devices.len());
 
         // Pre-acquire all device permits before spawning tasks.
@@ -136,15 +136,15 @@ impl DevicePool {
         let pmap = port_map.clone();
 
         for (config, device_permit) in dispatches {
-            let cmd = command.clone();
-            let id = identity.clone();
+            let command = command.clone();
+            let identity = identity.clone();
             let tx = tx.clone();
-            let ag = ag.clone();
+            let admin_group = admin_group.clone();
             let pmap = pmap.clone();
             let pvlans: Vec<String> = public_vlans.to_vec();
             tokio::spawn(async move {
                 let _permit = device_permit;
-                let result = match execute_on_device_inner(&config, &cmd, &id, &ag, &pmap, &pvlans).await {
+                let result = match execute_on_device_inner(&config, &command, &identity, &admin_group, &pmap, &pvlans).await {
                     Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");

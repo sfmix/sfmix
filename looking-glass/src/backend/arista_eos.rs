@@ -26,8 +26,8 @@ impl AristaEosDriver {
 
     /// Execute a CLI command with `| json` suffix and parse the JSON response.
     async fn exec_json<T: for<'de> Deserialize<'de>>(&self, cli: &str) -> Result<T> {
-        let cmd = format!("{cli} | json");
-        let raw = ssh_exec(&self.config, &cmd).await?;
+        let cli_command = format!("{cli} | json");
+        let raw = ssh_exec(&self.config, &cli_command).await?;
         let clean = normalize_eos_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse EOS JSON for '{cli}': {e}"))
@@ -36,13 +36,13 @@ impl AristaEosDriver {
     fn parse_interfaces_status(
         &self,
         raw: EosInterfaceStatuses,
-        pc_members: &HashMap<String, Vec<String>>,
+        port_channel_members: &HashMap<String, Vec<String>>,
     ) -> Vec<InterfaceStatus> {
         // Build reverse map: member interface → parent Port-Channel name
-        let mut member_to_pc: HashMap<&str, &str> = HashMap::new();
-        for (pc_name, members) in pc_members {
+        let mut member_to_port_channel: HashMap<&str, &str> = HashMap::new();
+        for (port_channel_name, members) in port_channel_members {
             for member in members {
-                member_to_pc.insert(member.as_str(), pc_name.as_str());
+                member_to_port_channel.insert(member.as_str(), port_channel_name.as_str());
             }
         }
 
@@ -50,10 +50,10 @@ impl AristaEosDriver {
             .interface_statuses
             .into_iter()
             .map(|(name, s)| {
-                let member_interfaces = pc_members.get(&name)
+                let member_interfaces = port_channel_members.get(&name)
                     .cloned()
                     .unwrap_or_default();
-                let port_channel = member_to_pc.get(name.as_str()).map(|s| s.to_string());
+                let port_channel = member_to_port_channel.get(name.as_str()).map(|s| s.to_string());
                 InterfaceStatus {
                     name,
                     description: s.description,
@@ -245,38 +245,38 @@ impl AristaEosDriver {
         let status_raw: EosInterfaceStatuses =
             self.exec_json("show interfaces status").await?;
         // Fetch transceiver DOM (per-lane power/bias data)
-        let dom_cmd = match target {
+        let transceiver_dom_command = match target {
             Some(t) => format!("show interfaces {t} transceiver dom"),
             None => "show interfaces transceiver dom".to_string(),
         };
-        let dom_raw: EosTransceiverDom = self.exec_json(&dom_cmd).await?;
+        let transceiver_dom: EosTransceiverDom = self.exec_json(&transceiver_dom_command).await?;
 
         // Fetch port-channel membership for LAG member tracking
-        let pc_members = match self.exec_json::<EosPortChannelSummary>(
+        let port_channel_members = match self.exec_json::<EosPortChannelSummary>(
             "show port-channel dense",
         ).await {
-            Ok(pcs) => pcs.into_member_map(),
+            Ok(port_channels) => port_channels.into_member_map(),
             Err(_) => HashMap::new(),
         };
         // Build reverse map: member interface → parent Port-Channel name
-        let mut member_to_pc: HashMap<&str, &str> = HashMap::new();
-        for (pc_name, members) in &pc_members {
+        let mut member_to_port_channel: HashMap<&str, &str> = HashMap::new();
+        for (port_channel_name, members) in &port_channel_members {
             for member in members {
-                member_to_pc.insert(member.as_str(), pc_name.as_str());
+                member_to_port_channel.insert(member.as_str(), port_channel_name.as_str());
             }
         }
 
         let mut result: Vec<InterfaceOptics> = Vec::new();
 
-        for (name, xcvr) in &dom_raw.interfaces {
+        for (name, transceiver) in &transceiver_dom.interfaces {
             let status = status_raw.interface_statuses.get(name);
             let description = status.map(|s| s.description.clone()).unwrap_or_default();
             let link_status = status.map(|s| s.link_status.clone()).unwrap_or_default();
-            let media_type = xcvr.media_type.clone().unwrap_or_else(|| {
+            let media_type = transceiver.media_type.clone().unwrap_or_else(|| {
                 status.map(|s| s.interface_type.clone()).unwrap_or_default()
             });
 
-            let params = xcvr.parameters.as_ref();
+            let params = transceiver.parameters.as_ref();
 
             // Temperature and voltage use the "-" (aggregate) channel
             let temperature_c = params
@@ -349,16 +349,16 @@ impl AristaEosDriver {
                 voltage_v,
                 lanes,
                 dom_supported,
-                port_channel: member_to_pc.get(name.as_str()).map(|s| s.to_string()),
+                port_channel: member_to_port_channel.get(name.as_str()).map(|s| s.to_string()),
             });
         }
 
         // Add visible interfaces that lack transceiver data (DAC, copper, empty)
         if target.is_none() {
-            let dom_names: std::collections::HashSet<&String> =
-                dom_raw.interfaces.keys().collect();
+            let transceiver_dom_names: std::collections::HashSet<&String> =
+                transceiver_dom.interfaces.keys().collect();
             for (name, status) in &status_raw.interface_statuses {
-                if dom_names.contains(name) {
+                if transceiver_dom_names.contains(name) {
                     continue;
                 }
                 // Skip non-physical interfaces
@@ -374,7 +374,7 @@ impl AristaEosDriver {
                     voltage_v: None,
                     lanes: vec![],
                     dom_supported: false,
-                    port_channel: member_to_pc.get(name.as_str()).map(|s| s.to_string()),
+                    port_channel: member_to_port_channel.get(name.as_str()).map(|s| s.to_string()),
                 });
             }
         }
@@ -406,13 +406,13 @@ impl DeviceDriver for AristaEosDriver {
                 let raw: EosInterfaceStatuses =
                     self.exec_json("show interfaces status").await?;
                 // Fetch port-channel membership (best-effort)
-                let pc_members = match self.exec_json::<EosPortChannelSummary>(
+                let port_channel_members = match self.exec_json::<EosPortChannelSummary>(
                     "show port-channel dense",
                 ).await {
-                    Ok(pcs) => pcs.into_member_map(),
+                    Ok(summary) => summary.into_member_map(),
                     Err(_) => HashMap::new(),
                 };
-                CommandOutput::InterfacesStatus(self.parse_interfaces_status(raw, &pc_members))
+                CommandOutput::InterfacesStatus(self.parse_interfaces_status(raw, &port_channel_members))
             }
             (Verb::Show, Resource::InterfaceDetail) => {
                 let target = command
@@ -424,11 +424,11 @@ impl DeviceDriver for AristaEosDriver {
                 CommandOutput::InterfaceDetail(self.parse_interface_detail(raw)?)
             }
             (Verb::Show, Resource::BgpSummary) => {
-                let cmd = match command.address_family {
+                let cli_command = match command.address_family {
                     AddressFamily::IPv4 => "show ip bgp summary",
                     AddressFamily::IPv6 => "show bgp ipv6 unicast summary",
                 };
-                let raw: EosBgpSummary = self.exec_json(cmd).await?;
+                let raw: EosBgpSummary = self.exec_json(cli_command).await?;
                 CommandOutput::BgpSummary(self.parse_bgp_summary(raw))
             }
             (Verb::Show, Resource::BgpNeighbor) => {
@@ -441,27 +441,27 @@ impl DeviceDriver for AristaEosDriver {
                 CommandOutput::BgpNeighborDetail(self.parse_bgp_neighbor(raw)?)
             }
             (Verb::Show, Resource::MacAddressTable) => {
-                let cmd = match &command.target {
-                    Some(intf) => format!("show mac address-table interface {intf}"),
+                let cli_command = match &command.target {
+                    Some(interface) => format!("show mac address-table interface {interface}"),
                     None => "show mac address-table".to_string(),
                 };
-                let raw: EosMacTable = self.exec_json(&cmd).await?;
+                let raw: EosMacTable = self.exec_json(&cli_command).await?;
                 CommandOutput::MacAddressTable(self.parse_mac_table(raw))
             }
             (Verb::Show, Resource::ArpTable) => {
-                let cmd = match &command.target {
-                    Some(intf) => format!("show arp interface {intf}"),
+                let cli_command = match &command.target {
+                    Some(interface) => format!("show arp interface {interface}"),
                     None => "show arp".to_string(),
                 };
-                let raw: EosArpTable = self.exec_json(&cmd).await?;
+                let raw: EosArpTable = self.exec_json(&cli_command).await?;
                 CommandOutput::ArpTable(self.parse_arp_table(raw))
             }
             (Verb::Show, Resource::NdTable) => {
-                let cmd = match &command.target {
-                    Some(intf) => format!("show ipv6 neighbors interface {intf}"),
+                let cli_command = match &command.target {
+                    Some(interface) => format!("show ipv6 neighbors interface {interface}"),
                     None => "show ipv6 neighbors".to_string(),
                 };
-                let raw: EosNdTable = self.exec_json(&cmd).await?;
+                let raw: EosNdTable = self.exec_json(&cli_command).await?;
                 CommandOutput::NdTable(self.parse_nd_table(raw))
             }
             (Verb::Show, Resource::LldpNeighbors) => {
@@ -491,12 +491,12 @@ impl DeviceDriver for AristaEosDriver {
                     .target
                     .as_deref()
                     .ok_or_else(|| anyhow::anyhow!("destination required"))?;
-                let cmd = match command.verb {
+                let cli_command = match command.verb {
                     Verb::Ping => format!("ping {target}"),
                     Verb::Traceroute => format!("traceroute {target}"),
                     _ => unreachable!(),
                 };
-                let rx = ssh_exec_stream(&self.config, &cmd).await?;
+                let rx = ssh_exec_stream(&self.config, &cli_command).await?;
                 CommandOutput::Stream(rx)
             }
             _ => anyhow::bail!("unsupported command for Arista EOS"),
@@ -679,10 +679,10 @@ impl EosPortChannelSummary {
     fn into_member_map(self) -> HashMap<String, Vec<String>> {
         self.port_channels
             .into_iter()
-            .map(|(pc_name, entry)| {
+            .map(|(port_channel_name, entry)| {
                 let mut members: Vec<String> = entry.ports.into_keys().collect();
                 members.sort_by(|a, b| interface_sort_key(a).cmp(&interface_sort_key(b)));
-                (pc_name, members)
+                (port_channel_name, members)
             })
             .collect()
     }

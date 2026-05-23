@@ -176,7 +176,7 @@ impl LookingGlassMcp {
         target: Option<String>,
         af: AddressFamily,
     ) -> Result<CallToolResult, McpError> {
-        let cmd = Command {
+        let command = Command {
             verb: Verb::Show,
             resource,
             target,
@@ -186,7 +186,7 @@ impl LookingGlassMcp {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&command).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
@@ -272,7 +272,7 @@ impl LookingGlassMcp {
         &self,
         Parameters(params): Parameters<DestinationParams>,
     ) -> Result<CallToolResult, McpError> {
-        let cmd = Command {
+        let command = Command {
             verb: Verb::Ping,
             resource: Resource::NetworkReachability,
             target: Some(params.destination),
@@ -282,7 +282,7 @@ impl LookingGlassMcp {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&command).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
@@ -291,7 +291,7 @@ impl LookingGlassMcp {
         &self,
         Parameters(params): Parameters<DestinationParams>,
     ) -> Result<CallToolResult, McpError> {
-        let cmd = Command {
+        let command = Command {
             verb: Verb::Traceroute,
             resource: Resource::NetworkReachability,
             target: Some(params.destination),
@@ -301,7 +301,7 @@ impl LookingGlassMcp {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&command).await?;
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 }

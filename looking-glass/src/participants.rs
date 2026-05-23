@@ -236,27 +236,27 @@ impl PortMap {
         let mut ports = HashMap::new();
 
         // Insert admin-only ports (lowest priority)
-        for (device, iface) in admin_ports {
+        for (device, interface_name) in admin_ports {
             ports.insert(
-                (device.clone(), iface.clone()),
+                (device.clone(), interface_name.clone()),
                 PortClass::AdminOnly,
             );
         }
 
         // Insert participant (peering + transit) ports
         for p in participants {
-            for (device, iface) in &p.ports {
+            for (device, interface_name) in &p.ports {
                 ports.insert(
-                    (device.clone(), iface.clone()),
+                    (device.clone(), interface_name.clone()),
                     PortClass::Participant { asn: p.asn },
                 );
             }
         }
 
         // Insert core ports (highest priority — overwrites everything)
-        for (device, iface) in core_ports {
+        for (device, interface_name) in core_ports {
             ports.insert(
-                (device.clone(), iface.clone()),
+                (device.clone(), interface_name.clone()),
                 PortClass::Core,
             );
         }
@@ -296,7 +296,7 @@ impl PortMap {
 
     /// Check if an interface name exists on any device in the port map.
     pub fn known_interface(&self, interface: &str) -> bool {
-        self.ports.keys().any(|(_, iface)| iface == interface)
+        self.ports.keys().any(|(_, interface_name)| interface_name == interface)
     }
 }
 
