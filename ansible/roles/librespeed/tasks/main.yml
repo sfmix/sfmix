@@ -4,6 +4,7 @@
   community.docker.docker_container:
     name: speedtest
     state: absent
+  ignore_errors: true
 
 - name: Create /etc/librespeed.toml
   become: true
