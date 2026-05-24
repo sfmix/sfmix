@@ -1,17 +1,5 @@
 ---
-- name: "Firewall: Allow HTTP from anywhere"
-  become: true
-  community.general.ufw:
-    rule: allow
-    port: "80"
-    proto: tcp
-
-- name: "Firewall: Allow HTTPS from anywhere"
-  become: true
-  community.general.ufw:
-    rule: allow
-    port: "443"
-    proto: tcp
+# HTTP/HTTPS firewall rules are in nginx.yml (needed before certbot)
 
 - name: "Firewall: Allow BGP from IPv4 peer"
   become: true

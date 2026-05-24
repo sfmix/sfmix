@@ -88,12 +88,29 @@
     state: absent
   notify: Reload nginx
 
+- name: Allow HTTP through firewall
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: Allow HTTPS through firewall
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
 - name: Enable and start nginx
   become: true
   ansible.builtin.systemd_service:
     name: nginx
     enabled: true
     state: started
+
+- name: Flush handlers to ensure nginx is running with current config
+  ansible.builtin.meta: flush_handlers
 
 - name: Obtain letsencrypt certificate
   become: true
