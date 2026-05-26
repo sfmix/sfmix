@@ -162,7 +162,65 @@ async fn ssh_connect(config: &DeviceConfig) -> Result<client::Handle<ClientHandl
     Ok(session)
 }
 
-/// Execute a single CLI command on a device via SSH, returning the output text.
+/// Execute a CLI command via SSH exec (no PTY, no shell).
+///
+/// Runs the command directly via the SSH "exec" subsystem. Output is clean:
+/// no terminal escape sequences, no echoed input, no shell prompts.
+/// Use this for structured-output commands (e.g., Arista EOS `| json`).
+///
+/// Unlike `ssh_exec` (PTY+shell), this avoids DSR/terminal handshakes that
+/// some EOS versions send and wait on, which caused the PTY path to time out.
+pub async fn ssh_exec_direct(config: &DeviceConfig, cli_command: &str) -> Result<String> {
+    debug!(device = config.name, command = cli_command, "SSH exec (direct)");
+
+    let session = ssh_connect(config).await?;
+
+    let mut channel = session
+        .channel_open_session()
+        .await
+        .context("failed to open SSH channel")?;
+
+    channel
+        .exec(true, cli_command)
+        .await
+        .context("failed to exec SSH command")?;
+
+    let cmd_timeout = Duration::from_secs(config.command_timeout_secs);
+    let mut output = Vec::new();
+
+    let collect_result = timeout(cmd_timeout, async {
+        loop {
+            match channel.wait().await {
+                Some(ChannelMsg::Data { data, .. }) => {
+                    trace!(bytes = data.len(), "SSH channel data");
+                    output.extend_from_slice(&data);
+                }
+                Some(ChannelMsg::ExtendedData { data, ext }) if ext == 1 => {
+                    trace!(bytes = data.len(), "SSH channel stderr");
+                    output.extend_from_slice(&data);
+                }
+                Some(ChannelMsg::ExitStatus { exit_status }) => {
+                    trace!(exit_status, "SSH channel exit status");
+                }
+                Some(ChannelMsg::Eof) | None => break,
+                _ => {}
+            }
+        }
+    })
+    .await;
+
+    let _ = session
+        .disconnect(Disconnect::ByApplication, "done", "en")
+        .await;
+
+    if collect_result.is_err() {
+        anyhow::bail!("command timed out after {}s on {}", cmd_timeout.as_secs(), config.name);
+    }
+
+    Ok(String::from_utf8_lossy(&output).to_string())
+}
+
+/// Execute a single CLI command on a device via SSH PTY+shell, returning the output text.
 ///
 /// Connects, authenticates, opens a channel, sends the command, and
 /// collects all stdout data until the channel closes or EOF.
