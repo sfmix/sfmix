@@ -182,7 +182,10 @@ impl LookingGlass {
                 }
                 Resource::InterfaceDetail | Resource::OpticsDetail => {
                     let pmap = self.port_map.load();
-                    if pmap.len() > 0 && !pmap.known_interface(target) {
+                    if pmap.len() > 0
+                        && !pmap.known_interface(target)
+                        && !identity.is_admin(&self.policy.admin_group())
+                    {
                         return Err(Error::BadRequest(format!(
                             "unknown interface: {target}"
                         )));
