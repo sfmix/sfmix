@@ -136,31 +136,56 @@ impl PolicyEngine {
             return PolicyDecision::Allow;
         }
 
-        // Port-scoped commands target a participant ASN — require auth + ownership
+        // Port-scoped commands require auth + ownership.
+        //
+        // Two calling conventions:
+        //   ASN target ("64500")        — participant queries; check ownership
+        //   Interface-name target       — direct interface queries (MCP/admin); admin-only
         if command.resource.is_port_scoped() {
             if let Some(ref target) = command.target {
-                let asn: u32 = match target.parse() {
-                    Ok(a) => a,
-                    Err(_) => {
-                        return PolicyDecision::Deny {
-                            reason: format!("invalid ASN: {target}"),
-                        };
+                match target.parse::<u32>() {
+                    Ok(asn) => {
+                        if participants.get(asn).is_none() {
+                            return PolicyDecision::Deny {
+                                reason: format!("unknown participant AS{asn}"),
+                            };
+                        }
+                        if !identity.authenticated {
+                            return PolicyDecision::Deny {
+                                reason: "authentication required for participant port queries".to_string(),
+                            };
+                        }
+                        if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&asn) {
+                            return PolicyDecision::Deny {
+                                reason: "you do not administer this ASN".to_string(),
+                            };
+                        }
                     }
-                };
-                if participants.get(asn).is_none() {
-                    return PolicyDecision::Deny {
-                        reason: format!("unknown participant AS{asn}"),
-                    };
-                }
-                if !identity.authenticated {
-                    return PolicyDecision::Deny {
-                        reason: "authentication required for participant port queries".to_string(),
-                    };
-                }
-                if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&asn) {
-                    return PolicyDecision::Deny {
-                        reason: "you do not administer this ASN".to_string(),
-                    };
+                    Err(_) => {
+                        // Interface-name target — resolve owning ASN via port map
+                        match participants.port_owner_by_interface(target) {
+                            Some(owner_asn) => {
+                                if !identity.authenticated {
+                                    return PolicyDecision::Deny {
+                                        reason: "authentication required for participant port queries".to_string(),
+                                    };
+                                }
+                                if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&owner_asn) {
+                                    return PolicyDecision::Deny {
+                                        reason: "you do not administer this port".to_string(),
+                                    };
+                                }
+                            }
+                            None => {
+                                // Not a participant port (core/infrastructure) — admin only
+                                if !identity.authenticated || !identity.is_admin(&self.admin_group()) {
+                                    return PolicyDecision::Deny {
+                                        reason: "interface queries for non-participant ports require admin access".to_string(),
+                                    };
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -322,6 +347,7 @@ fn pattern_matches(input: &str, pattern: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::command::{AddressFamily, Verb};
     use crate::grammar::parse_command;
     use crate::participants::{Participant, ParticipantPort, ParticipantSession};
 
@@ -465,6 +491,81 @@ mod tests {
             "as",
         );
         let command = parse_command("show interface 99999").unwrap();
+        assert!(matches!(
+            engine.evaluate(&command, &identity, &participants),
+            PolicyDecision::Deny { .. }
+        ));
+    }
+
+    fn interface_name_command(interface: &str) -> Command {
+        // InterfaceDetail with an interface-name target is constructed by the MCP/REST
+        // layer directly — the grammar doesn't have a path for this.
+        Command {
+            verb: Verb::Show,
+            resource: Resource::InterfaceDetail,
+            target: Some(interface.to_string()),
+            device: None,
+            address_family: AddressFamily::IPv4,
+            filter_asn: None,
+            filter_vlan: None,
+            filter_source: None,
+        }
+    }
+
+    #[test]
+    fn test_admin_allowed_interface_name_query() {
+        let engine = PolicyEngine::default_public();
+        let participants = test_participants();
+
+        let identity = Identity::from_oidc_claims(
+            "admin@sfmix.org".to_string(),
+            vec![DEFAULT_ADMIN_GROUP.to_string()],
+            "as",
+        );
+        let command = interface_name_command("Ethernet3/1");
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
+    }
+
+    #[test]
+    fn test_owner_allowed_own_interface_name_query() {
+        let engine = PolicyEngine::default_public();
+        let participants = test_participants();
+
+        // AS64500 owns Ethernet3/1 — querying own port by interface name is allowed
+        let identity = Identity::from_oidc_claims(
+            "user@peer-a.net".to_string(),
+            vec!["as64500".to_string()],
+            "as",
+        );
+        let command = interface_name_command("Ethernet3/1");
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
+    }
+
+    #[test]
+    fn test_non_owner_denied_interface_name_query() {
+        let engine = PolicyEngine::default_public();
+        let participants = test_participants();
+
+        // AS64501 does not own Ethernet3/1 (belongs to AS64500)
+        let identity = Identity::from_oidc_claims(
+            "user@peer-b.net".to_string(),
+            vec!["as64501".to_string()],
+            "as",
+        );
+        let command = interface_name_command("Ethernet3/1");
+        assert!(matches!(
+            engine.evaluate(&command, &identity, &participants),
+            PolicyDecision::Deny { .. }
+        ));
+    }
+
+    #[test]
+    fn test_anon_denied_interface_name_query() {
+        let engine = PolicyEngine::default_public();
+        let identity = Identity::anonymous();
+        let participants = test_participants();
+
+        let command = interface_name_command("Ethernet3/1");
         assert!(matches!(
             engine.evaluate(&command, &identity, &participants),
             PolicyDecision::Deny { .. }

@@ -172,6 +172,19 @@ impl ParticipantMap {
         None
     }
 
+    /// Find which ASN owns a port by interface name alone (device-agnostic).
+    ///
+    /// Used when the command target is an interface name rather than an ASN,
+    /// as MCP commands fan out across all devices and carry no device context.
+    pub fn port_owner_by_interface(&self, interface: &str) -> Option<u32> {
+        for p in self.by_asn.values() {
+            if p.ports.iter().any(|port| port.interface == interface) {
+                return Some(p.asn);
+            }
+        }
+        None
+    }
+
     /// Check if a (device, interface) pair is a participant port (any ASN).
     pub fn is_participant_port(&self, device: &str, interface: &str) -> bool {
         self.by_asn
