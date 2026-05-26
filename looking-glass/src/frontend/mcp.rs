@@ -91,6 +91,8 @@ pub fn router(
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct InterfaceParams {
+    /// Device hostname (e.g. "switch01.sjc01.sfmix.org")
+    device: String,
     /// Interface name (e.g. "Ethernet3/1")
     interface: String,
 }
@@ -110,6 +112,12 @@ fn default_ipv4() -> String {
 struct DestinationParams {
     /// Target IP address or hostname
     destination: String,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct ParticipantParams {
+    /// ASN number (e.g. 12276)
+    asn: u32,
 }
 
 // --- MCP Server Handler ---
@@ -202,7 +210,14 @@ impl LookingGlassMcp {
             .iter()
             .map(|p| {
                 let ptype = p.participant_type.as_deref().unwrap_or("Member");
-                format!("AS{} {} [{}]", p.asn, p.name, ptype)
+                format!(
+                    "AS{} {} [{}] — {} port(s), {} BGP session(s)",
+                    p.asn,
+                    p.name,
+                    ptype,
+                    p.ports.len(),
+                    p.sessions.len(),
+                )
             })
             .collect::<Vec<_>>()
             .join("\n")
@@ -214,12 +229,23 @@ impl LookingGlassMcp {
         self.run_show(Resource::InterfacesStatus, None, AddressFamily::IPv4).await
     }
 
-    #[tool(description = "Show detailed counters and status for a specific interface")]
+    #[tool(description = "Show detailed counters and status for a specific interface on a specific device")]
     async fn show_interface_detail(
         &self,
         Parameters(params): Parameters<InterfaceParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::InterfaceDetail, Some(params.interface), AddressFamily::IPv4).await
+        let command = Command {
+            verb: Verb::Show,
+            resource: Resource::InterfaceDetail,
+            target: Some(params.interface),
+            device: Some(params.device),
+            address_family: AddressFamily::IPv4,
+            filter_asn: None,
+            filter_vlan: None,
+            filter_source: None,
+        };
+        let output = self.execute_command(&command).await?;
+        Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
     #[tool(description = "Show transceiver DOM optical power levels for all ports")]
@@ -227,12 +253,23 @@ impl LookingGlassMcp {
         self.run_show(Resource::Optics, None, AddressFamily::IPv4).await
     }
 
-    #[tool(description = "Show detailed transceiver DOM levels for a specific port")]
+    #[tool(description = "Show detailed transceiver DOM levels for a specific port on a specific device")]
     async fn show_optics_detail(
         &self,
         Parameters(params): Parameters<InterfaceParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::OpticsDetail, Some(params.interface), AddressFamily::IPv4).await
+        let command = Command {
+            verb: Verb::Show,
+            resource: Resource::OpticsDetail,
+            target: Some(params.interface),
+            device: Some(params.device),
+            address_family: AddressFamily::IPv4,
+            filter_asn: None,
+            filter_vlan: None,
+            filter_source: None,
+        };
+        let output = self.execute_command(&command).await?;
+        Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
     #[tool(description = "Show BGP peer summary table. Set address_family to 'ipv4' or 'ipv6'.")]
@@ -265,6 +302,43 @@ impl LookingGlassMcp {
     #[tool(description = "List IXP participants with their ASN and name")]
     async fn show_participants(&self) -> Result<CallToolResult, McpError> {
         Ok(CallToolResult::success(vec![Content::text(self.format_participants())]))
+    }
+
+    #[tool(description = "Get metadata for a specific participant by ASN, including their \
+        port names and BGP neighbor IPs. Use this before show_interface_detail to discover \
+        which interfaces belong to this participant.")]
+    async fn show_participant_detail(
+        &self,
+        Parameters(params): Parameters<ParticipantParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let participants = self.lg.participants();
+        match participants.get(params.asn) {
+            Some(p) => {
+                let result = serde_json::json!({
+                    "asn": p.asn,
+                    "name": p.name,
+                    "type": p.participant_type,
+                    "ports": p.ports.iter().map(|port| serde_json::json!({
+                        "device": port.device,
+                        "interface": port.interface,
+                        "show_interface_args": { "device": port.device, "interface": port.interface },
+                        "show_optics_args": { "device": port.device, "interface": port.interface },
+                    })).collect::<Vec<_>>(),
+                    "bgp_sessions": p.sessions.iter().map(|s| serde_json::json!({
+                        "device": s.device,
+                        "neighbor_v4": s.neighbor,
+                        "neighbor_v6": s.neighbor_v6,
+                    })).collect::<Vec<_>>(),
+                });
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result).unwrap(),
+                )]))
+            }
+            None => Err(McpError::invalid_request(
+                format!("AS{} is not a participant", params.asn),
+                None,
+            )),
+        }
     }
 
     #[tool(description = "Ping a destination from the looking glass vantage point")]
@@ -320,11 +394,17 @@ impl ServerHandler for LookingGlassMcp {
                 .with_description("SFMIX IXP Looking Glass"),
         )
         .with_instructions(
-            "SFMIX Looking Glass — query IXP switch and router state. \
-             Available tools: show_interfaces_status, show_interface_detail, \
-             show_optics, show_optics_detail, show_bgp_summary, \
-             show_lldp_neighbors, show_arp_table, show_nd_table, \
-             show_participants, ping, traceroute.",
+            "SFMIX Looking Glass — query IXP switch and router state.\n\
+             \n\
+             Typical workflow to investigate a participant:\n\
+             1. show_participants — list all ASNs and names\n\
+             2. show_participant_detail(asn) — get their port names and BGP neighbor IPs\n\
+             3. show_interface_detail(interface) — per-port counters and link state\n\
+             4. show_optics_detail(interface) — transceiver optical power levels\n\
+             \n\
+             For connectivity checks: ping / traceroute\n\
+             BGP state: show_bgp_summary (ipv4 or ipv6)\n\
+             Fabric-wide state: show_interfaces_status, show_arp_table, show_nd_table, show_lldp_neighbors",
         )
     }
 
