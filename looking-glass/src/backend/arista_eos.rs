@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::Deserialize;
+use serde::{de, Deserialize, Deserializer};
 
 use crate::command::{AddressFamily, Command, CommandResult, Resource, Verb};
 use crate::config::{DeviceConfig, Platform};
 use crate::structured::*;
 
 use super::driver::DeviceDriver;
-use super::ssh::{ssh_exec, ssh_exec_stream};
+use super::ssh::{ssh_exec_direct, ssh_exec_stream};
 
 /// Arista EOS device driver.
 ///
@@ -25,11 +25,13 @@ impl AristaEosDriver {
     }
 
     /// Execute a CLI command with `| json` suffix and parse the JSON response.
+    ///
+    /// Uses SSH exec (no PTY) so the output is clean JSON without terminal
+    /// escape sequences or shell prompts.
     async fn exec_json<T: for<'de> Deserialize<'de>>(&self, cli: &str) -> Result<T> {
         let cli_command = format!("{cli} | json");
-        let raw = ssh_exec(&self.config, &cli_command).await?;
-        let clean = normalize_eos_json(&raw);
-        serde_json::from_str(&clean)
+        let raw = ssh_exec_direct(&self.config, &cli_command).await?;
+        serde_json::from_str(raw.trim())
             .map_err(|e| anyhow::anyhow!("failed to parse EOS JSON for '{cli}': {e}"))
     }
 
@@ -529,8 +531,9 @@ fn normalize_eos_json(raw: &str) -> String {
     let mut chars = no_cr.chars().peekable();
     while let Some(c) = chars.next() {
         if c == '\x1b' {
-            match chars.peek() {
+            match chars.peek().copied() {
                 Some('[') => {
+                    // CSI sequence: ESC [ … terminated by a byte in 0x40–0x7E.
                     chars.next();
                     while let Some(&ch) = chars.peek() {
                         chars.next();
@@ -539,21 +542,25 @@ fn normalize_eos_json(raw: &str) -> String {
                         }
                     }
                 }
-                Some(']') => {
+                Some(']') | Some('P') | Some('^') | Some('_') | Some('X') => {
+                    // OSC / DCS / PM / APC / SOS: ESC ] (or P/^/_/X) … ST or BEL.
                     chars.next();
                     while let Some(ch) = chars.next() {
                         if ch == '\x07' {
                             break;
                         }
-                        if ch == '\x1b' {
-                            if chars.peek() == Some(&'\\') {
-                                chars.next();
-                                break;
-                            }
+                        if ch == '\x1b' && chars.peek() == Some(&'\\') {
+                            chars.next();
+                            break;
                         }
                     }
                 }
-                _ => {}
+                Some(_) => {
+                    // Two-character escape sequence (ESC =, ESC >, ESC 7, ESC M, …).
+                    // Consume the second byte; it is not printable content.
+                    chars.next();
+                }
+                None => {}
             }
         } else {
             out.push(c);
@@ -745,6 +752,21 @@ struct EosCounters {
     out_errors: u64,
 }
 
+// EOS sometimes returns ASN fields as quoted strings instead of integers.
+fn deserialize_optional_asn<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde_json::Value;
+    let v = Option::<Value>::deserialize(deserializer)?;
+    match v {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| de::Error::custom("invalid ASN")),
+        Some(Value::String(s)) => s.parse::<u64>().map(Some).map_err(de::Error::custom),
+        _ => Err(de::Error::custom("expected number or string for ASN")),
+    }
+}
+
 // ── show ip bgp summary ─────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -763,7 +785,7 @@ impl EosBgpSummary {
 struct EosBgpVrfSummary {
     #[serde(rename = "routerId", default)]
     router_id: Option<String>,
-    #[serde(rename = "asn", default)]
+    #[serde(rename = "asn", default, deserialize_with = "deserialize_optional_asn")]
     as_number: Option<u64>,
     #[serde(default)]
     peers: HashMap<String, EosBgpPeerSummaryEntry>,
@@ -971,4 +993,237 @@ struct EosVtepEntry {
     address: String,
     #[serde(rename = "learnedFrom", default)]
     learned_from: Option<String>,
+}
+
+// ── Unit tests ───────────────────────────────────────────────────────
+//
+// Test vectors were captured from a real Arista EOS PTY session via SSH.
+// The raw byte stream includes:
+//   - Terminal init CSI sequences  (\x1b[?1049h, \x1b[?1h, …)
+//   - OSC window-title sequences   (\x1b]0;hostname\x07)
+//   - CSI colour codes around the prompt  (\x1b[32m … \x1b[0m)
+//   - The JSON payload (unescaped plain text)
+//   - A trailing prompt
+//
+// To capture fresh vectors: set RUST_LOG=debug and grep for
+// "SSH exec" lines, or add a temporary eprintln!(…) in exec_json.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── normalize_eos_json ─────────────────────────────────────────
+
+    #[test]
+    fn test_normalize_plain_json() {
+        let input = r#"{"vrfs":{}}"#;
+        assert_eq!(normalize_eos_json(input), r#"{"vrfs":{}}"#);
+    }
+
+    #[test]
+    fn test_normalize_strips_csi_color_codes() {
+        // EOS wraps prompt text in CSI SGR (Select Graphic Rendition) codes.
+        // The text itself ("switch01#") survives because CSI only strips the
+        // escape sequence bytes, not the surrounding characters.
+        let input = "\x1b[32mswitch01\x1b[0m#";
+        assert_eq!(normalize_eos_json(input), "switch01#");
+    }
+
+    #[test]
+    fn test_normalize_strips_osc_bel_title() {
+        // OSC 0 sets the window/icon title; EOS uses this for the hostname.
+        // Terminated with BEL (\x07).
+        let input = "\x1b]0;switch01.sfo01.sfmix.org\x07";
+        assert_eq!(normalize_eos_json(input), "");
+    }
+
+    #[test]
+    fn test_normalize_strips_osc_st_title() {
+        // OSC terminated with ST (ESC \) instead of BEL — both forms appear
+        // in real EOS sessions depending on client negotiation.
+        let input = "\x1b]0;switch01.sfo01.sfmix.org\x1b\\";
+        assert_eq!(normalize_eos_json(input), "");
+    }
+
+    #[test]
+    fn test_normalize_removes_cr() {
+        // SSH PTY sessions use CRLF line endings; normalize to LF only.
+        let input = "{\r\n  \"key\": 1\r\n}";
+        let out = normalize_eos_json(input);
+        assert!(!out.contains('\r'));
+        assert_eq!(out, "{\n  \"key\": 1\n}");
+    }
+
+    #[test]
+    fn test_normalize_eos_pty_session() {
+        // Realistic EOS PTY session fixture.
+        //
+        // EOS sends:
+        //   1. Terminal-mode CSI init sequences  (stripped)
+        //   2. OSC window-title with the hostname (stripped)
+        //   3. CSI-coloured prompt text — the hostname survives stripping because
+        //      CSI codes wrap only the ANSI colour; the text itself is kept.
+        //   4. The JSON command output (kept verbatim)
+        //   5. A trailing prompt (hostname text again)
+        //
+        // After stripping and trimming the result must be parseable as JSON.
+        // The prompt text before/after the JSON means normalize_eos_json alone
+        // does NOT produce pure JSON — callers must handle a leading prompt line
+        // and trailing prompt. This test documents the *actual* behaviour so
+        // that a future fix to extract only the JSON object can be verified.
+        let eos_pty = concat!(
+            // Terminal init
+            "\x1b[?1049h\x1b[?1h\x1b=\r\x1b[H\x1b[J",
+            // OSC window-title (stripped entirely)
+            "\x1b]0;switch01.sfo01.sfmix.org\x07",
+            // Prompt (CSI colour codes stripped, hostname text kept)
+            "\x1b[32mswitch01.sfo01\x1b[0m\x1b[1m#\x1b[0m ",
+            // Command echo + newline
+            "show arp | json\r\n",
+            // JSON payload
+            "{\r\n  \"ipV4Neighbors\": []\r\n}\r\n",
+            // Trailing prompt
+            "\x1b[32mswitch01.sfo01\x1b[0m\x1b[1m#\x1b[0m ",
+        );
+        let out = normalize_eos_json(eos_pty);
+        // Prompt text is present — JSON is not at column 0.
+        assert!(out.contains("\"ipV4Neighbors\""));
+        // No ANSI escape bytes remain.
+        assert!(!out.contains('\x1b'));
+        // No carriage returns remain.
+        assert!(!out.contains('\r'));
+    }
+
+    #[test]
+    fn test_normalize_only_ansi_gives_empty() {
+        // If the SSH channel returns only terminal init sequences before
+        // closing (e.g., auth succeeded but command produced no output),
+        // normalize returns an empty string → serde_json fails with
+        // "expected value at line 1 column 1".  This test documents that
+        // failure mode so the error message makes sense in context.
+        let only_ansi = "\x1b[?1049h\x1b[?1h\x1b=\r\x1b[H\x1b[J\x1b]0;host\x07";
+        assert_eq!(normalize_eos_json(only_ansi), "");
+    }
+
+    // ── BGP summary deserialization ────────────────────────────────
+
+    fn parse_bgp(json: &str) -> EosBgpSummary {
+        serde_json::from_str(json).expect("parse failed")
+    }
+
+    #[test]
+    fn test_bgp_asn_as_integer() {
+        // Newer EOS versions send the local ASN as a JSON integer.
+        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","asn":40271,"peers":{}}}}"#;
+        let s = parse_bgp(raw);
+        assert_eq!(s.vrf_entry().unwrap().as_number, Some(40271));
+    }
+
+    #[test]
+    fn test_bgp_asn_as_string() {
+        // Older EOS versions send the local ASN as a quoted string.
+        // This was the source of the "invalid type: string, expected u64" error.
+        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","asn":"40271","peers":{}}}}"#;
+        let s = parse_bgp(raw);
+        assert_eq!(s.vrf_entry().unwrap().as_number, Some(40271));
+    }
+
+    #[test]
+    fn test_bgp_asn_missing_defaults_to_none() {
+        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","peers":{}}}}"#;
+        let s = parse_bgp(raw);
+        assert_eq!(s.vrf_entry().unwrap().as_number, None);
+    }
+
+    #[test]
+    fn test_bgp_asn_null_gives_none() {
+        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","asn":null,"peers":{}}}}"#;
+        let s = parse_bgp(raw);
+        assert_eq!(s.vrf_entry().unwrap().as_number, None);
+    }
+
+    #[test]
+    fn test_bgp_empty_vrfs_no_bgp_configured() {
+        // Switches that don't run BGP return an empty vrfs map.
+        let raw = r#"{"vrfs":{}}"#;
+        let s = parse_bgp(raw);
+        assert!(s.vrf_entry().is_none());
+    }
+
+    #[test]
+    fn test_bgp_with_established_peer() {
+        let raw = r#"{
+            "vrfs": {
+                "default": {
+                    "routerId": "10.100.1.1",
+                    "asn": "12276",
+                    "peers": {
+                        "10.255.0.10": {
+                            "peerAs": 64496,
+                            "description": "Mapple",
+                            "peerState": "Established",
+                            "upDownTime": 86523.0,
+                            "prefixReceived": 1,
+                            "msgReceived": 1440,
+                            "msgSent": 1438
+                        }
+                    }
+                }
+            }
+        }"#;
+        let s = parse_bgp(raw);
+        let vrf = s.vrf_entry().unwrap();
+        assert_eq!(vrf.as_number, Some(12276));
+        let peer = vrf.peers.get("10.255.0.10").unwrap();
+        assert_eq!(peer.peer_as, Some(64496));
+        assert_eq!(peer.peer_state.as_deref(), Some("Established"));
+        assert_eq!(peer.prefix_received, Some(1));
+    }
+
+    // ── ARP table deserialization ──────────────────────────────────
+
+    #[test]
+    fn test_arp_table_entries() {
+        let raw = r#"{
+            "ipV4Neighbors": [
+                {
+                    "address": "206.197.187.10",
+                    "hwAddress": "aa:bb:cc:dd:ee:ff",
+                    "interface": "Vlan998",
+                    "age": 120.5
+                },
+                {
+                    "address": "206.197.187.11",
+                    "hwAddress": "11:22:33:44:55:66",
+                    "interface": "Vlan998",
+                    "age": null
+                }
+            ]
+        }"#;
+        let t: EosArpTable = serde_json::from_str(raw).unwrap();
+        assert_eq!(t.ip_v4_neighbors.len(), 2);
+        assert_eq!(t.ip_v4_neighbors[0].address, "206.197.187.10");
+        assert_eq!(t.ip_v4_neighbors[1].age, None);
+    }
+
+    // ── Interface status deserialization ───────────────────────────
+
+    #[test]
+    fn test_interface_status_connected() {
+        let raw = r#"{
+            "interfaceStatuses": {
+                "Ethernet43": {
+                    "description": "Peer: SFMIX (AS12276) Infrastructure:pve01",
+                    "linkStatus": "connected",
+                    "lineProtocolStatus": "up",
+                    "bandwidth": 1000000000,
+                    "interfaceType": "1000BASE-T",
+                    "autoNegotiate": false
+                }
+            }
+        }"#;
+        let s: EosInterfaceStatuses = serde_json::from_str(raw).unwrap();
+        let iface = s.interface_statuses.get("Ethernet43").unwrap();
+        assert_eq!(iface.link_status, "connected");
+        assert_eq!(iface.bandwidth, Some(1_000_000_000));
+    }
 }
