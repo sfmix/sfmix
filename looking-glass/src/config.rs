@@ -57,7 +57,7 @@ pub struct SiteConfig {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct ListenConfig {
     #[serde(default)]
     pub telnet: Option<TelnetListenConfig>,
