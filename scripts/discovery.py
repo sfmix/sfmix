@@ -622,6 +622,61 @@ class DeviceDiscovery(ABC):
         """Return VLAN+MAC → (hostname, interface) mapping. Default: empty dict."""
         return {}
 
+    def sync_subinterface_parents(self, dry_run: bool = False) -> None:
+        """Set the NetBox parent field for all subinterfaces on this device.
+
+        Matches interfaces named '<base>.<N>' (numeric unit suffix) to their
+        parent interface '<base>' on the same device and sets the parent field
+        if it is missing or points to the wrong interface.
+
+        Examples:
+          Port-Channel114.998  →  Port-Channel114
+          Ethernet4/1.123      →  Ethernet4/1
+        """
+        netbox = netbox_api_client()
+        logger.debug(f"Syncing subinterface parents on {self.device_name}")
+
+        nb_ifaces = _prefetch_nb_interfaces(netbox, self.device_name)
+
+        updated = 0
+        for iface_name, iface in nb_ifaces.items():
+            dot_pos = iface_name.rfind(".")
+            if dot_pos < 0:
+                continue
+            suffix = iface_name[dot_pos + 1:]
+            if not suffix.isdigit():
+                continue  # Not a numeric subinterface unit (e.g. "Mgmt0.1" would pass; "foo.bar" would not)
+            parent_name = iface_name[:dot_pos]
+            parent_iface = nb_ifaces.get(parent_name)
+            if parent_iface is None:
+                logger.debug(
+                    f"  No parent {parent_name!r} found in NetBox for"
+                    f" {self.device_name} / {iface_name} — skipping"
+                )
+                continue
+
+            current_parent = iface.parent
+            current_parent_id = current_parent.id if current_parent else None
+            if current_parent_id == parent_iface.id:
+                logger.debug(f"  Parent already correct: {self.device_name} / {iface_name}")
+                continue
+
+            old_name = current_parent.name if current_parent else None
+            logger.info(
+                f"  {'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                f" parent: {self.device_name} / {iface_name}:"
+                f" {old_name!r} -> {parent_name!r}"
+            )
+            if not dry_run:
+                iface.parent = parent_iface.id
+                iface.save()
+            updated += 1
+
+        logger.info(
+            f"  {'Would update' if dry_run else 'Updated'} {updated}"
+            f" subinterface parent(s) on {self.device_name}"
+        )
+
 
 class NetconfSSHDevice(DeviceDiscovery):
     """Shared base for devices accessed via NETCONF over SSH.
@@ -1780,6 +1835,14 @@ if __name__ == "__main__":
         help="Synchronize interface IPs to Netbox",
     )
     parser.add_argument(
+        "--sync-subinterface-parents",
+        action="store_true",
+        help=(
+            "Set the parent field for dot-unit subinterfaces in NetBox "
+            "(e.g. Port-Channel114.998 → Port-Channel114, Ethernet4/1.123 → Ethernet4/1)"
+        ),
+    )
+    parser.add_argument(
         "--device",
         action="append",
         metavar="HOSTNAME",
@@ -1903,3 +1966,16 @@ if __name__ == "__main__":
             device.sync_interface_ips(dry_run=args.dry_run)
     else:
         logger.info("Skipping interface IP sync. To enable: --sync-interface-ips")
+
+    if args.sync_subinterface_parents:
+        for device in devices:
+            try:
+                device.sync_subinterface_parents(dry_run=args.dry_run)
+            except Exception as e:
+                logger.error(
+                    f"Subinterface parent sync failed for {device.device_name}: {e}"
+                )
+    else:
+        logger.info(
+            "Skipping subinterface parent sync. To enable: --sync-subinterface-parents"
+        )
