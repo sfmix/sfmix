@@ -171,7 +171,7 @@ pub async fn fetch_port_map(
             device { id name }
             custom_fields
             member_interfaces { id name device { id name } }
-            parent_interface { id name member_interfaces { id name device { id name } } }
+            parent { id name member_interfaces { id name device { id name } } }
         }
         core_ports: interface_list(filters: { tags: { slug: { exact: "core_port" } } }) {
             name
@@ -295,7 +295,7 @@ pub async fn fetch_port_map(
                 // own member_interfaces is empty — fall back to parent Port-Channel's members.
                 let raw_members = if !iface.member_interfaces.is_empty() {
                     &iface.member_interfaces[..]
-                } else if let Some(ref parent) = iface.parent_interface {
+                } else if let Some(ref parent) = iface.parent {
                     &parent.member_interfaces[..]
                 } else {
                     &[]
@@ -551,7 +551,7 @@ struct InterfaceEntry {
     #[serde(default)]
     member_interfaces: Vec<MemberInterfaceEntry>,
     #[serde(default)]
-    parent_interface: Option<ParentInterfaceEntry>,
+    parent: Option<ParentInterfaceEntry>,
 }
 
 #[derive(Deserialize)]
