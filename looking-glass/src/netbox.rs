@@ -189,11 +189,6 @@ pub async fn fetch_port_map(
             device { id name }
             custom_fields
         }
-        lag_interfaces: interface_list(filters: { type: { exact: "lag" } }) {
-            name
-            device { name }
-            member_interfaces { name device { name } }
-        }
         ip_addresses: ip_address_list(filters: { tags: { slug: { exact: "ixp_participant" } } }) {
             address
             family { value label }
@@ -286,20 +281,6 @@ pub async fn fetch_port_map(
         }
     }
 
-    // Build LAG member map: (device, lag_name) → [(device, member_name)]
-    // Used to resolve members for subinterface peering ports (e.g. Port-Channel114.998)
-    // whose parent LAG (Port-Channel114) is not itself tagged as a peering_port.
-    let mut lag_map: HashMap<(String, String), Vec<(String, String)>> = HashMap::new();
-    for lag in &data.lag_interfaces {
-        let device = normalize_device_name(&lag.device.name, domain_suffix);
-        let members: Vec<(String, String)> = lag.member_interfaces.iter()
-            .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
-            .collect();
-        if !members.is_empty() {
-            lag_map.insert((device, lag.name.clone()), members);
-        }
-    }
-
     for iface in &data.peering_ports {
         if let Some(tenant_id) = iface.custom_fields.participant {
             let tid = tenant_id.to_string();
@@ -311,26 +292,17 @@ pub async fn fetch_port_map(
                     .push((device_name.clone(), iface.name.clone()));
 
                 // Resolve physical LAG members.
-                // Priority: (1) own member_interfaces (direct Port-Channel),
-                //           (2) parent.member_interfaces (if parent field is set in NetBox),
-                //           (3) name-based suffix strip: Port-Channel114.998 → look up Port-Channel114
+                // (1) own member_interfaces — for Port-Channels tagged directly as peering_port
+                // (2) parent.member_interfaces — for subinterfaces (e.g. Port-Channel114.998)
+                //     once discovery.py --sync-subinterface-parents has set the parent field
                 let members: Vec<(String, String)> = if !iface.member_interfaces.is_empty() {
                     iface.member_interfaces.iter()
                         .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
                         .collect()
                 } else if let Some(ref parent) = iface.parent {
-                    if !parent.member_interfaces.is_empty() {
-                        parent.member_interfaces.iter()
-                            .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
-                            .collect()
-                    } else {
-                        Vec::new()
-                    }
-                } else if let Some(dot) = iface.name.rfind('.') {
-                    let parent_lag_name = &iface.name[..dot];
-                    lag_map.get(&(device_name.clone(), parent_lag_name.to_string()))
-                        .cloned()
-                        .unwrap_or_default()
+                    parent.member_interfaces.iter()
+                        .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
+                        .collect()
                 } else {
                     Vec::new()
                 };
@@ -518,8 +490,6 @@ struct GraphQlData {
     core_ports: Vec<CorePortEntry>,
     admin_ports: Vec<CorePortEntry>,
     transit_peers: Vec<InterfaceEntry>,
-    #[serde(default)]
-    lag_interfaces: Vec<LagEntry>,
     ip_addresses: Vec<IpAddressEntry>,
     peering_switches: Vec<DeviceEntry>,
     peering_vlans: Vec<VlanEntry>,
@@ -528,21 +498,6 @@ struct GraphQlData {
 
 #[derive(Deserialize)]
 struct CorePortEntry {
-    name: String,
-    device: CorePortDevice,
-}
-
-/// Minimal LAG interface entry — only name, device, and physical member names.
-#[derive(Deserialize)]
-struct LagEntry {
-    name: String,
-    device: CorePortDevice,
-    #[serde(default)]
-    member_interfaces: Vec<LagMember>,
-}
-
-#[derive(Deserialize)]
-struct LagMember {
     name: String,
     device: CorePortDevice,
 }
