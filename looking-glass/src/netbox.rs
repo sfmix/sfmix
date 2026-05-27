@@ -171,6 +171,7 @@ pub async fn fetch_port_map(
             device { id name }
             custom_fields
             member_interfaces { id name device { id name } }
+            parent_interface { id name member_interfaces { id name device { id name } } }
         }
         core_ports: interface_list(filters: { tags: { slug: { exact: "core_port" } } }) {
             name
@@ -290,8 +291,16 @@ pub async fn fetch_port_map(
                     .or_default()
                     .push((device_name.clone(), iface.name.clone()));
 
-                // Resolve physical LAG members (non-empty only for Port-Channels)
-                let members: Vec<(String, String)> = iface.member_interfaces.iter().map(|m| {
+                // Resolve physical LAG members. For subinterfaces (e.g. Port-Channel114.998),
+                // own member_interfaces is empty — fall back to parent Port-Channel's members.
+                let raw_members = if !iface.member_interfaces.is_empty() {
+                    &iface.member_interfaces[..]
+                } else if let Some(ref parent) = iface.parent_interface {
+                    &parent.member_interfaces[..]
+                } else {
+                    &[]
+                };
+                let members: Vec<(String, String)> = raw_members.iter().map(|m| {
                     (normalize_device_name(&m.device.name, domain_suffix), m.name.clone())
                 }).collect();
 
@@ -520,6 +529,17 @@ struct MemberInterfaceEntry {
 }
 
 #[derive(Deserialize)]
+struct ParentInterfaceEntry {
+    #[allow(dead_code)]
+    #[serde(deserialize_with = "deserialize_string_id")]
+    id: u64,
+    #[allow(dead_code)]
+    name: String,
+    #[serde(default)]
+    member_interfaces: Vec<MemberInterfaceEntry>,
+}
+
+#[derive(Deserialize)]
 struct InterfaceEntry {
     #[serde(deserialize_with = "deserialize_string_id")]
     id: u64,
@@ -530,6 +550,8 @@ struct InterfaceEntry {
     custom_fields: InterfaceCustomFields,
     #[serde(default)]
     member_interfaces: Vec<MemberInterfaceEntry>,
+    #[serde(default)]
+    parent_interface: Option<ParentInterfaceEntry>,
 }
 
 #[derive(Deserialize)]

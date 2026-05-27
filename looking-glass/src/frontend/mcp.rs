@@ -321,23 +321,23 @@ impl LookingGlassMcp {
                     .map(|np| np.enriched_ports.as_slice())
                     .unwrap_or(&[]);
 
-                let ports_json: Vec<serde_json::Value> = p.ports.iter().map(|port| {
-                    let ep = enriched_ports.iter().find(|e| {
-                        e.device == port.device && e.interface == port.interface
-                    });
-                    let members: Vec<serde_json::Value> = ep
-                        .map(|e| e.member_interfaces.iter().map(|(mdev, miface)| serde_json::json!({
+                // Iterate enriched_ports (peering-tagged only), not p.ports which
+                // now also contains physical LAG members added for port-map coverage.
+                let ports_json: Vec<serde_json::Value> = enriched_ports.iter().map(|ep| {
+                    let members: Vec<serde_json::Value> = ep.member_interfaces.iter()
+                        .map(|(mdev, miface)| serde_json::json!({
                             "device": mdev,
                             "interface": miface,
                             "show_interface_args": { "device": mdev, "interface": miface },
                             "show_optics_args": { "device": mdev, "interface": miface },
-                        })).collect())
-                        .unwrap_or_default();
+                        })).collect();
                     serde_json::json!({
-                        "device": port.device,
-                        "interface": port.interface,
-                        "show_interface_args": { "device": port.device, "interface": port.interface },
-                        "show_optics_args": { "device": port.device, "interface": port.interface },
+                        "device": ep.device,
+                        "interface": ep.interface,
+                        "speed_gbps": ep.speed.map(|s| s / 1000),
+                        "enabled": ep.enabled,
+                        "show_interface_args": { "device": ep.device, "interface": ep.interface },
+                        "show_optics_args": { "device": ep.device, "interface": ep.interface },
                         "member_interfaces": members,
                     })
                 }).collect();

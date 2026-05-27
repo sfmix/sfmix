@@ -197,38 +197,64 @@ pub fn format_participant_detail(
     let mut out = String::new();
 
     let ptype = p.participant_type.as_deref().unwrap_or("Member");
-    out.push_str(&format!("AS{}  {}  [{}]\n\n", p.asn, p.name, ptype));
+    let asn_str = format!("AS{}", p.asn);
+    let header = format!("{asn_str}  {}  [{ptype}]", p.name);
+    let sep = "─".repeat(header.chars().count().min(72));
 
-    if p.ports.is_empty() {
-        out.push_str("  No ports configured.\n");
+    if mode == ColorMode::Plain {
+        out.push_str(&format!("{header}\n{sep}\n\n"));
     } else {
-        out.push_str("Ports:\n");
-        for port in &p.ports {
-            // Find matching enriched port for speed/enabled info
-            let enriched = enriched_ports.iter().find(|e| {
-                e.device == port.device && e.interface == port.interface
-            });
-            let speed = enriched.and_then(|e| e.speed).map(|s| format!("{}G", s / 1000)).unwrap_or_default();
-            let enabled = enriched.map(|e| if e.enabled { "" } else { " [disabled]" }).unwrap_or("");
-            let speed_str = if speed.is_empty() { String::new() } else { format!("  {speed}") };
-            out.push_str(&format!("  {}  {}{speed_str}{enabled}\n", port.interface, port.device));
-            if let Some(ep) = enriched {
-                for (mdev, miface) in &ep.member_interfaces {
-                    out.push_str(&format!("    {}  {} [member]\n", miface, mdev));
-                }
+        out.push_str(&format!("{}\n{sep}\n\n", bold_str(&header, mode)));
+    }
+
+    // Ports — iterate enriched_ports (peering-tagged only), not p.ports
+    // which now also includes physical LAG members.
+    if enriched_ports.is_empty() && p.ports.is_empty() {
+        out.push_str("  No ports configured.\n");
+    } else if !enriched_ports.is_empty() {
+        out.push_str(&format!("{}:\n", bold_str("Ports", mode)));
+        for ep in enriched_ports {
+            let speed_str = ep.speed
+                .map(|s| format!("  {}G", s / 1000))
+                .unwrap_or_default();
+            let disabled = if ep.enabled {
+                String::new()
+            } else if mode == ColorMode::Plain {
+                "  [disabled]".to_string()
+            } else {
+                format!("  {}", "[disabled]".red())
+            };
+            let iface_col = if mode == ColorMode::Plain {
+                ep.interface.clone()
+            } else {
+                bold_str(&ep.interface, mode)
+            };
+            out.push_str(&format!("  {iface_col}  {}{speed_str}{disabled}\n", ep.device));
+
+            let members = &ep.member_interfaces;
+            for (i, (mdev, miface)) in members.iter().enumerate() {
+                let is_last = i == members.len() - 1;
+                let branch = if is_last { "└─" } else { "├─" };
+                out.push_str(&format!("    {branch} {miface}  {mdev}\n"));
             }
+        }
+    } else {
+        // Fallback: no enriched data (YAML-loaded participant)
+        out.push_str(&format!("{}:\n", bold_str("Ports", mode)));
+        for port in &p.ports {
+            out.push_str(&format!("  {}  {}\n", port.interface, port.device));
         }
     }
 
     if !p.sessions.is_empty() {
         out.push('\n');
-        out.push_str("BGP sessions:\n");
+        out.push_str(&format!("{}:\n", bold_str("BGP sessions", mode)));
         for s in &p.sessions {
             if let Some(ref v4) = s.neighbor {
-                out.push_str(&format!("  {}  {} (IPv4)\n", v4, s.device));
+                out.push_str(&format!("  {v4:<40} {}  (IPv4)\n", s.device));
             }
             if let Some(ref v6) = s.neighbor_v6 {
-                out.push_str(&format!("  {}  {} (IPv6)\n", v6, s.device));
+                out.push_str(&format!("  {v6:<40} {}  (IPv6)\n", s.device));
             }
         }
     }
