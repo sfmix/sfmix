@@ -9,6 +9,7 @@ use tracing::info;
 use looking_glass::backend::pool::DevicePool;
 use looking_glass::bgp;
 use looking_glass::config::{self, ParticipantsSourceConfig};
+use looking_glass::frontend::telnet::TelnetServer;
 use looking_glass::netbox::{self, NetboxIxpData, NetboxStatus};
 use looking_glass::oidc;
 use looking_glass::participants::{ParticipantMap, PortMap};
@@ -268,6 +269,18 @@ async fn main() -> Result<()> {
         tracing::warn!("RPC secret env var '{}' not set", server_cfg.rpc.secret_env);
         String::new()
     });
+
+    // Start telnet server if configured
+    if let Some(ref telnet_cfg) = server_cfg.listen.telnet {
+        if telnet_cfg.enabled {
+            let server = TelnetServer::new(telnet_cfg.bind.clone(), lg.clone());
+            tokio::spawn(async move {
+                if let Err(e) = server.run().await {
+                    tracing::error!("Telnet server error: {e}");
+                }
+            });
+        }
+    }
 
     // Start RPC server
     let rpc_state = Arc::new(rpc_server::RpcState {
