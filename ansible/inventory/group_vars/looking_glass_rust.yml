@@ -1,5 +1,6 @@
 ---
 looking_glass_bind_address: "10.2.1.26"
+looking_glass_telnet_enabled: true
 looking_glass_telnet_port: 2023
 looking_glass_device_password: !vault |
   $ANSIBLE_VAULT;1.1;AES256
