@@ -314,6 +314,9 @@ fn command_to_match_string(command: &Command) -> String {
             return format!("show optics {}", command.target.as_deref().unwrap_or("*"));
         }
         Resource::Participants => "participants",
+        Resource::ParticipantDetail => {
+            return format!("show participant {}", command.target.as_deref().unwrap_or("*"));
+        }
         Resource::VxlanVtep => "vxlan vtep",
         Resource::NetworkReachability => {
             return format!("{verb} {}", command.target.as_deref().unwrap_or(""));

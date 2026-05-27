@@ -163,6 +163,33 @@ impl LookingGlass {
             }]);
         }
 
+        if command.resource == Resource::ParticipantDetail {
+            let asn: u32 = command
+                .target
+                .as_deref()
+                .unwrap_or("")
+                .parse()
+                .map_err(|_| Error::BadRequest("invalid ASN".to_string()))?;
+            let pmap = self.participants.load();
+            let netbox_participants = self.netbox_participants.load();
+            match pmap.get(asn) {
+                Some(p) => {
+                    let enriched = netbox_participants
+                        .iter()
+                        .find(|np| np.asn == asn)
+                        .map(|np| np.enriched_ports.as_slice())
+                        .unwrap_or(&[]);
+                    let text = crate::format::format_participant_detail(p, enriched, ColorMode::Plain);
+                    return Ok(vec![DeviceResult {
+                        device: "local".to_string(),
+                        success: true,
+                        output: CommandOutput::Participants(text),
+                    }]);
+                }
+                None => return Err(Error::BadRequest(format!("AS{asn} is not a participant"))),
+            }
+        }
+
         // Validate targets before touching any device
         if let Some(ref target) = command.target {
             match command.resource {

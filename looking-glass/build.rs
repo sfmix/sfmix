@@ -15,7 +15,7 @@ enum Verb { Show, Ping, Traceroute }
 enum Resource {
     InterfacesStatus, InterfaceDetail, BgpSummary, BgpNeighbor,
     MacAddressTable, ArpTable, NdTable, LldpNeighbors,
-    Optics, OpticsDetail, Participants, VxlanVtep,
+    Optics, OpticsDetail, Participants, ParticipantDetail, VxlanVtep,
     NetworkReachability, Help, Login, Whoami, Logout, NetboxCache,
     BgpSources, BgpRoutes, BgpRouteLookup,
 }
