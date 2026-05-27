@@ -314,16 +314,39 @@ impl LookingGlassMcp {
         let participants = self.lg.participants();
         match participants.get(params.asn) {
             Some(p) => {
-                let result = serde_json::json!({
-                    "asn": p.asn,
-                    "name": p.name,
-                    "type": p.participant_type,
-                    "ports": p.ports.iter().map(|port| serde_json::json!({
+                let netbox_participants = self.lg.netbox_participants.load();
+                let enriched_ports = netbox_participants
+                    .iter()
+                    .find(|np| np.asn == params.asn)
+                    .map(|np| np.enriched_ports.as_slice())
+                    .unwrap_or(&[]);
+
+                let ports_json: Vec<serde_json::Value> = p.ports.iter().map(|port| {
+                    let ep = enriched_ports.iter().find(|e| {
+                        e.device == port.device && e.interface == port.interface
+                    });
+                    let members: Vec<serde_json::Value> = ep
+                        .map(|e| e.member_interfaces.iter().map(|(mdev, miface)| serde_json::json!({
+                            "device": mdev,
+                            "interface": miface,
+                            "show_interface_args": { "device": mdev, "interface": miface },
+                            "show_optics_args": { "device": mdev, "interface": miface },
+                        })).collect())
+                        .unwrap_or_default();
+                    serde_json::json!({
                         "device": port.device,
                         "interface": port.interface,
                         "show_interface_args": { "device": port.device, "interface": port.interface },
                         "show_optics_args": { "device": port.device, "interface": port.interface },
-                    })).collect::<Vec<_>>(),
+                        "member_interfaces": members,
+                    })
+                }).collect();
+
+                let result = serde_json::json!({
+                    "asn": p.asn,
+                    "name": p.name,
+                    "type": p.participant_type,
+                    "ports": ports_json,
                     "bgp_sessions": p.sessions.iter().map(|s| serde_json::json!({
                         "device": s.device,
                         "neighbor_v4": s.neighbor,
