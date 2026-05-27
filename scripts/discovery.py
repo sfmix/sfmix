@@ -1921,7 +1921,10 @@ if __name__ == "__main__":
     # MAC table pipeline — Arista EOS only (non-EOS returns empty map)
     vlan_mac_port_map: Dict[VLAN_MAC, PORT] = dict()
     for device in devices:
-        vlan_mac_port_map.update(device.get_vlan_mac_port_map())
+        try:
+            vlan_mac_port_map.update(device.get_vlan_mac_port_map())
+        except Exception as e:
+            logger.error(f"MAC table lookup failed for {device.device_name}: {e}")
 
     ip_port_map: Dict[str, PORT] = dict()
     for (vlan, ip), mac in vlan_ip_mac_map.items():
