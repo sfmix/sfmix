@@ -392,6 +392,19 @@ impl McpHandler {
                     let device = p.get("device").and_then(|v| v.as_str()).unwrap_or("");
                     let speed = p.get("speed").and_then(|v| v.as_u64()).unwrap_or(0);
                     let enabled = p.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let members: Vec<serde_json::Value> = p
+                        .get("member_interfaces")
+                        .and_then(|m| m.as_array())
+                        .map(|arr| arr.iter().filter_map(|entry| {
+                            let (mdev, miface) = entry.as_array()
+                                .and_then(|a| Some((a.get(0)?.as_str()?, a.get(1)?.as_str()?)))?;
+                            Some(serde_json::json!({
+                                "device": mdev,
+                                "interface": miface,
+                                "args": { "device": mdev, "interface": miface },
+                            }))
+                        }).collect())
+                        .unwrap_or_default();
                     lines.push(serde_json::json!({
                         "type": "port",
                         "interface": iface,
@@ -401,6 +414,7 @@ impl McpHandler {
                         "call_for_status": interface_tool,
                         "call_for_optics": optics_tool,
                         "args": { "device": device, "interface": iface },
+                        "member_interfaces": members,
                     }).to_string());
                 }
 
