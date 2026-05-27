@@ -2,6 +2,7 @@
 looking_glass_version: ""
 looking_glass_github_repo: sfmix/sfmix
 looking_glass_bind_address: "0.0.0.0"
+looking_glass_telnet_enabled: false
 looking_glass_telnet_port: 2023
 looking_glass_ssh_enabled: false
 looking_glass_ssh_port: 2222
