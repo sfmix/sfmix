@@ -136,6 +136,11 @@ commands:
       participants:
         help: IXP participant list
         command: { verb: show, resource: participants }
+        children:
+          _arg:
+            name: "<asn>"
+            help: Show detail for a specific participant ASN (e.g. 13335)
+            command: { verb: show, resource: participant_detail, target: "$arg" }
       vxlan:
         help: VXLAN VTEP information
         command: { verb: show, resource: vxlan_vtep }

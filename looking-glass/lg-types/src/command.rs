@@ -61,6 +61,8 @@ pub enum Resource {
     BgpRoutes,
     /// Prefix lookup across all BGP sources
     BgpRouteLookup,
+    /// Detail view for a single participant by ASN
+    ParticipantDetail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

@@ -188,6 +188,54 @@ pub fn format_participants(participants: &crate::participants::ParticipantMap, m
     format!("{table}\n")
 }
 
+/// Render detail for a single participant — ports (including LAG members) and BGP sessions.
+pub fn format_participant_detail(
+    p: &crate::participants::Participant,
+    enriched_ports: &[crate::netbox::EnrichedPort],
+    mode: ColorMode,
+) -> String {
+    let mut out = String::new();
+
+    let ptype = p.participant_type.as_deref().unwrap_or("Member");
+    out.push_str(&format!("AS{}  {}  [{}]\n\n", p.asn, p.name, ptype));
+
+    if p.ports.is_empty() {
+        out.push_str("  No ports configured.\n");
+    } else {
+        out.push_str("Ports:\n");
+        for port in &p.ports {
+            // Find matching enriched port for speed/enabled info
+            let enriched = enriched_ports.iter().find(|e| {
+                e.device == port.device && e.interface == port.interface
+            });
+            let speed = enriched.and_then(|e| e.speed).map(|s| format!("{}G", s / 1000)).unwrap_or_default();
+            let enabled = enriched.map(|e| if e.enabled { "" } else { " [disabled]" }).unwrap_or("");
+            let speed_str = if speed.is_empty() { String::new() } else { format!("  {speed}") };
+            out.push_str(&format!("  {}  {}{speed_str}{enabled}\n", port.interface, port.device));
+            if let Some(ep) = enriched {
+                for (mdev, miface) in &ep.member_interfaces {
+                    out.push_str(&format!("    {}  {} [member]\n", miface, mdev));
+                }
+            }
+        }
+    }
+
+    if !p.sessions.is_empty() {
+        out.push('\n');
+        out.push_str("BGP sessions:\n");
+        for s in &p.sessions {
+            if let Some(ref v4) = s.neighbor {
+                out.push_str(&format!("  {}  {} (IPv4)\n", v4, s.device));
+            }
+            if let Some(ref v6) = s.neighbor_v6 {
+                out.push_str(&format!("  {}  {} (IPv6)\n", v6, s.device));
+            }
+        }
+    }
+
+    out
+}
+
 /// Render a device header with Unicode box drawing.
 ///
 /// Example: `╭─── switch03.fmt01.sfmix.org ───╮`

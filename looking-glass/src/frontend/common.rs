@@ -27,6 +27,7 @@ Available commands:
   show arp                         ARP table
   show ipv6 neighbors              IPv6 neighbor table
   show participants                IXP participant list
+  show participants <asn>         Detail for a specific participant
   show vxlan vtep                  VXLAN VTEP table
   show sources                     BGP data source status
   show routes <neighbor>           BGP routes from a neighbor (via sources)
@@ -368,6 +369,34 @@ pub async fn dispatch_command<W: SessionWriter>(
     if command.resource == Resource::Participants {
         let out = crate::format::format_participants(&lg.participants(), color);
         writer.write_bytes(out.as_bytes()).await?;
+        return Ok(CommandAction::Continue);
+    }
+
+    // Participant detail
+    if command.resource == Resource::ParticipantDetail {
+        let asn: u32 = match command.target.as_deref().unwrap_or("").parse() {
+            Ok(n) => n,
+            Err(_) => {
+                writer.write_bytes(b"Invalid ASN\n").await?;
+                return Ok(CommandAction::Continue);
+            }
+        };
+        let pmap = lg.participants();
+        let netbox_participants = lg.netbox_participants.load();
+        match pmap.get(asn) {
+            Some(p) => {
+                let enriched = netbox_participants
+                    .iter()
+                    .find(|np| np.asn == asn)
+                    .map(|np| np.enriched_ports.as_slice())
+                    .unwrap_or(&[]);
+                let out = crate::format::format_participant_detail(p, enriched, color);
+                writer.write_bytes(out.as_bytes()).await?;
+            }
+            None => {
+                writer.write_bytes(format!("AS{asn} is not a participant\n").as_bytes()).await?;
+            }
+        }
         return Ok(CommandAction::Continue);
     }
 
