@@ -81,6 +81,8 @@ pub struct EnrichedPort {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_limit_bps: Option<u64>,
     pub enabled: bool,
+    /// Physical LAG member interfaces (device, interface) for Port-Channel ports.
+    pub member_interfaces: Vec<(String, String)>,
 }
 
 /// A participant's IP address from NetBox.
@@ -168,6 +170,7 @@ pub async fn fetch_port_map(
             enabled
             device { id name }
             custom_fields
+            member_interfaces { id name device { id name } }
         }
         core_ports: interface_list(filters: { tags: { slug: { exact: "core_port" } } }) {
             name
@@ -286,6 +289,20 @@ pub async fn fetch_port_map(
                     .entry(*asn)
                     .or_default()
                     .push((device_name.clone(), iface.name.clone()));
+
+                // Resolve physical LAG members (non-empty only for Port-Channels)
+                let members: Vec<(String, String)> = iface.member_interfaces.iter().map(|m| {
+                    (normalize_device_name(&m.device.name, domain_suffix), m.name.clone())
+                }).collect();
+
+                // Add each physical member to the port map so it is queryable
+                for (mdev, miface) in &members {
+                    ports_by_asn
+                        .entry(*asn)
+                        .or_default()
+                        .push((mdev.clone(), miface.clone()));
+                }
+
                 enriched_by_asn
                     .entry(*asn)
                     .or_default()
@@ -297,6 +314,7 @@ pub async fn fetch_port_map(
                         speed: iface.speed.map(|s| s / 1000),
                         rate_limit_bps: iface.custom_fields.rate_limit_bps,
                         enabled: iface.enabled,
+                        member_interfaces: members,
                     });
             }
         }
@@ -493,6 +511,15 @@ struct TenantCustomFields {
 }
 
 #[derive(Deserialize)]
+struct MemberInterfaceEntry {
+    #[allow(dead_code)]
+    #[serde(deserialize_with = "deserialize_string_id")]
+    id: u64,
+    name: String,
+    device: InterfaceDevice,
+}
+
+#[derive(Deserialize)]
 struct InterfaceEntry {
     #[serde(deserialize_with = "deserialize_string_id")]
     id: u64,
@@ -501,6 +528,8 @@ struct InterfaceEntry {
     enabled: bool,
     device: InterfaceDevice,
     custom_fields: InterfaceCustomFields,
+    #[serde(default)]
+    member_interfaces: Vec<MemberInterfaceEntry>,
 }
 
 #[derive(Deserialize)]
