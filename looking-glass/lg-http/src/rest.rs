@@ -156,30 +156,8 @@ struct AsnFilterQuery {
 }
 
 #[derive(Debug, Deserialize)]
-struct BgpSummaryQuery {
-    #[serde(default = "default_ipv4")]
-    af: String,
-}
-
-#[derive(Debug, Deserialize)]
 struct MacTableQuery {
     vlan: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct BgpRoutesQuery {
-    source: Option<String>,
-}
-
-fn default_ipv4() -> String {
-    "ipv4".to_string()
-}
-
-fn parse_af(af: &str) -> AddressFamily {
-    match af {
-        "ipv6" | "IPv6" => AddressFamily::IPv6,
-        _ => AddressFamily::IPv4,
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -220,9 +198,7 @@ fn make_cmd(resource: Resource, target: Option<String>) -> Command {
 // ---------------------------------------------------------------------------
 
 use looking_glass::structured::{
-    ArpEntry, BgpNeighborDetail, BgpRoute, BgpRouteList, BgpSourceStatus, BgpSummary,
-    InterfaceDetail, InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry, NdEntry,
-    VxlanVtep,
+    InterfaceDetail, InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry,
 };
 
 async fn get_interfaces_status(
@@ -279,33 +255,6 @@ async fn get_optics_detail(
     }).await
 }
 
-async fn get_bgp_summary(
-    State(state): State<HttpState>,
-    Query(query): Query<BgpSummaryQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<BgpSummary>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let mut cmd = make_cmd(Resource::BgpSummary, None);
-    cmd.address_family = parse_af(&query.af);
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::BgpSummary(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
-async fn get_bgp_neighbor(
-    State(state): State<HttpState>,
-    Path(address): Path<String>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<BgpNeighborDetail>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let cmd = make_cmd(Resource::BgpNeighbor, Some(address));
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::BgpNeighborDetail(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
 async fn get_lldp_neighbors(
     State(state): State<HttpState>,
     request: axum::extract::Request,
@@ -332,42 +281,6 @@ async fn get_mac_address_table(
     }).await
 }
 
-async fn get_vxlan_vtep(
-    State(state): State<HttpState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<VxlanVtep>>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let cmd = make_cmd(Resource::VxlanVtep, None);
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::VxlanVtep(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
-async fn get_arp_table(
-    State(state): State<HttpState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<ArpEntry>>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let cmd = make_cmd(Resource::ArpTable, None);
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::ArpTable(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
-async fn get_nd_table(
-    State(state): State<HttpState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<NdEntry>>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let cmd = make_cmd(Resource::NdTable, None);
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::NdTable(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
 async fn get_participants(
     State(state): State<HttpState>,
     request: axum::extract::Request,
@@ -377,48 +290,6 @@ async fn get_participants(
     let cmd = make_cmd(Resource::Participants, None);
     execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
         if let CommandOutput::Participants(s) = o { Some(s.clone()) } else { None }
-    }).await
-}
-
-async fn get_bgp_sources(
-    State(state): State<HttpState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<BgpSourceStatus>>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let cmd = make_cmd(Resource::BgpSources, None);
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::BgpSources(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
-async fn get_bgp_routes(
-    State(state): State<HttpState>,
-    Path(neighbor): Path<String>,
-    Query(query): Query<BgpRoutesQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<BgpRouteList>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let mut cmd = make_cmd(Resource::BgpRoutes, Some(neighbor));
-    cmd.filter_source = query.source;
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::BgpRoutes(v) = o { Some(v.clone()) } else { None }
-    }).await
-}
-
-async fn get_bgp_route_lookup(
-    State(state): State<HttpState>,
-    Path(prefix): Path<String>,
-    Query(query): Query<BgpRoutesQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<BgpRoute>>>> {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let mut cmd = make_cmd(Resource::BgpRouteLookup, Some(prefix));
-    cmd.filter_source = query.source;
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::BgpRouteLookup(v) = o { Some(v.clone()) } else { None }
     }).await
 }
 
@@ -589,20 +460,12 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/interfaces/{name}", get(get_interface_detail))
         .route("/api/v1/optics", get(get_optics))
         .route("/api/v1/optics/{name}", get(get_optics_detail))
-        .route("/api/v1/bgp/summary", get(get_bgp_summary))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
-        .route("/api/v1/bgp/neighbor/{address}", get(get_bgp_neighbor))
         .route("/api/v1/mac-address-table", get(get_mac_address_table))
-        .route("/api/v1/vxlan/vtep", get(get_vxlan_vtep))
-        .route("/api/v1/arp", get(get_arp_table))
-        .route("/api/v1/nd", get(get_nd_table))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/netbox/status", get(get_netbox_status))
-        .route("/api/v1/bgp/sources", get(get_bgp_sources))
-        .route("/api/v1/bgp/routes/{neighbor}", get(get_bgp_routes))
-        .route("/api/v1/bgp/route/{prefix}", get(get_bgp_route_lookup))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state.clone());
 

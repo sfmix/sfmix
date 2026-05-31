@@ -385,17 +385,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_bgp_summary() {
-        let command = parse_command("show ip bgp summary").unwrap();
-        assert_eq!(command.resource, Resource::BgpSummary);
-        assert_eq!(command.address_family, AddressFamily::IPv4);
-
-        let command = parse_command("show bgp ipv6 unicast summary").unwrap();
-        assert_eq!(command.resource, Resource::BgpSummary);
-        assert_eq!(command.address_family, AddressFamily::IPv6);
-    }
-
-    #[test]
     fn test_parse_ping() {
         let command = parse_command("ping 8.8.8.8").unwrap();
         assert_eq!(command.verb, Verb::Ping);
@@ -444,29 +433,9 @@ mod tests {
     }
 
     #[test]
-    fn test_abbrev_sh_ip_bgp_sum() {
-        let command = parse_command("sh ip b sum").unwrap();
-        assert_eq!(command.resource, Resource::BgpSummary);
-        assert_eq!(command.address_family, AddressFamily::IPv4);
-    }
-
-    #[test]
-    fn test_abbrev_sh_bgp_ipv6_sum() {
-        let command = parse_command("sh bgp ipv6 sum").unwrap();
-        assert_eq!(command.resource, Resource::BgpSummary);
-        assert_eq!(command.address_family, AddressFamily::IPv6);
-    }
-
-    #[test]
     fn test_abbrev_sh_l() {
         let command = parse_command("sh l").unwrap();
         assert_eq!(command.resource, Resource::LldpNeighbors);
-    }
-
-    #[test]
-    fn test_abbrev_sh_a() {
-        let command = parse_command("sh a").unwrap();
-        assert_eq!(command.resource, Resource::ArpTable);
     }
 
     #[test]
@@ -482,17 +451,12 @@ mod tests {
     }
 
     #[test]
-    fn test_abbrev_ambiguous_i() {
+    fn test_abbrev_ambiguous_lo() {
+        // "lo" is ambiguous between login and logout.
         assert!(matches!(
-            parse_command("sh i"),
+            parse_command("lo"),
             Err(ParseError::AmbiguousCommand(_, _))
         ));
-    }
-
-    #[test]
-    fn test_abbrev_show_bgp_neighbors_spelling() {
-        let command = parse_command("show bgp neighbors 10.0.0.1").unwrap();
-        assert_eq!(command.resource, Resource::BgpNeighbor);
     }
 
     // --- Completion tests ---
@@ -516,7 +480,7 @@ mod tests {
     fn test_show_completions() {
         let c = get_completions(&["show"], "");
         assert!(c.iter().any(|x| x.keyword == "interfaces"));
-        assert!(c.iter().any(|x| x.keyword == "bgp"));
+        assert!(c.iter().any(|x| x.keyword == "lldp"));
     }
 
     #[test]
@@ -541,15 +505,9 @@ mod tests {
 
     #[test]
     fn test_tab_complete_ambiguous() {
-        let result = tab_complete(&["show"], "i");
+        // "lo" is ambiguous between login and logout, so no unique completion.
+        let result = tab_complete(&[], "lo");
         assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_show_ip_bgp_completions() {
-        let c = get_completions(&["show", "ip", "bgp"], "");
-        assert!(c.iter().any(|x| x.keyword == "summary"));
-        assert!(c.iter().any(|x| x.keyword == "neighbor"));
     }
 
     // --- Device targeting tests ---
@@ -563,8 +521,8 @@ mod tests {
 
     #[test]
     fn test_device_target_prefix() {
-        let command = parse_command("@switch01 show bgp summary").unwrap();
-        assert_eq!(command.resource, Resource::BgpSummary);
+        let command = parse_command("@switch01 show lldp").unwrap();
+        assert_eq!(command.resource, Resource::LldpNeighbors);
         assert_eq!(command.device.as_deref(), Some("switch01"));
     }
 

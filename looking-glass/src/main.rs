@@ -17,7 +17,6 @@ use looking_glass::participants::{ParticipantMap, PortMap};
 use looking_glass::policy::PolicyEngine;
 use looking_glass::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
 use looking_glass::service::LookingGlass;
-use looking_glass::bgp;
 use looking_glass::frontend;
 
 #[derive(Parser)]
@@ -140,16 +139,6 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "as".to_string());
     let public_vlans = config.vlans.public.clone();
 
-    // Initialize BGP source pool if configured
-    let bgp_source_pool = if config.bgp_sources.is_empty() {
-        None
-    } else {
-        info!("Configuring {} BGP sources", config.bgp_sources.len());
-        let pool = Arc::new(bgp::pool::BgpSourcePool::new(config.bgp_sources));
-        pool.start_background_refresh();
-        Some(pool)
-    };
-
     let lg = Arc::new(LookingGlass {
         service_name: config.service.name.clone(),
         policy,
@@ -166,7 +155,6 @@ async fn main() -> Result<()> {
         netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
         ixp_data: ArcSwap::from_pointee(NetboxIxpData { switches: Vec::new(), vlans: Vec::new() }),
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
-        bgp_source_pool,
     });
 
     // Start telnet server

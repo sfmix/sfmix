@@ -158,20 +158,6 @@ impl ParticipantMap {
             .unwrap_or(false)
     }
 
-    /// Check if a given BGP neighbor address belongs to any participant.
-    /// Returns the owning ASN if found.
-    pub fn session_owner(&self, neighbor_addr: &str) -> Option<u32> {
-        for p in self.by_asn.values() {
-            if p.sessions.iter().any(|s| {
-                s.neighbor.as_deref() == Some(neighbor_addr)
-                    || s.neighbor_v6.as_deref() == Some(neighbor_addr)
-            }) {
-                return Some(p.asn);
-            }
-        }
-        None
-    }
-
     /// Find which ASN owns a port by interface name alone (device-agnostic).
     ///
     /// Used when the command target is an interface name rather than an ASN,

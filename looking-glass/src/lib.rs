@@ -16,5 +16,4 @@ pub mod ixf;
 pub mod service;
 
 pub mod backend;
-pub mod bgp;
 pub mod frontend;

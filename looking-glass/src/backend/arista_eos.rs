@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::{de, Deserialize, Deserializer};
+use serde::Deserialize;
 
-use crate::command::{AddressFamily, Command, CommandResult, Resource, Verb};
+use crate::command::{Command, CommandResult, Resource, Verb};
 use crate::config::{DeviceConfig, Platform};
 use crate::structured::*;
 
@@ -116,65 +116,6 @@ impl AristaEosDriver {
         })
     }
 
-    fn parse_bgp_summary(&self, raw: EosBgpSummary) -> BgpSummary {
-        let mut peers: Vec<BgpPeerSummary> = raw
-            .vrf_entry()
-            .map(|vrf| {
-                vrf.peers
-                    .iter()
-                    .map(|(addr, p)| BgpPeerSummary {
-                        neighbor: addr.clone(),
-                        remote_as: p.peer_as.unwrap_or(0),
-                        description: p.description.clone().unwrap_or_default(),
-                        state: p.peer_state.clone().unwrap_or_default(),
-                        uptime: format_uptime_secs(p.updown_time.unwrap_or(0.0)),
-                        prefixes_received: p.prefix_received.unwrap_or(0),
-                        msg_received: p.msg_received.unwrap_or(0),
-                        msg_sent: p.msg_sent.unwrap_or(0),
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        peers.sort_by(|a, b| a.neighbor.cmp(&b.neighbor));
-        BgpSummary {
-            router_id: raw
-                .vrf_entry()
-                .map(|v| v.router_id.clone().unwrap_or_default())
-                .unwrap_or_default(),
-            local_as: raw
-                .vrf_entry()
-                .and_then(|v| v.as_number)
-                .map(|a| a as u32)
-                .unwrap_or(0),
-            peers,
-        }
-    }
-
-    fn parse_bgp_neighbor(&self, raw: EosBgpNeighbors) -> Result<BgpNeighborDetail> {
-        let vrf = raw.vrf_entry()
-            .ok_or_else(|| anyhow::anyhow!("no VRF in BGP response"))?;
-        let (addr, p) = vrf
-            .peer_list
-            .iter()
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("no peer in BGP neighbor response"))?;
-        Ok(BgpNeighborDetail {
-            neighbor: addr.clone(),
-            remote_as: p.peer_as.unwrap_or(0),
-            local_as: p.local_as.unwrap_or(0),
-            description: p.description.clone().unwrap_or_default(),
-            state: p.peer_state.clone().unwrap_or_default(),
-            uptime: format_uptime_secs(p.updown_time.unwrap_or(0.0)),
-            router_id: p.peer_router_id.clone().unwrap_or_default(),
-            hold_time: p.hold_time.unwrap_or(0),
-            keepalive_interval: p.keepalive_time.unwrap_or(0),
-            prefixes_received: p.prefix_received.unwrap_or(0),
-            prefixes_sent: p.prefix_accepted.unwrap_or(0),
-            messages_received: p.msg_received.unwrap_or(0),
-            messages_sent: p.msg_sent.unwrap_or(0),
-        })
-    }
-
     fn parse_mac_table(&self, raw: EosMacTable) -> Vec<MacEntry> {
         let mut entries: Vec<MacEntry> = raw
             .unicast_table
@@ -188,36 +129,6 @@ impl AristaEosDriver {
             })
             .collect();
         entries.sort_by(|a, b| a.mac_address.cmp(&b.mac_address));
-        entries
-    }
-
-    fn parse_arp_table(&self, raw: EosArpTable) -> Vec<ArpEntry> {
-        let mut entries: Vec<ArpEntry> = raw
-            .ip_v4_neighbors
-            .into_iter()
-            .map(|e| ArpEntry {
-                ip_address: e.address,
-                mac_address: e.hw_address,
-                interface: e.interface,
-                age: e.age.map(|a| format!("{a}s")).unwrap_or_default(),
-            })
-            .collect();
-        entries.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
-        entries
-    }
-
-    fn parse_nd_table(&self, raw: EosNdTable) -> Vec<NdEntry> {
-        let mut entries: Vec<NdEntry> = raw
-            .ipv6_neighbors
-            .into_iter()
-            .map(|e| NdEntry {
-                ip_address: e.address,
-                mac_address: e.hw_address,
-                interface: e.interface,
-                state: e.state.unwrap_or_default(),
-            })
-            .collect();
-        entries.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
         entries
     }
 
@@ -385,15 +296,6 @@ impl AristaEosDriver {
         Ok(result)
     }
 
-    fn parse_vxlan_vtep(&self, raw: EosVxlanVtep) -> Vec<VxlanVtep> {
-        raw.vteps
-            .into_iter()
-            .map(|v| VxlanVtep {
-                vtep_address: v.address,
-                learned_from: v.learned_from.unwrap_or_default(),
-            })
-            .collect()
-    }
 }
 
 #[async_trait]
@@ -425,23 +327,6 @@ impl DeviceDriver for AristaEosDriver {
                     self.exec_json(&format!("show interfaces {target}")).await?;
                 CommandOutput::InterfaceDetail(self.parse_interface_detail(raw)?)
             }
-            (Verb::Show, Resource::BgpSummary) => {
-                let cli_command = match command.address_family {
-                    AddressFamily::IPv4 => "show ip bgp summary",
-                    AddressFamily::IPv6 => "show bgp ipv6 unicast summary",
-                };
-                let raw: EosBgpSummary = self.exec_json(cli_command).await?;
-                CommandOutput::BgpSummary(self.parse_bgp_summary(raw))
-            }
-            (Verb::Show, Resource::BgpNeighbor) => {
-                let target = command
-                    .target
-                    .as_deref()
-                    .ok_or_else(|| anyhow::anyhow!("neighbor address required"))?;
-                let raw: EosBgpNeighbors =
-                    self.exec_json(&format!("show ip bgp neighbors {target}")).await?;
-                CommandOutput::BgpNeighborDetail(self.parse_bgp_neighbor(raw)?)
-            }
             (Verb::Show, Resource::MacAddressTable) => {
                 let cli_command = match &command.target {
                     Some(interface) => format!("show mac address-table interface {interface}"),
@@ -449,22 +334,6 @@ impl DeviceDriver for AristaEosDriver {
                 };
                 let raw: EosMacTable = self.exec_json(&cli_command).await?;
                 CommandOutput::MacAddressTable(self.parse_mac_table(raw))
-            }
-            (Verb::Show, Resource::ArpTable) => {
-                let cli_command = match &command.target {
-                    Some(interface) => format!("show arp interface {interface}"),
-                    None => "show arp".to_string(),
-                };
-                let raw: EosArpTable = self.exec_json(&cli_command).await?;
-                CommandOutput::ArpTable(self.parse_arp_table(raw))
-            }
-            (Verb::Show, Resource::NdTable) => {
-                let cli_command = match &command.target {
-                    Some(interface) => format!("show ipv6 neighbors interface {interface}"),
-                    None => "show ipv6 neighbors".to_string(),
-                };
-                let raw: EosNdTable = self.exec_json(&cli_command).await?;
-                CommandOutput::NdTable(self.parse_nd_table(raw))
             }
             (Verb::Show, Resource::LldpNeighbors) => {
                 let raw: EosLldpNeighbors =
@@ -482,11 +351,6 @@ impl DeviceDriver for AristaEosDriver {
                     .ok_or_else(|| anyhow::anyhow!("interface name required"))?;
                 let optics = self.fetch_optics(Some(target)).await?;
                 CommandOutput::OpticsDetail(optics)
-            }
-            (Verb::Show, Resource::VxlanVtep) => {
-                let raw: EosVxlanVtep =
-                    self.exec_json("show vxlan vtep").await?;
-                CommandOutput::VxlanVtep(self.parse_vxlan_vtep(raw))
             }
             (Verb::Ping, Resource::NetworkReachability) | (Verb::Traceroute, Resource::NetworkReachability) => {
                 let target = command
@@ -586,26 +450,6 @@ fn format_speed(bps: u64) -> String {
         format!("{}Kbps", bps / 1_000)
     } else {
         format!("{bps}bps")
-    }
-}
-
-/// Format seconds since epoch or duration to human-readable uptime.
-fn format_uptime_secs(secs: f64) -> String {
-    let s = secs.abs() as u64;
-    if s >= 86400 {
-        let days = s / 86400;
-        let hours = (s % 86400) / 3600;
-        format!("{days}d{hours}h")
-    } else if s >= 3600 {
-        let hours = s / 3600;
-        let mins = (s % 3600) / 60;
-        format!("{hours}h{mins}m")
-    } else if s >= 60 {
-        let mins = s / 60;
-        let secs = s % 60;
-        format!("{mins}m{secs}s")
-    } else {
-        format!("{s}s")
     }
 }
 
@@ -752,111 +596,6 @@ struct EosCounters {
     out_errors: u64,
 }
 
-// EOS sometimes returns ASN fields as quoted strings instead of integers.
-fn deserialize_optional_asn<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde_json::Value;
-    let v = Option::<Value>::deserialize(deserializer)?;
-    match v {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| de::Error::custom("invalid ASN")),
-        Some(Value::String(s)) => s.parse::<u64>().map(Some).map_err(de::Error::custom),
-        _ => Err(de::Error::custom("expected number or string for ASN")),
-    }
-}
-
-// ── show ip bgp summary ─────────────────────────────────────────────
-
-#[derive(Deserialize)]
-struct EosBgpSummary {
-    #[serde(rename = "vrfs", default)]
-    vrfs: HashMap<String, EosBgpVrfSummary>,
-}
-
-impl EosBgpSummary {
-    fn vrf_entry(&self) -> Option<&EosBgpVrfSummary> {
-        self.vrfs.get("default").or_else(|| self.vrfs.values().next())
-    }
-}
-
-#[derive(Deserialize)]
-struct EosBgpVrfSummary {
-    #[serde(rename = "routerId", default)]
-    router_id: Option<String>,
-    #[serde(rename = "asn", default, deserialize_with = "deserialize_optional_asn")]
-    as_number: Option<u64>,
-    #[serde(default)]
-    peers: HashMap<String, EosBgpPeerSummaryEntry>,
-}
-
-#[derive(Deserialize)]
-struct EosBgpPeerSummaryEntry {
-    #[serde(rename = "peerAs", default)]
-    peer_as: Option<u32>,
-    #[serde(default)]
-    description: Option<String>,
-    #[serde(rename = "peerState", default)]
-    peer_state: Option<String>,
-    #[serde(rename = "upDownTime", default)]
-    updown_time: Option<f64>,
-    #[serde(rename = "prefixReceived", default)]
-    prefix_received: Option<u32>,
-    #[serde(rename = "msgReceived", default)]
-    msg_received: Option<u64>,
-    #[serde(rename = "msgSent", default)]
-    msg_sent: Option<u64>,
-}
-
-// ── show ip bgp neighbors <addr> ────────────────────────────────────
-
-#[derive(Deserialize)]
-struct EosBgpNeighbors {
-    #[serde(rename = "vrfs", default)]
-    vrfs: HashMap<String, EosBgpVrfNeighbors>,
-}
-
-impl EosBgpNeighbors {
-    fn vrf_entry(&self) -> Option<&EosBgpVrfNeighbors> {
-        self.vrfs.get("default").or_else(|| self.vrfs.values().next())
-    }
-}
-
-#[derive(Deserialize)]
-struct EosBgpVrfNeighbors {
-    #[serde(rename = "peerList", default)]
-    peer_list: HashMap<String, EosBgpNeighborEntry>,
-}
-
-#[derive(Deserialize)]
-struct EosBgpNeighborEntry {
-    #[serde(rename = "peerAs", default)]
-    peer_as: Option<u32>,
-    #[serde(rename = "localAs", default)]
-    local_as: Option<u32>,
-    #[serde(default)]
-    description: Option<String>,
-    #[serde(rename = "peerState", default)]
-    peer_state: Option<String>,
-    #[serde(rename = "upDownTime", default)]
-    updown_time: Option<f64>,
-    #[serde(rename = "peerRouterId", default)]
-    peer_router_id: Option<String>,
-    #[serde(rename = "holdTime", default)]
-    hold_time: Option<u32>,
-    #[serde(rename = "keepaliveTime", default)]
-    keepalive_time: Option<u32>,
-    #[serde(rename = "prefixReceived", default)]
-    prefix_received: Option<u32>,
-    #[serde(rename = "prefixAccepted", default)]
-    prefix_accepted: Option<u32>,
-    #[serde(rename = "msgReceived", default)]
-    msg_received: Option<u64>,
-    #[serde(rename = "msgSent", default)]
-    msg_sent: Option<u64>,
-}
-
 // ── show mac address-table ──────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -881,46 +620,6 @@ struct EosMacTableEntry {
     entry_type: String,
     #[serde(default)]
     interface: String,
-}
-
-// ── show arp ────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-struct EosArpTable {
-    #[serde(rename = "ipV4Neighbors", default)]
-    ip_v4_neighbors: Vec<EosArpEntry>,
-}
-
-#[derive(Deserialize)]
-struct EosArpEntry {
-    #[serde(default)]
-    address: String,
-    #[serde(rename = "hwAddress", default)]
-    hw_address: String,
-    #[serde(default)]
-    interface: String,
-    #[serde(default)]
-    age: Option<f64>,
-}
-
-// ── show ipv6 neighbors ─────────────────────────────────────────────
-
-#[derive(Deserialize)]
-struct EosNdTable {
-    #[serde(rename = "ipV6Neighbors", default)]
-    ipv6_neighbors: Vec<EosNdEntry>,
-}
-
-#[derive(Deserialize)]
-struct EosNdEntry {
-    #[serde(default)]
-    address: String,
-    #[serde(rename = "hwAddress", default)]
-    hw_address: String,
-    #[serde(default)]
-    interface: String,
-    #[serde(default)]
-    state: Option<String>,
 }
 
 // ── show lldp neighbors ─────────────────────────────────────────────
@@ -977,22 +676,6 @@ struct EosTransceiverDomParams {
 struct EosTransceiverDomParam {
     #[serde(default)]
     channels: HashMap<String, Option<f64>>,
-}
-
-// ── show vxlan vtep ─────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-struct EosVxlanVtep {
-    #[serde(default)]
-    vteps: Vec<EosVtepEntry>,
-}
-
-#[derive(Deserialize)]
-struct EosVtepEntry {
-    #[serde(default)]
-    address: String,
-    #[serde(rename = "learnedFrom", default)]
-    learned_from: Option<String>,
 }
 
 // ── Unit tests ───────────────────────────────────────────────────────
@@ -1102,107 +785,6 @@ mod tests {
         // failure mode so the error message makes sense in context.
         let only_ansi = "\x1b[?1049h\x1b[?1h\x1b=\r\x1b[H\x1b[J\x1b]0;host\x07";
         assert_eq!(normalize_eos_json(only_ansi), "");
-    }
-
-    // ── BGP summary deserialization ────────────────────────────────
-
-    fn parse_bgp(json: &str) -> EosBgpSummary {
-        serde_json::from_str(json).expect("parse failed")
-    }
-
-    #[test]
-    fn test_bgp_asn_as_integer() {
-        // Newer EOS versions send the local ASN as a JSON integer.
-        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","asn":40271,"peers":{}}}}"#;
-        let s = parse_bgp(raw);
-        assert_eq!(s.vrf_entry().unwrap().as_number, Some(40271));
-    }
-
-    #[test]
-    fn test_bgp_asn_as_string() {
-        // Older EOS versions send the local ASN as a quoted string.
-        // This was the source of the "invalid type: string, expected u64" error.
-        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","asn":"40271","peers":{}}}}"#;
-        let s = parse_bgp(raw);
-        assert_eq!(s.vrf_entry().unwrap().as_number, Some(40271));
-    }
-
-    #[test]
-    fn test_bgp_asn_missing_defaults_to_none() {
-        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","peers":{}}}}"#;
-        let s = parse_bgp(raw);
-        assert_eq!(s.vrf_entry().unwrap().as_number, None);
-    }
-
-    #[test]
-    fn test_bgp_asn_null_gives_none() {
-        let raw = r#"{"vrfs":{"default":{"routerId":"10.0.0.1","asn":null,"peers":{}}}}"#;
-        let s = parse_bgp(raw);
-        assert_eq!(s.vrf_entry().unwrap().as_number, None);
-    }
-
-    #[test]
-    fn test_bgp_empty_vrfs_no_bgp_configured() {
-        // Switches that don't run BGP return an empty vrfs map.
-        let raw = r#"{"vrfs":{}}"#;
-        let s = parse_bgp(raw);
-        assert!(s.vrf_entry().is_none());
-    }
-
-    #[test]
-    fn test_bgp_with_established_peer() {
-        let raw = r#"{
-            "vrfs": {
-                "default": {
-                    "routerId": "10.100.1.1",
-                    "asn": "12276",
-                    "peers": {
-                        "10.255.0.10": {
-                            "peerAs": 64496,
-                            "description": "Mapple",
-                            "peerState": "Established",
-                            "upDownTime": 86523.0,
-                            "prefixReceived": 1,
-                            "msgReceived": 1440,
-                            "msgSent": 1438
-                        }
-                    }
-                }
-            }
-        }"#;
-        let s = parse_bgp(raw);
-        let vrf = s.vrf_entry().unwrap();
-        assert_eq!(vrf.as_number, Some(12276));
-        let peer = vrf.peers.get("10.255.0.10").unwrap();
-        assert_eq!(peer.peer_as, Some(64496));
-        assert_eq!(peer.peer_state.as_deref(), Some("Established"));
-        assert_eq!(peer.prefix_received, Some(1));
-    }
-
-    // ── ARP table deserialization ──────────────────────────────────
-
-    #[test]
-    fn test_arp_table_entries() {
-        let raw = r#"{
-            "ipV4Neighbors": [
-                {
-                    "address": "206.197.187.10",
-                    "hwAddress": "aa:bb:cc:dd:ee:ff",
-                    "interface": "Vlan998",
-                    "age": 120.5
-                },
-                {
-                    "address": "206.197.187.11",
-                    "hwAddress": "11:22:33:44:55:66",
-                    "interface": "Vlan998",
-                    "age": null
-                }
-            ]
-        }"#;
-        let t: EosArpTable = serde_json::from_str(raw).unwrap();
-        assert_eq!(t.ip_v4_neighbors.len(), 2);
-        assert_eq!(t.ip_v4_neighbors[0].address, "206.197.187.10");
-        assert_eq!(t.ip_v4_neighbors[1].age, None);
     }
 
     // ── Interface status deserialization ───────────────────────────

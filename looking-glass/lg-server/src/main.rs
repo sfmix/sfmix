@@ -7,7 +7,6 @@ use clap::Parser;
 use tracing::info;
 
 use looking_glass::backend::pool::DevicePool;
-use looking_glass::bgp;
 use looking_glass::config::{self, ParticipantsSourceConfig};
 use looking_glass::frontend::telnet::TelnetServer;
 use looking_glass::netbox::{self, NetboxIxpData, NetboxStatus};
@@ -134,16 +133,6 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "as".to_string());
     let public_vlans = server_cfg.vlans.public.clone();
 
-    // Initialize BGP source pool
-    let bgp_source_pool = if server_cfg.bgp_sources.is_empty() {
-        None
-    } else {
-        info!("Configuring {} BGP sources", server_cfg.bgp_sources.len());
-        let pool = Arc::new(bgp::pool::BgpSourcePool::new(server_cfg.bgp_sources));
-        pool.start_background_refresh();
-        Some(pool)
-    };
-
     let lg = Arc::new(LookingGlass {
         service_name: server_cfg.service.name.clone(),
         policy,
@@ -160,7 +149,6 @@ async fn main() -> Result<()> {
         netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
         ixp_data: ArcSwap::from_pointee(NetboxIxpData { switches: Vec::new(), vlans: Vec::new() }),
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
-        bgp_source_pool,
     });
 
     // NetBox participant source: initial fetch + background refresh

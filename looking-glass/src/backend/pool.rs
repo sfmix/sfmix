@@ -272,20 +272,10 @@ fn filter_output_with_lookup(
             }
             CommandOutput::MacAddressTable(entries)
         }
-        CommandOutput::ArpTable(mut entries) => {
-            entries.retain(|e| port_visible(device, &e.interface, identity, pmap, is_admin));
-            CommandOutput::ArpTable(entries)
-        }
-        CommandOutput::NdTable(mut entries) => {
-            entries.retain(|e| port_visible(device, &e.interface, identity, pmap, is_admin));
-            CommandOutput::NdTable(entries)
-        }
         CommandOutput::LldpNeighbors(mut entries) => {
             entries.retain(|e| port_visible(device, &e.local_interface, identity, pmap, is_admin));
             CommandOutput::LldpNeighbors(entries)
         }
-        CommandOutput::BgpSummary(summary) => CommandOutput::BgpSummary(summary),
-        CommandOutput::BgpNeighborDetail(detail) => CommandOutput::BgpNeighborDetail(detail),
         CommandOutput::InterfaceDetail(detail) => {
             if port_visible(device, &detail.name, identity, pmap, is_admin) {
                 CommandOutput::InterfaceDetail(detail)
@@ -293,13 +283,9 @@ fn filter_output_with_lookup(
                 CommandOutput::Error(format!("access denied for interface {}", detail.name))
             }
         }
-        CommandOutput::VxlanVtep(entries) => CommandOutput::VxlanVtep(entries),
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
         CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),
-        CommandOutput::BgpSources(v) => CommandOutput::BgpSources(v),
-        CommandOutput::BgpRoutes(v) => CommandOutput::BgpRoutes(v),
-        CommandOutput::BgpRouteLookup(v) => CommandOutput::BgpRouteLookup(v),
         CommandOutput::Error(e) => CommandOutput::Error(e),
     }
 }
@@ -340,8 +326,8 @@ mod tests {
     use std::collections::HashSet;
     use crate::netbox::NetboxParticipant;
     use crate::structured::{
-        ArpEntry, InterfaceCounters, InterfaceDetail, InterfaceStatus,
-        LldpNeighbor, MacEntry, NdEntry,
+        InterfaceCounters, InterfaceDetail, InterfaceStatus,
+        LldpNeighbor, MacEntry,
     };
 
     use crate::config::DEFAULT_ADMIN_GROUP as ADMIN_GROUP;
@@ -720,67 +706,6 @@ mod tests {
                 out_broadcast_packets: 0, out_discards: 0, out_errors: 0,
             },
             member_interfaces: vec![],
-        }
-    }
-
-    #[test]
-    fn arp_table_filtered_by_port_ownership() {
-        let pmap = test_pmap();
-        let entries = vec![
-            ArpEntry { ip_address: "10.0.0.1".into(), mac_address: "aa:bb:cc:00:00:01".into(), interface: "Ethernet49/1".into(), age: "00:05:00".into() },
-            ArpEntry { ip_address: "10.0.0.2".into(), mac_address: "aa:bb:cc:00:00:02".into(), interface: "Ethernet3/1".into(), age: "00:05:00".into() },
-            ArpEntry { ip_address: "10.0.0.3".into(), mac_address: "aa:bb:cc:00:00:03".into(), interface: "Ethernet3/2".into(), age: "00:05:00".into() },
-        ];
-        // Anonymous: only core port (Ethernet49/1)
-        let out = filter_output_with_lookup(
-            CommandOutput::ArpTable(entries.clone()), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
-        );
-        match out {
-            CommandOutput::ArpTable(e) => {
-                assert_eq!(e.len(), 1);
-                assert_eq!(e[0].interface, "Ethernet49/1");
-            }
-            _ => panic!("wrong variant"),
-        }
-        // AS 13335 owner: sees core + own port
-        let out = filter_output_with_lookup(
-            CommandOutput::ArpTable(entries.clone()), DEVICE, &user_with_asn(13335), &pmap, ADMIN_GROUP, &public_vlans(),
-        );
-        match out {
-            CommandOutput::ArpTable(e) => {
-                assert_eq!(e.len(), 2);
-                let ifaces: Vec<_> = e.iter().map(|a| a.interface.as_str()).collect();
-                assert!(ifaces.contains(&"Ethernet49/1"));
-                assert!(ifaces.contains(&"Ethernet3/1"));
-            }
-            _ => panic!("wrong variant"),
-        }
-        // Admin: sees all classified ports
-        let out = filter_output_with_lookup(
-            CommandOutput::ArpTable(entries), DEVICE, &admin(), &pmap, ADMIN_GROUP, &public_vlans(),
-        );
-        match out {
-            CommandOutput::ArpTable(e) => assert_eq!(e.len(), 3),
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
-    fn nd_table_filtered_by_port_ownership() {
-        let pmap = test_pmap();
-        let entries = vec![
-            NdEntry { ip_address: "fe80::1".into(), mac_address: "aa:bb:cc:00:00:01".into(), interface: "Ethernet49/1".into(), state: "REACH".into() },
-            NdEntry { ip_address: "fe80::2".into(), mac_address: "aa:bb:cc:00:00:02".into(), interface: "Ethernet3/1".into(), state: "REACH".into() },
-        ];
-        let out = filter_output_with_lookup(
-            CommandOutput::NdTable(entries), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
-        );
-        match out {
-            CommandOutput::NdTable(e) => {
-                assert_eq!(e.len(), 1);
-                assert_eq!(e[0].interface, "Ethernet49/1");
-            }
-            _ => panic!("wrong variant"),
         }
     }
 

@@ -94,14 +94,9 @@ impl PolicyEngine {
                     allow: vec![
                         "show interfaces status".to_string(),
                         "show optics".to_string(),
-                        "show ip bgp summary".to_string(),
-                        "show bgp *".to_string(),
                         "show lldp neighbors".to_string(),
-                        "show arp".to_string(),
                         "show mac address-table".to_string(),
-                        "show ipv6 neighbors".to_string(),
                         "show participants".to_string(),
-                        "show vxlan vtep".to_string(),
                         "ping *".to_string(),
                         "traceroute *".to_string(),
                     ],
@@ -210,25 +205,6 @@ impl PolicyEngine {
             }
         }
 
-        // BGP neighbor commands: if the address belongs to a participant, check ownership
-        if command.resource == Resource::BgpNeighbor {
-            if let Some(ref addr) = command.target {
-                if let Some(owner_asn) = participants.session_owner(addr) {
-                    if !identity.authenticated {
-                        return PolicyDecision::Deny {
-                            reason: "authentication required for participant BGP neighbor queries".to_string(),
-                        };
-                    }
-                    if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&owner_asn) {
-                        return PolicyDecision::Deny {
-                            reason: "you do not administer this BGP session".to_string(),
-                        };
-                    }
-                }
-                // Non-participant sessions (infrastructure BGP) fall through to rule matching
-            }
-        }
-
         // First-match rule evaluation
         for rule in &self.rules {
             if self.rule_matches(rule, identity) {
@@ -298,16 +274,7 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::InterfaceDetail => {
             return format!("show interface {}", command.target.as_deref().unwrap_or("*"));
         }
-        Resource::BgpSummary => match command.address_family {
-            crate::command::AddressFamily::IPv4 => "ip bgp summary",
-            crate::command::AddressFamily::IPv6 => "bgp ipv6 unicast summary",
-        },
-        Resource::BgpNeighbor => {
-            return format!("show bgp neighbor {}", command.target.as_deref().unwrap_or("*"));
-        }
         Resource::MacAddressTable => "mac address-table",
-        Resource::ArpTable => "arp",
-        Resource::NdTable => "ipv6 neighbors",
         Resource::LldpNeighbors => "lldp neighbors",
         Resource::Optics => return format!("{verb} optics"),
         Resource::OpticsDetail => {
@@ -317,7 +284,6 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::ParticipantDetail => {
             return format!("show participant {}", command.target.as_deref().unwrap_or("*"));
         }
-        Resource::VxlanVtep => "vxlan vtep",
         Resource::NetworkReachability => {
             return format!("{verb} {}", command.target.as_deref().unwrap_or(""));
         }
@@ -326,13 +292,6 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::Whoami => return "whoami".to_string(),
         Resource::Logout => return "logout".to_string(),
         Resource::NetboxCache => return "show netbox".to_string(),
-        Resource::BgpSources => return "show bgp sources".to_string(),
-        Resource::BgpRoutes => {
-            return format!("show bgp routes {}", command.target.as_deref().unwrap_or("*"));
-        }
-        Resource::BgpRouteLookup => {
-            return format!("show route {}", command.target.as_deref().unwrap_or("*"));
-        }
     };
     format!("{verb} {resource}")
 }
@@ -602,60 +561,4 @@ mod tests {
         assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
-    // --- BGP neighbor ownership ---
-
-    #[test]
-    fn test_anon_denied_bgp_neighbor_participant_session() {
-        let engine = PolicyEngine::default_public();
-        let identity = Identity::anonymous();
-        let participants = test_participants();
-
-        let command = parse_command("show bgp neighbor 198.51.100.1").unwrap();
-        assert!(matches!(
-            engine.evaluate(&command, &identity, &participants),
-            PolicyDecision::Deny { .. }
-        ));
-    }
-
-    #[test]
-    fn test_auth_owner_allowed_bgp_neighbor_own_session() {
-        let engine = PolicyEngine::default_public();
-        let participants = test_participants();
-
-        let identity = Identity::from_oidc_claims(
-            "user@peer-a.net".to_string(),
-            vec!["as64500".to_string()],
-            "as",
-        );
-        let command = parse_command("show bgp neighbor 198.51.100.1").unwrap();
-        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
-    }
-
-    #[test]
-    fn test_auth_non_owner_denied_bgp_neighbor_other_session() {
-        let engine = PolicyEngine::default_public();
-        let participants = test_participants();
-
-        let identity = Identity::from_oidc_claims(
-            "user@peer-b.net".to_string(),
-            vec!["as64501".to_string()],
-            "as",
-        );
-        let command = parse_command("show bgp neighbor 198.51.100.1").unwrap();
-        assert!(matches!(
-            engine.evaluate(&command, &identity, &participants),
-            PolicyDecision::Deny { .. }
-        ));
-    }
-
-    #[test]
-    fn test_anon_allowed_bgp_neighbor_infrastructure() {
-        let engine = PolicyEngine::default_public();
-        let identity = Identity::anonymous();
-        let participants = test_participants();
-
-        // 10.0.0.1 is not a participant session — infrastructure BGP, allowed
-        let command = parse_command("show bgp neighbor 10.0.0.1").unwrap();
-        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
-    }
 }
