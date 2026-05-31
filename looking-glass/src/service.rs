@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use arc_swap::ArcSwap;
 use thiserror::Error;
 
 use crate::backend::pool::DevicePool;
-use crate::bgp::pool::BgpSourcePool;
 use crate::command::{Command, Resource};
 use crate::format::ColorMode;
 use crate::identity::Identity;
@@ -73,8 +70,6 @@ pub struct LookingGlass {
     pub ixp_data: ArcSwap<NetboxIxpData>,
     /// Full NetBox participant data (with enriched ports + IPs) for REST API.
     pub netbox_participants: ArcSwap<Vec<crate::netbox::NetboxParticipant>>,
-    /// BGP source pool for route server / looking glass queries.
-    pub bgp_source_pool: Option<Arc<BgpSourcePool>>,
 }
 
 impl LookingGlass {
@@ -94,62 +89,6 @@ impl LookingGlass {
                 device: "local".to_string(),
                 success: true,
                 output: CommandOutput::NetboxStatus(text),
-            }]);
-        }
-
-        // BGP source queries — routed to BgpSourcePool, not devices
-        if command.resource == Resource::BgpSources {
-            if let Some(ref pool) = self.bgp_source_pool {
-                let statuses = pool.sources_status().await;
-                return Ok(vec![DeviceResult {
-                    device: "local".to_string(),
-                    success: true,
-                    output: CommandOutput::BgpSources(statuses),
-                }]);
-            } else {
-                return Ok(vec![DeviceResult {
-                    device: "local".to_string(),
-                    success: true,
-                    output: CommandOutput::BgpSources(Vec::new()),
-                }]);
-            }
-        }
-
-        if command.resource == Resource::BgpRoutes {
-            let pool = self.bgp_source_pool.as_ref()
-                .ok_or_else(|| Error::BadRequest("no BGP sources configured".to_string()))?;
-            let neighbor = command.target.as_deref()
-                .ok_or_else(|| Error::BadRequest("neighbor address required".to_string()))?;
-            let route_lists = pool.routes_for_neighbor(
-                neighbor,
-                command.filter_source.as_deref(),
-            ).await.map_err(|e| Error::DeviceError(e.to_string()))?;
-
-            if route_lists.is_empty() {
-                return Err(Error::BadRequest(format!("neighbor {neighbor} not found in any BGP source")));
-            }
-            // Return one result per source that has this neighbor
-            return Ok(route_lists.into_iter().map(|rl| DeviceResult {
-                device: rl.source_name.clone(),
-                success: true,
-                output: CommandOutput::BgpRoutes(rl),
-            }).collect());
-        }
-
-        if command.resource == Resource::BgpRouteLookup {
-            let pool = self.bgp_source_pool.as_ref()
-                .ok_or_else(|| Error::BadRequest("no BGP sources configured".to_string()))?;
-            let prefix = command.target.as_deref()
-                .ok_or_else(|| Error::BadRequest("prefix required".to_string()))?;
-            let routes = pool.route_lookup(
-                prefix,
-                command.filter_source.as_deref(),
-            ).await.map_err(|e| Error::DeviceError(e.to_string()))?;
-
-            return Ok(vec![DeviceResult {
-                device: "local".to_string(),
-                success: true,
-                output: CommandOutput::BgpRouteLookup(routes),
             }]);
         }
 
@@ -197,13 +136,6 @@ impl LookingGlass {
                     if !is_valid_destination(target) {
                         return Err(Error::BadRequest(format!(
                             "invalid destination: {target}"
-                        )));
-                    }
-                }
-                Resource::BgpNeighbor => {
-                    if target.parse::<std::net::IpAddr>().is_err() {
-                        return Err(Error::BadRequest(format!(
-                            "invalid IP address: {target}"
                         )));
                     }
                 }

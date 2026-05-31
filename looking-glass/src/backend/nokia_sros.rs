@@ -130,85 +130,6 @@ impl NokiaSrosDriver {
         })
     }
 
-    fn parse_bgp_summary(&self, val: &Value) -> BgpSummary {
-        let bgp = val.pointer("/router/0/bgp")
-            .or(val.pointer("/router/bgp"))
-            .unwrap_or(val);
-
-        let router_id = bgp.pointer("/oper-router-id")
-            .or(val.pointer("/router/0/oper-router-id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        let local_as = bgp.pointer("/oper-as")
-            .or(val.pointer("/router/0/autonomous-system"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32;
-
-        let neighbor_list = bgp.pointer("/neighbor")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-
-        let mut peers: Vec<BgpPeerSummary> = neighbor_list.iter().map(|n| {
-            BgpPeerSummary {
-                neighbor: json_str(n, "ip-address"),
-                remote_as: n.get("peer-as").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-                description: json_str(n, "description"),
-                state: json_str(n, "session-state"),
-                uptime: json_str(n, "last-established"),
-                prefixes_received: n.pointer("/statistics/received-routes")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0) as u32,
-                msg_received: json_u64(n.pointer("/statistics"), "received-messages"),
-                msg_sent: json_u64(n.pointer("/statistics"), "sent-messages"),
-            }
-        }).collect();
-        peers.sort_by(|a, b| a.neighbor.cmp(&b.neighbor));
-
-        BgpSummary {
-            router_id,
-            local_as,
-            peers,
-        }
-    }
-
-    fn parse_bgp_neighbor(&self, val: &Value) -> Result<BgpNeighborDetail> {
-        let bgp = val.pointer("/router/0/bgp")
-            .or(val.pointer("/router/bgp"))
-            .unwrap_or(val);
-
-        let n = bgp.pointer("/neighbor")
-            .and_then(|v| v.as_array())
-            .and_then(|a| a.first())
-            .or(bgp.pointer("/neighbor").filter(|v| v.is_object()))
-            .ok_or_else(|| anyhow::anyhow!("no neighbor in BGP response"))?;
-
-        Ok(BgpNeighborDetail {
-            neighbor: json_str(n, "ip-address"),
-            remote_as: n.get("peer-as").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            local_as: bgp.get("oper-as")
-                .or(val.pointer("/router/0/autonomous-system"))
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            description: json_str(n, "description"),
-            state: json_str(n, "session-state"),
-            uptime: json_str(n, "last-established"),
-            router_id: json_str(n, "peer-router-id"),
-            hold_time: n.get("hold-time").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            keepalive_interval: n.get("keepalive").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            prefixes_received: n.pointer("/statistics/received-routes")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            prefixes_sent: n.pointer("/statistics/sent-routes")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            messages_received: json_u64(n.pointer("/statistics"), "received-messages"),
-            messages_sent: json_u64(n.pointer("/statistics"), "sent-messages"),
-        })
-    }
-
     fn parse_mac_table(&self, val: &Value) -> Vec<MacEntry> {
         let entries = val.pointer("/fdb/mac")
             .and_then(|v| v.as_array())
@@ -222,58 +143,6 @@ impl NokiaSrosDriver {
             interface: json_str(e, "sap"),
         }).collect();
         result.sort_by(|a, b| a.mac_address.cmp(&b.mac_address));
-        result
-    }
-
-    fn parse_arp_table(&self, val: &Value) -> Vec<ArpEntry> {
-        let entries = val.pointer("/router/0/interface")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-
-        let mut result = Vec::new();
-        for interface_entry in &entries {
-            let interface_name = json_str(interface_entry, "interface-name");
-            let neighbors = interface_entry.pointer("/ipv4/neighbor")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_default();
-            for n in &neighbors {
-                result.push(ArpEntry {
-                    ip_address: json_str(n, "ipv4-address"),
-                    mac_address: json_str(n, "mac-address"),
-                    interface: interface_name.clone(),
-                    age: json_str(n, "expiry-time"),
-                });
-            }
-        }
-        result.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
-        result
-    }
-
-    fn parse_nd_table(&self, val: &Value) -> Vec<NdEntry> {
-        let entries = val.pointer("/router/0/interface")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-
-        let mut result = Vec::new();
-        for interface_entry in &entries {
-            let interface_name = json_str(interface_entry, "interface-name");
-            let neighbors = interface_entry.pointer("/ipv6/neighbor")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_default();
-            for n in &neighbors {
-                result.push(NdEntry {
-                    ip_address: json_str(n, "ipv6-address"),
-                    mac_address: json_str(n, "mac-address"),
-                    interface: interface_name.clone(),
-                    state: json_str(n, "state"),
-                });
-            }
-        }
-        result.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
         result
     }
 
@@ -392,17 +261,6 @@ impl NokiaSrosDriver {
         Ok(result)
     }
 
-    fn parse_vxlan_vtep(&self, val: &Value) -> Vec<VxlanVtep> {
-        let vteps = val.pointer("/service/vxlan-instance/vtep")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-
-        vteps.iter().map(|v| VxlanVtep {
-            vtep_address: json_str(v, "address"),
-            learned_from: json_str(v, "learned-from"),
-        }).collect()
-    }
 }
 
 #[async_trait]
@@ -426,33 +284,10 @@ impl DeviceDriver for NokiaSrosDriver {
                 let val = self.exec_json_value(&format!("router interface \"{target}\"")).await?;
                 CommandOutput::InterfaceDetail(self.parse_interface_detail(&val)?)
             }
-            (Verb::Show, Resource::BgpSummary) => {
-                // BGP neighbors from base router - wildcard required for list
-                let val = self.exec_json_value("router bgp neighbor *").await?;
-                CommandOutput::BgpSummary(self.parse_bgp_summary(&val))
-            }
-            (Verb::Show, Resource::BgpNeighbor) => {
-                let target = command
-                    .target
-                    .as_deref()
-                    .ok_or_else(|| anyhow::anyhow!("neighbor address required"))?;
-                let val = self.exec_json_value(&format!("router bgp neighbor \"{target}\"")).await?;
-                CommandOutput::BgpNeighborDetail(self.parse_bgp_neighbor(&val)?)
-            }
             (Verb::Show, Resource::MacAddressTable) => {
                 // FDB from service context - wildcard required for list
                 let val = self.exec_json_value("service fdb-mac *").await?;
                 CommandOutput::MacAddressTable(self.parse_mac_table(&val))
-            }
-            (Verb::Show, Resource::ArpTable) => {
-                // ARP from router interfaces - wildcard required for list
-                let val = self.exec_json_value("router interface *").await?;
-                CommandOutput::ArpTable(self.parse_arp_table(&val))
-            }
-            (Verb::Show, Resource::NdTable) => {
-                // ND from router interfaces - wildcard required for list
-                let val = self.exec_json_value("router interface *").await?;
-                CommandOutput::NdTable(self.parse_nd_table(&val))
             }
             (Verb::Show, Resource::LldpNeighbors) => {
                 // LLDP is per-port - wildcard required for list
@@ -470,10 +305,6 @@ impl DeviceDriver for NokiaSrosDriver {
                     .ok_or_else(|| anyhow::anyhow!("port name required"))?;
                 let optics = self.fetch_optics(Some(target)).await?;
                 CommandOutput::OpticsDetail(optics)
-            }
-            (Verb::Show, Resource::VxlanVtep) => {
-                let val = self.exec_json_value("service vprn * vxlan-instance *").await?;
-                CommandOutput::VxlanVtep(self.parse_vxlan_vtep(&val))
             }
             (Verb::Ping, Resource::NetworkReachability) | (Verb::Traceroute, Resource::NetworkReachability) => {
                 let target = command

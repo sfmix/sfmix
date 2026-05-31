@@ -13,11 +13,10 @@ enum Verb { Show, Ping, Traceroute }
 #[serde(rename_all = "snake_case")]
 #[allow(dead_code)]
 enum Resource {
-    InterfacesStatus, InterfaceDetail, BgpSummary, BgpNeighbor,
-    MacAddressTable, ArpTable, NdTable, LldpNeighbors,
-    Optics, OpticsDetail, Participants, ParticipantDetail, VxlanVtep,
+    InterfacesStatus, InterfaceDetail,
+    MacAddressTable, LldpNeighbors,
+    Optics, OpticsDetail, Participants, ParticipantDetail,
     NetworkReachability, Help, Login, Whoami, Logout, NetboxCache,
-    BgpSources, BgpRoutes, BgpRouteLookup,
 }
 
 #[derive(Deserialize)]

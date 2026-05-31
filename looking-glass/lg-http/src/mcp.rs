@@ -105,17 +105,6 @@ struct InterfaceParams {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-struct BgpSummaryParams {
-    /// Address family: "ipv4" or "ipv6". Defaults to "ipv4".
-    #[serde(default = "default_ipv4")]
-    address_family: String,
-}
-
-fn default_ipv4() -> String {
-    "ipv4".to_string()
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct DestinationParams {
     /// Target IP address or hostname
     destination: String,
@@ -314,31 +303,9 @@ impl McpHandler {
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
-    #[tool(description = "Show BGP peer summary table. Set address_family to 'ipv4' or 'ipv6'.")]
-    async fn show_bgp_summary(
-        &self,
-        Parameters(params): Parameters<BgpSummaryParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let af = match params.address_family.as_str() {
-            "ipv6" | "IPv6" => AddressFamily::IPv6,
-            _ => AddressFamily::IPv4,
-        };
-        self.run_show(Resource::BgpSummary, None, af).await
-    }
-
     #[tool(description = "Show LLDP neighbor discovery table")]
     async fn show_lldp_neighbors(&self) -> Result<CallToolResult, McpError> {
         self.run_show(Resource::LldpNeighbors, None, AddressFamily::IPv4).await
-    }
-
-    #[tool(description = "Show ARP table (IPv4 address-to-MAC mappings)")]
-    async fn show_arp_table(&self) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::ArpTable, None, AddressFamily::IPv4).await
-    }
-
-    #[tool(description = "Show IPv6 neighbor discovery table (IPv6 address-to-MAC mappings)")]
-    async fn show_nd_table(&self) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::NdTable, None, AddressFamily::IPv6).await
     }
 
     #[tool(description = "List IXP participants with their ASN and name")]
@@ -506,9 +473,7 @@ impl ServerHandler for McpHandler {
              4. {prefix}__show_optics_detail(interface) — transceiver optical power levels\n\
              \n\
              For connectivity checks: {prefix}__ping / {prefix}__traceroute\n\
-             BGP state: {prefix}__show_bgp_summary (ipv4 or ipv6)\n\
-             Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_arp_table, \
-             {prefix}__show_nd_table, {prefix}__show_lldp_neighbors",
+             Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_lldp_neighbors",
             self.network_slug,
             prefix = format!("looking_glass__{}", self.network_slug),
         ))

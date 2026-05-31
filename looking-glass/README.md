@@ -87,14 +87,8 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 | `show interface <port>` | Detailed counters for a specific interface |
 | `show optics` | Transceiver DOM optical power levels (all ports) |
 | `show optics <port>` | Detailed DOM for a specific port |
-| `show ip bgp summary` | BGP IPv4 peer summary |
-| `show bgp ipv6 unicast summary` | BGP IPv6 peer summary |
-| `show bgp neighbor <addr>` | BGP neighbor detail |
 | `show lldp neighbors` | LLDP neighbor table |
-| `show arp` | ARP table (IPv4) |
-| `show ipv6 neighbors` | IPv6 neighbor discovery table |
 | `show mac address-table` | MAC address table |
-| `show vxlan vtep` | VXLAN VTEP endpoints |
 | `show participants` | List IXP participants (ASN + name) |
 | `ping <destination>` | Ping from the looking glass vantage point |
 | `traceroute <destination>` | Traceroute from the looking glass vantage point |
@@ -103,7 +97,7 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 
 | Tier | Interface | Authentication | Capabilities |
 |------|-----------|----------------|--------------|
-| **Public** | Telnet, HTTP | None | BGP summary, interface status, optics (global), LLDP, ARP/ND, ping, traceroute |
+| **Public** | Telnet, HTTP | None | Interface status, optics (global), LLDP, MAC table, participants, ping, traceroute |
 | **Participant** | SSH, HTTP | OIDC (PeeringDB/GitHub) | Public + own port details, own port optics |
 | **Administrator** | SSH, HTTP | OIDC (IX Administrators group) | Full read-only access to all ports |
 

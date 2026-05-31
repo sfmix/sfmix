@@ -20,18 +20,9 @@ Available commands:
   show optics <asn>               Filter optics by participant ASN
   show mac address-table          MAC address table
   show mac vlan <id>              Filter MAC table by VLAN ID
-  show ip bgp summary             BGP IPv4 peer summary
-  show bgp ipv6 unicast summary   BGP IPv6 peer summary
-  show bgp neighbor <address>     BGP neighbor detail
   show lldp neighbors              LLDP neighbor table
-  show arp                         ARP table
-  show ipv6 neighbors              IPv6 neighbor table
   show participants                IXP participant list
   show participants <asn>         Detail for a specific participant
-  show vxlan vtep                  VXLAN VTEP table
-  show sources                     BGP data source status
-  show routes <neighbor>           BGP routes from a neighbor (via sources)
-  show route <prefix>              BGP route lookup across all sources
   show netbox                      NetBox cache status
   ping <destination>               Ping from the looking glass host
   traceroute <destination>         Traceroute from the looking glass host

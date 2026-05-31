@@ -39,66 +39,6 @@ commands:
             name: "<asn>"
             help: Filter by participant ASN (e.g. 13335)
             command: { verb: show, resource: optics, filter_asn: "$arg" }
-      ip:
-        help: IP protocol information
-        children:
-          bgp:
-            help: BGP routing information
-            command: { verb: show, resource: bgp_summary, address_family: ipv4 }
-            children:
-              summary:
-                help: BGP neighbor summary
-                command: { verb: show, resource: bgp_summary, address_family: ipv4 }
-              neighbor:
-                help: BGP neighbor detail
-                children:
-                  _arg:
-                    name: "<address>"
-                    help: Neighbor IP address
-                    command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv4 }
-      bgp:
-        help: BGP routing information
-        command: { verb: show, resource: bgp_summary, address_family: ipv4 }
-        children:
-          ipv6:
-            help: IPv6 address family
-            command: { verb: show, resource: bgp_summary, address_family: ipv6 }
-            children:
-              unicast:
-                help: Unicast address family
-                optional: true
-                command: { verb: show, resource: bgp_summary, address_family: ipv6 }
-                children:
-                  summary:
-                    help: BGP neighbor summary
-                    command: { verb: show, resource: bgp_summary, address_family: ipv6 }
-                  neighbor:
-                    help: BGP neighbor detail
-                    children:
-                      _arg:
-                        name: "<address>"
-                        help: Neighbor IP address
-                        command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv6 }
-              summary:
-                help: BGP neighbor summary
-                command: { verb: show, resource: bgp_summary, address_family: ipv6 }
-              neighbor:
-                help: BGP neighbor detail
-                children:
-                  _arg:
-                    name: "<address>"
-                    help: Neighbor IP address
-                    command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv6 }
-          summary:
-            help: BGP neighbor summary
-            command: { verb: show, resource: bgp_summary, address_family: ipv4 }
-          neighbor:
-            help: BGP neighbor detail
-            children:
-              _arg:
-                name: "<address>"
-                help: Neighbor IP address
-                command: { verb: show, resource: bgp_neighbor, target: "$arg", address_family: ipv4 }
       mac:
         help: MAC address table
         command: { verb: show, resource: mac_address_table }
@@ -121,15 +61,6 @@ commands:
                 name: "<vlan>"
                 help: VLAN ID (e.g. 998)
                 command: { verb: show, resource: mac_address_table, filter_vlan: "$arg" }
-      arp:
-        help: ARP table
-        command: { verb: show, resource: arp_table }
-      ipv6:
-        help: IPv6 protocol information
-        children:
-          neighbors:
-            help: IPv6 neighbor discovery table
-            command: { verb: show, resource: nd_table, address_family: ipv6 }
       lldp:
         help: LLDP neighbor information
         command: { verb: show, resource: lldp_neighbors }
@@ -141,26 +72,6 @@ commands:
             name: "<asn>"
             help: Show detail for a specific participant ASN (e.g. 13335)
             command: { verb: show, resource: participant_detail, target: "$arg" }
-      vxlan:
-        help: VXLAN VTEP information
-        command: { verb: show, resource: vxlan_vtep }
-      route:
-        help: BGP route lookup across all sources
-        children:
-          _arg:
-            name: "<prefix>"
-            help: IP prefix to look up (e.g. 206.197.187.0/24)
-            command: { verb: show, resource: bgp_route_lookup, target: "$arg" }
-      routes:
-        help: BGP routes from a neighbor (via route server sources)
-        children:
-          _arg:
-            name: "<neighbor>"
-            help: Neighbor IP address
-            command: { verb: show, resource: bgp_routes, target: "$arg" }
-      sources:
-        help: BGP data source status
-        command: { verb: show, resource: bgp_sources }
       netbox:
         help: NetBox cache status
         command: { verb: show, resource: netbox_cache }

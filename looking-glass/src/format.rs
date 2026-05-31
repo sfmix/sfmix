@@ -1,6 +1,5 @@
 use std::fmt::Write;
 
-use chrono::Utc;
 use owo_colors::OwoColorize;
 use tabled::builder::Builder;
 use tabled::settings::Style;
@@ -56,19 +55,6 @@ fn color_status(s: &str, mode: ColorMode) -> String {
     if lower == "connected" || lower == "up" {
         format!("{}", s.green())
     } else if lower == "down" || lower == "notconnect" || lower == "disabled" || lower == "errdisabled" {
-        format!("{}", s.red())
-    } else {
-        format!("{}", s.yellow())
-    }
-}
-
-/// Colorize a BGP session state string.
-fn color_bgp_state(s: &str, mode: ColorMode) -> String {
-    if mode == ColorMode::Plain { return s.to_string(); }
-    // Rich and Color both get ANSI colors
-    if s == "Established" {
-        format!("{}", s.green())
-    } else if s == "Idle" || s == "Active" || s == "Connect" || s == "OpenSent" || s == "OpenConfirm" {
         format!("{}", s.red())
     } else {
         format!("{}", s.yellow())
@@ -312,18 +298,10 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
     match output {
         CommandOutput::InterfacesStatus(entries) => render_interfaces_status(entries, color),
         CommandOutput::InterfaceDetail(detail) => render_interface_detail(detail, color),
-        CommandOutput::BgpSummary(summary) => render_bgp_summary(summary, color),
-        CommandOutput::BgpNeighborDetail(detail) => render_bgp_neighbor_detail(detail, color),
         CommandOutput::MacAddressTable(entries) => render_mac_table(entries, color),
-        CommandOutput::ArpTable(entries) => render_arp_table(entries, color),
-        CommandOutput::NdTable(entries) => render_nd_table(entries, color),
         CommandOutput::LldpNeighbors(entries) => render_lldp_neighbors(entries, color),
         CommandOutput::Optics(entries) => render_optics(entries, color),
         CommandOutput::OpticsDetail(entries) => render_optics_detail(entries, color),
-        CommandOutput::VxlanVtep(entries) => render_vxlan_vtep(entries, color),
-        CommandOutput::BgpSources(sources) => render_bgp_sources(sources, color),
-        CommandOutput::BgpRoutes(route_list) => render_bgp_route_list(route_list, color),
-        CommandOutput::BgpRouteLookup(routes) => render_bgp_routes(routes, color),
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
         CommandOutput::NetboxStatus(s) => s.clone(),
@@ -399,57 +377,6 @@ fn render_interface_detail(d: &InterfaceDetail, color: ColorMode) -> String {
     out
 }
 
-// ── BGP Summary ─────────────────────────────────────────────────────
-
-fn render_bgp_summary(s: &BgpSummary, color: ColorMode) -> String {
-    let mut out = String::new();
-    let _ = writeln!(out, "Router ID: {}  Local AS: {}", s.router_id, s.local_as);
-    if s.peers.is_empty() {
-        let _ = writeln!(out, "No BGP peers.\n");
-        return out;
-    }
-    let _ = writeln!(out);
-
-    let mut builder = Builder::default();
-    builder.push_record([bold_str("Neighbor", color), bold_str("AS", color), bold_str("Description", color), bold_str("State", color), bold_str("Uptime", color), bold_str("PfxRcvd", color), bold_str("MsgRcvd", color), bold_str("MsgSent", color)]);
-    for p in &s.peers {
-        builder.push_record([
-            p.neighbor.clone(),
-            p.remote_as.to_string(),
-            p.description.clone(),
-            color_bgp_state(&p.state, color),
-            p.uptime.clone(),
-            p.prefixes_received.to_string(),
-            p.msg_received.to_string(),
-            p.msg_sent.to_string(),
-        ]);
-    }
-    let mut table = builder.build();
-    apply_style(&mut table, color);
-    let _ = write!(out, "{table}\n");
-    out
-}
-
-// ── BGP Neighbor Detail ─────────────────────────────────────────────
-
-fn render_bgp_neighbor_detail(d: &BgpNeighborDetail, color: ColorMode) -> String {
-    let mut out = String::new();
-    let _ = writeln!(out, "{}: {}", bold_str("BGP Neighbor", color), d.neighbor);
-    let _ = writeln!(out, "  Remote AS:       {}", d.remote_as);
-    let _ = writeln!(out, "  Local AS:        {}", d.local_as);
-    let _ = writeln!(out, "  Description:     {}", d.description);
-    let _ = writeln!(out, "  State:           {}", color_bgp_state(&d.state, color));
-    let _ = writeln!(out, "  Uptime:          {}", d.uptime);
-    let _ = writeln!(out, "  Router ID:       {}", d.router_id);
-    let _ = writeln!(out, "  Hold Time:       {}s", d.hold_time);
-    let _ = writeln!(out, "  Keepalive:       {}s", d.keepalive_interval);
-    let _ = writeln!(out, "  Prefixes Rcvd:   {}", d.prefixes_received);
-    let _ = writeln!(out, "  Prefixes Sent:   {}", d.prefixes_sent);
-    let _ = writeln!(out, "  Messages Rcvd:   {}", d.messages_received);
-    let _ = writeln!(out, "  Messages Sent:   {}", d.messages_sent);
-    out
-}
-
 // ── MAC Address Table ───────────────────────────────────────────────
 
 fn render_mac_table(entries: &[MacEntry], color: ColorMode) -> String {
@@ -465,50 +392,6 @@ fn render_mac_table(entries: &[MacEntry], color: ColorMode) -> String {
             e.mac_address.clone(),
             e.entry_type.clone(),
             e.interface.clone(),
-        ]);
-    }
-    let mut table = builder.build();
-    apply_style(&mut table, color);
-    format!("{table}\n")
-}
-
-// ── ARP Table ───────────────────────────────────────────────────────
-
-fn render_arp_table(entries: &[ArpEntry], color: ColorMode) -> String {
-    if entries.is_empty() {
-        return "No ARP entries found.\n".to_string();
-    }
-
-    let mut builder = Builder::default();
-    builder.push_record([bold_str("IP Address", color), bold_str("MAC Address", color), bold_str("Interface", color), bold_str("Age", color)]);
-    for e in entries {
-        builder.push_record([
-            e.ip_address.clone(),
-            e.mac_address.clone(),
-            e.interface.clone(),
-            humanize_seconds(&e.age),
-        ]);
-    }
-    let mut table = builder.build();
-    apply_style(&mut table, color);
-    format!("{table}\n")
-}
-
-// ── ND Table ────────────────────────────────────────────────────────
-
-fn render_nd_table(entries: &[NdEntry], color: ColorMode) -> String {
-    if entries.is_empty() {
-        return "No IPv6 neighbor entries found.\n".to_string();
-    }
-
-    let mut builder = Builder::default();
-    builder.push_record([bold_str("IPv6 Address", color), bold_str("MAC Address", color), bold_str("Interface", color), bold_str("State", color)]);
-    for e in entries {
-        builder.push_record([
-            e.ip_address.clone(),
-            e.mac_address.clone(),
-            e.interface.clone(),
-            e.state.clone(),
         ]);
     }
     let mut table = builder.build();
@@ -647,146 +530,7 @@ fn render_optics_detail(entries: &[InterfaceOptics], color: ColorMode) -> String
     out
 }
 
-// ── VXLAN VTEP ──────────────────────────────────────────────────────
-
-fn render_vxlan_vtep(entries: &[VxlanVtep], color: ColorMode) -> String {
-    if entries.is_empty() {
-        return "No VTEPs found.\n".to_string();
-    }
-
-    let mut builder = Builder::default();
-    builder.push_record([bold_str("VTEP Address", color), bold_str("Learned From", color)]);
-    for e in entries {
-        builder.push_record([
-            e.vtep_address.clone(),
-            e.learned_from.clone(),
-        ]);
-    }
-    let mut table = builder.build();
-    apply_style(&mut table, color);
-    format!("{table}\n")
-}
-
-// ── BGP Sources ─────────────────────────────────────────────────
-
-fn render_bgp_sources(sources: &[BgpSourceStatus], color: ColorMode) -> String {
-    if sources.is_empty() {
-        return "No BGP sources configured.\n".to_string();
-    }
-
-    let mut builder = Builder::default();
-    builder.push_record([
-        bold_str("Source", color),
-        bold_str("Type", color),
-        bold_str("Router ID", color),
-        bold_str("Version", color),
-        bold_str("Neighbors", color),
-        bold_str("Status", color),
-    ]);
-    for s in sources {
-        let status = if let Some(ref err) = s.error {
-            if color == ColorMode::Plain { format!("error: {err}") } else { format!("{}", format!("error: {err}").red()) }
-        } else {
-            let age = s.last_refresh.map(|t| {
-                let secs = (Utc::now() - t).num_seconds().max(0) as u64;
-                if secs < 60 { format!("{secs}s ago") } else { format!("{}m ago", secs / 60) }
-            }).unwrap_or_else(|| "never".to_string());
-            if color == ColorMode::Plain { format!("ok ({age})") } else { format!("{}", format!("ok ({age})").green()) }
-        };
-        builder.push_record([
-            s.display_name.clone(),
-            s.source_type.clone(),
-            s.router_id.clone(),
-            s.version.clone(),
-            s.neighbor_count.to_string(),
-            status,
-        ]);
-    }
-    let mut table = builder.build();
-    apply_style(&mut table, color);
-    format!("{table}\n")
-}
-
-// ── BGP Route List (per-neighbor) ───────────────────────────────
-
-fn render_bgp_route_list(rl: &BgpRouteList, color: ColorMode) -> String {
-    let mut out = String::new();
-    let _ = writeln!(out, "Source: {}  Neighbor: {}", bold_str(&rl.source_name, color), rl.neighbor);
-    let _ = writeln!(out, "Accepted: {}  Filtered: {}  Not-exported: {}", rl.accepted_count, rl.filtered_count, rl.noexport_count);
-    if rl.routes.is_empty() {
-        let _ = writeln!(out, "No routes.");
-        return out;
-    }
-    let _ = writeln!(out);
-    out.push_str(&render_bgp_routes(&rl.routes, color));
-    out
-}
-
-// ── BGP Routes (table) ─────────────────────────────────────────
-
-fn render_bgp_routes(routes: &[BgpRoute], color: ColorMode) -> String {
-    if routes.is_empty() {
-        return "No routes found.\n".to_string();
-    }
-
-    let mut builder = Builder::default();
-    builder.push_record([
-        bold_str("*", color),
-        bold_str("Prefix", color),
-        bold_str("Next Hop", color),
-        bold_str("AS Path", color),
-        bold_str("LP", color),
-        bold_str("MED", color),
-        bold_str("Communities", color),
-        bold_str("Age", color),
-        bold_str("Source", color),
-    ]);
-    for r in routes {
-        let best = if r.primary { ">" } else { " " };
-        let as_path = r.as_path.iter().map(|a| a.to_string()).collect::<Vec<_>>().join(" ");
-        let lp = r.local_pref.map(|v| v.to_string()).unwrap_or_default();
-        let med = r.med.map(|v| v.to_string()).unwrap_or_default();
-        let comms = if r.communities.len() > 3 {
-            format!("{} (+{})", r.communities[..3].join(" "), r.communities.len() - 3)
-        } else {
-            r.communities.join(" ")
-        };
-        builder.push_record([
-            best.to_string(),
-            r.prefix.clone(),
-            r.next_hop.clone(),
-            as_path,
-            lp,
-            med,
-            comms,
-            r.age.clone(),
-            r.source_name.clone(),
-        ]);
-    }
-    let mut table = builder.build();
-    apply_style(&mut table, color);
-    format!("{table}\n")
-}
-
 // ── Helpers ─────────────────────────────────────────────────────────
-
-fn humanize_seconds(s: &str) -> String {
-    let raw = s.strip_suffix('s').unwrap_or(s);
-    let secs = match raw.parse::<f64>() {
-        Ok(v) => v as u64,
-        Err(_) => return s.to_string(),
-    };
-    let h = secs / 3600;
-    let m = (secs % 3600) / 60;
-    let sec = secs % 60;
-    if h > 0 {
-        format!("{h}h {m}m {sec}s")
-    } else if m > 0 {
-        format!("{m}m {sec}s")
-    } else {
-        format!("{sec}s")
-    }
-}
 
 fn fmt_dbm(v: Option<f64>) -> String {
     match v {

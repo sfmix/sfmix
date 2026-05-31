@@ -34,16 +34,11 @@ pub enum Verb {
 pub enum Resource {
     InterfacesStatus,
     InterfaceDetail,
-    BgpSummary,
-    BgpNeighbor,
     MacAddressTable,
-    ArpTable,
-    NdTable,
     LldpNeighbors,
     Optics,
     OpticsDetail,
     Participants,
-    VxlanVtep,
     /// Ping/traceroute destination (resource is the destination address)
     NetworkReachability,
     Help,
@@ -55,12 +50,6 @@ pub enum Resource {
     Logout,
     /// Show NetBox cache status
     NetboxCache,
-    /// List configured BGP data sources + status
-    BgpSources,
-    /// Routes received from a specific neighbor (via BGP source)
-    BgpRoutes,
-    /// Prefix lookup across all BGP sources
-    BgpRouteLookup,
     /// Detail view for a single participant by ASN
     ParticipantDetail,
 }
@@ -94,8 +83,6 @@ impl Resource {
             Resource::InterfaceDetail
                 | Resource::OpticsDetail
                 | Resource::MacAddressTable
-                | Resource::ArpTable
-                | Resource::NdTable
         )
     }
 }

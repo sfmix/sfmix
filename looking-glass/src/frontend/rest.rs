@@ -23,9 +23,8 @@ use crate::participants::Participant;
 use crate::service::{self, LookingGlass};
 use super::auth;
 use crate::structured::{
-    ArpEntry, BgpNeighborDetail, BgpRoute, BgpRouteList, BgpSourceStatus,
-    BgpSummary, InterfaceDetail, InterfaceOptics,
-    InterfaceStatus, LldpNeighbor, MacEntry, NdEntry, VxlanVtep,
+    InterfaceDetail, InterfaceOptics,
+    InterfaceStatus, LldpNeighbor, MacEntry,
 };
 
 /// State shared across REST API handlers.
@@ -148,25 +147,9 @@ struct AsnFilterQuery {
 }
 
 #[derive(Debug, Deserialize)]
-struct BgpSummaryQuery {
-    #[serde(default = "default_ipv4")]
-    af: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct BgpNeighborQuery {
-    #[serde(default = "default_ipv4")]
-    af: String,
-}
-
-#[derive(Debug, Deserialize)]
 struct MacTableQuery {
     /// Filter by VLAN ID.
     vlan: Option<String>,
-}
-
-fn default_ipv4() -> String {
-    "ipv4".to_string()
 }
 
 // --- Route handlers ---
@@ -287,40 +270,6 @@ async fn get_optics_detail(
     .await
 }
 
-async fn get_bgp_summary(
-    State(state): State<RestState>,
-    Query(query): Query<BgpSummaryQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<BgpSummary>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let af = match query.af.as_str() {
-        "ipv6" | "IPv6" => AddressFamily::IPv6,
-        _ => AddressFamily::IPv4,
-    };
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::BgpSummary,
-        target: None,
-        device: None,
-        address_family: af,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: None,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::BgpSummary(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
 async fn get_lldp_neighbors(
     State(state): State<RestState>,
     request: axum::extract::Request,
@@ -341,41 +290,6 @@ async fn get_lldp_neighbors(
 
     execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::LldpNeighbors(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
-async fn get_bgp_neighbor(
-    State(state): State<RestState>,
-    Path(address): Path<String>,
-    Query(query): Query<BgpNeighborQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<BgpNeighborDetail>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let af = match query.af.as_str() {
-        "ipv6" | "IPv6" => AddressFamily::IPv6,
-        _ => AddressFamily::IPv4,
-    };
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::BgpNeighbor,
-        target: Some(address),
-        device: None,
-        address_family: af,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: None,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::BgpNeighborDetail(v) = output {
             Some(v.clone())
         } else {
             None
@@ -405,90 +319,6 @@ async fn get_mac_address_table(
 
     execute_command(&state, &identity, &rate_key, command, |output| {
         if let crate::structured::CommandOutput::MacAddressTable(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
-async fn get_vxlan_vtep(
-    State(state): State<RestState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<VxlanVtep>>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::VxlanVtep,
-        target: None,
-        device: None,
-        address_family: AddressFamily::IPv4,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: None,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::VxlanVtep(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
-async fn get_arp_table(
-    State(state): State<RestState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<ArpEntry>>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::ArpTable,
-        target: None,
-        device: None,
-        address_family: AddressFamily::IPv4,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: None,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::ArpTable(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
-async fn get_nd_table(
-    State(state): State<RestState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<NdEntry>>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::NdTable,
-        target: None,
-        device: None,
-        address_family: AddressFamily::IPv6,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: None,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::NdTable(v) = output {
             Some(v.clone())
         } else {
             None
@@ -581,102 +411,6 @@ async fn get_ixf_member_export(
     Json(crate::ixf::build_ixf_export(&ixp_data, &nb_participants))
 }
 
-// ── BGP Sources endpoints ───────────────────────────────────────────
-
-async fn get_bgp_sources(
-    State(state): State<RestState>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<BgpSourceStatus>>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::BgpSources,
-        target: None,
-        device: None,
-        address_family: AddressFamily::IPv4,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: None,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::BgpSources(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
-#[derive(Deserialize)]
-struct BgpRoutesQuery {
-    #[serde(default)]
-    source: Option<String>,
-}
-
-async fn get_bgp_routes(
-    State(state): State<RestState>,
-    Path(neighbor): Path<String>,
-    Query(query): Query<BgpRoutesQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<BgpRouteList>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::BgpRoutes,
-        target: Some(neighbor),
-        device: None,
-        address_family: AddressFamily::IPv4,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: query.source,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::BgpRoutes(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
-async fn get_bgp_route_lookup(
-    State(state): State<RestState>,
-    Path(prefix): Path<String>,
-    Query(query): Query<BgpRoutesQuery>,
-    request: axum::extract::Request,
-) -> ApiResult<Vec<DeviceResult<Vec<BgpRoute>>>> {
-    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
-    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
-
-    let command = Command {
-        verb: Verb::Show,
-        resource: Resource::BgpRouteLookup,
-        target: Some(prefix),
-        device: None,
-        address_family: AddressFamily::IPv4,
-        filter_asn: None,
-        filter_vlan: None,
-        filter_source: query.source,
-    };
-
-    execute_command(&state, &identity, &rate_key, command, |output| {
-        if let crate::structured::CommandOutput::BgpRouteLookup(v) = output {
-            Some(v.clone())
-        } else {
-            None
-        }
-    })
-    .await
-}
-
 /// Build the REST API router.
 pub fn router(state: RestState) -> Router {
     Router::new()
@@ -684,20 +418,12 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/interfaces/{name}", get(get_interface_detail))
         .route("/api/v1/optics", get(get_optics))
         .route("/api/v1/optics/{name}", get(get_optics_detail))
-        .route("/api/v1/bgp/summary", get(get_bgp_summary))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
-        .route("/api/v1/bgp/neighbor/{address}", get(get_bgp_neighbor))
         .route("/api/v1/mac-address-table", get(get_mac_address_table))
-        .route("/api/v1/vxlan/vtep", get(get_vxlan_vtep))
-        .route("/api/v1/arp", get(get_arp_table))
-        .route("/api/v1/nd", get(get_nd_table))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/netbox/status", get(get_netbox_status))
-        .route("/api/v1/bgp/sources", get(get_bgp_sources))
-        .route("/api/v1/bgp/routes/{neighbor}", get(get_bgp_routes))
-        .route("/api/v1/bgp/route/{prefix}", get(get_bgp_route_lookup))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state)
 }

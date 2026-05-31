@@ -22,8 +22,6 @@ pub struct Config {
     pub frontend_limits: Option<FrontendLimitsConfig>,
     #[serde(default)]
     pub vlans: VlanVisibilityConfig,
-    #[serde(default)]
-    pub bgp_sources: Vec<BgpSourceConfig>,
 }
 
 /// VLAN visibility configuration for MAC address table output.
@@ -266,28 +264,6 @@ pub enum ParticipantsSourceConfig {
 
 fn default_refresh_interval() -> u64 {
     300
-}
-
-fn default_bgp_refresh_interval() -> u64 {
-    60
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct BgpSourceConfig {
-    pub name: String,
-    #[serde(default)]
-    pub display_name: Option<String>,
-    pub source_type: BgpSourceType,
-    pub api: String,
-    #[serde(default = "default_bgp_refresh_interval")]
-    pub refresh_interval_secs: u64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BgpSourceType {
-    Birdwatcher,
-    Bgplgd,
 }
 
 #[derive(Debug, Deserialize)]
