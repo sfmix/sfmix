@@ -70,27 +70,63 @@
     - Restart lg-cli
     - Restart lg-http
 
-# ── Download binaries ─────────────────────────────────────────────────
+# ── Binaries ──────────────────────────────────────────────────────────
+# TEMPORARY: during active development we build the binaries locally and
+# copy them into place, because waiting on GitHub Actions is slow. The
+# tagged-release fetch below is preserved — re-enable it (and remove the
+# local build/copy tasks) once development settles. See defaults/main.yml.
+#
+# - name: Download split binaries from GitHub Releases
+#   become: true
+#   ansible.builtin.get_url:
+#     url: "https://github.com/{{ looking_glass_github_repo }}/releases/download/looking-glass-v{{ looking_glass_version }}/{{ item.artifact }}"
+#     dest: "/usr/local/bin/{{ item.name }}"
+#     owner: root
+#     group: root
+#     mode: "0755"
+#     force: true
+#   loop:
+#     - { name: lg-server, artifact: lg-server-linux-amd64 }
+#     - { name: lg-cli, artifact: lg-cli-linux-amd64 }
+#     - { name: lg-http, artifact: lg-http-linux-amd64 }
+#   notify:
+#     - Restart lg-server
+#     - Restart lg-cli
+#     - Restart lg-http
+#   tags:
+#     - download
+#     - binaries
 
-- name: Download split binaries from GitHub Releases
+- name: Build looking-glass binaries locally (musl release)
+  ansible.builtin.command:
+    cmd: cargo build --workspace --release --target x86_64-unknown-linux-musl
+    chdir: "{{ looking_glass_local_src_dir }}"
+  delegate_to: localhost
+  run_once: true
+  become: false
+  when: looking_glass_local_build | bool
+  changed_when: true
+  tags:
+    - build
+    - binaries
+
+- name: Copy locally-built binaries into place
   become: true
-  ansible.builtin.get_url:
-    url: "https://github.com/{{ looking_glass_github_repo }}/releases/download/looking-glass-v{{ looking_glass_version }}/{{ item.artifact }}"
-    dest: "/usr/local/bin/{{ item.name }}"
+  ansible.builtin.copy:
+    src: "{{ looking_glass_local_bin_dir }}/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
     owner: root
     group: root
     mode: "0755"
-    force: true
   loop:
-    - { name: lg-server, artifact: lg-server-linux-amd64 }
-    - { name: lg-cli, artifact: lg-cli-linux-amd64 }
-    - { name: lg-http, artifact: lg-http-linux-amd64 }
+    - lg-server
+    - lg-cli
+    - lg-http
   notify:
     - Restart lg-server
     - Restart lg-cli
     - Restart lg-http
   tags:
-    - download
     - binaries
 
 # ── Config templates ──────────────────────────────────────────────────
@@ -144,6 +180,10 @@
       User={{ looking_glass_user }}
       Group={{ looking_glass_group }}
       EnvironmentFile={{ looking_glass_config_dir }}/looking-glass.env
+
+      # Device SSH (russh/ring) locks memory; alice needs an unlimited memlock
+      # rlimit or lg-server fails to establish device connections.
+      LimitMEMLOCK=infinity
 
       ProtectSystem=strict
       ProtectHome=true
