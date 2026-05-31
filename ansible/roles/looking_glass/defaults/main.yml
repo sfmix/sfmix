@@ -1,6 +1,19 @@
 ---
 looking_glass_version: ""
 looking_glass_github_repo: sfmix/sfmix
+
+# Binary source (temporary local-build mode) ───────────────────────────
+# During active development we deploy locally-built musl binaries instead
+# of GitHub Releases (Actions can be slow). Flip back to the Releases path
+# by re-enabling the commented-out get_url task in tasks/main.yml.
+#
+# looking_glass_local_build: run `cargo build` on the Ansible control node
+#   before copying (set false if you build the binaries yourself).
+# looking_glass_local_bin_dir: directory ON THE CONTROL NODE holding the
+#   freshly-built musl binaries (lg-server, lg-cli, lg-http).
+looking_glass_local_build: true
+looking_glass_local_src_dir: "{{ playbook_dir }}/../looking-glass"
+looking_glass_local_bin_dir: "{{ looking_glass_local_src_dir }}/target/x86_64-unknown-linux-musl/release"
 looking_glass_bind_address: "0.0.0.0"
 looking_glass_telnet_enabled: false
 looking_glass_telnet_port: 2023
