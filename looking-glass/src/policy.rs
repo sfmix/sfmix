@@ -97,6 +97,8 @@ impl PolicyEngine {
                         "show lldp neighbors".to_string(),
                         "show mac address-table".to_string(),
                         "show participants".to_string(),
+                        "show arp".to_string(),
+                        "show ipv6 neighbors".to_string(),
                         "ping *".to_string(),
                         "traceroute *".to_string(),
                     ],
@@ -304,6 +306,8 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::Logout => return "logout".to_string(),
         Resource::NetboxCache => return "show netbox".to_string(),
         Resource::DeviceCache => return "show device-cache".to_string(),
+        Resource::Arp => "arp",
+        Resource::IPv6Neighbors => "ipv6 neighbors",
     };
     format!("{verb} {resource}")
 }

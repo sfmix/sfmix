@@ -277,6 +277,32 @@ async fn poll_single_device(config: &DeviceConfig) -> DeviceStateCache {
         }
     }
 
+    match driver.execute(&make_poll_command(Resource::Arp)).await {
+        Ok(r) => {
+            if let CommandOutput::Arp(v) = r.output {
+                cache.arp_table = v;
+                cache.arp_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: arp failed");
+            if cache.last_error.is_none() { cache.last_error = Some(e.to_string()); }
+        }
+    }
+
+    match driver.execute(&make_poll_command(Resource::IPv6Neighbors)).await {
+        Ok(r) => {
+            if let CommandOutput::IPv6Neighbors(v) = r.output {
+                cache.ipv6_neighbors = v;
+                cache.ipv6_neighbors_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: ipv6 neighbors failed");
+            if cache.last_error.is_none() { cache.last_error = Some(e.to_string()); }
+        }
+    }
+
     cache
 }
 
@@ -405,6 +431,9 @@ pub(crate) fn filter_output_with_lookup(
             entries.retain(|e| port_visible(device, &e.name, identity, pmap, is_admin));
             CommandOutput::OpticsInventory(entries)
         }
+        // ARP and IPv6 neighbor tables are public — pass through unfiltered
+        CommandOutput::Arp(entries) => CommandOutput::Arp(entries),
+        CommandOutput::IPv6Neighbors(entries) => CommandOutput::IPv6Neighbors(entries),
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
         CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),

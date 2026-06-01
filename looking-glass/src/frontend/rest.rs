@@ -23,7 +23,7 @@ use crate::participants::Participant;
 use crate::service::{self, LookingGlass};
 use super::auth;
 use crate::structured::{
-    InterfaceDetail, InterfaceOptics, OpticsInventoryEntry,
+    ArpEntry, InterfaceDetail, InterfaceOptics, OpticsInventoryEntry,
     InterfaceStatus, LldpNeighbor, MacEntry,
 };
 
@@ -355,6 +355,62 @@ async fn get_mac_address_table(
     .await
 }
 
+async fn get_arp(
+    State(state): State<RestState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<ArpEntry>>>> {
+    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
+    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
+
+    let command = Command {
+        verb: Verb::Show,
+        resource: Resource::Arp,
+        target: None,
+        device: None,
+        address_family: AddressFamily::IPv4,
+        filter_asn: None,
+        filter_vlan: None,
+        filter_source: None,
+    };
+
+    execute_command(&state, &identity, &rate_key, command, |output| {
+        if let crate::structured::CommandOutput::Arp(v) = output {
+            Some(v.clone())
+        } else {
+            None
+        }
+    })
+    .await
+}
+
+async fn get_ipv6_neighbors(
+    State(state): State<RestState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<ArpEntry>>>> {
+    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
+    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
+
+    let command = Command {
+        verb: Verb::Show,
+        resource: Resource::IPv6Neighbors,
+        target: None,
+        device: None,
+        address_family: AddressFamily::IPv6,
+        filter_asn: None,
+        filter_vlan: None,
+        filter_source: None,
+    };
+
+    execute_command(&state, &identity, &rate_key, command, |output| {
+        if let crate::structured::CommandOutput::IPv6Neighbors(v) = output {
+            Some(v.clone())
+        } else {
+            None
+        }
+    })
+    .await
+}
+
 /// Participant info for REST API response.
 #[derive(Debug, Serialize)]
 struct ParticipantInfo {
@@ -449,6 +505,8 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/optics/{name}", get(get_optics_detail))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
         .route("/api/v1/mac-address-table", get(get_mac_address_table))
+        .route("/api/v1/arp", get(get_arp))
+        .route("/api/v1/ipv6/neighbors", get(get_ipv6_neighbors))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
