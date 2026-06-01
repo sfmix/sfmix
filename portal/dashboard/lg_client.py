@@ -1,7 +1,7 @@
 """Looking Glass REST API client.
 
 Provides typed access to the Looking Glass REST API for fetching
-live network data (interface status, optics, BGP, etc.).
+live network data (interface status, optics, etc.).
 """
 
 from typing import Any
@@ -59,30 +59,9 @@ class LookingGlassClient:
         """Get detailed DOM levels for a specific port."""
         return self._get(f"/api/v1/optics/{name}", token)
 
-    def get_bgp_summary(self, af: str = "ipv4", token: str | None = None) -> list[dict[str, Any]]:
-        """Get BGP peer summary.
-
-        Args:
-            af: Address family ("ipv4" or "ipv6")
-            token: Optional OIDC id_token
-        """
-        return self._get(f"/api/v1/bgp/summary?af={af}", token)
-
     def get_lldp_neighbors(self, token: str | None = None) -> list[dict[str, Any]]:
         """Get LLDP neighbor table."""
         return self._get("/api/v1/lldp/neighbors", token)
-
-    def get_arp_table(self, token: str | None = None) -> list[dict[str, Any]]:
-        """Get ARP table."""
-        return self._get("/api/v1/arp", token)
-
-    def get_nd_table(self, token: str | None = None) -> list[dict[str, Any]]:
-        """Get IPv6 neighbor discovery table."""
-        return self._get("/api/v1/nd", token)
-
-    def get_bgp_neighbor(self, address: str, af: str = "ipv4", token: str | None = None) -> list[dict[str, Any]]:
-        """Get BGP neighbor detail for a specific peer."""
-        return self._get(f"/api/v1/bgp/neighbor/{address}", token, {"af": af})
 
     def get_mac_address_table(self, token: str | None = None, vlan: str | None = None) -> list[dict[str, Any]]:
         """Get MAC address table."""
@@ -90,10 +69,6 @@ class LookingGlassClient:
         if vlan is not None:
             params["vlan"] = vlan
         return self._get("/api/v1/mac-address-table", token, params or None)
-
-    def get_vxlan_vtep(self, token: str | None = None) -> list[dict[str, Any]]:
-        """Get VXLAN VTEP table."""
-        return self._get("/api/v1/vxlan/vtep", token)
 
     def get_participants(self) -> list[dict[str, Any]]:
         """Get IXP participant list (no auth required)."""
@@ -110,24 +85,6 @@ class LookingGlassClient:
     def get_participants_json(self) -> dict[str, Any]:
         """Get IX-F Member Export (participants.json)."""
         return self._get("/api/v1/participants.json")
-
-    def get_bgp_sources(self, token: str | None = None) -> list[dict[str, Any]]:
-        """Get BGP data source status."""
-        return self._get("/api/v1/bgp/sources", token)
-
-    def get_bgp_routes(self, neighbor: str, token: str | None = None, source: str | None = None) -> list[dict[str, Any]]:
-        """Get BGP routes from a specific neighbor via route server sources."""
-        params = {}
-        if source is not None:
-            params["source"] = source
-        return self._get(f"/api/v1/bgp/routes/{neighbor}", token, params or None)
-
-    def get_bgp_route_lookup(self, prefix: str, token: str | None = None, source: str | None = None) -> list[dict[str, Any]]:
-        """Look up a prefix across all BGP sources."""
-        params = {}
-        if source is not None:
-            params["source"] = source
-        return self._get(f"/api/v1/bgp/route/{prefix}", token, params or None)
 
 
 def get_lg_client() -> LookingGlassClient:

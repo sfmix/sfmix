@@ -24,6 +24,7 @@ all:
         login:
         snappy:
         sfmix_website:
+        ixp_portal:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -97,5 +98,7 @@ all:
       hosts:
         snappy.sfmix.org:
     sfmix_website:
+      hosts: {}
+    ixp_portal:
       hosts:
-        web.sfmix.org:
+        portal.sfmix.org:
