@@ -22,6 +22,8 @@ pub struct ServerConfig {
     pub vlans: looking_glass::config::VlanVisibilityConfig,
     #[serde(default)]
     pub listen: looking_glass::config::ListenConfig,
+    #[serde(default)]
+    pub device_cache: looking_glass::config::DeviceCacheConfig,
 }
 
 #[derive(Debug, Deserialize)]

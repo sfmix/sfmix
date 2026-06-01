@@ -50,6 +50,8 @@ pub enum Resource {
     Logout,
     /// Show NetBox cache status
     NetboxCache,
+    /// Show device state cache status
+    DeviceCache,
     /// Detail view for a single participant by ASN
     ParticipantDetail,
 }

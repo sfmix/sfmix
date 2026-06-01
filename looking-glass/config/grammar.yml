@@ -75,6 +75,9 @@ commands:
       netbox:
         help: NetBox cache status
         command: { verb: show, resource: netbox_cache }
+      device-cache:
+        help: Device state cache status
+        command: { verb: show, resource: device_cache }
 
   ping:
     help: Send ICMP echo to a destination

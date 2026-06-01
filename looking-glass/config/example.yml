@@ -150,6 +150,31 @@ vlans:
   public: ["998", "999"]        # peering VLANs visible to everyone
 
 # ---------------------------------------------------------------------------
+# Device state cache — background polling to avoid per-request SSH latency
+# ---------------------------------------------------------------------------
+# When enabled, all devices are polled on the given interval and results
+# cached in memory. Subsequent requests for show interfaces/optics/lldp/mac
+# are served from the cache instantly. The status command `show device-cache`
+# shows per-device freshness, entry counts, and any poll errors.
+#
+# poll_interval_secs: how often the background task fans out to all devices.
+#   Set to 0 (default) to disable caching — all requests open live SSH connections.
+#
+# ttl: per-resource-type max age before falling back to a live fetch.
+#   If any device's data for the requested resource is older than the TTL,
+#   the request falls through to a live SSH fetch for all devices.
+#   Set default to 0 to always serve from cache regardless of age.
+#
+device_cache:
+  poll_interval_secs: 30
+  ttl:
+    default: 60         # seconds; 0 = always serve from cache
+    optics: 15          # optics change more frequently (DOM/thermal)
+    interfaces: 30
+    lldp_neighbors: 120 # topology changes rarely
+    mac_address_table: 30
+
+# ---------------------------------------------------------------------------
 # Policies — command access rules (first-match evaluation)
 # ---------------------------------------------------------------------------
 # If omitted, a sensible default policy is used:

@@ -6,11 +6,11 @@ use tracing::{debug, warn};
 
 use crate::ratelimit::{DeviceRateLimiter, DeviceRateLimitError};
 
-use crate::command::{Command, CommandResult, Resource};
+use crate::command::{AddressFamily, Command, CommandResult, Resource, Verb};
 use crate::config::{DeviceConfig, Platform};
 use crate::identity::Identity;
 use crate::participants::{PortClass, PortMap};
-use crate::structured::CommandOutput;
+use crate::structured::{CommandOutput, DeviceStateCache};
 
 use super::arista_eos::AristaEosDriver;
 use super::nokia_sros::NokiaSrosDriver;
@@ -173,6 +173,111 @@ impl DevicePool {
     pub fn device_names(&self) -> Vec<&str> {
         self.devices.keys().map(|s| s.as_str()).collect()
     }
+
+    /// Poll all configured devices concurrently and return a fresh state snapshot.
+    ///
+    /// Bypasses the user-facing rate limiter — background polling runs independently.
+    pub async fn poll_all_devices(&self) -> HashMap<String, DeviceStateCache> {
+        if self.devices.is_empty() {
+            return HashMap::new();
+        }
+
+        let (tx, mut rx) = mpsc::channel::<(String, DeviceStateCache)>(self.devices.len());
+
+        for (name, config) in &self.devices {
+            let config = config.clone();
+            let tx = tx.clone();
+            let name = name.clone();
+            tokio::spawn(async move {
+                let entry = poll_single_device(&config).await;
+                let _ = tx.send((name, entry)).await;
+            });
+        }
+        drop(tx);
+
+        let mut result = HashMap::new();
+        while let Some((name, entry)) = rx.recv().await {
+            result.insert(name, entry);
+        }
+        result
+    }
+}
+
+/// Poll all four cacheable resources from a single device.
+async fn poll_single_device(config: &DeviceConfig) -> DeviceStateCache {
+    let driver: Box<dyn DeviceDriver> = match config.platform {
+        Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone())),
+        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone())),
+    };
+
+    let mut cache = DeviceStateCache::default();
+
+    match driver.execute(&make_poll_command(Resource::InterfacesStatus)).await {
+        Ok(r) => {
+            if let CommandOutput::InterfacesStatus(v) = r.output {
+                cache.interfaces = v;
+                cache.interfaces_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: interfaces failed");
+            cache.last_error = Some(e.to_string());
+        }
+    }
+
+    match driver.execute(&make_poll_command(Resource::LldpNeighbors)).await {
+        Ok(r) => {
+            if let CommandOutput::LldpNeighbors(v) = r.output {
+                cache.lldp_neighbors = v;
+                cache.lldp_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: lldp failed");
+            if cache.last_error.is_none() { cache.last_error = Some(e.to_string()); }
+        }
+    }
+
+    match driver.execute(&make_poll_command(Resource::MacAddressTable)).await {
+        Ok(r) => {
+            if let CommandOutput::MacAddressTable(v) = r.output {
+                cache.mac_table = v;
+                cache.mac_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: mac failed");
+            if cache.last_error.is_none() { cache.last_error = Some(e.to_string()); }
+        }
+    }
+
+    match driver.execute(&make_poll_command(Resource::Optics)).await {
+        Ok(r) => {
+            if let CommandOutput::Optics(v) = r.output {
+                cache.optics = v;
+                cache.optics_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: optics failed");
+            if cache.last_error.is_none() { cache.last_error = Some(e.to_string()); }
+        }
+    }
+
+    cache
+}
+
+fn make_poll_command(resource: Resource) -> Command {
+    Command {
+        verb: Verb::Show,
+        resource,
+        target: None,
+        device: None,
+        address_family: AddressFamily::IPv4,
+        filter_asn: None,
+        filter_vlan: None,
+        filter_source: None,
+    }
 }
 
 /// Execute a command on a device and apply output filtering.
@@ -229,7 +334,7 @@ fn visible_port_channels(
 /// - Not in map: hidden
 /// - Core: visible to everyone
 /// - Participant(asn): visible to owning ASN or admin
-fn filter_output_with_lookup(
+pub(crate) fn filter_output_with_lookup(
     output: CommandOutput,
     device: &str,
     identity: &Identity,
@@ -286,6 +391,7 @@ fn filter_output_with_lookup(
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),
         CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),
+        CommandOutput::DeviceCacheStatus(s) => CommandOutput::DeviceCacheStatus(s),
         CommandOutput::Error(e) => CommandOutput::Error(e),
     }
 }

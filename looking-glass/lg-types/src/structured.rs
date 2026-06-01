@@ -128,6 +128,8 @@ pub enum CommandOutput {
     Participants(String),
     /// NetBox cache status (local resource, no device dispatch).
     NetboxStatus(String),
+    /// Device state cache status (local resource, no device dispatch).
+    DeviceCacheStatus(String),
     /// Device-level error (e.g. SSH failure, timeout).
     Error(String),
 }
