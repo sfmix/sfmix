@@ -200,6 +200,7 @@ fn make_cmd(resource: Resource, target: Option<String>) -> Command {
 use looking_glass::structured::{
     InterfaceDetail, InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry,
 };
+use lg_types::structured::OpticsInventoryEntry;
 
 async fn get_interfaces_status(
     State(state): State<HttpState>,
@@ -252,6 +253,18 @@ async fn get_optics_detail(
     let cmd = make_cmd(Resource::OpticsDetail, Some(name));
     execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
         if let CommandOutput::OpticsDetail(v) = o { Some(v.clone()) } else { None }
+    }).await
+}
+
+async fn get_optics_inventory(
+    State(state): State<HttpState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<OpticsInventoryEntry>>>> {
+    let identity = get_identity(&request);
+    let rate_key = get_rate_key(&request);
+    let cmd = make_cmd(Resource::OpticsInventory, None);
+    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
+        if let CommandOutput::OpticsInventory(v) = o { Some(v.clone()) } else { None }
     }).await
 }
 
@@ -459,6 +472,7 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/interfaces/status", get(get_interfaces_status))
         .route("/api/v1/interfaces/{name}", get(get_interface_detail))
         .route("/api/v1/optics", get(get_optics))
+        .route("/api/v1/optics/inventory", get(get_optics_inventory))
         .route("/api/v1/optics/{name}", get(get_optics_detail))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
         .route("/api/v1/mac-address-table", get(get_mac_address_table))
