@@ -38,6 +38,8 @@ pub enum Resource {
     LldpNeighbors,
     Optics,
     OpticsDetail,
+    /// Transceiver hardware inventory (vendor/model/serial) — admin only
+    OpticsInventory,
     Participants,
     /// Ping/traceroute destination (resource is the destination address)
     NetworkReachability,

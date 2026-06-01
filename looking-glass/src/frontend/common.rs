@@ -18,6 +18,7 @@ Available commands:
   show interfaces <asn>           Filter interfaces by participant ASN
   show optics                     Transceiver DOM levels (all ports)
   show optics <asn>               Filter optics by participant ASN
+  show optics inventory           Transceiver inventory (vendor/model/serial) [admin]
   show mac address-table          MAC address table
   show mac vlan <id>              Filter MAC table by VLAN ID
   show lldp neighbors              LLDP neighbor table
