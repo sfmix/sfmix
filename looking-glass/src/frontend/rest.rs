@@ -23,7 +23,7 @@ use crate::participants::Participant;
 use crate::service::{self, LookingGlass};
 use super::auth;
 use crate::structured::{
-    InterfaceDetail, InterfaceOptics,
+    InterfaceDetail, InterfaceOptics, OpticsInventoryEntry,
     InterfaceStatus, LldpNeighbor, MacEntry,
 };
 
@@ -270,6 +270,34 @@ async fn get_optics_detail(
     .await
 }
 
+async fn get_optics_inventory(
+    State(state): State<RestState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<OpticsInventoryEntry>>>> {
+    let identity = request.extensions().get::<RequestIdentity>().map(|i| i.0.clone()).unwrap_or_else(Identity::anonymous);
+    let rate_key = request.extensions().get::<RateLimitKey>().map(|k| k.0.clone()).unwrap_or_else(|| "anonymous".to_string());
+
+    let command = Command {
+        verb: Verb::Show,
+        resource: Resource::OpticsInventory,
+        target: None,
+        device: None,
+        address_family: AddressFamily::IPv4,
+        filter_asn: None,
+        filter_vlan: None,
+        filter_source: None,
+    };
+
+    execute_command(&state, &identity, &rate_key, command, |output| {
+        if let crate::structured::CommandOutput::OpticsInventory(v) = output {
+            Some(v.clone())
+        } else {
+            None
+        }
+    })
+    .await
+}
+
 async fn get_lldp_neighbors(
     State(state): State<RestState>,
     request: axum::extract::Request,
@@ -417,6 +445,7 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/interfaces/status", get(get_interfaces_status))
         .route("/api/v1/interfaces/{name}", get(get_interface_detail))
         .route("/api/v1/optics", get(get_optics))
+        .route("/api/v1/optics/inventory", get(get_optics_inventory))
         .route("/api/v1/optics/{name}", get(get_optics_detail))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
         .route("/api/v1/mac-address-table", get(get_mac_address_table))

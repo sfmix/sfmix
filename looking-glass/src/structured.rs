@@ -1,7 +1,7 @@
 // Re-export all data structs from lg-types::structured.
 pub use lg_types::structured::{
     InterfaceCounters, InterfaceDetail, InterfaceOptics, InterfaceStatus,
-    LldpNeighbor, MacEntry, OpticalLane,
+    LldpNeighbor, MacEntry, OpticalLane, OpticsInventoryEntry,
 };
 
 /// Per-device snapshot of all cacheable state, populated by the background poller.
@@ -10,15 +10,17 @@ pub use lg_types::structured::{
 /// failures (one command times out) are reflected accurately in the status output.
 #[derive(Clone, Default)]
 pub struct DeviceStateCache {
-    pub interfaces:     Vec<InterfaceStatus>,
-    pub interfaces_at:  Option<std::time::Instant>,
-    pub lldp_neighbors: Vec<LldpNeighbor>,
-    pub lldp_at:        Option<std::time::Instant>,
-    pub mac_table:      Vec<MacEntry>,
-    pub mac_at:         Option<std::time::Instant>,
-    pub optics:         Vec<InterfaceOptics>,
-    pub optics_at:      Option<std::time::Instant>,
-    pub last_error:     Option<String>,
+    pub interfaces:          Vec<InterfaceStatus>,
+    pub interfaces_at:       Option<std::time::Instant>,
+    pub lldp_neighbors:      Vec<LldpNeighbor>,
+    pub lldp_at:             Option<std::time::Instant>,
+    pub mac_table:           Vec<MacEntry>,
+    pub mac_at:              Option<std::time::Instant>,
+    pub optics:              Vec<InterfaceOptics>,
+    pub optics_at:           Option<std::time::Instant>,
+    pub optics_inventory:    Vec<OpticsInventoryEntry>,
+    pub optics_inventory_at: Option<std::time::Instant>,
+    pub last_error:          Option<String>,
 }
 
 use serde::Serialize;
@@ -40,6 +42,7 @@ pub enum CommandOutput {
     LldpNeighbors(Vec<LldpNeighbor>),
     Optics(Vec<InterfaceOptics>),
     OpticsDetail(Vec<InterfaceOptics>),
+    OpticsInventory(Vec<OpticsInventoryEntry>),
     Stream(tokio::sync::mpsc::Receiver<String>),
     /// Pre-rendered participant list (local resource, no device dispatch).
     Participants(String),
@@ -61,6 +64,7 @@ impl CommandOutput {
             CommandOutput::LldpNeighbors(v) => v.is_empty(),
             CommandOutput::Optics(v) => v.is_empty(),
             CommandOutput::OpticsDetail(v) => v.is_empty(),
+            CommandOutput::OpticsInventory(v) => v.is_empty(),
             CommandOutput::Error(_) => true,
             _ => false,
         }
@@ -75,6 +79,7 @@ impl CommandOutput {
             lg_types::structured::CommandOutput::LldpNeighbors(v) => CommandOutput::LldpNeighbors(v),
             lg_types::structured::CommandOutput::Optics(v) => CommandOutput::Optics(v),
             lg_types::structured::CommandOutput::OpticsDetail(v) => CommandOutput::OpticsDetail(v),
+            lg_types::structured::CommandOutput::OpticsInventory(v) => CommandOutput::OpticsInventory(v),
             lg_types::structured::CommandOutput::StreamLines(lines) => {
                 // Convert buffered stream lines into a channel receiver
                 let (tx, rx) = tokio::sync::mpsc::channel(lines.len().max(1));
@@ -103,6 +108,7 @@ impl CommandOutput {
             CommandOutput::LldpNeighbors(v) => lg_types::structured::CommandOutput::LldpNeighbors(v),
             CommandOutput::Optics(v) => lg_types::structured::CommandOutput::Optics(v),
             CommandOutput::OpticsDetail(v) => lg_types::structured::CommandOutput::OpticsDetail(v),
+            CommandOutput::OpticsInventory(v) => lg_types::structured::CommandOutput::OpticsInventory(v),
             CommandOutput::Stream(_) => lg_types::structured::CommandOutput::Error("cannot serialize live stream".into()),
             CommandOutput::Participants(s) => lg_types::structured::CommandOutput::Participants(s),
             CommandOutput::NetboxStatus(s) => lg_types::structured::CommandOutput::NetboxStatus(s),
@@ -121,6 +127,7 @@ impl Serialize for CommandOutput {
             CommandOutput::LldpNeighbors(v) => v.serialize(serializer),
             CommandOutput::Optics(v) => v.serialize(serializer),
             CommandOutput::OpticsDetail(v) => v.serialize(serializer),
+            CommandOutput::OpticsInventory(v) => v.serialize(serializer),
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
             CommandOutput::Participants(s) => serializer.serialize_str(s),
             CommandOutput::NetboxStatus(s) => serializer.serialize_str(s),

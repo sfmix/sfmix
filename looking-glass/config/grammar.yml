@@ -35,6 +35,9 @@ commands:
         help: Transceiver/DOM information
         command: { verb: show, resource: optics }
         children:
+          inventory:
+            help: Transceiver hardware inventory (vendor/model/serial) — admin only
+            command: { verb: show, resource: optics_inventory }
           _arg:
             name: "<asn>"
             help: Filter by participant ASN (e.g. 13335)

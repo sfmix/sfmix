@@ -264,6 +264,19 @@ async fn poll_single_device(config: &DeviceConfig) -> DeviceStateCache {
         }
     }
 
+    match driver.execute(&make_poll_command(Resource::OpticsInventory)).await {
+        Ok(r) => {
+            if let CommandOutput::OpticsInventory(v) = r.output {
+                cache.optics_inventory = v;
+                cache.optics_inventory_at = Some(std::time::Instant::now());
+            }
+        }
+        Err(e) => {
+            warn!(device = config.name, error = %e, "poll: optics inventory failed");
+            if cache.last_error.is_none() { cache.last_error = Some(e.to_string()); }
+        }
+    }
+
     cache
 }
 
@@ -387,6 +400,10 @@ pub(crate) fn filter_output_with_lookup(
             } else {
                 CommandOutput::Error(format!("access denied for interface {}", detail.name))
             }
+        }
+        CommandOutput::OpticsInventory(mut entries) => {
+            entries.retain(|e| port_visible(device, &e.name, identity, pmap, is_admin));
+            CommandOutput::OpticsInventory(entries)
         }
         CommandOutput::Stream(rx) => CommandOutput::Stream(rx),
         CommandOutput::Participants(s) => CommandOutput::Participants(s),

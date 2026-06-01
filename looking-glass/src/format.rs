@@ -187,10 +187,11 @@ pub fn format_device_cache_status(
             }
         };
 
-        let _ = writeln!(out, "    interfaces:   {:12}  ({} entries)", age(entry.interfaces_at), entry.interfaces.len());
-        let _ = writeln!(out, "    optics:       {:12}  ({} entries)", age(entry.optics_at), entry.optics.len());
-        let _ = writeln!(out, "    lldp:         {:12}  ({} entries)", age(entry.lldp_at), entry.lldp_neighbors.len());
-        let _ = writeln!(out, "    mac:          {:12}  ({} entries)", age(entry.mac_at), entry.mac_table.len());
+        let _ = writeln!(out, "    interfaces:      {:12}  ({} entries)", age(entry.interfaces_at), entry.interfaces.len());
+        let _ = writeln!(out, "    optics:          {:12}  ({} entries)", age(entry.optics_at), entry.optics.len());
+        let _ = writeln!(out, "    optics-inventory:{:12}  ({} entries)", age(entry.optics_inventory_at), entry.optics_inventory.len());
+        let _ = writeln!(out, "    lldp:            {:12}  ({} entries)", age(entry.lldp_at), entry.lldp_neighbors.len());
+        let _ = writeln!(out, "    mac:             {:12}  ({} entries)", age(entry.mac_at), entry.mac_table.len());
 
         if let Some(ref err) = entry.last_error {
             let err_str = if mode == ColorMode::Plain {
@@ -362,6 +363,7 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::LldpNeighbors(entries) => render_lldp_neighbors(entries, color),
         CommandOutput::Optics(entries) => render_optics(entries, color),
         CommandOutput::OpticsDetail(entries) => render_optics_detail(entries, color),
+        CommandOutput::OpticsInventory(entries) => render_optics_inventory(entries, color),
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
         CommandOutput::NetboxStatus(s) => s.clone(),
@@ -589,6 +591,36 @@ fn render_optics_detail(entries: &[InterfaceOptics], color: ColorMode) -> String
         }
     }
     out
+}
+
+// ── Optics Inventory ───────────────────────────────────────────────
+
+fn render_optics_inventory(entries: &[OpticsInventoryEntry], color: ColorMode) -> String {
+    if entries.is_empty() {
+        return "No optics inventory data found.\n".to_string();
+    }
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("Interface", color),
+        bold_str("Media", color),
+        bold_str("Vendor", color),
+        bold_str("Model", color),
+        bold_str("Serial", color),
+    ]);
+
+    for e in entries {
+        builder.push_record([
+            e.name.clone(),
+            e.media_type.clone(),
+            e.vendor.clone().unwrap_or_else(|| "-".to_string()),
+            e.model.clone().unwrap_or_else(|| "-".to_string()),
+            e.serial_number.clone().unwrap_or_else(|| "-".to_string()),
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, color);
+    format!("{table}\n")
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

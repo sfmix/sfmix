@@ -189,6 +189,7 @@ impl LookingGlass {
                 | Resource::MacAddressTable
                 | Resource::Optics
                 | Resource::OpticsDetail
+                | Resource::OpticsInventory
         );
         if cacheable {
             let cache = self.device_state_cache.load();
@@ -261,7 +262,7 @@ impl LookingGlass {
             Resource::InterfacesStatus => cfg.interfaces.unwrap_or(cfg.default),
             Resource::LldpNeighbors => cfg.lldp_neighbors.unwrap_or(cfg.default),
             Resource::MacAddressTable => cfg.mac_address_table.unwrap_or(cfg.default),
-            Resource::Optics | Resource::OpticsDetail => cfg.optics.unwrap_or(cfg.default),
+            Resource::Optics | Resource::OpticsDetail | Resource::OpticsInventory => cfg.optics.unwrap_or(cfg.default),
             _ => cfg.default,
         }
     }
@@ -298,6 +299,7 @@ impl LookingGlass {
                         .collect();
                     CommandOutput::OpticsDetail(filtered)
                 }
+                Resource::OpticsInventory  => CommandOutput::OpticsInventory(entry.optics_inventory.clone()),
                 _ => continue,
             };
 
@@ -348,6 +350,7 @@ fn cache_is_fresh(
             Resource::LldpNeighbors    => entry.lldp_at,
             Resource::MacAddressTable  => entry.mac_at,
             Resource::Optics | Resource::OpticsDetail => entry.optics_at,
+            Resource::OpticsInventory => entry.optics_inventory_at,
             _ => return false,
         };
         match at {
@@ -478,6 +481,11 @@ fn apply_asn_filter(
                     || e.port_channel.as_ref().is_some_and(|pc| matched_pcs.contains(pc))
             });
             CommandOutput::OpticsDetail(entries)
+        }
+        CommandOutput::OpticsInventory(mut entries) => {
+            // Inventory has no port_channel field — filter by interface name only
+            entries.retain(|e| matches_asn(&e.name));
+            CommandOutput::OpticsInventory(entries)
         }
         other => other,
     }

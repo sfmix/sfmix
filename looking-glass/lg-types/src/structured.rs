@@ -106,6 +106,17 @@ pub struct OpticalLane {
     pub tx_bias_ma: Option<f64>,
 }
 
+// ── Optics Inventory (Transceiver Hardware) ────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpticsInventoryEntry {
+    pub name: String,
+    pub media_type: String,
+    pub vendor: Option<String>,
+    pub model: Option<String>,
+    pub serial_number: Option<String>,
+}
+
 // ── CommandOutput enum ──────────────────────────────────────────────
 
 /// The unified output type for all looking glass commands.
@@ -122,6 +133,7 @@ pub enum CommandOutput {
     LldpNeighbors(Vec<LldpNeighbor>),
     Optics(Vec<InterfaceOptics>),
     OpticsDetail(Vec<InterfaceOptics>),
+    OpticsInventory(Vec<OpticsInventoryEntry>),
     /// Collected streaming output (ping/traceroute lines).
     StreamLines(Vec<String>),
     /// Pre-rendered participant list (local resource, no device dispatch).
@@ -144,6 +156,7 @@ impl CommandOutput {
             CommandOutput::LldpNeighbors(v) => v.is_empty(),
             CommandOutput::Optics(v) => v.is_empty(),
             CommandOutput::OpticsDetail(v) => v.is_empty(),
+            CommandOutput::OpticsInventory(v) => v.is_empty(),
             CommandOutput::Error(_) => true,
             _ => false,
         }
