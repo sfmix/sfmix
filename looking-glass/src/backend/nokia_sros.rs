@@ -261,6 +261,73 @@ impl NokiaSrosDriver {
         Ok(result)
     }
 
+    /// Fetch transceiver hardware inventory (model/serial number).
+    ///
+    /// Uses `info json /state port * transceiver` — a more targeted fetch than
+    /// `port *` since we only need the transceiver subtree.
+    async fn fetch_optics_inventory(&self) -> Result<Vec<OpticsInventoryEntry>> {
+        let val = self.exec_json_value("port * transceiver").await?;
+
+        // JSON wrapper may be "nokia-state:port" or "port" depending on context
+        let port_list = if let Some(arr) = val.get("nokia-state:port").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(arr) = val.pointer("/port").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(obj) = val.pointer("/port").and_then(|v| v.as_object()) {
+            vec![Value::Object(obj.clone())]
+        } else {
+            Vec::new()
+        };
+
+        let mut result = Vec::new();
+        for port in &port_list {
+            let name = json_str(port, "port-id");
+            let transceiver = port.get("transceiver");
+
+            // Skip unequipped ports
+            let equipped = transceiver
+                .and_then(|t| t.get("equipped"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if !equipped {
+                continue;
+            }
+
+            let model = transceiver
+                .and_then(|t| t.get("vendor-part-number"))
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
+
+            let serial_number = transceiver
+                .and_then(|t| t.get("vendor-serial-number"))
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
+
+            let media_type = transceiver
+                .and_then(|t| t.get("optical-compliance-extension"))
+                .and_then(|v| v.as_u64())
+                .map(sff8024_media_type)
+                .filter(|s| !s.is_empty())
+                .unwrap_or("")
+                .to_string();
+
+            result.push(OpticsInventoryEntry {
+                name,
+                media_type,
+                vendor: None, // No vendor-name field in Nokia SR-OS YANG state
+                model,
+                serial_number,
+            });
+        }
+
+        result.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(result)
+    }
+
 }
 
 #[async_trait]
@@ -293,6 +360,10 @@ impl DeviceDriver for NokiaSrosDriver {
                 // LLDP is per-port - wildcard required for list
                 let val = self.exec_json_value("port *").await?;
                 CommandOutput::LldpNeighbors(self.parse_lldp_neighbors(&val))
+            }
+            (Verb::Show, Resource::OpticsInventory) => {
+                let inventory = self.fetch_optics_inventory().await?;
+                CommandOutput::OpticsInventory(inventory)
             }
             (Verb::Show, Resource::Optics) => {
                 let optics = self.fetch_optics(None).await?;
@@ -458,4 +529,18 @@ fn json_u64(val: Option<&Value>, key: &str) -> u64 {
     val.and_then(|v| v.get(key))
         .and_then(|v| v.as_u64())
         .unwrap_or(0)
+}
+
+/// Decode an SFF-8024 Table 4-4 optical compliance extension code to a human-readable media type.
+fn sff8024_media_type(code: u64) -> &'static str {
+    match code {
+        1  => "100G AOC",
+        2  => "100GBASE-SR4",
+        3  => "100GBASE-LR4",
+        4  => "100GBASE-ER4 Lite",
+        11 => "100GBASE-CWDM4",
+        25 => "400GBASE-SR4",
+        26 => "400GBASE-SR8",
+        _  => "",
+    }
 }

@@ -296,6 +296,64 @@ impl AristaEosDriver {
         Ok(result)
     }
 
+    /// Fetch transceiver hardware inventory (vendor/model/serial).
+    ///
+    /// Uses two commands and joins by slot number:
+    ///   - `show inventory | json` for vendor/model/serial (keyed by slot number)
+    ///   - `show interfaces transceiver | json` for interface name and media type
+    async fn fetch_optics_inventory(&self) -> Result<Vec<OpticsInventoryEntry>> {
+        let inventory: EosInventory = self.exec_json("show inventory").await?;
+        let transceiver_info: EosTransceiverInfo =
+            self.exec_json("show interfaces transceiver").await?;
+
+        let mut result: Vec<OpticsInventoryEntry> = Vec::new();
+
+        for (iface_name, xcvr) in &transceiver_info.interfaces {
+            // Strip "Et" prefix from slot field (e.g. "Et49" → "49") to join with xcvrSlots
+            let slot_num = xcvr.slot.as_deref().unwrap_or("").trim_start_matches("Et");
+            let slot_entry = inventory.xcvr_slots.get(slot_num);
+
+            let vendor = slot_entry
+                .and_then(|s| s.mfg_name.as_deref())
+                .map(str::trim)
+                .filter(|s| !s.is_empty() && *s != "Not Present")
+                .map(|s| s.to_string());
+
+            // Skip entirely if no transceiver present
+            if vendor.is_none()
+                && slot_entry.map(|s| s.model_name.as_deref().unwrap_or("").trim().is_empty()).unwrap_or(true)
+                && slot_entry.map(|s| s.serial_num.as_deref().unwrap_or("").trim().is_empty()).unwrap_or(true)
+            {
+                continue;
+            }
+
+            let model = slot_entry
+                .and_then(|s| s.model_name.as_deref())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
+
+            let serial_number = slot_entry
+                .and_then(|s| s.serial_num.as_deref())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
+
+            let media_type = xcvr.media_type.as_deref().unwrap_or("").to_string();
+
+            result.push(OpticsInventoryEntry {
+                name: iface_name.clone(),
+                media_type,
+                vendor,
+                model,
+                serial_number,
+            });
+        }
+
+        result.sort_by(|a, b| interface_sort_key(&a.name).cmp(&interface_sort_key(&b.name)));
+        Ok(result)
+    }
+
 }
 
 #[async_trait]
@@ -339,6 +397,10 @@ impl DeviceDriver for AristaEosDriver {
                 let raw: EosLldpNeighbors =
                     self.exec_json("show lldp neighbors").await?;
                 CommandOutput::LldpNeighbors(self.parse_lldp_neighbors(raw))
+            }
+            (Verb::Show, Resource::OpticsInventory) => {
+                let inventory = self.fetch_optics_inventory().await?;
+                CommandOutput::OpticsInventory(inventory)
             }
             (Verb::Show, Resource::Optics) => {
                 let optics = self.fetch_optics(None).await?;
@@ -676,6 +738,40 @@ struct EosTransceiverDomParams {
 struct EosTransceiverDomParam {
     #[serde(default)]
     channels: HashMap<String, Option<f64>>,
+}
+
+// ── show inventory ─────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct EosInventory {
+    #[serde(rename = "xcvrSlots", default)]
+    xcvr_slots: HashMap<String, EosXcvrSlot>,
+}
+
+#[derive(Deserialize)]
+struct EosXcvrSlot {
+    #[serde(rename = "mfgName", default)]
+    mfg_name: Option<String>,
+    #[serde(rename = "modelName", default)]
+    model_name: Option<String>,
+    #[serde(rename = "serialNum", default)]
+    serial_num: Option<String>,
+}
+
+// ── show interfaces transceiver (without dom) ───────────────────────
+
+#[derive(Deserialize)]
+struct EosTransceiverInfo {
+    #[serde(default)]
+    interfaces: HashMap<String, EosTransceiverInfoEntry>,
+}
+
+#[derive(Deserialize)]
+struct EosTransceiverInfoEntry {
+    #[serde(default)]
+    slot: Option<String>,
+    #[serde(rename = "mediaType", default)]
+    media_type: Option<String>,
 }
 
 // ── Unit tests ───────────────────────────────────────────────────────
