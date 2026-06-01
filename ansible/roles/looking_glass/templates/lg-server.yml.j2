@@ -39,18 +39,11 @@ auth:
 {% endif %}
 {% endif %}
 
-{% if looking_glass_telnet_enabled or looking_glass_ssh_enabled %}
-listen:
 {% if looking_glass_telnet_enabled %}
+listen:
   telnet:
     enabled: true
     bind: "{{ looking_glass_bind_address }}:{{ looking_glass_telnet_port }}"
-{% endif %}
-{% if looking_glass_ssh_enabled %}
-  ssh:
-    enabled: true
-    bind: "{{ looking_glass_bind_address }}:{{ looking_glass_ssh_port }}"
-{% endif %}
 
 {% endif %}
 devices:
