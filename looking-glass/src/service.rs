@@ -178,7 +178,10 @@ impl LookingGlass {
             }
         }
 
-        // Cache-served resources: bypass rate limit + device dispatch when data is warm and fresh
+        // Cache-served resources: if the background poller has populated the cache,
+        // always serve from it. TTL is only used for staleness display in
+        // `show device-cache`, not for live-fetch fallback — TTL < poll_interval
+        // would otherwise create a window where every request misses the cache.
         let cacheable = matches!(
             command.resource,
             Resource::InterfacesStatus
@@ -190,10 +193,7 @@ impl LookingGlass {
         if cacheable {
             let cache = self.device_state_cache.load();
             if !cache.is_empty() {
-                let ttl = self.ttl_for_resource(command.resource);
-                if cache_is_fresh(&cache, command.resource, ttl) {
-                    return Ok(self.serve_from_cache(&cache, command, identity));
-                }
+                return Ok(self.serve_from_cache(&cache, command, identity));
             }
         }
 
