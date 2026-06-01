@@ -26,6 +26,14 @@ looking_glass_device_username: looking-glass
 looking_glass_device_auth_method: password
 looking_glass_devices: []
 
+# Device state cache
+looking_glass_device_cache_poll_interval_secs: 30
+looking_glass_device_cache_ttl_default: 60
+looking_glass_device_cache_ttl_optics: 15
+looking_glass_device_cache_ttl_interfaces: 30
+looking_glass_device_cache_ttl_lldp: 120
+looking_glass_device_cache_ttl_mac: 30
+
 # RPC settings
 looking_glass_rpc_bind: "127.0.0.1:9090"
 
