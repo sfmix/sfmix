@@ -117,6 +117,21 @@ pub struct OpticsInventoryEntry {
     pub serial_number: Option<String>,
 }
 
+// ── ARP / IPv6 Neighbor Entry ───────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArpEntry {
+    pub ip_address: String,
+    pub mac_address: String,
+    pub interface: String,
+    /// VPRN name (Nokia) or VRF (Arista)
+    pub vrf: Option<String>,
+    /// "dynamic", "static", "other"
+    pub entry_type: String,
+    /// Nokia: timer (remaining TTL); Arista: age in seconds (-1 = permanent → None)
+    pub age_secs: Option<u64>,
+}
+
 // ── CommandOutput enum ──────────────────────────────────────────────
 
 /// The unified output type for all looking glass commands.
@@ -134,6 +149,8 @@ pub enum CommandOutput {
     Optics(Vec<InterfaceOptics>),
     OpticsDetail(Vec<InterfaceOptics>),
     OpticsInventory(Vec<OpticsInventoryEntry>),
+    Arp(Vec<ArpEntry>),
+    IPv6Neighbors(Vec<ArpEntry>),
     /// Collected streaming output (ping/traceroute lines).
     StreamLines(Vec<String>),
     /// Pre-rendered participant list (local resource, no device dispatch).
@@ -157,6 +174,8 @@ impl CommandOutput {
             CommandOutput::Optics(v) => v.is_empty(),
             CommandOutput::OpticsDetail(v) => v.is_empty(),
             CommandOutput::OpticsInventory(v) => v.is_empty(),
+            CommandOutput::Arp(v) => v.is_empty(),
+            CommandOutput::IPv6Neighbors(v) => v.is_empty(),
             CommandOutput::Error(_) => true,
             _ => false,
         }

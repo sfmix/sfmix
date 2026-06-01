@@ -192,6 +192,8 @@ pub fn format_device_cache_status(
         let _ = writeln!(out, "    optics-inventory:{:12}  ({} entries)", age(entry.optics_inventory_at), entry.optics_inventory.len());
         let _ = writeln!(out, "    lldp:            {:12}  ({} entries)", age(entry.lldp_at), entry.lldp_neighbors.len());
         let _ = writeln!(out, "    mac:             {:12}  ({} entries)", age(entry.mac_at), entry.mac_table.len());
+        let _ = writeln!(out, "    arp:             {:12}  ({} entries)", age(entry.arp_at), entry.arp_table.len());
+        let _ = writeln!(out, "    ipv6-neighbors:  {:12}  ({} entries)", age(entry.ipv6_neighbors_at), entry.ipv6_neighbors.len());
 
         if let Some(ref err) = entry.last_error {
             let err_str = if mode == ColorMode::Plain {
@@ -364,6 +366,8 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::Optics(entries) => render_optics(entries, color),
         CommandOutput::OpticsDetail(entries) => render_optics_detail(entries, color),
         CommandOutput::OpticsInventory(entries) => render_optics_inventory(entries, color),
+        CommandOutput::Arp(entries) => render_arp(entries, color),
+        CommandOutput::IPv6Neighbors(entries) => render_arp(entries, color),
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
         CommandOutput::NetboxStatus(s) => s.clone(),
@@ -617,6 +621,48 @@ fn render_optics_inventory(entries: &[OpticsInventoryEntry], color: ColorMode) -
             e.model.clone().unwrap_or_else(|| "-".to_string()),
             e.serial_number.clone().unwrap_or_else(|| "-".to_string()),
         ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, color);
+    format!("{table}\n")
+}
+
+// ── ARP / IPv6 Neighbors ────────────────────────────────────────────
+
+fn render_arp(entries: &[ArpEntry], color: ColorMode) -> String {
+    if entries.is_empty() {
+        return "No ARP entries found.\n".to_string();
+    }
+
+    // Only show VRF column if any entry has a VRF
+    let show_vrf = entries.iter().any(|e| e.vrf.is_some());
+
+    let mut builder = Builder::default();
+    let mut header = vec![
+        bold_str("IP Address", color),
+        bold_str("MAC Address", color),
+        bold_str("Interface", color),
+    ];
+    if show_vrf {
+        header.push(bold_str("VRF", color));
+    }
+    header.push(bold_str("Type", color));
+    header.push(bold_str("Age(s)", color));
+    builder.push_record(header);
+
+    for e in entries {
+        let age = e.age_secs.map(|a| a.to_string()).unwrap_or_else(|| "-".to_string());
+        let mut row = vec![
+            e.ip_address.clone(),
+            e.mac_address.clone(),
+            e.interface.clone(),
+        ];
+        if show_vrf {
+            row.push(e.vrf.clone().unwrap_or_default());
+        }
+        row.push(e.entry_type.clone());
+        row.push(age);
+        builder.push_record(row);
     }
     let mut table = builder.build();
     apply_style(&mut table, color);

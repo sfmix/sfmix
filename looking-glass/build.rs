@@ -17,6 +17,9 @@ enum Resource {
     MacAddressTable, LldpNeighbors,
     Optics, OpticsDetail, OpticsInventory, Participants, ParticipantDetail,
     NetworkReachability, Help, Login, Whoami, Logout, NetboxCache, DeviceCache,
+    Arp,
+    #[serde(rename = "ipv6_neighbors")]
+    IPv6Neighbors,
 }
 
 #[derive(Deserialize)]

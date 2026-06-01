@@ -21,6 +21,8 @@ Available commands:
   show optics inventory           Transceiver inventory (vendor/model/serial) [admin]
   show mac address-table          MAC address table
   show mac vlan <id>              Filter MAC table by VLAN ID
+  show arp                         ARP table (IPv4 neighbor-to-MAC mapping)
+  show ipv6 neighbors              IPv6 neighbor table (NDP)
   show lldp neighbors              LLDP neighbor table
   show participants                IXP participant list
   show participants <asn>         Detail for a specific participant

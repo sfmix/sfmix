@@ -64,6 +64,15 @@ commands:
                 name: "<vlan>"
                 help: VLAN ID (e.g. 998)
                 command: { verb: show, resource: mac_address_table, filter_vlan: "$arg" }
+      arp:
+        help: ARP table (IPv4 neighbor-to-MAC mapping)
+        command: { verb: show, resource: arp }
+      ipv6:
+        help: IPv6 neighbor table (NDP)
+        children:
+          neighbors:
+            help: IPv6 neighbor table (NDP)
+            command: { verb: show, resource: ipv6_neighbors }
       lldp:
         help: LLDP neighbor information
         command: { verb: show, resource: lldp_neighbors }

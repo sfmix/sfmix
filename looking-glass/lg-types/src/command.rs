@@ -56,6 +56,11 @@ pub enum Resource {
     DeviceCache,
     /// Detail view for a single participant by ASN
     ParticipantDetail,
+    /// ARP table (IPv4 neighbor-to-MAC mapping)
+    Arp,
+    /// IPv6 neighbor table (NDP)
+    #[serde(rename = "ipv6_neighbors")]
+    IPv6Neighbors,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
