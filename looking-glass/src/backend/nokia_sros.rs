@@ -464,9 +464,9 @@ impl DeviceDriver for NokiaSrosDriver {
                 CommandOutput::InterfaceDetail(self.parse_interface_detail(&val)?)
             }
             (Verb::Show, Resource::MacAddressTable) => {
-                // FDB from service context - wildcard required for list
-                let val = self.exec_json_value("service fdb-mac *").await?;
-                CommandOutput::MacAddressTable(self.parse_mac_table(&val))
+                // Nokia SR-OS transit routers don't have a meaningful L2 FDB.
+                // The `service fdb-mac *` YANG path is not valid on these devices.
+                CommandOutput::MacAddressTable(vec![])
             }
             (Verb::Show, Resource::LldpNeighbors) => {
                 // LLDP is per-port - wildcard required for list
