@@ -87,6 +87,101 @@ impl NokiaSrosDriver {
         result
     }
 
+    /// Parse physical port status from `info json /state port *` output.
+    fn parse_ports_status(&self, val: &Value) -> Vec<InterfaceStatus> {
+        let port_list = if let Some(arr) = val.pointer("/port").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(obj) = val.pointer("/port").and_then(|v| v.as_object()) {
+            vec![Value::Object(obj.clone())]
+        } else {
+            Vec::new()
+        };
+
+        let mut result = Vec::new();
+        for port in &port_list {
+            let name = json_str(port, "port-id");
+            if name.is_empty() {
+                continue;
+            }
+            let description = json_str(port, "description");
+            let link_status = json_str(port, "oper-state");
+            let protocol_status = json_str(port, "admin-state");
+            let speed = port.pointer("/ethernet/oper-speed")
+                .and_then(|v| v.as_str().map(str::to_string).or_else(|| v.as_u64().map(|n| n.to_string())))
+                .unwrap_or_default();
+            let port_channel = port.get("lag-id")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+
+            result.push(InterfaceStatus {
+                name,
+                description,
+                link_status,
+                protocol_status,
+                speed,
+                interface_type: "physical-port".to_string(),
+                vlan: String::new(),
+                auto_negotiate: false,
+                member_interfaces: vec![],
+                port_channel,
+            });
+        }
+        result.sort_by(|a, b| a.name.cmp(&b.name));
+        result
+    }
+
+    /// Parse VPRN service interface status from `info json /state service vprn * interface *`.
+    fn parse_vprn_interfaces_status(&self, val: &Value) -> Vec<InterfaceStatus> {
+        let vprn_list = if let Some(arr) = val.get("nokia-state:vprn").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(arr) = val.pointer("/vprn").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else {
+            Vec::new()
+        };
+
+        let mut result = Vec::new();
+        for vprn in &vprn_list {
+            let service_name = json_str(vprn, "service-name");
+            let interface_type = if service_name.is_empty() {
+                "vprn-interface".to_string()
+            } else {
+                format!("vprn:{service_name}")
+            };
+
+            let interface_list = vprn.get("interface")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            for iface in &interface_list {
+                let name = json_str(iface, "interface-name");
+                if name.is_empty() {
+                    continue;
+                }
+                let mtu = iface.get("oper-ip-mtu")
+                    .and_then(|v| v.as_u64())
+                    .map(|m| m.to_string())
+                    .unwrap_or_default();
+                result.push(InterfaceStatus {
+                    name,
+                    description: String::new(),
+                    link_status: json_str(iface, "oper-state"),
+                    protocol_status: json_str(iface, "protocol"),
+                    speed: mtu,
+                    interface_type: interface_type.clone(),
+                    vlan: String::new(),
+                    auto_negotiate: false,
+                    member_interfaces: vec![],
+                    port_channel: None,
+                });
+            }
+        }
+        result.sort_by(|a, b| a.name.cmp(&b.name));
+        result
+    }
+
     fn parse_interface_detail(&self, val: &Value) -> Result<InterfaceDetail> {
         let port = val.pointer("/port")
             .and_then(|v| v.as_array())
@@ -263,10 +358,10 @@ impl NokiaSrosDriver {
 
     /// Fetch transceiver hardware inventory (model/serial number).
     ///
-    /// Uses `info json /state port * transceiver` — a more targeted fetch than
-    /// `port *` since we only need the transceiver subtree.
+    /// Uses `info json /state port *` — the `port * transceiver` subtree path
+    /// is not supported on all SR-OS versions and returns non-JSON output.
     async fn fetch_optics_inventory(&self) -> Result<Vec<OpticsInventoryEntry>> {
-        let val = self.exec_json_value("port * transceiver").await?;
+        let val = self.exec_json_value("port *").await?;
 
         // JSON wrapper may be "nokia-state:port" or "port" depending on context
         let port_list = if let Some(arr) = val.get("nokia-state:port").and_then(|v| v.as_array()) {
@@ -339,9 +434,22 @@ impl DeviceDriver for NokiaSrosDriver {
     async fn execute(&self, command: &Command) -> Result<CommandResult> {
         let output = match (&command.verb, &command.resource) {
             (Verb::Show, Resource::InterfacesStatus) => {
-                // Router interfaces from base router - wildcard required for list
+                // Base router L3 interfaces
                 let val = self.exec_json_value("router interface *").await?;
-                CommandOutput::InterfacesStatus(self.parse_interfaces_status(&val))
+                let mut interfaces = self.parse_interfaces_status(&val);
+
+                // Physical ports (best-effort; absence is non-fatal)
+                if let Ok(port_val) = self.exec_json_value("port *").await {
+                    interfaces.extend(self.parse_ports_status(&port_val));
+                }
+
+                // VPRN service interfaces (best-effort; not all platforms support wildcard)
+                if let Ok(vprn_val) = self.exec_json_value("service vprn * interface *").await {
+                    interfaces.extend(self.parse_vprn_interfaces_status(&vprn_val));
+                }
+
+                interfaces.sort_by(|a, b| a.name.cmp(&b.name));
+                CommandOutput::InterfacesStatus(interfaces)
             }
             (Verb::Show, Resource::InterfaceDetail) => {
                 let target = command
