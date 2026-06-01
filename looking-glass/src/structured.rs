@@ -1,6 +1,6 @@
 // Re-export all data structs from lg-types::structured.
 pub use lg_types::structured::{
-    InterfaceCounters, InterfaceDetail, InterfaceOptics, InterfaceStatus,
+    ArpEntry, InterfaceCounters, InterfaceDetail, InterfaceOptics, InterfaceStatus,
     LldpNeighbor, MacEntry, OpticalLane, OpticsInventoryEntry,
 };
 
@@ -20,6 +20,10 @@ pub struct DeviceStateCache {
     pub optics_at:           Option<std::time::Instant>,
     pub optics_inventory:    Vec<OpticsInventoryEntry>,
     pub optics_inventory_at: Option<std::time::Instant>,
+    pub arp_table:           Vec<ArpEntry>,
+    pub arp_at:              Option<std::time::Instant>,
+    pub ipv6_neighbors:      Vec<ArpEntry>,
+    pub ipv6_neighbors_at:   Option<std::time::Instant>,
     pub last_error:          Option<String>,
 }
 
@@ -43,6 +47,8 @@ pub enum CommandOutput {
     Optics(Vec<InterfaceOptics>),
     OpticsDetail(Vec<InterfaceOptics>),
     OpticsInventory(Vec<OpticsInventoryEntry>),
+    Arp(Vec<ArpEntry>),
+    IPv6Neighbors(Vec<ArpEntry>),
     Stream(tokio::sync::mpsc::Receiver<String>),
     /// Pre-rendered participant list (local resource, no device dispatch).
     Participants(String),
@@ -65,6 +71,8 @@ impl CommandOutput {
             CommandOutput::Optics(v) => v.is_empty(),
             CommandOutput::OpticsDetail(v) => v.is_empty(),
             CommandOutput::OpticsInventory(v) => v.is_empty(),
+            CommandOutput::Arp(v) => v.is_empty(),
+            CommandOutput::IPv6Neighbors(v) => v.is_empty(),
             CommandOutput::Error(_) => true,
             _ => false,
         }
@@ -80,6 +88,8 @@ impl CommandOutput {
             lg_types::structured::CommandOutput::Optics(v) => CommandOutput::Optics(v),
             lg_types::structured::CommandOutput::OpticsDetail(v) => CommandOutput::OpticsDetail(v),
             lg_types::structured::CommandOutput::OpticsInventory(v) => CommandOutput::OpticsInventory(v),
+            lg_types::structured::CommandOutput::Arp(v) => CommandOutput::Arp(v),
+            lg_types::structured::CommandOutput::IPv6Neighbors(v) => CommandOutput::IPv6Neighbors(v),
             lg_types::structured::CommandOutput::StreamLines(lines) => {
                 // Convert buffered stream lines into a channel receiver
                 let (tx, rx) = tokio::sync::mpsc::channel(lines.len().max(1));
@@ -109,6 +119,8 @@ impl CommandOutput {
             CommandOutput::Optics(v) => lg_types::structured::CommandOutput::Optics(v),
             CommandOutput::OpticsDetail(v) => lg_types::structured::CommandOutput::OpticsDetail(v),
             CommandOutput::OpticsInventory(v) => lg_types::structured::CommandOutput::OpticsInventory(v),
+            CommandOutput::Arp(v) => lg_types::structured::CommandOutput::Arp(v),
+            CommandOutput::IPv6Neighbors(v) => lg_types::structured::CommandOutput::IPv6Neighbors(v),
             CommandOutput::Stream(_) => lg_types::structured::CommandOutput::Error("cannot serialize live stream".into()),
             CommandOutput::Participants(s) => lg_types::structured::CommandOutput::Participants(s),
             CommandOutput::NetboxStatus(s) => lg_types::structured::CommandOutput::NetboxStatus(s),
@@ -128,6 +140,8 @@ impl Serialize for CommandOutput {
             CommandOutput::Optics(v) => v.serialize(serializer),
             CommandOutput::OpticsDetail(v) => v.serialize(serializer),
             CommandOutput::OpticsInventory(v) => v.serialize(serializer),
+            CommandOutput::Arp(v) => v.serialize(serializer),
+            CommandOutput::IPv6Neighbors(v) => v.serialize(serializer),
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
             CommandOutput::Participants(s) => serializer.serialize_str(s),
             CommandOutput::NetboxStatus(s) => serializer.serialize_str(s),

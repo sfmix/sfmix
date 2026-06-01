@@ -190,6 +190,8 @@ impl LookingGlass {
                 | Resource::Optics
                 | Resource::OpticsDetail
                 | Resource::OpticsInventory
+                | Resource::Arp
+                | Resource::IPv6Neighbors
         );
         if cacheable {
             let cache = self.device_state_cache.load();
@@ -263,6 +265,7 @@ impl LookingGlass {
             Resource::LldpNeighbors => cfg.lldp_neighbors.unwrap_or(cfg.default),
             Resource::MacAddressTable => cfg.mac_address_table.unwrap_or(cfg.default),
             Resource::Optics | Resource::OpticsDetail | Resource::OpticsInventory => cfg.optics.unwrap_or(cfg.default),
+            Resource::Arp | Resource::IPv6Neighbors => cfg.default,
             _ => cfg.default,
         }
     }
@@ -300,6 +303,8 @@ impl LookingGlass {
                     CommandOutput::OpticsDetail(filtered)
                 }
                 Resource::OpticsInventory  => CommandOutput::OpticsInventory(entry.optics_inventory.clone()),
+                Resource::Arp              => CommandOutput::Arp(entry.arp_table.clone()),
+                Resource::IPv6Neighbors    => CommandOutput::IPv6Neighbors(entry.ipv6_neighbors.clone()),
                 _ => continue,
             };
 
@@ -351,6 +356,8 @@ fn cache_is_fresh(
             Resource::MacAddressTable  => entry.mac_at,
             Resource::Optics | Resource::OpticsDetail => entry.optics_at,
             Resource::OpticsInventory => entry.optics_inventory_at,
+            Resource::Arp => entry.arp_at,
+            Resource::IPv6Neighbors => entry.ipv6_neighbors_at,
             _ => return false,
         };
         match at {

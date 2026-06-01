@@ -360,6 +360,73 @@ impl NokiaSrosDriver {
         Ok(result)
     }
 
+    /// Parse ARP or IPv6 neighbor entries from VPRN neighbor-discovery JSON.
+    ///
+    /// `ipv6`: if true, parse `ipv6.neighbor-discovery.neighbor[]`; otherwise
+    ///         parse `ipv4.neighbor-discovery.neighbor[]`.
+    fn parse_vprn_arp(&self, val: &Value, ipv6: bool) -> Vec<ArpEntry> {
+        let vprn_list = if let Some(arr) = val.get("nokia-state:vprn").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(arr) = val.pointer("/vprn").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else {
+            Vec::new()
+        };
+
+        let mut result = Vec::new();
+        for vprn in &vprn_list {
+            let service_name = json_str(vprn, "service-name");
+            let interface_list = vprn.get("interface")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            for iface in &interface_list {
+                let interface_name = json_str(iface, "interface-name");
+                if interface_name.is_empty() {
+                    continue;
+                }
+
+                let neighbor_arr = if ipv6 {
+                    iface.pointer("/ipv6/neighbor-discovery/neighbor")
+                } else {
+                    iface.pointer("/ipv4/neighbor-discovery/neighbor")
+                };
+
+                let neighbors = neighbor_arr
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+
+                for neighbor in &neighbors {
+                    let ip_address = if ipv6 {
+                        json_str(neighbor, "ipv6-address")
+                    } else {
+                        json_str(neighbor, "ipv4-address")
+                    };
+                    if ip_address.is_empty() {
+                        continue;
+                    }
+                    let mac_address = json_str(neighbor, "mac-address");
+                    let entry_type = json_str(neighbor, "type");
+                    let age_secs = neighbor.get("timer")
+                        .and_then(|v| v.as_u64());
+
+                    result.push(ArpEntry {
+                        ip_address,
+                        mac_address,
+                        interface: interface_name.clone(),
+                        vrf: if service_name.is_empty() { None } else { Some(service_name.clone()) },
+                        entry_type,
+                        age_secs,
+                    });
+                }
+            }
+        }
+        result.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
+        result
+    }
+
     /// Fetch transceiver hardware inventory (model/serial number).
     ///
     /// Uses `info json /state port *` — the `port * transceiver` subtree path
@@ -448,7 +515,7 @@ impl DeviceDriver for NokiaSrosDriver {
                 }
 
                 // VPRN service interfaces (best-effort; not all platforms support wildcard)
-                if let Ok(vprn_val) = self.exec_json_value("service vprn * interface *").await {
+                if let Ok(vprn_val) = self.exec_json_value("service vprn * interface * oper-state").await {
                     interfaces.extend(self.parse_vprn_interfaces_status(&vprn_val));
                 }
 
@@ -488,6 +555,14 @@ impl DeviceDriver for NokiaSrosDriver {
                     .ok_or_else(|| anyhow::anyhow!("port name required"))?;
                 let optics = self.fetch_optics(Some(target)).await?;
                 CommandOutput::OpticsDetail(optics)
+            }
+            (Verb::Show, Resource::Arp) => {
+                let val = self.exec_json_value("service vprn * interface * ipv4 neighbor-discovery").await?;
+                CommandOutput::Arp(self.parse_vprn_arp(&val, false))
+            }
+            (Verb::Show, Resource::IPv6Neighbors) => {
+                let val = self.exec_json_value("service vprn * interface * ipv6 neighbor-discovery").await?;
+                CommandOutput::IPv6Neighbors(self.parse_vprn_arp(&val, true))
             }
             (Verb::Ping, Resource::NetworkReachability) | (Verb::Traceroute, Resource::NetworkReachability) => {
                 let target = command

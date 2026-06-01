@@ -132,6 +132,40 @@ impl AristaEosDriver {
         entries
     }
 
+    fn parse_arp(&self, raw: EosArpTable) -> Vec<ArpEntry> {
+        let mut entries: Vec<ArpEntry> = raw
+            .neighbors
+            .into_iter()
+            .map(|e| ArpEntry {
+                ip_address: e.address,
+                mac_address: e.hw_address,
+                interface: e.interface,
+                vrf: None,
+                entry_type: e.neighbor_type,
+                age_secs: e.age.filter(|&a| a >= 0).map(|a| a as u64),
+            })
+            .collect();
+        entries.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
+        entries
+    }
+
+    fn parse_ipv6_neighbors(&self, raw: EosIPv6Neighbors) -> Vec<ArpEntry> {
+        let mut entries: Vec<ArpEntry> = raw
+            .neighbors
+            .into_iter()
+            .map(|e| ArpEntry {
+                ip_address: e.address,
+                mac_address: e.hw_address,
+                interface: e.interface,
+                vrf: None,
+                entry_type: e.neighbor_type,
+                age_secs: e.age.filter(|&a| a >= 0).map(|a| a as u64),
+            })
+            .collect();
+        entries.sort_by(|a, b| a.ip_address.cmp(&b.ip_address));
+        entries
+    }
+
     fn parse_lldp_neighbors(&self, raw: EosLldpNeighbors) -> Vec<LldpNeighbor> {
         let mut entries: Vec<LldpNeighbor> = raw
             .lldp_neighbors
@@ -410,6 +444,14 @@ impl DeviceDriver for AristaEosDriver {
                 let raw: EosLldpNeighbors =
                     self.exec_json("show lldp neighbors").await?;
                 CommandOutput::LldpNeighbors(self.parse_lldp_neighbors(raw))
+            }
+            (Verb::Show, Resource::Arp) => {
+                let raw: EosArpTable = self.exec_json("show arp").await?;
+                CommandOutput::Arp(self.parse_arp(raw))
+            }
+            (Verb::Show, Resource::IPv6Neighbors) => {
+                let raw: EosIPv6Neighbors = self.exec_json("show ipv6 neighbors").await?;
+                CommandOutput::IPv6Neighbors(self.parse_ipv6_neighbors(raw))
             }
             (Verb::Show, Resource::OpticsInventory) => {
                 let inventory = self.fetch_optics_inventory().await?;
@@ -695,6 +737,48 @@ struct EosMacTableEntry {
     entry_type: String,
     #[serde(default)]
     interface: String,
+}
+
+// ── show arp ────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct EosArpTable {
+    #[serde(rename = "ipV4Neighbors", default)]
+    neighbors: Vec<EosArpEntry>,
+}
+
+#[derive(Deserialize)]
+struct EosArpEntry {
+    address: String,
+    #[serde(rename = "hwAddress", default)]
+    hw_address: String,
+    #[serde(default)]
+    interface: String,
+    #[serde(default)]
+    age: Option<i64>,  // -1 means permanent
+    #[serde(rename = "neighborType", default)]
+    neighbor_type: String,
+}
+
+// ── show ipv6 neighbors ─────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct EosIPv6Neighbors {
+    #[serde(rename = "ipV6Neighbors", default)]
+    neighbors: Vec<EosIPv6NeighborEntry>,
+}
+
+#[derive(Deserialize)]
+struct EosIPv6NeighborEntry {
+    address: String,
+    #[serde(rename = "hwAddress", default)]
+    hw_address: String,
+    #[serde(default)]
+    interface: String,
+    #[serde(default)]
+    age: Option<i64>,
+    #[serde(rename = "neighborType", default)]
+    neighbor_type: String,
 }
 
 // ── show lldp neighbors ─────────────────────────────────────────────

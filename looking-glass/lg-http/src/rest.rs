@@ -198,7 +198,7 @@ fn make_cmd(resource: Resource, target: Option<String>) -> Command {
 // ---------------------------------------------------------------------------
 
 use looking_glass::structured::{
-    InterfaceDetail, InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry,
+    ArpEntry, InterfaceDetail, InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry,
 };
 use lg_types::structured::OpticsInventoryEntry;
 
@@ -291,6 +291,30 @@ async fn get_mac_address_table(
     cmd.filter_vlan = query.vlan;
     execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
         if let CommandOutput::MacAddressTable(v) = o { Some(v.clone()) } else { None }
+    }).await
+}
+
+async fn get_arp(
+    State(state): State<HttpState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<ArpEntry>>>> {
+    let identity = get_identity(&request);
+    let rate_key = get_rate_key(&request);
+    let cmd = make_cmd(Resource::Arp, None);
+    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
+        if let CommandOutput::Arp(v) = o { Some(v.clone()) } else { None }
+    }).await
+}
+
+async fn get_ipv6_neighbors(
+    State(state): State<HttpState>,
+    request: axum::extract::Request,
+) -> ApiResult<Vec<DeviceResult<Vec<ArpEntry>>>> {
+    let identity = get_identity(&request);
+    let rate_key = get_rate_key(&request);
+    let cmd = make_cmd(Resource::IPv6Neighbors, None);
+    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
+        if let CommandOutput::IPv6Neighbors(v) = o { Some(v.clone()) } else { None }
     }).await
 }
 
@@ -476,6 +500,8 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/optics/{name}", get(get_optics_detail))
         .route("/api/v1/lldp/neighbors", get(get_lldp_neighbors))
         .route("/api/v1/mac-address-table", get(get_mac_address_table))
+        .route("/api/v1/arp", get(get_arp))
+        .route("/api/v1/ipv6/neighbors", get(get_ipv6_neighbors))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
