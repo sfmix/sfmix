@@ -299,33 +299,56 @@ impl AristaEosDriver {
     /// Fetch transceiver hardware inventory (vendor/model/serial).
     ///
     /// Uses two commands and joins by slot number:
-    ///   - `show inventory | json` for vendor/model/serial (keyed by slot number)
-    ///   - `show interfaces transceiver | json` for interface name and media type
+    ///   - `show inventory | json` for vendor/model/serial (keyed by integer slot number)
+    ///   - `show interfaces transceiver | json` for canonical interface name and media type
+    ///
+    /// The transceiver output may be keyed per-lane (e.g. "Ethernet13/1"…"Ethernet13/4"
+    /// for a QSFP28). We deduplicate to one entry per physical transceiver by stripping
+    /// the trailing /channel suffix. The slot number for the xcvrSlots lookup is derived
+    /// by stripping leading alphabetic chars from the canonical name, so both "Ethernet13"
+    /// → "13" and "Et49" → "49" (older EOS) work correctly.
     async fn fetch_optics_inventory(&self) -> Result<Vec<OpticsInventoryEntry>> {
         let inventory: EosInventory = self.exec_json("show inventory").await?;
         let transceiver_info: EosTransceiverInfo =
             self.exec_json("show interfaces transceiver").await?;
 
-        let mut result: Vec<OpticsInventoryEntry> = Vec::new();
+        // Build canonical_name → media_type map, deduplicating per-lane entries.
+        // Canonical name = interface key with trailing /N channel suffix removed.
+        //   "Ethernet13/1" → "Ethernet13"
+        //   "Ethernet49/1" → "Ethernet49"
+        //   "Ethernet1"    → "Ethernet1"   (single-lane, no change)
+        let mut slot_media: HashMap<String, String> = HashMap::new();
+        for (key, xcvr) in &transceiver_info.interfaces {
+            let canonical = strip_channel_suffix(key);
+            slot_media.entry(canonical).or_insert_with(|| {
+                xcvr.media_type.clone().unwrap_or_default()
+            });
+        }
 
-        for (iface_name, xcvr) in &transceiver_info.interfaces {
-            // Strip "Et" prefix from slot field (e.g. "Et49" → "49") to join with xcvrSlots
-            let slot_num = xcvr.slot.as_deref().unwrap_or("").trim_start_matches("Et");
-            let slot_entry = inventory.xcvr_slots.get(slot_num);
+        let mut result: Vec<OpticsInventoryEntry> = Vec::new();
+        for (canonical_name, media_type) in &slot_media {
+            // Slot number = canonical name with leading alphabetic chars stripped.
+            // "Ethernet13" → "13", "Et49" → "49"
+            let slot_num: String = canonical_name
+                .chars()
+                .skip_while(|c| c.is_alphabetic())
+                .collect();
+            let slot_entry = inventory.xcvr_slots.get(&slot_num);
+
+            // Skip empty/absent slots
+            let is_empty = slot_entry.map(|s| {
+                let mfg = s.mfg_name.as_deref().map(str::trim).unwrap_or("");
+                mfg.is_empty() || mfg == "Not Present"
+            }).unwrap_or(true);
+            if is_empty {
+                continue;
+            }
 
             let vendor = slot_entry
                 .and_then(|s| s.mfg_name.as_deref())
                 .map(str::trim)
                 .filter(|s| !s.is_empty() && *s != "Not Present")
                 .map(|s| s.to_string());
-
-            // Skip entirely if no transceiver present
-            if vendor.is_none()
-                && slot_entry.map(|s| s.model_name.as_deref().unwrap_or("").trim().is_empty()).unwrap_or(true)
-                && slot_entry.map(|s| s.serial_num.as_deref().unwrap_or("").trim().is_empty()).unwrap_or(true)
-            {
-                continue;
-            }
 
             let model = slot_entry
                 .and_then(|s| s.model_name.as_deref())
@@ -339,11 +362,9 @@ impl AristaEosDriver {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string());
 
-            let media_type = xcvr.media_type.as_deref().unwrap_or("").to_string();
-
             result.push(OpticsInventoryEntry {
-                name: iface_name.clone(),
-                media_type,
+                name: canonical_name.clone(),
+                media_type: media_type.clone(),
                 vendor,
                 model,
                 serial_number,
@@ -513,6 +534,21 @@ fn format_speed(bps: u64) -> String {
     } else {
         format!("{bps}bps")
     }
+}
+
+/// Strip a trailing /N channel suffix from an EOS interface name.
+///
+/// QSFP28/QSFP-DD interfaces appear per-lane in `show interfaces transceiver`
+/// (e.g. "Ethernet13/1" through "Ethernet13/4"). Stripping the suffix gives
+/// the canonical physical port name used in `show inventory` xcvrSlots lookup.
+fn strip_channel_suffix(name: &str) -> String {
+    if let Some(slash) = name.rfind('/') {
+        let after = &name[slash + 1..];
+        if !after.is_empty() && after.chars().all(|c| c.is_ascii_digit()) {
+            return name[..slash].to_string();
+        }
+    }
+    name.to_string()
 }
 
 /// Sort key for interface names (Ethernet1 < Ethernet2 < Ethernet10 < Ethernet50/1).
