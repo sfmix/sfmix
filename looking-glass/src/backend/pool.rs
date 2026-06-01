@@ -457,9 +457,11 @@ fn port_visible(
     // Nokia SR-OS router/VPRN interfaces are always visible.
     // They don't follow Arista naming and aren't participant-facing ports.
     // VPRN peering interfaces end with "-peering" (e.g. as12276-peering).
+    // Physical connector ports use slot/mda/connector naming (e.g. 1/1/c1).
     if interface == "system"
         || interface.starts_with("lag-")
         || interface.contains("-peering")
+        || (interface.chars().next().is_some_and(|c| c.is_ascii_digit()) && interface.contains("/c"))
     {
         return true;
     }
