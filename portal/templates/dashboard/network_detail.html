@@ -139,25 +139,10 @@
 <section class="mb-8">
   <h2 class="text-lg font-semibold mb-3">Live Network Data</h2>
   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-    <a href="{% url 'network_bgp' asn %}"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
-      <div class="font-medium text-indigo-700">BGP Sessions</div>
-      <div class="text-xs text-gray-500 mt-0.5">Route server peering status</div>
-    </a>
     <a href="{% url 'network_mac_table' asn %}"
        class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
       <div class="font-medium text-indigo-700">MAC Table</div>
       <div class="text-xs text-gray-500 mt-0.5">Learned MAC addresses</div>
-    </a>
-    <a href="{% url 'network_arp' asn %}"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
-      <div class="font-medium text-indigo-700">ARP Table</div>
-      <div class="text-xs text-gray-500 mt-0.5">IPv4 ARP entries</div>
-    </a>
-    <a href="{% url 'network_nd' asn %}"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
-      <div class="font-medium text-indigo-700">IPv6 Neighbors</div>
-      <div class="text-xs text-gray-500 mt-0.5">ND table entries</div>
     </a>
   </div>
 </section>

@@ -166,115 +166,12 @@ def network_detail(request, asn):
     })
 
 
-# ── Looking Glass feature views ────────────────────────────────────
-
-def _lg_call(request, method, *args, **kwargs):
-    """Call a LookingGlassClient method, returning (data, error)."""
-    token = request.session.get("oidc_id_token")
-    try:
-        lg = LookingGlassClient()
-        if not lg.base_url:
-            return [], "Looking Glass not configured"
-        results = getattr(lg, method)(token=token, *args, **kwargs)
-        data = []
-        for device_result in results:
-            if device_result.get("success") and device_result.get("data"):
-                dev = device_result.get("device", "")
-                item = device_result["data"]
-                if isinstance(item, list):
-                    for entry in item:
-                        if isinstance(entry, dict):
-                            entry["device"] = dev
-                        data.append(entry)
-                elif isinstance(item, dict):
-                    item["device"] = dev
-                    data.append(item)
-        return data, None
-    except Exception as e:
-        return [], str(e)
-
-
-def _check_asn_access(request, asn):
-    """Return HttpResponseForbidden if user doesn't own this ASN."""
-    asns = request.session.get("oidc_asns", [])
-    if asn not in asns:
-        return HttpResponseForbidden("You do not have access to this network.")
-    return None
-
-
-@login_required
-def network_bgp(request, asn):
-    """BGP summary for a participant network."""
-    denied = _check_asn_access(request, asn)
-    if denied:
-        return denied
-    token = request.session.get("oidc_id_token")
-    peers_v4 = []
-    peers_v6 = []
-    lg_error = None
-    try:
-        lg = LookingGlassClient()
-        if lg.base_url:
-            for af, dest in [("ipv4", peers_v4), ("ipv6", peers_v6)]:
-                results = lg.get_bgp_summary(af=af, token=token)
-                for device_result in results:
-                    if device_result.get("success") and device_result.get("data"):
-                        summary = device_result["data"]
-                        dev = device_result.get("device", "")
-                        for peer in summary.get("peers", []):
-                            if peer.get("remote_as") == asn:
-                                peer["device"] = dev
-                                peer["router_id"] = summary.get("router_id", "")
-                                peer["local_as"] = summary.get("local_as", 0)
-                                dest.append(peer)
-    except Exception as e:
-        lg_error = str(e)
-    return render(request, "dashboard/network_bgp.html", {
-        "asn": asn,
-        "peers_v4": peers_v4,
-        "peers_v6": peers_v6,
-        "lg_error": lg_error,
-        "is_ix_admin": _is_ix_admin(request),
-    })
-
-
-@login_required
-def network_bgp_neighbor(request, asn, address):
-    """BGP neighbor detail for a specific peer."""
-    denied = _check_asn_access(request, asn)
-    if denied:
-        return denied
-    af = request.GET.get("af", "ipv4")
-    token = request.session.get("oidc_id_token")
-    neighbor = None
-    lg_error = None
-    try:
-        lg = LookingGlassClient()
-        if lg.base_url:
-            results = lg.get_bgp_neighbor(address, af=af, token=token)
-            for device_result in results:
-                if device_result.get("success") and device_result.get("data"):
-                    neighbor = device_result["data"]
-                    neighbor["device"] = device_result.get("device", "")
-                    break
-    except Exception as e:
-        lg_error = str(e)
-    return render(request, "dashboard/network_bgp_neighbor.html", {
-        "asn": asn,
-        "address": address,
-        "af": af,
-        "neighbor": neighbor,
-        "lg_error": lg_error,
-        "is_ix_admin": _is_ix_admin(request),
-    })
-
-
 @login_required
 def network_mac_table(request, asn):
     """MAC address table for a participant network."""
-    denied = _check_asn_access(request, asn)
-    if denied:
-        return denied
+    asns = request.session.get("oidc_asns", [])
+    if asn not in asns:
+        return HttpResponseForbidden("You do not have access to this network.")
     vlan = request.GET.get("vlan")
     token = request.session.get("oidc_id_token")
     entries = []
@@ -301,55 +198,28 @@ def network_mac_table(request, asn):
 
 
 @login_required
-def network_arp(request, asn):
-    """ARP table view for a participant network."""
-    denied = _check_asn_access(request, asn)
-    if denied:
-        return denied
-    entries, lg_error = _lg_call(request, "get_arp_table")
-    return render(request, "dashboard/network_arp.html", {
-        "asn": asn,
-        "entries": entries,
-        "lg_error": lg_error,
-        "is_ix_admin": _is_ix_admin(request),
-    })
-
-
-@login_required
-def network_nd(request, asn):
-    """IPv6 neighbor discovery table for a participant network."""
-    denied = _check_asn_access(request, asn)
-    if denied:
-        return denied
-    entries, lg_error = _lg_call(request, "get_nd_table")
-    return render(request, "dashboard/network_nd.html", {
-        "asn": asn,
-        "entries": entries,
-        "lg_error": lg_error,
-        "is_ix_admin": _is_ix_admin(request),
-    })
-
-
-@login_required
 def lldp_neighbors(request):
     """LLDP neighbor table (admin only)."""
     if not _is_ix_admin(request):
         return HttpResponseForbidden("IX Administrators only.")
-    entries, lg_error = _lg_call(request, "get_lldp_neighbors")
+    entries = []
+    lg_error = None
+    token = request.session.get("oidc_id_token")
+    try:
+        lg = LookingGlassClient()
+        if not lg.base_url:
+            lg_error = "Looking Glass not configured"
+        else:
+            results = lg.get_lldp_neighbors(token=token)
+            for device_result in results:
+                if device_result.get("success") and device_result.get("data"):
+                    dev = device_result.get("device", "")
+                    for entry in device_result["data"]:
+                        entry["device"] = dev
+                        entries.append(entry)
+    except Exception as e:
+        lg_error = str(e)
     return render(request, "dashboard/lldp_neighbors.html", {
-        "entries": entries,
-        "lg_error": lg_error,
-        "is_ix_admin": True,
-    })
-
-
-@login_required
-def vxlan_vtep(request):
-    """VXLAN VTEP table (admin only)."""
-    if not _is_ix_admin(request):
-        return HttpResponseForbidden("IX Administrators only.")
-    entries, lg_error = _lg_call(request, "get_vxlan_vtep")
-    return render(request, "dashboard/vxlan_vtep.html", {
         "entries": entries,
         "lg_error": lg_error,
         "is_ix_admin": True,
