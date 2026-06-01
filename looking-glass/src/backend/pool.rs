@@ -454,11 +454,12 @@ fn port_visible(
     if interface.starts_with("Loopback") || interface.starts_with("Lo") {
         return true;
     }
-    // Nokia SR-OS router interfaces (system, lag-*, etc.) are always visible
-    // They don't follow Arista naming and aren't participant-facing ports
+    // Nokia SR-OS router/VPRN interfaces are always visible.
+    // They don't follow Arista naming and aren't participant-facing ports.
+    // VPRN peering interfaces end with "-peering" (e.g. as12276-peering).
     if interface == "system"
         || interface.starts_with("lag-")
-        || interface.contains("-peering-")
+        || interface.contains("-peering")
     {
         return true;
     }
