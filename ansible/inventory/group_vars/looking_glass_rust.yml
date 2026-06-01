@@ -97,8 +97,10 @@ looking_glass_devices:
   - name: switch01.scl05.sfmix.org
     platform: arista_eos
   - name: cr1.sjc01.transit.sfmix.org
+    host: management.cr1.sjc01.transit.sfmix.org
     platform: nokia_sros
     command_timeout_secs: 120
   - name: cr1.scl02.transit.sfmix.org
+    host: management.cr1.scl02.transit.sfmix.org
     platform: nokia_sros
     command_timeout_secs: 120
