@@ -298,7 +298,7 @@ impl server::Server for SshServerImpl {
     type Handler = SshSessionHandler;
 
     fn new_client(&mut self, peer_addr: Option<std::net::SocketAddr>) -> Self::Handler {
-        info!("SSH connection from {:?}", peer_addr);
+        info!("SSH connection from {}", peer_addr.map_or_else(|| "unknown".to_string(), |a| a.to_string()));
         SshSessionHandler {
             ctx: self.ctx.clone(),
             ca_key: self.ca_key.clone(),
@@ -783,7 +783,13 @@ impl server::Handler for SshSessionHandler {
         _channel: ChannelId,
         _session: &mut Session,
     ) -> Result<(), Self::Error> {
-        info!("SSH session ended for {:?}", self.peer_addr);
+        let addr = self.peer_addr.map_or_else(|| "unknown".to_string(), |a| a.to_string());
+        let identity = self.identity.lock().unwrap();
+        if let Some(email) = &identity.email {
+            info!(email, "SSH session ended for {}", addr);
+        } else {
+            info!("SSH session ended for {} (unauthenticated)", addr);
+        }
         Ok(())
     }
 }
