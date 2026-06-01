@@ -263,10 +263,11 @@ impl NokiaSrosDriver {
     }
 
     async fn fetch_optics(&self, target: Option<&str>) -> Result<Vec<InterfaceOptics>> {
-        // Get port details including transceiver info
+        // Use the transceiver subtree: connector ports (1/1/c1) have DOM data,
+        // lane ports (1/1/c1/1) returned by bare `port *` have no transceiver info.
         let path = match target {
-            Some(t) => format!("port {t}"),
-            None => "port *".to_string(),
+            Some(t) => format!("port {t} transceiver"),
+            None => "port * transceiver".to_string(),
         };
         let val = self.exec_json_value(&path).await?;
 
@@ -429,10 +430,11 @@ impl NokiaSrosDriver {
 
     /// Fetch transceiver hardware inventory (model/serial number).
     ///
-    /// Uses `info json /state port *` — the `port * transceiver` subtree path
-    /// is not supported on all SR-OS versions and returns non-JSON output.
+    /// Uses `info json /state port * transceiver` which returns connector-level
+    /// ports (1/1/c1) with transceiver data. `port *` alone returns lane-level
+    /// ports (1/1/c1/1) which have no transceiver subtree.
     async fn fetch_optics_inventory(&self) -> Result<Vec<OpticsInventoryEntry>> {
-        let val = self.exec_json_value("port *").await?;
+        let val = self.exec_json_value("port * transceiver").await?;
 
         // JSON wrapper may be "nokia-state:port" or "port" depending on context
         let port_list = if let Some(arr) = val.get("nokia-state:port").and_then(|v| v.as_array()) {
@@ -510,13 +512,19 @@ impl DeviceDriver for NokiaSrosDriver {
                 let mut interfaces = self.parse_interfaces_status(&val);
 
                 // Physical ports (best-effort; absence is non-fatal)
-                if let Ok(port_val) = self.exec_json_value("port *").await {
-                    interfaces.extend(self.parse_ports_status(&port_val));
+                match self.exec_json_value("port *").await {
+                    Ok(port_val) => interfaces.extend(self.parse_ports_status(&port_val)),
+                    Err(e) => tracing::warn!(device = self.config.name, error = %e, "interfaces: port * failed"),
                 }
 
-                // VPRN service interfaces (best-effort; not all platforms support wildcard)
-                if let Ok(vprn_val) = self.exec_json_value("service vprn * interface * oper-state").await {
-                    interfaces.extend(self.parse_vprn_interfaces_status(&vprn_val));
+                // VPRN service interfaces — wildcard enumerates all VPRNs dynamically
+                match self.exec_json_value("service vprn * interface * oper-state").await {
+                    Ok(vprn_val) => {
+                        let vprn_ifaces = self.parse_vprn_interfaces_status(&vprn_val);
+                        tracing::info!(device = self.config.name, count = vprn_ifaces.len(), "Nokia VPRN interfaces");
+                        interfaces.extend(vprn_ifaces);
+                    }
+                    Err(e) => tracing::warn!(device = self.config.name, error = %e, "interfaces: vprn query failed"),
                 }
 
                 interfaces.sort_by(|a, b| a.name.cmp(&b.name));
