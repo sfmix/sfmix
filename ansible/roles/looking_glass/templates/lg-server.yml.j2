@@ -71,6 +71,15 @@ vlans:
     - "{{ vlan }}"
 {% endfor %}
 
+device_cache:
+  poll_interval_secs: {{ looking_glass_device_cache_poll_interval_secs | default(30) }}
+  ttl:
+    default: {{ looking_glass_device_cache_ttl_default | default(60) }}
+    optics: {{ looking_glass_device_cache_ttl_optics | default(15) }}
+    interfaces: {{ looking_glass_device_cache_ttl_interfaces | default(30) }}
+    lldp_neighbors: {{ looking_glass_device_cache_ttl_lldp | default(120) }}
+    mac_address_table: {{ looking_glass_device_cache_ttl_mac | default(30) }}
+
 rate_limits:
   global:
     max_concurrent: 10
