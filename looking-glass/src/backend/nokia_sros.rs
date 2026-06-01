@@ -89,7 +89,9 @@ impl NokiaSrosDriver {
 
     /// Parse physical port status from `info json /state port *` output.
     fn parse_ports_status(&self, val: &Value) -> Vec<InterfaceStatus> {
-        let port_list = if let Some(arr) = val.pointer("/port").and_then(|v| v.as_array()) {
+        let port_list = if let Some(arr) = val.get("nokia-state:port").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(arr) = val.pointer("/port").and_then(|v| v.as_array()) {
             arr.clone()
         } else if let Some(obj) = val.pointer("/port").and_then(|v| v.as_object()) {
             vec![Value::Object(obj.clone())]
@@ -268,7 +270,9 @@ impl NokiaSrosDriver {
         };
         let val = self.exec_json_value(&path).await?;
 
-        let port_list = if let Some(arr) = val.pointer("/port").and_then(|v| v.as_array()) {
+        let port_list = if let Some(arr) = val.get("nokia-state:port").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else if let Some(arr) = val.pointer("/port").and_then(|v| v.as_array()) {
             arr.clone()
         } else if let Some(obj) = val.pointer("/port").and_then(|v| v.as_object()) {
             vec![Value::Object(obj.clone())]
