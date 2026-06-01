@@ -131,6 +131,16 @@ impl PolicyEngine {
             return PolicyDecision::Allow;
         }
 
+        // OpticsInventory is admin-only
+        if command.resource == Resource::OpticsInventory {
+            if !identity.is_admin(&self.admin_group()) {
+                return PolicyDecision::Deny {
+                    reason: "optics inventory requires admin access".to_string(),
+                };
+            }
+            return PolicyDecision::Allow;
+        }
+
         // Port-scoped commands require auth + ownership.
         //
         // Two calling conventions:
@@ -280,6 +290,7 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::OpticsDetail => {
             return format!("show optics {}", command.target.as_deref().unwrap_or("*"));
         }
+        Resource::OpticsInventory => return "show optics inventory".to_string(),
         Resource::Participants => "participants",
         Resource::ParticipantDetail => {
             return format!("show participant {}", command.target.as_deref().unwrap_or("*"));
@@ -559,6 +570,33 @@ mod tests {
             "as",
         );
         let command = parse_command("show optics 64500").unwrap();
+        assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
+    }
+
+    #[test]
+    fn test_anon_denied_optics_inventory() {
+        let engine = PolicyEngine::default_public();
+        let identity = Identity::anonymous();
+        let participants = test_participants();
+
+        let command = parse_command("show optics inventory").unwrap();
+        assert!(matches!(
+            engine.evaluate(&command, &identity, &participants),
+            PolicyDecision::Deny { .. }
+        ));
+    }
+
+    #[test]
+    fn test_admin_allowed_optics_inventory() {
+        let engine = PolicyEngine::default_public();
+        let participants = test_participants();
+
+        let identity = Identity::from_oidc_claims(
+            "admin@sfmix.org".to_string(),
+            vec![DEFAULT_ADMIN_GROUP.to_string()],
+            "as",
+        );
+        let command = parse_command("show optics inventory").unwrap();
         assert_eq!(engine.evaluate(&command, &identity, &participants), PolicyDecision::Allow);
     }
 
