@@ -145,6 +145,66 @@ pub fn format_netbox_status(status: &crate::netbox::NetboxStatus, mode: ColorMod
     out
 }
 
+/// Render device state cache status as a diagnostic summary.
+pub fn format_device_cache_status(
+    cache: &std::collections::HashMap<String, crate::structured::DeviceStateCache>,
+    cfg: &crate::config::DeviceCacheConfig,
+    mode: ColorMode,
+) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "{}", bold_str("Device State Cache", mode));
+
+    let interval = if cfg.poll_interval_secs > 0 {
+        format!("{}s", cfg.poll_interval_secs)
+    } else {
+        "disabled".to_string()
+    };
+    let _ = writeln!(out, "  Poll interval:   {interval}");
+    let _ = writeln!(out, "  TTL (default):   {}s", cfg.ttl.default);
+
+    if cache.is_empty() {
+        let _ = writeln!(out, "  (no data — cache is cold or polling is disabled)");
+        return out;
+    }
+
+    let _ = writeln!(out);
+
+    let mut names: Vec<&str> = cache.keys().map(|s| s.as_str()).collect();
+    names.sort_unstable();
+
+    for name in names {
+        let entry = &cache[name];
+        let _ = writeln!(out, "  {}", bold_str(name, mode));
+
+        let age = |t: Option<std::time::Instant>| -> String {
+            match t {
+                None => "never".to_string(),
+                Some(t) => {
+                    let secs = t.elapsed().as_secs();
+                    if secs < 60 { format!("{secs}s ago") }
+                    else { format!("{}m {}s ago", secs / 60, secs % 60) }
+                }
+            }
+        };
+
+        let _ = writeln!(out, "    interfaces:   {:12}  ({} entries)", age(entry.interfaces_at), entry.interfaces.len());
+        let _ = writeln!(out, "    optics:       {:12}  ({} entries)", age(entry.optics_at), entry.optics.len());
+        let _ = writeln!(out, "    lldp:         {:12}  ({} entries)", age(entry.lldp_at), entry.lldp_neighbors.len());
+        let _ = writeln!(out, "    mac:          {:12}  ({} entries)", age(entry.mac_at), entry.mac_table.len());
+
+        if let Some(ref err) = entry.last_error {
+            let err_str = if mode == ColorMode::Plain {
+                err.clone()
+            } else {
+                format!("{}", err.red())
+            };
+            let _ = writeln!(out, "    Last error:   {err_str}");
+        }
+    }
+
+    out
+}
+
 /// Render the participant list as a table.
 ///
 /// In `Rich` mode, participant_type is shown as an emoji prefix on the name.
@@ -305,6 +365,7 @@ pub fn render(output: &CommandOutput, color: ColorMode) -> String {
         CommandOutput::Stream(_) => String::new(),
         CommandOutput::Participants(s) => s.clone(),
         CommandOutput::NetboxStatus(s) => s.clone(),
+        CommandOutput::DeviceCacheStatus(s) => s.clone(),
         CommandOutput::Error(e) => match color {
             ColorMode::Plain => format!("Error: {e}\n"),
             _ => format!("{}\n", format!("Error: {e}").red()),

@@ -22,6 +22,8 @@ pub struct Config {
     pub frontend_limits: Option<FrontendLimitsConfig>,
     #[serde(default)]
     pub vlans: VlanVisibilityConfig,
+    #[serde(default)]
+    pub device_cache: DeviceCacheConfig,
 }
 
 /// VLAN visibility configuration for MAC address table output.
@@ -291,6 +293,48 @@ fn default_max_connections() -> u32 {
 
 fn default_max_connections_per_source() -> u32 {
     5
+}
+
+/// Background device state cache configuration.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct DeviceCacheConfig {
+    /// How often (in seconds) to poll all devices. 0 = disabled.
+    #[serde(default)]
+    pub poll_interval_secs: u64,
+    #[serde(default)]
+    pub ttl: DeviceCacheTtlConfig,
+}
+
+/// Per-resource-type TTL overrides (seconds). Falls back to `default` when absent.
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeviceCacheTtlConfig {
+    /// Default TTL when no per-resource override is set. 0 = always serve from cache.
+    #[serde(default = "default_cache_ttl")]
+    pub default: u64,
+    #[serde(default)]
+    pub optics: Option<u64>,
+    #[serde(default)]
+    pub interfaces: Option<u64>,
+    #[serde(default)]
+    pub lldp_neighbors: Option<u64>,
+    #[serde(default)]
+    pub mac_address_table: Option<u64>,
+}
+
+impl Default for DeviceCacheTtlConfig {
+    fn default() -> Self {
+        Self {
+            default: default_cache_ttl(),
+            optics: None,
+            interfaces: None,
+            lldp_neighbors: None,
+            mac_address_table: None,
+        }
+    }
+}
+
+fn default_cache_ttl() -> u64 {
+    60
 }
 
 impl Config {

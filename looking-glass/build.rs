@@ -16,7 +16,7 @@ enum Resource {
     InterfacesStatus, InterfaceDetail,
     MacAddressTable, LldpNeighbors,
     Optics, OpticsDetail, Participants, ParticipantDetail,
-    NetworkReachability, Help, Login, Whoami, Logout, NetboxCache,
+    NetworkReachability, Help, Login, Whoami, Logout, NetboxCache, DeviceCache,
 }
 
 #[derive(Deserialize)]

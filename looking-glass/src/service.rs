@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use arc_swap::ArcSwap;
 use thiserror::Error;
 
-use crate::backend::pool::DevicePool;
+use crate::backend::pool::{DevicePool, filter_output_with_lookup};
 use crate::command::{Command, Resource};
+use crate::config::DeviceCacheConfig;
 use crate::format::ColorMode;
 use crate::identity::Identity;
 use crate::netbox::{NetboxIxpData, NetboxStatus};
@@ -10,7 +13,7 @@ use crate::oidc::OidcClient;
 use crate::participants::{ParticipantMap, PortMap, PortClass};
 use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
-use crate::structured::CommandOutput;
+use crate::structured::{CommandOutput, DeviceStateCache, InterfaceOptics};
 
 // ---------------------------------------------------------------------------
 // RPC types
@@ -70,6 +73,9 @@ pub struct LookingGlass {
     pub ixp_data: ArcSwap<NetboxIxpData>,
     /// Full NetBox participant data (with enriched ports + IPs) for REST API.
     pub netbox_participants: ArcSwap<Vec<crate::netbox::NetboxParticipant>>,
+    /// Per-device background-polled state cache. Empty = cold start or disabled.
+    pub device_state_cache: ArcSwap<HashMap<String, DeviceStateCache>>,
+    pub device_cache_cfg: DeviceCacheConfig,
 }
 
 impl LookingGlass {
@@ -89,6 +95,16 @@ impl LookingGlass {
                 device: "local".to_string(),
                 success: true,
                 output: CommandOutput::NetboxStatus(text),
+            }]);
+        }
+
+        if command.resource == Resource::DeviceCache {
+            let cache = self.device_state_cache.load();
+            let text = crate::format::format_device_cache_status(&cache, &self.device_cache_cfg, ColorMode::Plain);
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::DeviceCacheStatus(text),
             }]);
         }
 
@@ -162,6 +178,25 @@ impl LookingGlass {
             }
         }
 
+        // Cache-served resources: bypass rate limit + device dispatch when data is warm and fresh
+        let cacheable = matches!(
+            command.resource,
+            Resource::InterfacesStatus
+                | Resource::LldpNeighbors
+                | Resource::MacAddressTable
+                | Resource::Optics
+                | Resource::OpticsDetail
+        );
+        if cacheable {
+            let cache = self.device_state_cache.load();
+            if !cache.is_empty() {
+                let ttl = self.ttl_for_resource(command.resource);
+                if cache_is_fresh(&cache, command.resource, ttl) {
+                    return Ok(self.serve_from_cache(&cache, command, identity));
+                }
+            }
+        }
+
         // Rate limit
         let _guard = self
             .rate_limiter
@@ -219,6 +254,109 @@ impl LookingGlass {
     pub fn admin_group(&self) -> &str {
         self.policy.admin_group()
     }
+
+    fn ttl_for_resource(&self, resource: Resource) -> u64 {
+        let cfg = &self.device_cache_cfg.ttl;
+        match resource {
+            Resource::InterfacesStatus => cfg.interfaces.unwrap_or(cfg.default),
+            Resource::LldpNeighbors => cfg.lldp_neighbors.unwrap_or(cfg.default),
+            Resource::MacAddressTable => cfg.mac_address_table.unwrap_or(cfg.default),
+            Resource::Optics | Resource::OpticsDetail => cfg.optics.unwrap_or(cfg.default),
+            _ => cfg.default,
+        }
+    }
+
+    fn serve_from_cache(
+        &self,
+        cache: &HashMap<String, DeviceStateCache>,
+        command: &Command,
+        identity: &Identity,
+    ) -> Vec<DeviceResult> {
+        let pmap = self.port_map.load();
+        let mut results = Vec::new();
+
+        let mut device_names: Vec<&str> = cache.keys().map(|s| s.as_str()).collect();
+        device_names.sort_unstable();
+
+        for device_name in device_names {
+            let entry = &cache[device_name];
+
+            if let Some(ref target_device) = command.device {
+                if device_name != target_device { continue; }
+            }
+
+            let raw_output = match command.resource {
+                Resource::InterfacesStatus => CommandOutput::InterfacesStatus(entry.interfaces.clone()),
+                Resource::LldpNeighbors    => CommandOutput::LldpNeighbors(entry.lldp_neighbors.clone()),
+                Resource::MacAddressTable  => CommandOutput::MacAddressTable(entry.mac_table.clone()),
+                Resource::Optics           => CommandOutput::Optics(entry.optics.clone()),
+                Resource::OpticsDetail     => {
+                    let target = command.target.as_deref().unwrap_or("");
+                    let filtered: Vec<InterfaceOptics> = entry.optics.iter()
+                        .filter(|o| o.name == target)
+                        .cloned()
+                        .collect();
+                    CommandOutput::OpticsDetail(filtered)
+                }
+                _ => continue,
+            };
+
+            let mut output = filter_output_with_lookup(
+                raw_output,
+                device_name,
+                identity,
+                &pmap,
+                self.policy.admin_group(),
+                &self.public_vlans,
+            );
+
+            if let Some(asn) = command.filter_asn {
+                output = apply_asn_filter(output, device_name, asn, &pmap);
+            }
+            if let Some(ref vlan) = command.filter_vlan {
+                output = apply_vlan_filter(output, vlan);
+            }
+
+            results.push(DeviceResult {
+                device: device_name.to_string(),
+                success: true,
+                output,
+            });
+        }
+        results
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Device state cache helpers
+// ---------------------------------------------------------------------------
+
+/// Returns true if all devices have data for `resource` within `ttl_secs`.
+/// ttl_secs == 0 means always serve from cache regardless of age.
+fn cache_is_fresh(
+    cache: &HashMap<String, DeviceStateCache>,
+    resource: Resource,
+    ttl_secs: u64,
+) -> bool {
+    if ttl_secs == 0 {
+        return true;
+    }
+    let now = std::time::Instant::now();
+    for entry in cache.values() {
+        let at = match resource {
+            Resource::InterfacesStatus => entry.interfaces_at,
+            Resource::LldpNeighbors    => entry.lldp_at,
+            Resource::MacAddressTable  => entry.mac_at,
+            Resource::Optics | Resource::OpticsDetail => entry.optics_at,
+            _ => return false,
+        };
+        match at {
+            None => return false,
+            Some(t) if now.duration_since(t).as_secs() > ttl_secs => return false,
+            _ => {}
+        }
+    }
+    true
 }
 
 // ---------------------------------------------------------------------------

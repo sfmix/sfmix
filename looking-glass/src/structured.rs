@@ -4,6 +4,23 @@ pub use lg_types::structured::{
     LldpNeighbor, MacEntry, OpticalLane,
 };
 
+/// Per-device snapshot of all cacheable state, populated by the background poller.
+///
+/// Each resource tracks its own update timestamp independently so partial poll
+/// failures (one command times out) are reflected accurately in the status output.
+#[derive(Clone, Default)]
+pub struct DeviceStateCache {
+    pub interfaces:     Vec<InterfaceStatus>,
+    pub interfaces_at:  Option<std::time::Instant>,
+    pub lldp_neighbors: Vec<LldpNeighbor>,
+    pub lldp_at:        Option<std::time::Instant>,
+    pub mac_table:      Vec<MacEntry>,
+    pub mac_at:         Option<std::time::Instant>,
+    pub optics:         Vec<InterfaceOptics>,
+    pub optics_at:      Option<std::time::Instant>,
+    pub last_error:     Option<String>,
+}
+
 use serde::Serialize;
 
 // ── CommandOutput enum ──────────────────────────────────────────────
@@ -28,6 +45,8 @@ pub enum CommandOutput {
     Participants(String),
     /// NetBox cache status (local resource, no device dispatch).
     NetboxStatus(String),
+    /// Device state cache status (local resource, no device dispatch).
+    DeviceCacheStatus(String),
     /// Device-level error (e.g. SSH failure, timeout).
     Error(String),
 }
@@ -68,6 +87,7 @@ impl CommandOutput {
             }
             lg_types::structured::CommandOutput::Participants(s) => CommandOutput::Participants(s),
             lg_types::structured::CommandOutput::NetboxStatus(s) => CommandOutput::NetboxStatus(s),
+            lg_types::structured::CommandOutput::DeviceCacheStatus(s) => CommandOutput::DeviceCacheStatus(s),
             lg_types::structured::CommandOutput::Error(e) => CommandOutput::Error(e),
         }
     }
@@ -86,6 +106,7 @@ impl CommandOutput {
             CommandOutput::Stream(_) => lg_types::structured::CommandOutput::Error("cannot serialize live stream".into()),
             CommandOutput::Participants(s) => lg_types::structured::CommandOutput::Participants(s),
             CommandOutput::NetboxStatus(s) => lg_types::structured::CommandOutput::NetboxStatus(s),
+            CommandOutput::DeviceCacheStatus(s) => lg_types::structured::CommandOutput::DeviceCacheStatus(s),
             CommandOutput::Error(e) => lg_types::structured::CommandOutput::Error(e),
         }
     }
@@ -103,6 +124,7 @@ impl Serialize for CommandOutput {
             CommandOutput::Stream(_) => serializer.serialize_str("<streaming>"),
             CommandOutput::Participants(s) => serializer.serialize_str(s),
             CommandOutput::NetboxStatus(s) => serializer.serialize_str(s),
+            CommandOutput::DeviceCacheStatus(s) => serializer.serialize_str(s),
             CommandOutput::Error(e) => {
                 let mut map = serializer.serialize_map(Some(1))?;
                 use serde::ser::SerializeMap;

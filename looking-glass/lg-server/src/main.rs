@@ -149,7 +149,30 @@ async fn main() -> Result<()> {
         netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
         ixp_data: ArcSwap::from_pointee(NetboxIxpData { switches: Vec::new(), vlans: Vec::new() }),
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
+        device_state_cache: ArcSwap::from_pointee(std::collections::HashMap::new()),
+        device_cache_cfg: server_cfg.device_cache.clone(),
     });
+
+    // Device state cache: initial warm-up + background refresh
+    if server_cfg.device_cache.poll_interval_secs > 0 {
+        info!("Warming device state cache (poll interval: {}s)", server_cfg.device_cache.poll_interval_secs);
+        let initial = lg.device_pool.poll_all_devices().await;
+        info!("Device state cache ready: {} devices", initial.len());
+        lg.device_state_cache.store(Arc::new(initial));
+
+        let state = lg.clone();
+        let interval_secs = server_cfg.device_cache.poll_interval_secs;
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
+            tick.tick().await;
+            loop {
+                tick.tick().await;
+                let fresh = state.device_pool.poll_all_devices().await;
+                tracing::debug!("Device state cache refreshed: {} devices", fresh.len());
+                state.device_state_cache.store(Arc::new(fresh));
+            }
+        });
+    }
 
     // NetBox participant source: initial fetch + background refresh
     if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix }) = server_cfg.participants {
