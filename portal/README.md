@@ -43,6 +43,20 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+### CSS / Tailwind
+
+Tailwind CSS is compiled at build time (no CDN). The committed `static/css/tailwind.css` is
+what whitenoise serves. After adding new Tailwind utility classes to any template, regenerate it:
+
+```bash
+cd portal
+bash scripts/build-css.sh
+```
+
+The script downloads the Tailwind CLI v4.3.0 binary to `/tmp` on first run (cached for subsequent
+runs) and emits a minified CSS file. Commit the updated `static/css/tailwind.css`. The Docker
+image build (`docker-compose up --build`) also regenerates it automatically.
+
 For full OIDC testing against `login.sfmix.org`, set these env vars:
 ```bash
 export OIDC_RP_CLIENT_ID=portal
@@ -133,8 +147,11 @@ The docker-compose health check hits `localhost:8000` which isn't in `ALLOWED_HO
 | `portal/dashboard/services.py`                            | NetBox data fetching, proactive cache, health tracking, Prometheus metrics |
 | `portal/dashboard/middleware.py`                          | Starts background refresh thread per Gunicorn worker                       |
 | `portal/ixp_portal/settings.py`                           | Django settings (OIDC, logging, middleware)                                |
-| `portal/Dockerfile`                                       | Container image (Python 3.12 + Gunicorn)                                   |
-| `portal/docker-compose.yml`                               | Docker Compose config                                                      |
+| `portal/Dockerfile`                                       | Container image (Python 3.12 + Gunicorn); rebuilds Tailwind CSS at build time |
+| `portal/docker-compose.yml`                               | Docker Compose config                                                         |
+| `portal/static/css/tailwind.input.css`                    | Tailwind entry point (`@import "tailwindcss"`)                                |
+| `portal/static/css/tailwind.css`                          | Compiled, minified Tailwind output — commit after running `build-css.sh`      |
+| `portal/scripts/build-css.sh`                             | Regenerates `tailwind.css` from templates; run after adding new utility classes |
 
 ## Environment Variables
 
