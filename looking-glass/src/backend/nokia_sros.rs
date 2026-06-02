@@ -521,7 +521,7 @@ impl DeviceDriver for NokiaSrosDriver {
                 match self.exec_json_value("service vprn * interface * oper-state").await {
                     Ok(vprn_val) => {
                         let vprn_ifaces = self.parse_vprn_interfaces_status(&vprn_val);
-                        tracing::info!(device = self.config.name, count = vprn_ifaces.len(), "Nokia VPRN interfaces");
+                        tracing::debug!(device = self.config.name, count = vprn_ifaces.len(), "Nokia VPRN interfaces");
                         interfaces.extend(vprn_ifaces);
                     }
                     Err(e) => tracing::warn!(device = self.config.name, error = %e, "interfaces: vprn query failed"),
