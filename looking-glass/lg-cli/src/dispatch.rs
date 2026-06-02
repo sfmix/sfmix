@@ -24,7 +24,7 @@ pub struct ServiceContext {
 impl ServiceContext {
     pub async fn connect(rpc_url: &str, rpc_secret: &str) -> Result<Self> {
         let rpc = RpcClient::new(rpc_url, rpc_secret);
-        let info = rpc.service_info().await?;
+        let info = rpc.wait_for_ready(30).await?;
         Ok(Self { info, rpc })
     }
 }
