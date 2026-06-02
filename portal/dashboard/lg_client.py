@@ -78,9 +78,17 @@ class LookingGlassClient:
         """Get enriched participant data for a specific ASN."""
         return self._get(f"/api/v1/participants/{asn}", token)
 
+    def get_optics_inventory(self, token: str | None = None) -> list[dict[str, Any]]:
+        """Get transceiver hardware inventory (vendor, model, serial number)."""
+        return self._get("/api/v1/optics/inventory", token)
+
     def get_netbox_status(self) -> dict[str, Any]:
         """Get NetBox cache status from the Looking Glass."""
         return self._get("/api/v1/netbox/status")
+
+    def get_device_cache_status(self) -> list[dict[str, Any]]:
+        """Get per-device background cache freshness."""
+        return self._get("/api/v1/device-cache/status")
 
     def get_participants_json(self) -> dict[str, Any]:
         """Get IX-F Member Export (participants.json)."""
