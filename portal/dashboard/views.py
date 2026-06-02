@@ -102,6 +102,7 @@ def network_detail(request, asn):
         if lg.base_url:
             # Use server-side ASN filtering
             iface_results = lg.get_interfaces_status(token, asn=asn)
+            import json as _j, logging as _l; _l.getLogger(__name__).warning("LG raw asn=%s: %s", asn, _j.dumps(iface_results))
             for device_result in iface_results:
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
