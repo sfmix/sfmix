@@ -14,9 +14,9 @@ COPY . .
 RUN curl -fsSL https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-linux-x64 \
       -o /usr/local/bin/tailwindcss \
     && chmod +x /usr/local/bin/tailwindcss \
-    && tailwindcss -i static/css/tailwind.input.css -o static/css/tailwind.css --minify
+    && tailwindcss -i tailwind.input.css -o static/css/tailwind.css --minify
 
-RUN python manage.py collectstatic --noinput 2>/dev/null || true
+RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
