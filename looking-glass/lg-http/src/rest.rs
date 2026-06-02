@@ -320,14 +320,11 @@ async fn get_ipv6_neighbors(
 
 async fn get_participants(
     State(state): State<HttpState>,
-    request: axum::extract::Request,
 ) -> impl IntoResponse {
-    let identity = get_identity(&request);
-    let rate_key = get_rate_key(&request);
-    let cmd = make_cmd(Resource::Participants, None);
-    execute_via_rpc(&state, &identity, &rate_key, cmd, |o| {
-        if let CommandOutput::Participants(s) = o { Some(s.clone()) } else { None }
-    }).await
+    match state.rpc.get_json("/rpc/v1/participants").await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
 }
 
 /// Proxy participants.json (IX-F export) from lg-server.
