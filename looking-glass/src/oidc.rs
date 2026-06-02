@@ -333,7 +333,7 @@ impl OidcClient {
         groups.sort();
         groups.dedup();
 
-        info!(email, groups = ?groups, "OIDC authentication successful");
+        debug!(email, groups = ?groups, "OIDC authentication successful");
 
         Ok(OidcClaims { email, groups })
     }
