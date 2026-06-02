@@ -437,9 +437,10 @@ def device_cache_status_view(request):
         return HttpResponseForbidden("IX Administrators only.")
     devices = []
     lg_error = None
+    token = request.session.get("oidc_id_token")
     try:
-        lg = get_lg_client()
-        devices = lg.get_device_cache_status()
+        lg = LookingGlassClient()
+        devices = lg.get_device_cache_status(token=token)
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/device_cache_status.html", {
