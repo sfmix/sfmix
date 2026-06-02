@@ -328,7 +328,7 @@ def participants_list(request):
     try:
         lg = LookingGlassClient()
         if lg.base_url:
-            entries = lg.get_participants()
+            entries = sorted(lg.get_participants(), key=lambda p: p.get("asn", 0))
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/participants_list.html", {
