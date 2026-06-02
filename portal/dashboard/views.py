@@ -328,15 +328,7 @@ def participants_list(request):
     try:
         lg = LookingGlassClient()
         if lg.base_url:
-            raw = lg.get_participants()
-            # Only keep entries with a valid integer ASN (guards against wrong-format
-            # responses from a misconfigured LG endpoint, e.g. Alice-LG instead of lg-http).
-            entries = [p for p in raw if isinstance(p.get("asn"), int)]
-            if raw and not entries:
-                raise ValueError(
-                    "LG API returned unexpected participant data format "
-                    f"(missing 'asn' field; got keys: {sorted(raw[0].keys()) if raw else []})"
-                )
+            entries = lg.get_participants()
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/participants_list.html", {
