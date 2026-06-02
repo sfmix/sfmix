@@ -31,6 +31,7 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/execute", post(execute))
         .route("/rpc/v1/devices", get(list_devices))
         .route("/rpc/v1/service-info", get(service_info))
+        .route("/rpc/v1/participants", get(participants_list))
         .route("/rpc/v1/participants.json", get(ixf_member_export))
         .route("/rpc/v1/participants/{asn}", get(participant_detail))
         .route("/rpc/v1/netbox/status", get(netbox_status))
@@ -181,6 +182,18 @@ async fn service_info(
         device_count: state.lg.device_count(),
     };
     Json(info).into_response()
+}
+
+/// GET /rpc/v1/participants — flat list of NetBox participants
+async fn participants_list(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let nb_participants = state.lg.netbox_participants.load();
+    Json(serde_json::to_value(&*nb_participants).unwrap_or_default()).into_response()
 }
 
 /// GET /rpc/v1/participants.json — IX-F Member Export
