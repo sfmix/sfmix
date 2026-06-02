@@ -102,20 +102,14 @@ def network_detail(request, asn):
         if lg.base_url:
             # Use server-side ASN filtering
             iface_results = lg.get_interfaces_status(token, asn=asn)
-            import json as _j, logging as _l; _l.getLogger(__name__).warning("LG raw asn=%s: %s", asn, _j.dumps(iface_results))
             for device_result in iface_results:
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
                     for iface in device_result["data"]:
+                        if iface.get("port_channel"):
+                            continue
                         iface["device"] = dev
                         live_interfaces.append(iface)
-
-            # Mark LAG members using the port_channel field already set by the API
-            for iface in live_interfaces:
-                parent = iface.get("port_channel")
-                if parent:
-                    iface["is_lag_member"] = True
-                    iface["parent_lag"] = parent
 
             # Get optics filtered by ASN and merge
             optics_results = lg.get_optics(token, asn=asn)
@@ -243,6 +237,7 @@ def participant_detail(request, asn):
             lg = LookingGlassClient()
             if lg.base_url:
                 iface_results = lg.get_interfaces_status(token, asn=asn)
+                import json as _j, logging as _l; _l.getLogger(__name__).warning("LG raw asn=%s: %s", asn, _j.dumps(iface_results))
                 for device_result in iface_results:
                     if device_result.get("success") and device_result.get("data"):
                         dev = device_result.get("device", "")
