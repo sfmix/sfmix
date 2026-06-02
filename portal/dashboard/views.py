@@ -269,3 +269,86 @@ def netbox_status_view(request):
         "health": health,
         "is_ix_admin": True,
     })
+
+
+# ── Admin: Optics status ────────────────────────────────────────────
+
+@login_required
+def optics_status_view(request):
+    """Transceiver DOM status across all devices (admin only)."""
+    if not _is_ix_admin(request):
+        return HttpResponseForbidden("IX Administrators only.")
+    entries = []
+    lg_error = None
+    token = request.session.get("oidc_id_token")
+    try:
+        lg = LookingGlassClient()
+        if not lg.base_url:
+            lg_error = "Looking Glass not configured"
+        else:
+            results = lg.get_optics(token=token)
+            for device_result in results:
+                if device_result.get("success") and device_result.get("data"):
+                    dev = device_result.get("device", "")
+                    for optic in device_result["data"]:
+                        optic["device"] = dev
+                        entries.append(optic)
+    except Exception as e:
+        lg_error = str(e)
+    return render(request, "dashboard/optics_status.html", {
+        "entries": entries,
+        "lg_error": lg_error,
+        "is_ix_admin": True,
+    })
+
+
+# ── Admin: Optics inventory ─────────────────────────────────────────
+
+@login_required
+def optics_inventory_view(request):
+    """Transceiver hardware inventory across all devices (admin only)."""
+    if not _is_ix_admin(request):
+        return HttpResponseForbidden("IX Administrators only.")
+    entries = []
+    lg_error = None
+    token = request.session.get("oidc_id_token")
+    try:
+        lg = LookingGlassClient()
+        if not lg.base_url:
+            lg_error = "Looking Glass not configured"
+        else:
+            results = lg.get_optics_inventory(token=token)
+            for device_result in results:
+                if device_result.get("success") and device_result.get("data"):
+                    dev = device_result.get("device", "")
+                    for entry in device_result["data"]:
+                        entry["device"] = dev
+                        entries.append(entry)
+    except Exception as e:
+        lg_error = str(e)
+    return render(request, "dashboard/optics_inventory.html", {
+        "entries": entries,
+        "lg_error": lg_error,
+        "is_ix_admin": True,
+    })
+
+
+# ── Admin: Device cache status ──────────────────────────────────────
+
+@login_required
+def device_cache_status_view(request):
+    """Show background device cache freshness to IX administrators."""
+    if not _is_ix_admin(request):
+        return HttpResponseForbidden("IX Administrators only.")
+    devices = []
+    lg_error = None
+    try:
+        lg = get_lg_client()
+        devices = lg.get_device_cache_status()
+    except Exception as e:
+        lg_error = str(e)
+    return render(request, "dashboard/device_cache_status.html", {
+        "devices": devices,
+        "lg_error": lg_error,
+        "is_ix_admin": True,
+    })

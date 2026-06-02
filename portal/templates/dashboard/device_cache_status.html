@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Device Cache Status – SFMIX Portal{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Back to dashboard</a>
+</div>
+
+<h1 class="text-2xl font-bold mb-6">Device Cache Status</h1>
+
+{% if lg_error %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
+  Unable to fetch cache status: {{ lg_error }}
+</div>
+{% endif %}
+
+{% if devices %}
+<div class="space-y-6">
+  {% for dev in devices %}
+  <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold font-mono">{{ dev.device }}</h2>
+      {% if dev.last_error %}
+        <span class="inline-flex items-center gap-1.5 bg-red-100 text-red-800 text-xs font-medium px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Error
+        </span>
+      {% elif dev.poll_interval_secs == 0 %}
+        <span class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 bg-gray-400 rounded-full"></span> Polling disabled
+        </span>
+      {% else %}
+        <span class="inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active ({{ dev.poll_interval_secs }}s interval)
+        </span>
+      {% endif %}
+    </div>
+
+    {% if dev.last_error %}
+    <div class="mb-4 bg-red-50 border border-red-200 rounded p-3 text-xs text-red-700 font-mono break-all">
+      {{ dev.last_error }}
+    </div>
+    {% endif %}
+
+    <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+      {% with r=dev.interfaces %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">Interfaces</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+
+      {% with r=dev.lldp_neighbors %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">LLDP Neighbors</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+
+      {% with r=dev.mac_table %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">MAC Table</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+
+      {% with r=dev.optics %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">Optics</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+
+      {% with r=dev.optics_inventory %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">Optics Inventory</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+
+      {% with r=dev.arp_table %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">ARP Table</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+
+      {% with r=dev.ipv6_neighbors %}
+      <div class="bg-gray-50 rounded p-3">
+        <dt class="text-gray-500 text-xs mb-1">IPv6 Neighbors</dt>
+        <dd class="font-mono text-sm">{{ r.count }} entries</dd>
+        <dd class="text-xs text-gray-400 mt-0.5">
+          {% if r.age_secs != None %}{{ r.age_secs }}s ago{% else %}<span class="italic">not cached</span>{% endif %}
+        </dd>
+      </div>
+      {% endwith %}
+    </dl>
+  </div>
+  {% endfor %}
+</div>
+{% elif not lg_error %}
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+  No device cache data — polling may be disabled.
+</div>
+{% endif %}
+{% endblock %}
