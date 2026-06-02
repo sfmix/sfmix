@@ -721,6 +721,13 @@ impl server::Handler for SshSessionHandler {
         for &byte in data {
             match self.editor.feed_byte(byte, &mut output) {
                 LineEvent::Line(line) => {
+                    // Flush echo (including the newline) before the command runs,
+                    // so the terminal shows feedback immediately.
+                    if !output.is_empty() {
+                        self.write_data(session, &output).await;
+                        output.clear();
+                    }
+                    tokio::task::yield_now().await;
                     lines.push(line);
                 }
                 LineEvent::Eof => {
