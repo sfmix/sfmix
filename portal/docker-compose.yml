@@ -7,7 +7,7 @@ services:
     environment:
       DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY}"
       DJANGO_DEBUG: "false"
-      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-portal.sfmix.org}"
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-portal.sfmix.org,localhost}"
       OIDC_RP_CLIENT_ID: "${OIDC_RP_CLIENT_ID:-portal}"
       OIDC_RP_CLIENT_SECRET: "${OIDC_RP_CLIENT_SECRET}"
       OIDC_PROVIDER_URL: "${OIDC_PROVIDER_URL:-https://login.sfmix.org/application/o/portal}"
