@@ -361,6 +361,16 @@ async fn get_netbox_status(
     }
 }
 
+/// Proxy device cache status from lg-server.
+async fn get_device_cache_status(
+    State(state): State<HttpState>,
+) -> impl IntoResponse {
+    match state.rpc.get_json("/rpc/v1/device-cache/status").await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // OAuth Protected Resource Metadata (RFC 9728)
 // ---------------------------------------------------------------------------
@@ -506,6 +516,7 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/netbox/status", get(get_netbox_status))
+        .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state.clone());
 

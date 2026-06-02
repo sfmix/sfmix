@@ -34,6 +34,7 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/participants.json", get(ixf_member_export))
         .route("/rpc/v1/participants/{asn}", get(participant_detail))
         .route("/rpc/v1/netbox/status", get(netbox_status))
+        .route("/rpc/v1/device-cache/status", get(device_cache_status))
         .with_state(state)
 }
 
@@ -209,6 +210,39 @@ async fn participant_detail(
         Some(p) => Json(serde_json::to_value(p).unwrap_or_default()).into_response(),
         None => (StatusCode::NOT_FOUND, "participant not found").into_response(),
     }
+}
+
+/// GET /rpc/v1/device-cache/status — per-device background cache freshness
+async fn device_cache_status(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let cache = state.lg.device_state_cache.load();
+    let poll_interval_secs = state.lg.device_cache_cfg.poll_interval_secs;
+    let mut entries: Vec<serde_json::Value> = cache
+        .iter()
+        .map(|(device, dc)| {
+            serde_json::json!({
+                "device": device,
+                "poll_interval_secs": poll_interval_secs,
+                "interfaces":      { "age_secs": dc.interfaces_at.map(|t| t.elapsed().as_secs()),      "count": dc.interfaces.len() },
+                "lldp_neighbors":  { "age_secs": dc.lldp_at.map(|t| t.elapsed().as_secs()),            "count": dc.lldp_neighbors.len() },
+                "mac_table":       { "age_secs": dc.mac_at.map(|t| t.elapsed().as_secs()),              "count": dc.mac_table.len() },
+                "optics":          { "age_secs": dc.optics_at.map(|t| t.elapsed().as_secs()),           "count": dc.optics.len() },
+                "optics_inventory":{ "age_secs": dc.optics_inventory_at.map(|t| t.elapsed().as_secs()), "count": dc.optics_inventory.len() },
+                "arp_table":       { "age_secs": dc.arp_at.map(|t| t.elapsed().as_secs()),              "count": dc.arp_table.len() },
+                "ipv6_neighbors":  { "age_secs": dc.ipv6_neighbors_at.map(|t| t.elapsed().as_secs()),   "count": dc.ipv6_neighbors.len() },
+                "last_error": dc.last_error,
+            })
+        })
+        .collect();
+    entries.sort_by(|a, b| {
+        a["device"].as_str().unwrap_or("").cmp(b["device"].as_str().unwrap_or(""))
+    });
+    Json(entries).into_response()
 }
 
 /// GET /rpc/v1/netbox/status — NetBox cache health
