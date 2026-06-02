@@ -74,6 +74,14 @@
   register: _portal_migrate
   changed_when: "'Applying' in _portal_migrate.stdout"
 
+- name: Collect static files inside container
+  become: true
+  ansible.builtin.command:
+    cmd: docker-compose exec -T portal python manage.py collectstatic --noinput
+    chdir: "{{ ixp_portal_install_dir }}"
+  register: _portal_collectstatic
+  changed_when: "'post-processed' in _portal_collectstatic.stdout or 'copied' in _portal_collectstatic.stdout"
+
 # --- TLS cert for portal.sfmix.org ---
 - name: Check if portal TLS certificate exists
   become: true
