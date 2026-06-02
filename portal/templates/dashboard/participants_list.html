@@ -24,9 +24,11 @@
       {% for p in entries %}
       <tr>
         <td class="px-4 py-2 font-mono text-xs">
-          <a href="https://www.peeringdb.com/asn/{{ p.asn }}" target="_blank" class="text-indigo-600 hover:text-indigo-800">AS{{ p.asn }}</a>
+          <a href="{% url 'participant_detail' p.asn %}" class="text-indigo-600 hover:text-indigo-800">AS{{ p.asn }}</a>
         </td>
-        <td class="px-4 py-2">{{ p.name }}</td>
+        <td class="px-4 py-2">
+          <a href="{% url 'participant_detail' p.asn %}" class="hover:text-indigo-700">{{ p.name }}</a>
+        </td>
         <td class="px-4 py-2 text-xs">{{ p.participant_type|default:"—" }}</td>
       </tr>
       {% endfor %}

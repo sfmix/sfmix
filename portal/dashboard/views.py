@@ -226,6 +226,101 @@ def lldp_neighbors(request):
     })
 
 
+def participant_detail(request, asn):
+    """Participant info page; live optics shown to IXP admins and own-network users."""
+    user_asns = request.session.get("oidc_asns", []) if request.user.is_authenticated else []
+    is_admin = _is_ix_admin(request) if request.user.is_authenticated else False
+    can_see_live = is_admin or (asn in user_asns)
+    token = request.session.get("oidc_id_token") if request.user.is_authenticated else None
+
+    member = {}
+    ip_addresses = []
+    peering_ports = []
+    try:
+        lg = LookingGlassClient()
+        if lg.base_url:
+            detail = lg.get_participant_detail(asn, token=token)
+            member = {
+                "asn": detail.get("asn"),
+                "name": detail.get("name"),
+                "participant_type": detail.get("participant_type"),
+            }
+            ip_addresses = detail.get("ip_addresses", [])
+            peering_ports = detail.get("enriched_ports", [])
+    except Exception:
+        pass
+
+    live_interfaces = []
+    lg_error = None
+    if can_see_live:
+        try:
+            lg = LookingGlassClient()
+            if lg.base_url:
+                iface_results = lg.get_interfaces_status(token, asn=asn)
+                for device_result in iface_results:
+                    if device_result.get("success") and device_result.get("data"):
+                        dev = device_result.get("device", "")
+                        for iface in device_result["data"]:
+                            iface["device"] = dev
+                            live_interfaces.append(iface)
+
+                all_ifaces_by_key = {}
+                for iface in live_interfaces:
+                    all_ifaces_by_key[(iface.get("device", ""), iface["name"])] = iface
+
+                for iface in list(live_interfaces):
+                    name = iface["name"]
+                    device = iface.get("device", "")
+                    base_pc = name.split(".")[0] if "Port-Channel" in name and "." in name else name
+                    if not base_pc.startswith("Port-Channel"):
+                        continue
+                    base_entry = all_ifaces_by_key.get((device, base_pc))
+                    if not base_entry:
+                        continue
+                    for member_name in base_entry.get("member_interfaces", []):
+                        member_iface = all_ifaces_by_key.get((device, member_name))
+                        if member_iface:
+                            entry = dict(member_iface)
+                            entry["is_lag_member"] = True
+                            entry["parent_lag"] = name
+                            live_interfaces.append(entry)
+
+                optics_results = lg.get_optics(token, asn=asn)
+                optics_by_key = {}
+                for device_result in optics_results:
+                    if device_result.get("success") and device_result.get("data"):
+                        dev = device_result.get("device", "")
+                        for optic in device_result["data"]:
+                            optics_by_key[(dev, optic.get("name", ""))] = optic
+                for iface in live_interfaces:
+                    optic = optics_by_key.get((iface.get("device", ""), iface["name"]))
+                    if optic and optic.get("dom_supported"):
+                        lanes = optic.get("lanes", [])
+                        if lanes:
+                            lane = lanes[0]
+                            tx = lane.get("tx_power_dbm")
+                            rx = lane.get("rx_power_dbm")
+                            iface["tx_power"] = f"{tx:.2f} dBm" if tx is not None else None
+                            iface["rx_power"] = f"{rx:.2f} dBm" if rx is not None else None
+                        temp = optic.get("temperature_c")
+                        iface["temperature"] = f"{temp:.1f}°C" if temp is not None else None
+                        iface["media_type"] = optic.get("media_type", "")
+        except Exception as e:
+            lg_error = str(e)
+
+    return render(request, "dashboard/participant_detail.html", {
+        "asn": asn,
+        "member": member,
+        "ip_addresses": ip_addresses,
+        "peering_ports": peering_ports,
+        "live_interfaces": live_interfaces,
+        "lg_error": lg_error,
+        "can_see_live": can_see_live,
+        "is_own_network": asn in user_asns,
+        "is_ix_admin": is_admin,
+    })
+
+
 def participants_list(request):
     """Public IXP participant list (no auth required)."""
     entries = []
