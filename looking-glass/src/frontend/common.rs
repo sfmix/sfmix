@@ -99,9 +99,15 @@ enum EscState {
     EscapeBracket, // saw 0x1B 0x5B
 }
 
+const HISTORY_MAX: usize = 100;
+
 pub struct LineEditor {
     buf: String,
     esc_state: EscState,
+    csi_byte_count: u8,
+    history: Vec<String>,
+    history_idx: Option<usize>,
+    history_scratch: String,
 }
 
 impl LineEditor {
@@ -109,6 +115,10 @@ impl LineEditor {
         Self {
             buf: String::new(),
             esc_state: EscState::Normal,
+            csi_byte_count: 0,
+            history: Vec::new(),
+            history_idx: None,
+            history_scratch: String::new(),
         }
     }
 
@@ -122,6 +132,59 @@ impl LineEditor {
         self.buf.clear();
     }
 
+    fn replace_line(&mut self, new_buf: String, output: &mut Vec<u8>) {
+        for _ in 0..self.buf.len() {
+            output.extend_from_slice(b"\x08 \x08");
+        }
+        output.extend_from_slice(new_buf.as_bytes());
+        self.buf = new_buf;
+    }
+
+    fn history_prev(&mut self, output: &mut Vec<u8>) {
+        if self.history.is_empty() {
+            return;
+        }
+        let new_idx = match self.history_idx {
+            None => {
+                self.history_scratch = self.buf.clone();
+                self.history.len() - 1
+            }
+            Some(0) => 0,
+            Some(idx) => idx - 1,
+        };
+        self.history_idx = Some(new_idx);
+        let new_buf = self.history[new_idx].clone();
+        self.replace_line(new_buf, output);
+    }
+
+    fn history_next(&mut self, output: &mut Vec<u8>) {
+        let idx = match self.history_idx {
+            None => return,
+            Some(idx) => idx,
+        };
+        if idx + 1 < self.history.len() {
+            let new_idx = idx + 1;
+            self.history_idx = Some(new_idx);
+            let new_buf = self.history[new_idx].clone();
+            self.replace_line(new_buf, output);
+        } else {
+            self.history_idx = None;
+            let scratch = self.history_scratch.clone();
+            self.replace_line(scratch, output);
+        }
+    }
+
+    fn push_history(&mut self) {
+        let trimmed = self.buf.trim().to_string();
+        if !trimmed.is_empty() && self.history.last().map(|s| s.as_str()) != Some(&trimmed) {
+            if self.history.len() >= HISTORY_MAX {
+                self.history.remove(0);
+            }
+            self.history.push(trimmed);
+        }
+        self.history_idx = None;
+    }
+
     /// Process a single input byte. Echo/output bytes are appended to `output`
     /// using `\n` line endings (each frontend transforms to `\r\n` at output).
     ///
@@ -132,18 +195,26 @@ impl LineEditor {
             EscState::Escape => {
                 if byte == b'[' {
                     self.esc_state = EscState::EscapeBracket;
+                    self.csi_byte_count = 0;
                 } else {
-                    // Not a CSI sequence — discard and return to normal
                     self.esc_state = EscState::Normal;
                 }
                 return LineEvent::Continue;
             }
             EscState::EscapeBracket => {
-                // Terminal byte of CSI is 0x40..=0x7E
                 if byte >= 0x40 && byte <= 0x7E {
+                    // Terminal byte — act only on bare (no-parameter) sequences
+                    if self.csi_byte_count == 0 {
+                        match byte {
+                            b'A' => self.history_prev(output), // up arrow
+                            b'B' => self.history_next(output), // down arrow
+                            _ => {}
+                        }
+                    }
                     self.esc_state = EscState::Normal;
+                } else {
+                    self.csi_byte_count = self.csi_byte_count.saturating_add(1);
                 }
-                // Intermediate bytes (0x20..=0x3F) stay in EscapeBracket
                 return LineEvent::Continue;
             }
             EscState::Normal => {} // fall through to main match
@@ -152,6 +223,7 @@ impl LineEditor {
         match byte {
             // --- Enter (CR / LF) ---
             0x0D | 0x0A => {
+                self.push_history();
                 output.extend_from_slice(b"\n");
                 let line = self.buf.clone();
                 self.buf.clear();
@@ -238,8 +310,21 @@ impl LineEditor {
             // --- Ctrl+C ---
             0x03 => {
                 self.buf.clear();
+                self.history_idx = None;
                 output.extend_from_slice(b"^C\n");
                 output.extend_from_slice(PROMPT.as_bytes());
+                LineEvent::Continue
+            }
+
+            // --- Ctrl+P (previous history) ---
+            0x10 => {
+                self.history_prev(output);
+                LineEvent::Continue
+            }
+
+            // --- Ctrl+N (next history) ---
+            0x0E => {
+                self.history_next(output);
                 LineEvent::Continue
             }
 
