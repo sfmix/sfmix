@@ -100,6 +100,28 @@ impl RpcClient {
         Ok(resp.json().await?)
     }
 
+    /// Wait until lg-server is ready, retrying with backoff for up to `timeout_secs`.
+    pub async fn wait_for_ready(&self, timeout_secs: u64) -> Result<ServiceInfo> {
+        use std::time::{Duration, Instant};
+        let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+        let mut delay = Duration::from_millis(200);
+        loop {
+            match self.service_info().await {
+                Ok(info) => return Ok(info),
+                Err(e) => {
+                    if Instant::now() >= deadline {
+                        return Err(e.context(format!(
+                            "lg-server not ready after {timeout_secs}s"
+                        )));
+                    }
+                    tracing::info!("Waiting for lg-server to be ready: {e}");
+                    tokio::time::sleep(delay).await;
+                    delay = (delay * 2).min(Duration::from_secs(5));
+                }
+            }
+        }
+    }
+
     /// Get service info.
     pub async fn service_info(&self) -> Result<ServiceInfo> {
         let resp = self

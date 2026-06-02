@@ -8,7 +8,7 @@ description = "RPC client for the looking glass backend"
 [dependencies]
 lg-types = { path = "../lg-types" }
 reqwest.workspace = true
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "time"] }
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

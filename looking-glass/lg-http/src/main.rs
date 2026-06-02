@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
         String::new()
     });
     let rpc = RpcClient::new(&config.rpc_url, &rpc_secret);
-    let svc_info = rpc.service_info().await?;
+    let svc_info = rpc.wait_for_ready(30).await?;
     info!(
         "Connected to {} ({} devices)",
         svc_info.name, svc_info.device_count
