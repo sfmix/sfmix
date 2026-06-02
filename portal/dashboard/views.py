@@ -237,7 +237,6 @@ def participant_detail(request, asn):
             lg = LookingGlassClient()
             if lg.base_url:
                 iface_results = lg.get_interfaces_status(token, asn=asn)
-                import json as _j, logging as _l; _l.getLogger(__name__).warning("LG raw asn=%s: %s", asn, _j.dumps(iface_results))
                 for device_result in iface_results:
                     if device_result.get("success") and device_result.get("data"):
                         dev = device_result.get("device", "")
@@ -245,12 +244,33 @@ def participant_detail(request, asn):
                             iface["device"] = dev
                             live_interfaces.append(iface)
 
-                # Mark LAG members using the port_channel field already set by the API
+                # Mark LAG members and reorder so each parent is immediately
+                # followed by its children (sorted by name).
                 for iface in live_interfaces:
                     parent = iface.get("port_channel")
                     if parent:
                         iface["is_lag_member"] = True
                         iface["parent_lag"] = parent
+
+                members_by_parent: dict = {}
+                for iface in live_interfaces:
+                    if iface.get("is_lag_member"):
+                        members_by_parent.setdefault(iface["parent_lag"], []).append(iface)
+                for v in members_by_parent.values():
+                    v.sort(key=lambda i: i["name"])
+                ordered = []
+                seen_members: set = set()
+                for iface in live_interfaces:
+                    if iface.get("is_lag_member"):
+                        continue
+                    ordered.append(iface)
+                    for child in members_by_parent.get(iface["name"], []):
+                        ordered.append(child)
+                        seen_members.add(id(child))
+                for iface in live_interfaces:
+                    if iface.get("is_lag_member") and id(iface) not in seen_members:
+                        ordered.append(iface)
+                live_interfaces = ordered
 
                 optics_results = lg.get_optics(token, asn=asn)
                 optics_by_key = {}
