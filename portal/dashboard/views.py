@@ -245,26 +245,12 @@ def participant_detail(request, asn):
                             iface["device"] = dev
                             live_interfaces.append(iface)
 
-                all_ifaces_by_key = {}
+                # Mark LAG members using the port_channel field already set by the API
                 for iface in live_interfaces:
-                    all_ifaces_by_key[(iface.get("device", ""), iface["name"])] = iface
-
-                for iface in list(live_interfaces):
-                    name = iface["name"]
-                    device = iface.get("device", "")
-                    base_pc = name.split(".")[0] if "Port-Channel" in name and "." in name else name
-                    if not base_pc.startswith("Port-Channel"):
-                        continue
-                    base_entry = all_ifaces_by_key.get((device, base_pc))
-                    if not base_entry:
-                        continue
-                    for member_name in base_entry.get("member_interfaces", []):
-                        member_iface = all_ifaces_by_key.get((device, member_name))
-                        if member_iface:
-                            entry = dict(member_iface)
-                            entry["is_lag_member"] = True
-                            entry["parent_lag"] = name
-                            live_interfaces.append(entry)
+                    parent = iface.get("port_channel")
+                    if parent:
+                        iface["is_lag_member"] = True
+                        iface["parent_lag"] = parent
 
                 optics_results = lg.get_optics(token, asn=asn)
                 optics_by_key = {}
