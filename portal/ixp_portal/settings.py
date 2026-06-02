@@ -132,6 +132,7 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
         "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "django.security.DisallowedHost": {"handlers": [], "level": "CRITICAL", "propagate": False},
         "mozilla_django_oidc": {"handlers": ["console"], "level": "WARNING", "propagate": False},
         "dashboard": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
