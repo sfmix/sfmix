@@ -86,9 +86,9 @@ class LookingGlassClient:
         """Get NetBox cache status from the Looking Glass."""
         return self._get("/api/v1/netbox/status")
 
-    def get_device_cache_status(self) -> list[dict[str, Any]]:
+    def get_device_cache_status(self, token: str | None = None) -> list[dict[str, Any]]:
         """Get per-device background cache freshness."""
-        return self._get("/api/v1/device-cache/status")
+        return self._get("/api/v1/device-cache/status", token)
 
     def get_participants_json(self) -> dict[str, Any]:
         """Get IX-F Member Export (participants.json)."""
