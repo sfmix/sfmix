@@ -485,6 +485,73 @@ async fn get_netbox_status(
     })
 }
 
+// ── Device state cache status endpoint ─────────────────────────────
+
+#[derive(Serialize)]
+struct DeviceCacheResourceStatus {
+    age_secs: Option<u64>,
+    count: usize,
+}
+
+#[derive(Serialize)]
+struct DeviceCacheDeviceStatus {
+    device: String,
+    poll_interval_secs: u64,
+    interfaces: DeviceCacheResourceStatus,
+    lldp_neighbors: DeviceCacheResourceStatus,
+    mac_table: DeviceCacheResourceStatus,
+    optics: DeviceCacheResourceStatus,
+    optics_inventory: DeviceCacheResourceStatus,
+    arp_table: DeviceCacheResourceStatus,
+    ipv6_neighbors: DeviceCacheResourceStatus,
+    last_error: Option<String>,
+}
+
+async fn get_device_cache_status(
+    State(state): State<RestState>,
+) -> Json<Vec<DeviceCacheDeviceStatus>> {
+    let cache = state.lg.device_state_cache.load();
+    let poll_interval_secs = state.lg.device_cache_cfg.poll_interval_secs;
+    let mut entries: Vec<DeviceCacheDeviceStatus> = cache
+        .iter()
+        .map(|(device, dc)| DeviceCacheDeviceStatus {
+            device: device.clone(),
+            poll_interval_secs,
+            interfaces: DeviceCacheResourceStatus {
+                age_secs: dc.interfaces_at.map(|t| t.elapsed().as_secs()),
+                count: dc.interfaces.len(),
+            },
+            lldp_neighbors: DeviceCacheResourceStatus {
+                age_secs: dc.lldp_at.map(|t| t.elapsed().as_secs()),
+                count: dc.lldp_neighbors.len(),
+            },
+            mac_table: DeviceCacheResourceStatus {
+                age_secs: dc.mac_at.map(|t| t.elapsed().as_secs()),
+                count: dc.mac_table.len(),
+            },
+            optics: DeviceCacheResourceStatus {
+                age_secs: dc.optics_at.map(|t| t.elapsed().as_secs()),
+                count: dc.optics.len(),
+            },
+            optics_inventory: DeviceCacheResourceStatus {
+                age_secs: dc.optics_inventory_at.map(|t| t.elapsed().as_secs()),
+                count: dc.optics_inventory.len(),
+            },
+            arp_table: DeviceCacheResourceStatus {
+                age_secs: dc.arp_at.map(|t| t.elapsed().as_secs()),
+                count: dc.arp_table.len(),
+            },
+            ipv6_neighbors: DeviceCacheResourceStatus {
+                age_secs: dc.ipv6_neighbors_at.map(|t| t.elapsed().as_secs()),
+                count: dc.ipv6_neighbors.len(),
+            },
+            last_error: dc.last_error.clone(),
+        })
+        .collect();
+    entries.sort_by(|a, b| a.device.cmp(&b.device));
+    Json(entries)
+}
+
 // ── IX-F Member Export (participants.json) ───────────────────────────
 
 async fn get_ixf_member_export(
@@ -511,6 +578,7 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/netbox/status", get(get_netbox_status))
+        .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state)
 }
