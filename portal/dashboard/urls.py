@@ -6,7 +6,6 @@ urlpatterns = [
     path("", views.index, name="index"),
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
-    path("network/<int:asn>/", views.network_detail, name="network_detail"),
     path("network/<int:asn>/mac-table/", views.network_mac_table, name="network_mac_table"),
     path("participants/", views.participants_list, name="participants_list"),
     path("participants/<int:asn>/", views.participant_detail, name="participant_detail"),
