@@ -145,26 +145,17 @@
 </section>
 {% endif %}
 
-{% if is_own_network %}
-<section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Network Tools</h2>
-  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+<section>
+  <h2 class="text-lg font-semibold mb-3">Links</h2>
+  {% if is_own_network or is_ix_admin %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mb-3">
     <a href="{% url 'network_mac_table' asn %}"
        class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
       <div class="font-medium text-indigo-700">MAC Table</div>
       <div class="text-xs text-gray-500 mt-0.5">Learned MAC addresses</div>
     </a>
-    <a href="{% url 'network_detail' asn %}"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
-      <div class="font-medium text-indigo-700">Network Dashboard</div>
-      <div class="text-xs text-gray-500 mt-0.5">Full management view</div>
-    </a>
   </div>
-</section>
-{% endif %}
-
-<section>
-  <h2 class="text-lg font-semibold mb-3">External Links</h2>
+  {% endif %}
   <div class="flex flex-wrap gap-3 text-sm">
     <a href="https://www.peeringdb.com/asn/{{ asn }}" target="_blank"
        class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
