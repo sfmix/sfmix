@@ -287,20 +287,63 @@ impl AristaEosDriver {
                             || l.tx_bias_ma.is_some()
                     }));
 
-            result.push(InterfaceOptics {
-                name: name.clone(),
-                description,
-                link_status,
-                media_type,
-                temperature_c,
-                voltage_v,
-                lanes,
-                dom_supported,
-                port_channel: member_to_port_channel.get(name.as_str()).map(|s| s.to_string()),
-            });
+            // For breakout ports, EOS reports DOM data under the physical parent
+            // (e.g. "Ethernet25") while the logical sub-interfaces ("Ethernet25/1"
+            // through "Ethernet25/4") appear only in interface status.  When the
+            // parent has no direct status entry but sub-interfaces exist, distribute
+            // the DOM data to each sub-interface keyed by its lane number.
+            let sub_pattern = format!("{}/", name);
+            let mut sub_ifaces: Vec<(&String, &EosInterfaceStatusEntry)> = status_raw
+                .interface_statuses
+                .iter()
+                .filter(|(n, _)| n.starts_with(&sub_pattern))
+                .collect();
+            sub_ifaces.sort_by_key(|(n, _)| *n);
+
+            if status.is_none() && !sub_ifaces.is_empty() {
+                for (sub_name, sub_status) in &sub_ifaces {
+                    let lane_num: Option<u8> =
+                        sub_name.rsplit('/').next().and_then(|s| s.parse().ok());
+                    let sub_lanes: Vec<OpticalLane> = match lane_num {
+                        Some(ln) => lanes.iter().filter(|l| l.lane == ln).cloned().collect(),
+                        None => lanes.clone(),
+                    };
+                    let sub_dom_supported = dom_supported
+                        && (!sub_lanes.is_empty()
+                            || temperature_c.is_some()
+                            || voltage_v.is_some());
+                    result.push(InterfaceOptics {
+                        name: (*sub_name).clone(),
+                        description: sub_status.description.clone(),
+                        link_status: sub_status.link_status.clone(),
+                        media_type: media_type.clone(),
+                        temperature_c,
+                        voltage_v,
+                        lanes: sub_lanes,
+                        dom_supported: sub_dom_supported,
+                        port_channel: member_to_port_channel
+                            .get(sub_name.as_str())
+                            .map(|s| s.to_string()),
+                    });
+                }
+            } else {
+                result.push(InterfaceOptics {
+                    name: name.clone(),
+                    description,
+                    link_status,
+                    media_type,
+                    temperature_c,
+                    voltage_v,
+                    lanes,
+                    dom_supported,
+                    port_channel: member_to_port_channel.get(name.as_str()).map(|s| s.to_string()),
+                });
+            }
         }
 
-        // Add visible interfaces that lack transceiver data (DAC, copper, empty)
+        // Add visible interfaces that lack transceiver data (DAC, copper, empty).
+        // Skip breakout sub-interfaces whose parent already has DOM data — those
+        // were handled in the loop above.
         if target.is_none() {
             let transceiver_dom_names: std::collections::HashSet<&String> =
                 transceiver_dom.interfaces.keys().collect();
@@ -308,9 +351,15 @@ impl AristaEosDriver {
                 if transceiver_dom_names.contains(name) {
                     continue;
                 }
-                // Skip non-physical interfaces
                 if !name.starts_with("Ethernet") {
                     continue;
+                }
+                // Skip sub-interfaces whose parent has DOM data (already redistributed above)
+                if let Some(slash_pos) = name.rfind('/') {
+                    let parent = name[..slash_pos].to_owned();
+                    if transceiver_dom_names.contains(&parent) {
+                        continue;
+                    }
                 }
                 result.push(InterfaceOptics {
                     name: name.clone(),
@@ -352,8 +401,18 @@ impl AristaEosDriver {
             // Derive slot number from the `slot` field.
             // EOS versions differ: abbreviated "Et49" vs full "Ethernet49".
             // Stripping all leading alphabetic chars handles both: "Et49"→"49", "Ethernet13"→"13".
+            // Normalise the slot field to a plain integer key for xcvrSlots lookup.
+            // EOS versions differ in what they report:
+            //   "Et49"       → strip alpha  → "49"
+            //   "Ethernet49" → strip alpha  → "49"
+            //   "Et49/1"     → strip alpha  → "49/1" → strip lane → "49"
+            //   "49/1"       → no alpha     → "49/1" → strip lane → "49"
             let slot_num = match xcvr.slot.as_deref().filter(|s| !s.is_empty()) {
-                Some(s) => s.chars().skip_while(|c| c.is_alphabetic()).collect::<String>(),
+                Some(s) => {
+                    let after_alpha = s.chars().skip_while(|c| c.is_alphabetic()).collect::<String>();
+                    // Strip any trailing lane suffix (e.g. "25/1" → "25")
+                    after_alpha.split('/').next().unwrap_or("").to_string()
+                }
                 None => continue, // empty slot field means no transceiver
             };
             if slot_num.is_empty() {
