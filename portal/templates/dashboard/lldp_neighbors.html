@@ -15,31 +15,66 @@
 {% endif %}
 
 {% if entries %}
-<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-  <table class="w-full text-sm">
-    <thead class="bg-gray-50 text-left text-gray-500">
-      <tr>
-        <th class="px-4 py-2 font-medium">Local Interface</th>
-        <th class="px-4 py-2 font-medium">Neighbor Device</th>
-        <th class="px-4 py-2 font-medium">Neighbor Port</th>
-        <th class="px-4 py-2 font-medium">TTL</th>
-        <th class="px-4 py-2 font-medium">Device</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for entry in entries %}
-      <tr>
-        <td class="px-4 py-2 font-mono text-xs">{{ entry.local_interface }}</td>
-        <td class="px-4 py-2 text-xs">{{ entry.neighbor_device|default:"—" }}</td>
-        <td class="px-4 py-2 font-mono text-xs">{{ entry.neighbor_port|default:"—" }}</td>
-        <td class="px-4 py-2 text-xs">{{ entry.ttl|default:"—" }}</td>
-        <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div x-data="sortableTable()">
+  <div class="flex items-center justify-between mb-2">
+    <input type="search" x-model="search" placeholder="Filter neighbors…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+    <span class="text-xs text-gray-500">
+      <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
+      <span x-show="!search">{{ entries|length }} neighbors</span>
+    </span>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
+        <tr>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Localif' ? 'text-gray-900' : ''"
+              @click="sortBy('Localif')">
+            Local Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Localif')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Neighbordev' ? 'text-gray-900' : ''"
+              @click="sortBy('Neighbordev')">
+            Neighbor Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Neighbordev')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Neighborport' ? 'text-gray-900' : ''"
+              @click="sortBy('Neighborport')">
+            Neighbor Port<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Neighborport')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Ttl' ? 'text-gray-900' : ''"
+              @click="sortBy('Ttl')">
+            TTL<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Ttl')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
+              @click="sortBy('Device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for entry in entries %}
+        <tr x-show="rowVisible($el)"
+            data-search="{{ entry.local_interface|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {{ entry.device|default:''|lower }}"
+            data-sort-Localif="{{ entry.local_interface|lower }}"
+            data-sort-Neighbordev="{{ entry.neighbor_device|default:''|lower }}"
+            data-sort-Neighborport="{{ entry.neighbor_port|default:''|lower }}"
+            data-sort-Ttl="{{ entry.ttl|default:'' }}"
+            data-sort-Device="{{ entry.device|default:''|lower }}">
+          <td class="px-4 py-2 font-mono text-xs">{{ entry.local_interface }}</td>
+          <td class="px-4 py-2 text-xs">{{ entry.neighbor_device|default:"—" }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ entry.neighbor_port|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ entry.ttl|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
-<p class="mt-2 text-xs text-gray-500">{{ entries|length }} neighbors</p>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
   No LLDP neighbors found.

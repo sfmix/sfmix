@@ -16,96 +16,168 @@
 {% endif %}
 
 {% if entries %}
-<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-  <table class="w-full text-sm whitespace-nowrap">
-    <thead class="bg-gray-50 text-left text-gray-500">
-      <tr>
-        <th class="px-4 py-2 font-medium">Device</th>
-        <th class="px-4 py-2 font-medium">Interface</th>
-        <th class="px-4 py-2 font-medium">Status</th>
-        <th class="px-4 py-2 font-medium">Media Type</th>
-        <th class="px-4 py-2 font-medium">Vendor</th>
-        <th class="px-4 py-2 font-medium">Model</th>
-        <th class="px-4 py-2 font-medium">Serial</th>
-        <th class="px-4 py-2 font-medium">Temp (°C)</th>
-        <th class="px-4 py-2 font-medium">Voltage (V)</th>
-        <th class="px-4 py-2 font-medium">TX (dBm)</th>
-        <th class="px-4 py-2 font-medium">RX (dBm)</th>
-        <th class="px-4 py-2 font-medium">Bias (mA)</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for entry in entries %}
-      {% with lanes=entry.lanes %}
-      <tr class="{% if forloop.counter|divisibleby:2 %}bg-gray-50{% else %}bg-white{% endif %}">
-        <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
-        <td class="px-4 py-2 font-mono text-xs">
-          {{ entry.name }}
-          {% if entry.description %}
-            <span class="block text-gray-400 font-sans">{{ entry.description }}</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-2">
-          {% if entry.link_status == "up" or entry.link_status == "connected" %}
-            <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
-          {% elif entry.link_status %}
-            <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
-          {% else %}
-            <span class="text-gray-400">—</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-2 text-xs">{{ entry.media_type|default:"—" }}</td>
-        <td class="px-4 py-2 text-xs">{{ entry.vendor|default:"—" }}</td>
-        <td class="px-4 py-2 text-xs font-mono">{{ entry.model|default:"—" }}</td>
-        <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ entry.serial_number|default:"—" }}</td>
-        <td class="px-4 py-2 text-xs font-mono">
-          {% if entry.temperature_c != None %}
-            {% if entry.temperature_c > 70 %}
-              <span class="text-red-600">{{ entry.temperature_c|floatformat:1 }}</span>
-            {% elif entry.temperature_c > 60 %}
-              <span class="text-amber-600">{{ entry.temperature_c|floatformat:1 }}</span>
-            {% else %}
-              {{ entry.temperature_c|floatformat:1 }}
+<div x-data="sortableTable()">
+  <div class="flex items-center justify-between mb-2">
+    <input type="search" x-model="search" placeholder="Filter by interface, vendor, model…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+    <span class="text-xs text-gray-500">
+      <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
+      <span x-show="!search">{{ entries|length }} transceivers</span>
+    </span>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm whitespace-nowrap">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
+        <tr>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
+              @click="sortBy('Device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
+              @click="sortBy('Interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Status' ? 'text-gray-900' : ''"
+              @click="sortBy('Status')">
+            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Status')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Mediatype' ? 'text-gray-900' : ''"
+              @click="sortBy('Mediatype')">
+            Media Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Mediatype')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Vendor' ? 'text-gray-900' : ''"
+              @click="sortBy('Vendor')">
+            Vendor<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Vendor')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Model' ? 'text-gray-900' : ''"
+              @click="sortBy('Model')">
+            Model<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Model')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Serial' ? 'text-gray-900' : ''"
+              @click="sortBy('Serial')">
+            Serial<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Serial')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Temp' ? 'text-gray-900' : ''"
+              @click="sortBy('Temp')">
+            Temp (°C)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Temp')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Voltage' ? 'text-gray-900' : ''"
+              @click="sortBy('Voltage')">
+            Voltage (V)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Voltage')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Tx' ? 'text-gray-900' : ''"
+              @click="sortBy('Tx')">
+            TX (dBm)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Tx')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Rx' ? 'text-gray-900' : ''"
+              @click="sortBy('Rx')">
+            RX (dBm)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Rx')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
+              :class="sortCol === 'Bias' ? 'text-gray-900' : ''"
+              @click="sortBy('Bias')">
+            Bias (mA)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Bias')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for entry in entries %}
+        {% with lanes=entry.lanes %}
+        <tr x-show="rowVisible($el)"
+            class="{% if forloop.counter|divisibleby:2 %}bg-gray-50{% else %}bg-white{% endif %}"
+            data-search="{{ entry.name|lower }} {{ entry.description|default:''|lower }} {{ entry.link_status|default:''|lower }} {{ entry.media_type|default:''|lower }} {{ entry.vendor|default:''|lower }} {{ entry.model|default:''|lower }} {{ entry.serial_number|default:''|lower }} {{ entry.device|default:''|lower }}{% if entry.temperature_c != None %} {{ entry.temperature_c|floatformat:1 }}{% endif %}"
+            data-sort-Device="{{ entry.device|default:''|lower }}"
+            data-sort-Interface="{{ entry.name|lower }}"
+            data-sort-Status="{{ entry.link_status|default:''|lower }}"
+            data-sort-Mediatype="{{ entry.media_type|default:''|lower }}"
+            data-sort-Vendor="{{ entry.vendor|default:''|lower }}"
+            data-sort-Model="{{ entry.model|default:''|lower }}"
+            data-sort-Serial="{{ entry.serial_number|default:''|lower }}"
+            data-sort-Temp="{% if entry.temperature_c != None %}{{ entry.temperature_c }}{% endif %}"
+            data-sort-Voltage="{% if entry.voltage_v != None %}{{ entry.voltage_v }}{% endif %}"
+            data-sort-Tx="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm }}{% endif %}{% endwith %}{% endif %}"
+            data-sort-Rx="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.rx_power_dbm != None %}{{ lane.rx_power_dbm }}{% endif %}{% endwith %}{% endif %}"
+            data-sort-Bias="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma }}{% endif %}{% endwith %}{% endif %}">
+          <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
+          <td class="px-4 py-2 font-mono text-xs">
+            {{ entry.name }}
+            {% if entry.description %}
+              <span class="block text-gray-400 font-sans">{{ entry.description }}</span>
             {% endif %}
-          {% else %}—{% endif %}
-        </td>
-        <td class="px-4 py-2 text-xs font-mono">
-          {% if entry.voltage_v != None %}{{ entry.voltage_v|floatformat:2 }}{% else %}—{% endif %}
-        </td>
-        {% if entry.dom_supported and lanes %}
-          {% with lane=lanes.0 %}
-          <td class="px-4 py-2 text-xs font-mono">
-            {% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm|floatformat:2 }}{% else %}—{% endif %}
-            {% if lanes|length > 1 %}<span class="text-gray-400"> ×{{ lanes|length }}</span>{% endif %}
           </td>
+          <td class="px-4 py-2">
+            {% if entry.link_status == "up" or entry.link_status == "connected" %}
+              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
+            {% elif entry.link_status %}
+              <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
+            {% else %}
+              <span class="text-gray-400">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs">{{ entry.media_type|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">{{ entry.vendor|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs font-mono">{{ entry.model|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ entry.serial_number|default:"—" }}</td>
           <td class="px-4 py-2 text-xs font-mono">
-            {% if lane.rx_power_dbm != None %}
-              {% if lane.rx_power_dbm < -30 %}
-                <span class="text-red-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
-              {% elif lane.rx_power_dbm < -20 %}
-                <span class="text-amber-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
+            {% if entry.temperature_c != None %}
+              {% if entry.temperature_c > 70 %}
+                <span class="text-red-600">{{ entry.temperature_c|floatformat:1 }}</span>
+              {% elif entry.temperature_c > 60 %}
+                <span class="text-amber-600">{{ entry.temperature_c|floatformat:1 }}</span>
               {% else %}
-                {{ lane.rx_power_dbm|floatformat:2 }}
+                {{ entry.temperature_c|floatformat:1 }}
               {% endif %}
             {% else %}—{% endif %}
-            {% if lanes|length > 1 %}<span class="text-gray-400"> ×{{ lanes|length }}</span>{% endif %}
           </td>
           <td class="px-4 py-2 text-xs font-mono">
-            {% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma|floatformat:2 }}{% else %}—{% endif %}
+            {% if entry.voltage_v != None %}{{ entry.voltage_v|floatformat:2 }}{% else %}—{% endif %}
           </td>
-          {% endwith %}
-        {% else %}
-          <td class="px-4 py-2 text-xs text-gray-400">—</td>
-          <td class="px-4 py-2 text-xs text-gray-400">—</td>
-          <td class="px-4 py-2 text-xs text-gray-400">—</td>
-        {% endif %}
-      </tr>
-      {% endwith %}
-      {% endfor %}
-    </tbody>
-  </table>
+          {% if entry.dom_supported and lanes %}
+            {% with lane=lanes.0 %}
+            <td class="px-4 py-2 text-xs font-mono">
+              {% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm|floatformat:2 }}{% else %}—{% endif %}
+              {% if lanes|length > 1 %}<span class="text-gray-400"> ×{{ lanes|length }}</span>{% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs font-mono">
+              {% if lane.rx_power_dbm != None %}
+                {% if lane.rx_power_dbm < -30 %}
+                  <span class="text-red-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
+                {% elif lane.rx_power_dbm < -20 %}
+                  <span class="text-amber-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
+                {% else %}
+                  {{ lane.rx_power_dbm|floatformat:2 }}
+                {% endif %}
+              {% else %}—{% endif %}
+              {% if lanes|length > 1 %}<span class="text-gray-400"> ×{{ lanes|length }}</span>{% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs font-mono">
+              {% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            {% endwith %}
+          {% else %}
+            <td class="px-4 py-2 text-xs text-gray-400">—</td>
+            <td class="px-4 py-2 text-xs text-gray-400">—</td>
+            <td class="px-4 py-2 text-xs text-gray-400">—</td>
+          {% endif %}
+        </tr>
+        {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-xs text-gray-500">Lane values shown for lane 1; ×N indicates multi-lane optic</p>
 </div>
-<p class="mt-2 text-xs text-gray-500">{{ entries|length }} transceivers — lane values shown for lane 1; ×N indicates multi-lane optic</p>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
   No optics data found.

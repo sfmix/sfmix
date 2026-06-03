@@ -10,7 +10,7 @@
 
 <h1 class="text-2xl font-bold mb-4">MAC Address Table for AS{{ asn }}</h1>
 
-<form method="get" class="mb-6 flex items-center gap-3">
+<form method="get" class="mb-4 flex items-center gap-3">
   <label for="vlan" class="text-sm text-gray-600">Filter by VLAN:</label>
   <input type="text" name="vlan" id="vlan" value="{{ vlan_filter }}" placeholder="e.g. 998"
          class="border border-gray-300 rounded px-3 py-1.5 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-indigo-300">
@@ -27,31 +27,66 @@
 {% endif %}
 
 {% if entries %}
-<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-  <table class="w-full text-sm">
-    <thead class="bg-gray-50 text-left text-gray-500">
-      <tr>
-        <th class="px-4 py-2 font-medium">VLAN</th>
-        <th class="px-4 py-2 font-medium">MAC Address</th>
-        <th class="px-4 py-2 font-medium">Type</th>
-        <th class="px-4 py-2 font-medium">Interface</th>
-        <th class="px-4 py-2 font-medium">Device</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for entry in entries %}
-      <tr>
-        <td class="px-4 py-2 font-mono text-xs">{{ entry.vlan }}</td>
-        <td class="px-4 py-2 font-mono text-xs">{{ entry.mac_address }}</td>
-        <td class="px-4 py-2 text-xs">{{ entry.entry_type|default:"—" }}</td>
-        <td class="px-4 py-2 font-mono text-xs">{{ entry.interface }}</td>
-        <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div x-data="sortableTable()">
+  <div class="flex items-center justify-between mb-2">
+    <input type="search" x-model="search" placeholder="Filter entries…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+    <span class="text-xs text-gray-500">
+      <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
+      <span x-show="!search">{{ entries|length }} entries</span>
+    </span>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
+        <tr>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Vlan' ? 'text-gray-900' : ''"
+              @click="sortBy('Vlan')">
+            VLAN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Vlan')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Mac' ? 'text-gray-900' : ''"
+              @click="sortBy('Mac')">
+            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Mac')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Type' ? 'text-gray-900' : ''"
+              @click="sortBy('Type')">
+            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Type')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
+              @click="sortBy('Interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
+              @click="sortBy('Device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for entry in entries %}
+        <tr x-show="rowVisible($el)"
+            data-search="{{ entry.vlan }} {{ entry.mac_address|lower }} {{ entry.entry_type|default:''|lower }} {{ entry.interface|lower }} {{ entry.device|default:''|lower }}"
+            data-sort-Vlan="{{ entry.vlan }}"
+            data-sort-Mac="{{ entry.mac_address|lower }}"
+            data-sort-Type="{{ entry.entry_type|default:''|lower }}"
+            data-sort-Interface="{{ entry.interface|lower }}"
+            data-sort-Device="{{ entry.device|default:''|lower }}">
+          <td class="px-4 py-2 font-mono text-xs">{{ entry.vlan }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ entry.mac_address }}</td>
+          <td class="px-4 py-2 text-xs">{{ entry.entry_type|default:"—" }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ entry.interface }}</td>
+          <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
-<p class="mt-2 text-xs text-gray-500">{{ entries|length }} entries</p>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
   No MAC address entries found{% if vlan_filter %} for VLAN {{ vlan_filter }}{% endif %}.

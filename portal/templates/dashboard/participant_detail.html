@@ -17,26 +17,73 @@
 {% if can_see_live %}
 
 {% if live_interfaces %}
-<section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Live Interface Status</h2>
-  <p class="text-xs text-gray-500 mb-2">Real-time data from network devices</p>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+<section class="mb-8" x-data="sortableTable()">
+  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+    <div>
+      <h2 class="text-lg font-semibold">Live Interface Status</h2>
+      <p class="text-xs text-gray-500">Real-time data from network devices</p>
+    </div>
+    <input type="search" x-model="search" placeholder="Filter…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
-          <th class="px-4 py-2 font-medium">Interface</th>
-          <th class="px-4 py-2 font-medium">Device</th>
-          <th class="px-4 py-2 font-medium">Speed</th>
-          <th class="px-4 py-2 font-medium">Link</th>
-          <th class="px-4 py-2 font-medium">Protocol</th>
-          <th class="px-4 py-2 font-medium">TX Power</th>
-          <th class="px-4 py-2 font-medium">RX Power</th>
-          <th class="px-4 py-2 font-medium">Temp</th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
+              @click="sortBy('Interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
+              @click="sortBy('Device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Speed' ? 'text-gray-900' : ''"
+              @click="sortBy('Speed')">
+            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Speed')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Link' ? 'text-gray-900' : ''"
+              @click="sortBy('Link')">
+            Link<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Link')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Protocol' ? 'text-gray-900' : ''"
+              @click="sortBy('Protocol')">
+            Protocol<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Protocol')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Txpower' ? 'text-gray-900' : ''"
+              @click="sortBy('Txpower')">
+            TX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Txpower')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Rxpower' ? 'text-gray-900' : ''"
+              @click="sortBy('Rxpower')">
+            RX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Rxpower')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Temp' ? 'text-gray-900' : ''"
+              @click="sortBy('Temp')">
+            Temp<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Temp')"></span>
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for iface in live_interfaces %}
-        <tr>
+        <tr x-show="rowVisible($el)"
+            data-search="{{ iface.name|lower }} {{ iface.device|default:''|lower }} {{ iface.speed|default:''|lower }} {{ iface.link_status|default:''|lower }} {{ iface.protocol_status|default:''|lower }}"
+            data-sort-Interface="{{ iface.name|lower }}"
+            data-sort-Device="{{ iface.device|default:''|lower }}"
+            data-sort-Speed="{{ iface.speed|default:'' }}"
+            data-sort-Link="{{ iface.link_status|default:''|lower }}"
+            data-sort-Protocol="{{ iface.protocol_status|default:''|lower }}"
+            data-sort-Txpower="{{ iface.tx_power|default:'' }}"
+            data-sort-Rxpower="{{ iface.rx_power|default:'' }}"
+            data-sort-Temp="{{ iface.temperature|default:'' }}">
           <td class="px-4 py-2 font-mono text-xs">{% if iface.is_lag_member %}<span class="text-gray-400">└ </span>{% endif %}{{ iface.name }}</td>
           <td class="px-4 py-2 text-xs">{{ iface.device|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">{{ iface.speed|default:"—" }}</td>
@@ -75,22 +122,49 @@
 {% endif %}{# can_see_live #}
 
 {% if peering_ports %}
-<section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Peering Ports</h2>
-  <p class="text-xs text-gray-500 mb-2">Configuration from NetBox</p>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+<section class="mb-8" x-data="sortableTable()">
+  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+    <div>
+      <h2 class="text-lg font-semibold">Peering Ports</h2>
+      <p class="text-xs text-gray-500">Configuration from NetBox</p>
+    </div>
+    <input type="search" x-model="search" placeholder="Filter…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
-          <th class="px-4 py-2 font-medium">Interface</th>
-          <th class="px-4 py-2 font-medium">Switch</th>
-          <th class="px-4 py-2 font-medium">Speed</th>
-          <th class="px-4 py-2 font-medium">Status</th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
+              @click="sortBy('Interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Switch' ? 'text-gray-900' : ''"
+              @click="sortBy('Switch')">
+            Switch<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Switch')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Speed' ? 'text-gray-900' : ''"
+              @click="sortBy('Speed')">
+            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Speed')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Status' ? 'text-gray-900' : ''"
+              @click="sortBy('Status')">
+            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Status')"></span>
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for port in peering_ports %}
-        <tr>
+        <tr x-show="rowVisible($el)"
+            data-search="{{ port.interface|lower }} {{ port.device|default:''|lower }} {{ port.speed|default:'' }} {% if port.enabled %}enabled{% else %}disabled{% endif %}"
+            data-sort-Interface="{{ port.interface|lower }}"
+            data-sort-Switch="{{ port.device|default:''|lower }}"
+            data-sort-Speed="{{ port.speed|default:'' }}"
+            data-sort-Status="{% if port.enabled %}enabled{% else %}disabled{% endif %}">
           <td class="px-4 py-2 font-mono text-xs">{{ port.interface }}</td>
           <td class="px-4 py-2">{{ port.device|default:"—" }}</td>
           <td class="px-4 py-2">
@@ -112,21 +186,46 @@
 {% endif %}
 
 {% if ip_addresses %}
-<section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">IP Addresses</h2>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+<section class="mb-8" x-data="sortableTable()">
+  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+    <h2 class="text-lg font-semibold">IP Addresses</h2>
+    <input type="search" x-model="search" placeholder="Filter…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
-          <th class="px-4 py-2 font-medium">Address</th>
-          <th class="px-4 py-2 font-medium">Family</th>
-          <th class="px-4 py-2 font-medium">MAC Address</th>
-          <th class="px-4 py-2 font-medium">Status</th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Address' ? 'text-gray-900' : ''"
+              @click="sortBy('Address')">
+            Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Address')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Family' ? 'text-gray-900' : ''"
+              @click="sortBy('Family')">
+            Family<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Family')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Mac' ? 'text-gray-900' : ''"
+              @click="sortBy('Mac')">
+            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Mac')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Status' ? 'text-gray-900' : ''"
+              @click="sortBy('Status')">
+            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Status')"></span>
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for ip in ip_addresses %}
-        <tr>
+        <tr x-show="rowVisible($el)"
+            data-search="{{ ip.address|lower }} {{ ip.family }} {{ ip.mac_address|default:''|lower }} {{ ip.status|lower }}"
+            data-sort-Address="{{ ip.address|lower }}"
+            data-sort-Family="{{ ip.family }}"
+            data-sort-Mac="{{ ip.mac_address|default:''|lower }}"
+            data-sort-Status="{{ ip.status|lower }}">
           <td class="px-4 py-2 font-mono text-xs">{{ ip.address }}</td>
           <td class="px-4 py-2 text-xs">{{ ip.family }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ ip.mac_address|default:"—" }}</td>

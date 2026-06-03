@@ -26,31 +26,56 @@
 {% endif %}
 
 {% if entries %}
-<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-  <table class="w-full text-sm">
-    <thead class="bg-gray-50 text-left text-gray-500">
-      <tr>
-        <th class="px-4 py-2 font-medium">ASN</th>
-        <th class="px-4 py-2 font-medium">Name</th>
-        <th class="px-4 py-2 font-medium">Type</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for p in entries %}
-      <tr>
-        <td class="px-4 py-2 font-mono text-xs">
-          <a href="{% url 'participant_detail' p.asn %}" class="text-indigo-600 hover:text-indigo-800">AS{{ p.asn }}</a>
-        </td>
-        <td class="px-4 py-2">
-          <a href="{% url 'participant_detail' p.asn %}" class="hover:text-indigo-700">{{ p.name }}</a>
-        </td>
-        <td class="px-4 py-2 text-xs">{{ p.participant_type|default:"—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div x-data="sortableTable()">
+  <div class="flex items-center justify-between mb-2">
+    <input type="search" x-model="search" placeholder="Filter participants…"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+    <span class="text-xs text-gray-500">
+      <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
+      <span x-show="!search">{{ entries|length }} participants</span>
+    </span>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
+        <tr>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Asn' ? 'text-gray-900' : ''"
+              @click="sortBy('Asn')">
+            ASN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Asn')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Name' ? 'text-gray-900' : ''"
+              @click="sortBy('Name')">
+            Name<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Name')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'Type' ? 'text-gray-900' : ''"
+              @click="sortBy('Type')">
+            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Type')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for p in entries %}
+        <tr x-show="rowVisible($el)"
+            data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.participant_type|default:''|lower }}"
+            data-sort-Asn="{{ p.asn }}"
+            data-sort-Name="{{ p.name|lower }}"
+            data-sort-Type="{{ p.participant_type|default:''|lower }}">
+          <td class="px-4 py-2 font-mono text-xs">
+            <a href="{% url 'participant_detail' p.asn %}" class="text-indigo-600 hover:text-indigo-800">AS{{ p.asn }}</a>
+          </td>
+          <td class="px-4 py-2">
+            <a href="{% url 'participant_detail' p.asn %}" class="hover:text-indigo-700">{{ p.name }}</a>
+          </td>
+          <td class="px-4 py-2 text-xs">{{ p.participant_type|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
-<p class="mt-2 text-xs text-gray-500">{{ entries|length }} participants</p>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
   No participants found.

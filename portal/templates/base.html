@@ -47,5 +47,51 @@
   <footer class="border-t border-gray-200 px-6 py-4 text-center text-xs text-gray-400">
     &copy; San Francisco Metropolitan Internet eXchange
   </footer>
+  <script>
+  function sortableTable() {
+    return {
+      search: '',
+      sortCol: null,
+      sortDir: 'asc',
+
+      rowVisible(row) {
+        if (!this.search) return true;
+        return (row.dataset.search || '').includes(this.search.toLowerCase());
+      },
+
+      sortBy(col) {
+        this.sortDir = (this.sortCol === col && this.sortDir === 'asc') ? 'desc' : 'asc';
+        this.sortCol = col;
+        this._doSort();
+      },
+
+      _doSort() {
+        const tbody = this.$el.querySelector('tbody');
+        if (!tbody) return;
+        const dir = this.sortDir === 'asc' ? 1 : -1;
+        const col = this.sortCol;
+        Array.from(tbody.querySelectorAll('tr'))
+          .sort((a, b) => {
+            const av = a.dataset['sort' + col] ?? '';
+            const bv = b.dataset['sort' + col] ?? '';
+            if (av === '' && bv !== '') return 1;
+            if (bv === '' && av !== '') return -1;
+            const an = parseFloat(av), bn = parseFloat(bv);
+            return ((!isNaN(an) && !isNaN(bn)) ? (an - bn) : av.localeCompare(bv)) * dir;
+          })
+          .forEach(r => tbody.appendChild(r));
+      },
+
+      indicator(col) {
+        return this.sortCol === col ? (this.sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+      },
+
+      get visibleCount() {
+        return Array.from(this.$el.querySelectorAll('tbody tr'))
+          .filter(r => this.rowVisible(r)).length;
+      }
+    };
+  }
+  </script>
 </body>
 </html>
