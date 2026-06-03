@@ -1,5 +1,4 @@
 import ipaddress
-import re
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
@@ -125,32 +124,17 @@ def lldp_neighbors(request):
                         entry["device"] = dev
                         entries.append(entry)
 
-            participants_by_asn = {
-                p["asn"]: p for p in lg.get_participants() if p.get("asn")
+            port_to_participant: dict[tuple[str, str], dict] = {
+                (p["device"], p["interface"]): p
+                for p in lg.get_participant_ports(token=token)
+                if p.get("device") and p.get("interface")
             }
-
-            iface_info: dict[tuple[str, str], dict] = {}
-            for device_result in lg.get_interfaces_status(token=token):
-                if device_result.get("success") and device_result.get("data"):
-                    dev = device_result.get("device", "")
-                    for iface in device_result["data"]:
-                        desc = iface.get("description", "")
-                        info: dict = {"description": desc}
-                        m = re.search(r"\bAS(\d+)\b", desc, re.IGNORECASE)
-                        if m:
-                            asn = int(m.group(1))
-                            participant = participants_by_asn.get(asn)
-                            if participant:
-                                info["participant_asn"] = asn
-                                info["participant_name"] = participant.get("name", "")
-                        iface_info[(dev, iface["name"])] = info
 
             for entry in entries:
                 key = (entry.get("device", ""), entry.get("local_interface", ""))
-                info = iface_info.get(key, {})
-                entry["description"] = info.get("description", "")
-                entry["participant_asn"] = info.get("participant_asn")
-                entry["participant_name"] = info.get("participant_name", "")
+                participant = port_to_participant.get(key)
+                entry["participant_asn"] = participant["asn"] if participant else None
+                entry["participant_name"] = participant["name"] if participant else ""
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/lldp_neighbors.html", {

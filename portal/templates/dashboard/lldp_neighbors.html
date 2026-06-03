@@ -63,13 +63,13 @@
       <tbody class="divide-y divide-gray-100">
         {% for entry in entries %}
         <tr x-show="rowVisible($el)"
-            data-search="{{ entry.device|default:''|lower }} {{ entry.local_interface|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {% if entry.participant_asn %}as{{ entry.participant_asn }} {{ entry.participant_name|lower }} {% endif %}{{ entry.description|default:''|lower }}"
+            data-search="{{ entry.device|default:''|lower }} {{ entry.local_interface|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {% if entry.participant_asn %}as{{ entry.participant_asn }} {{ entry.participant_name|lower }}{% endif %}"
             data-sort-device="{{ entry.device|default:''|lower }}"
             data-sort-localif="{{ entry.local_interface|lower }}"
             data-sort-neighbordev="{{ entry.neighbor_device|default:''|lower }}"
             data-sort-neighborport="{{ entry.neighbor_port|default:''|lower }}"
             data-sort-ttl="{{ entry.ttl|default:'' }}"
-            data-sort-participant="{% if entry.participant_asn %}{{ entry.participant_asn }}{% else %}{{ entry.description|default:''|lower }}{% endif %}">
+            data-sort-participant="{% if entry.participant_asn %}{{ entry.participant_asn }}{% endif %}">
           <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ entry.local_interface }}</td>
           <td class="px-4 py-2 text-xs">{{ entry.neighbor_device|default:"—" }}</td>
@@ -77,18 +77,11 @@
           <td class="px-4 py-2 text-xs">{{ entry.ttl|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">
             {% if entry.participant_asn %}
-            <div>
-              <a href="{% url 'participant_detail' entry.participant_asn %}"
-                 style="color: var(--color-primary-light);"
-                 onmouseover="this.style.color='var(--color-accent)'"
-                 onmouseout="this.style.color='var(--color-primary-light)'">AS{{ entry.participant_asn }}</a>
-              <span class="text-gray-700 ml-1">{{ entry.participant_name }}</span>
-            </div>
-            {% if entry.description %}
-            <div class="text-gray-400 text-xs mt-0.5">{{ entry.description }}</div>
-            {% endif %}
-            {% elif entry.description %}
-            <span class="text-gray-600">{{ entry.description }}</span>
+            <a href="{% url 'participant_detail' entry.participant_asn %}"
+               style="color: var(--color-primary-light);"
+               onmouseover="this.style.color='var(--color-accent)'"
+               onmouseout="this.style.color='var(--color-primary-light)'">AS{{ entry.participant_asn }}</a>
+            <span class="text-gray-700 ml-1">{{ entry.participant_name }}</span>
             {% else %}
             <span class="text-gray-400">—</span>
             {% endif %}

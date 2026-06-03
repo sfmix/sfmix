@@ -19,7 +19,7 @@ use tracing::info;
 use crate::command::{AddressFamily, Command, Resource, Verb};
 use crate::identity::Identity;
 use crate::oidc::OidcClient;
-use crate::participants::Participant;
+use crate::participants::{Participant, PortClass};
 use crate::service::{self, LookingGlass};
 use super::auth;
 use crate::structured::{
@@ -453,6 +453,49 @@ async fn get_participant_detail(
     }
 }
 
+// ── Participant port map endpoint ───────────────────────────────────
+
+#[derive(Serialize)]
+struct ParticipantPortEntry {
+    device: String,
+    interface: String,
+    asn: u32,
+    name: String,
+}
+
+async fn get_participant_ports(
+    State(state): State<RestState>,
+) -> Json<Vec<ParticipantPortEntry>> {
+    let port_map = state.lg.port_map.load();
+    let participants = state.lg.participants();
+    let mut entries: Vec<ParticipantPortEntry> = port_map
+        .iter()
+        .filter_map(|((device, interface), class)| {
+            if let PortClass::Participant { asn } = class {
+                let name = participants
+                    .get(*asn)
+                    .map(|p| p.name.clone())
+                    .unwrap_or_default();
+                Some(ParticipantPortEntry {
+                    device: device.clone(),
+                    interface: interface.clone(),
+                    asn: *asn,
+                    name,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    entries.sort_by(|a, b| {
+        a.asn
+            .cmp(&b.asn)
+            .then(a.device.cmp(&b.device))
+            .then(a.interface.cmp(&b.interface))
+    });
+    Json(entries)
+}
+
 // ── NetBox status endpoint ──────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -577,6 +620,7 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
+        .route("/api/v1/participant-ports", get(get_participant_ports))
         .route("/api/v1/netbox/status", get(get_netbox_status))
         .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
