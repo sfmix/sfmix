@@ -14,147 +14,100 @@
 </div>
 {% endif %}
 
-<div x-data="{ tab: 'status' }" class="space-y-4">
-  <div class="flex gap-4 border-b border-gray-200">
-    <button @click="tab = 'status'"
-            :class="tab === 'status' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'"
-            class="pb-2 text-sm font-medium">
-      DOM Status
-    </button>
-    <button @click="tab = 'inventory'"
-            :class="tab === 'inventory' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'"
-            class="pb-2 text-sm font-medium">
-      Inventory
-    </button>
-  </div>
-
-  <!-- DOM Status tab -->
-  <div x-show="tab === 'status'">
-    {% if status_entries %}
-    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th class="px-4 py-2 font-medium">Interface</th>
-            <th class="px-4 py-2 font-medium">Status</th>
-            <th class="px-4 py-2 font-medium">Media Type</th>
-            <th class="px-4 py-2 font-medium">Temp (°C)</th>
-            <th class="px-4 py-2 font-medium">Voltage (V)</th>
-            <th class="px-4 py-2 font-medium">TX (dBm)</th>
-            <th class="px-4 py-2 font-medium">RX (dBm)</th>
-            <th class="px-4 py-2 font-medium">Bias (mA)</th>
-            <th class="px-4 py-2 font-medium">Device</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {% for entry in status_entries %}
-          {% with lanes=entry.lanes %}
-          <tr>
-            <td class="px-4 py-2 font-mono text-xs">
-              {{ entry.name }}
-              {% if entry.description %}
-                <span class="block text-gray-400 font-sans">{{ entry.description }}</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-2">
-              {% if entry.link_status == "up" or entry.link_status == "connected" %}
-                <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
-              {% else %}
-                <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status|default:"—" }}</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-2 text-xs">{{ entry.media_type|default:"—" }}</td>
-            <td class="px-4 py-2 text-xs font-mono">
-              {% if entry.temperature_c != None %}
-                {% if entry.temperature_c > 70 %}
-                  <span class="text-red-600">{{ entry.temperature_c|floatformat:1 }}</span>
-                {% elif entry.temperature_c > 60 %}
-                  <span class="text-amber-600">{{ entry.temperature_c|floatformat:1 }}</span>
-                {% else %}
-                  {{ entry.temperature_c|floatformat:1 }}
-                {% endif %}
-              {% else %}—{% endif %}
-            </td>
-            <td class="px-4 py-2 text-xs font-mono">
-              {% if entry.voltage_v != None %}{{ entry.voltage_v|floatformat:2 }}{% else %}—{% endif %}
-            </td>
-            {% if entry.dom_supported and lanes %}
-              {% with lane=lanes.0 %}
-              <td class="px-4 py-2 text-xs font-mono">
-                {% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm|floatformat:2 }}{% else %}—{% endif %}
-                {% if lanes|length > 1 %}<span class="text-gray-400 text-xs"> ×{{ lanes|length }}</span>{% endif %}
-              </td>
-              <td class="px-4 py-2 text-xs font-mono">
-                {% if lane.rx_power_dbm != None %}
-                  {% if lane.rx_power_dbm < -30 %}
-                    <span class="text-red-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
-                  {% elif lane.rx_power_dbm < -20 %}
-                    <span class="text-amber-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
-                  {% else %}
-                    {{ lane.rx_power_dbm|floatformat:2 }}
-                  {% endif %}
-                {% else %}—{% endif %}
-                {% if lanes|length > 1 %}<span class="text-gray-400 text-xs"> ×{{ lanes|length }}</span>{% endif %}
-              </td>
-              <td class="px-4 py-2 text-xs font-mono">
-                {% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma|floatformat:2 }}{% else %}—{% endif %}
-              </td>
-              {% endwith %}
+{% if entries %}
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-left text-gray-500">
+      <tr>
+        <th class="px-4 py-2 font-medium">Interface</th>
+        <th class="px-4 py-2 font-medium">Status</th>
+        <th class="px-4 py-2 font-medium">Media Type</th>
+        <th class="px-4 py-2 font-medium">Vendor</th>
+        <th class="px-4 py-2 font-medium">Model</th>
+        <th class="px-4 py-2 font-medium">Serial</th>
+        <th class="px-4 py-2 font-medium">Temp (°C)</th>
+        <th class="px-4 py-2 font-medium">Voltage (V)</th>
+        <th class="px-4 py-2 font-medium">TX (dBm)</th>
+        <th class="px-4 py-2 font-medium">RX (dBm)</th>
+        <th class="px-4 py-2 font-medium">Bias (mA)</th>
+        <th class="px-4 py-2 font-medium">Device</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for entry in entries %}
+      {% with lanes=entry.lanes %}
+      <tr>
+        <td class="px-4 py-2 font-mono text-xs">
+          {{ entry.name }}
+          {% if entry.description %}
+            <span class="block text-gray-400 font-sans">{{ entry.description }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2">
+          {% if entry.link_status == "up" or entry.link_status == "connected" %}
+            <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
+          {% elif entry.link_status %}
+            <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{{ entry.link_status }}</span>
+          {% else %}
+            <span class="text-gray-400">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 text-xs">{{ entry.media_type|default:"—" }}</td>
+        <td class="px-4 py-2 text-xs">{{ entry.vendor|default:"—" }}</td>
+        <td class="px-4 py-2 text-xs font-mono">{{ entry.model|default:"—" }}</td>
+        <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ entry.serial_number|default:"—" }}</td>
+        <td class="px-4 py-2 text-xs font-mono">
+          {% if entry.temperature_c != None %}
+            {% if entry.temperature_c > 70 %}
+              <span class="text-red-600">{{ entry.temperature_c|floatformat:1 }}</span>
+            {% elif entry.temperature_c > 60 %}
+              <span class="text-amber-600">{{ entry.temperature_c|floatformat:1 }}</span>
             {% else %}
-              <td class="px-4 py-2 text-xs text-gray-400">—</td>
-              <td class="px-4 py-2 text-xs text-gray-400">—</td>
-              <td class="px-4 py-2 text-xs text-gray-400">—</td>
+              {{ entry.temperature_c|floatformat:1 }}
             {% endif %}
-            <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
-          </tr>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-2 text-xs font-mono">
+          {% if entry.voltage_v != None %}{{ entry.voltage_v|floatformat:2 }}{% else %}—{% endif %}
+        </td>
+        {% if entry.dom_supported and lanes %}
+          {% with lane=lanes.0 %}
+          <td class="px-4 py-2 text-xs font-mono">
+            {% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm|floatformat:2 }}{% else %}—{% endif %}
+            {% if lanes|length > 1 %}<span class="text-gray-400"> ×{{ lanes|length }}</span>{% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs font-mono">
+            {% if lane.rx_power_dbm != None %}
+              {% if lane.rx_power_dbm < -30 %}
+                <span class="text-red-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
+              {% elif lane.rx_power_dbm < -20 %}
+                <span class="text-amber-600">{{ lane.rx_power_dbm|floatformat:2 }}</span>
+              {% else %}
+                {{ lane.rx_power_dbm|floatformat:2 }}
+              {% endif %}
+            {% else %}—{% endif %}
+            {% if lanes|length > 1 %}<span class="text-gray-400"> ×{{ lanes|length }}</span>{% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs font-mono">
+            {% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma|floatformat:2 }}{% else %}—{% endif %}
+          </td>
           {% endwith %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <p class="mt-2 text-xs text-gray-500">{{ status_entries|length }} transceivers — lane values shown for lane 1; ×N indicates multi-lane optic</p>
-    {% elif not lg_error %}
-    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
-      No optics data found.
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Inventory tab -->
-  <div x-show="tab === 'inventory'">
-    {% if inventory_entries %}
-    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th class="px-4 py-2 font-medium">Interface</th>
-            <th class="px-4 py-2 font-medium">Media Type</th>
-            <th class="px-4 py-2 font-medium">Vendor</th>
-            <th class="px-4 py-2 font-medium">Model</th>
-            <th class="px-4 py-2 font-medium">Serial Number</th>
-            <th class="px-4 py-2 font-medium">Device</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {% for entry in inventory_entries %}
-          <tr>
-            <td class="px-4 py-2 font-mono text-xs">{{ entry.name }}</td>
-            <td class="px-4 py-2 text-xs">{{ entry.media_type|default:"—" }}</td>
-            <td class="px-4 py-2 text-xs">{{ entry.vendor|default:"—" }}</td>
-            <td class="px-4 py-2 text-xs font-mono">{{ entry.model|default:"—" }}</td>
-            <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ entry.serial_number|default:"—" }}</td>
-            <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <p class="mt-2 text-xs text-gray-500">{{ inventory_entries|length }} transceivers</p>
-    {% elif not lg_error %}
-    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
-      No inventory data found.
-    </div>
-    {% endif %}
-  </div>
+        {% else %}
+          <td class="px-4 py-2 text-xs text-gray-400">—</td>
+          <td class="px-4 py-2 text-xs text-gray-400">—</td>
+          <td class="px-4 py-2 text-xs text-gray-400">—</td>
+        {% endif %}
+        <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
+      </tr>
+      {% endwith %}
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+<p class="mt-2 text-xs text-gray-500">{{ entries|length }} transceivers — lane values shown for lane 1; ×N indicates multi-lane optic</p>
+{% elif not lg_error %}
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+  No optics data found.
+</div>
+{% endif %}
 {% endblock %}
