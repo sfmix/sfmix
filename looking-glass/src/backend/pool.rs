@@ -428,7 +428,16 @@ pub(crate) fn filter_output_with_lookup(
             }
         }
         CommandOutput::OpticsInventory(mut entries) => {
-            entries.retain(|e| port_visible(device, &e.name, identity, pmap, is_admin));
+            // Inventory is admin-only at the policy level; admins see all entries.
+            // OpticsInventoryEntry has no port_channel field, so we can't apply the
+            // same LAG-member fallback used for optics DOM — and since this endpoint
+            // is unreachable by non-admins, skipping the per-port filter for admins
+            // is the correct behaviour (LAG member interfaces appear in optics but
+            // would otherwise be silently dropped here because they are not directly
+            // in the PortMap, only their parent Port-Channel is).
+            if !is_admin {
+                entries.retain(|e| port_visible(device, &e.name, identity, pmap, is_admin));
+            }
             CommandOutput::OpticsInventory(entries)
         }
         // ARP and IPv6 neighbor tables are public — pass through unfiltered
