@@ -15,7 +15,7 @@
 {% endif %}
 
 {% if entries %}
-<div x-data="sortableTable()">
+<div x-data="sortableTable()" x-init="sortBy('participant')">
   <div class="flex items-center justify-between mb-2">
     <input type="search" x-model="search" placeholder="Filter neighbors…"
            class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
