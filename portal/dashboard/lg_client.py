@@ -74,6 +74,10 @@ class LookingGlassClient:
         """Get IXP participant list (no auth required)."""
         return self._get("/api/v1/participants")
 
+    def get_participant_ports(self, token: str | None = None) -> list[dict[str, Any]]:
+        """Get all participant peering ports as (device, interface, asn, name) tuples."""
+        return self._get("/api/v1/participant-ports", token)
+
     def get_participant_detail(self, asn: int, token: str | None = None) -> dict[str, Any]:
         """Get enriched participant data for a specific ASN."""
         return self._get(f"/api/v1/participants/{asn}", token)
