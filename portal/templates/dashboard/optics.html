@@ -30,64 +30,64 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
-              @click="sortBy('Device')">
-            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+              :class="sortCol === 'device' ? 'text-gray-900' : ''"
+              @click="sortBy('device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('device')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
-              @click="sortBy('Interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+              :class="sortCol === 'interface' ? 'text-gray-900' : ''"
+              @click="sortBy('interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Status' ? 'text-gray-900' : ''"
-              @click="sortBy('Status')">
-            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Status')"></span>
+              :class="sortCol === 'status' ? 'text-gray-900' : ''"
+              @click="sortBy('status')">
+            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('status')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Mediatype' ? 'text-gray-900' : ''"
-              @click="sortBy('Mediatype')">
-            Media Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Mediatype')"></span>
+              :class="sortCol === 'mediatype' ? 'text-gray-900' : ''"
+              @click="sortBy('mediatype')">
+            Media Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('mediatype')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Vendor' ? 'text-gray-900' : ''"
-              @click="sortBy('Vendor')">
-            Vendor<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Vendor')"></span>
+              :class="sortCol === 'vendor' ? 'text-gray-900' : ''"
+              @click="sortBy('vendor')">
+            Vendor<span class="text-indigo-500 text-xs ml-1" x-text="indicator('vendor')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Model' ? 'text-gray-900' : ''"
-              @click="sortBy('Model')">
-            Model<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Model')"></span>
+              :class="sortCol === 'model' ? 'text-gray-900' : ''"
+              @click="sortBy('model')">
+            Model<span class="text-indigo-500 text-xs ml-1" x-text="indicator('model')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Serial' ? 'text-gray-900' : ''"
-              @click="sortBy('Serial')">
-            Serial<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Serial')"></span>
+              :class="sortCol === 'serial' ? 'text-gray-900' : ''"
+              @click="sortBy('serial')">
+            Serial<span class="text-indigo-500 text-xs ml-1" x-text="indicator('serial')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Temp' ? 'text-gray-900' : ''"
-              @click="sortBy('Temp')">
-            Temp (°C)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Temp')"></span>
+              :class="sortCol === 'temp' ? 'text-gray-900' : ''"
+              @click="sortBy('temp')">
+            Temp (°C)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('temp')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Voltage' ? 'text-gray-900' : ''"
-              @click="sortBy('Voltage')">
-            Voltage (V)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Voltage')"></span>
+              :class="sortCol === 'voltage' ? 'text-gray-900' : ''"
+              @click="sortBy('voltage')">
+            Voltage (V)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('voltage')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Tx' ? 'text-gray-900' : ''"
-              @click="sortBy('Tx')">
-            TX (dBm)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Tx')"></span>
+              :class="sortCol === 'tx' ? 'text-gray-900' : ''"
+              @click="sortBy('tx')">
+            TX (dBm)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('tx')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Rx' ? 'text-gray-900' : ''"
-              @click="sortBy('Rx')">
-            RX (dBm)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Rx')"></span>
+              :class="sortCol === 'rx' ? 'text-gray-900' : ''"
+              @click="sortBy('rx')">
+            RX (dBm)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('rx')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
-              :class="sortCol === 'Bias' ? 'text-gray-900' : ''"
-              @click="sortBy('Bias')">
-            Bias (mA)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Bias')"></span>
+              :class="sortCol === 'bias' ? 'text-gray-900' : ''"
+              @click="sortBy('bias')">
+            Bias (mA)<span class="text-indigo-500 text-xs ml-1" x-text="indicator('bias')"></span>
           </th>
         </tr>
       </thead>
@@ -97,18 +97,18 @@
         <tr x-show="rowVisible($el)"
             class="{% if forloop.counter|divisibleby:2 %}bg-gray-50{% else %}bg-white{% endif %}"
             data-search="{{ entry.name|lower }} {{ entry.description|default:''|lower }} {{ entry.link_status|default:''|lower }} {{ entry.media_type|default:''|lower }} {{ entry.vendor|default:''|lower }} {{ entry.model|default:''|lower }} {{ entry.serial_number|default:''|lower }} {{ entry.device|default:''|lower }}{% if entry.temperature_c != None %} {{ entry.temperature_c|floatformat:1 }}{% endif %}"
-            data-sort-Device="{{ entry.device|default:''|lower }}"
-            data-sort-Interface="{{ entry.name|lower }}"
-            data-sort-Status="{{ entry.link_status|default:''|lower }}"
-            data-sort-Mediatype="{{ entry.media_type|default:''|lower }}"
-            data-sort-Vendor="{{ entry.vendor|default:''|lower }}"
-            data-sort-Model="{{ entry.model|default:''|lower }}"
-            data-sort-Serial="{{ entry.serial_number|default:''|lower }}"
-            data-sort-Temp="{% if entry.temperature_c != None %}{{ entry.temperature_c }}{% endif %}"
-            data-sort-Voltage="{% if entry.voltage_v != None %}{{ entry.voltage_v }}{% endif %}"
-            data-sort-Tx="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm }}{% endif %}{% endwith %}{% endif %}"
-            data-sort-Rx="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.rx_power_dbm != None %}{{ lane.rx_power_dbm }}{% endif %}{% endwith %}{% endif %}"
-            data-sort-Bias="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma }}{% endif %}{% endwith %}{% endif %}">
+            data-sort-device="{{ entry.device|default:''|lower }}"
+            data-sort-interface="{{ entry.name|lower }}"
+            data-sort-status="{{ entry.link_status|default:''|lower }}"
+            data-sort-mediatype="{{ entry.media_type|default:''|lower }}"
+            data-sort-vendor="{{ entry.vendor|default:''|lower }}"
+            data-sort-model="{{ entry.model|default:''|lower }}"
+            data-sort-serial="{{ entry.serial_number|default:''|lower }}"
+            data-sort-temp="{% if entry.temperature_c != None %}{{ entry.temperature_c }}{% endif %}"
+            data-sort-voltage="{% if entry.voltage_v != None %}{{ entry.voltage_v }}{% endif %}"
+            data-sort-tx="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.tx_power_dbm != None %}{{ lane.tx_power_dbm }}{% endif %}{% endwith %}{% endif %}"
+            data-sort-rx="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.rx_power_dbm != None %}{{ lane.rx_power_dbm }}{% endif %}{% endwith %}{% endif %}"
+            data-sort-bias="{% if entry.dom_supported and lanes %}{% with lane=lanes.0 %}{% if lane.tx_bias_ma != None %}{{ lane.tx_bias_ma }}{% endif %}{% endwith %}{% endif %}">
           <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">
             {{ entry.name }}

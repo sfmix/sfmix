@@ -40,19 +40,19 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Asn' ? 'text-gray-900' : ''"
-              @click="sortBy('Asn')">
-            ASN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Asn')"></span>
+              :class="sortCol === 'asn' ? 'text-gray-900' : ''"
+              @click="sortBy('asn')">
+            ASN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('asn')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Name' ? 'text-gray-900' : ''"
-              @click="sortBy('Name')">
-            Name<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Name')"></span>
+              :class="sortCol === 'name' ? 'text-gray-900' : ''"
+              @click="sortBy('name')">
+            Name<span class="text-indigo-500 text-xs ml-1" x-text="indicator('name')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Type' ? 'text-gray-900' : ''"
-              @click="sortBy('Type')">
-            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Type')"></span>
+              :class="sortCol === 'type' ? 'text-gray-900' : ''"
+              @click="sortBy('type')">
+            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('type')"></span>
           </th>
         </tr>
       </thead>
@@ -60,9 +60,9 @@
         {% for p in entries %}
         <tr x-show="rowVisible($el)"
             data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.participant_type|default:''|lower }}"
-            data-sort-Asn="{{ p.asn }}"
-            data-sort-Name="{{ p.name|lower }}"
-            data-sort-Type="{{ p.participant_type|default:''|lower }}">
+            data-sort-asn="{{ p.asn }}"
+            data-sort-name="{{ p.name|lower }}"
+            data-sort-type="{{ p.participant_type|default:''|lower }}">
           <td class="px-4 py-2 font-mono text-xs">
             <a href="{% url 'participant_detail' p.asn %}" class="text-indigo-600 hover:text-indigo-800">AS{{ p.asn }}</a>
           </td>
