@@ -57,21 +57,7 @@ def logout_view(request):
 
 @login_required
 def index(request):
-    asns = request.session.get("oidc_asns", [])
-    participants = []
-    if asns:
-        try:
-            lg = get_lg_client()
-            all_participants = lg.get_participants()
-            asn_set = set(asns)
-            participants = [p for p in all_participants if p.get("asn") in asn_set]
-        except Exception:
-            pass
-    return render(request, "dashboard/index.html", {
-        "asns": asns,
-        "participants": participants,
-        "is_ix_admin": _is_ix_admin(request),
-    })
+    return redirect("participants_list")
 
 
 @login_required
@@ -312,14 +298,20 @@ def participants_list(request):
     """Public IXP participant list (no auth required)."""
     entries = []
     lg_error = None
+    my_participants = []
     try:
         lg = LookingGlassClient()
         if lg.base_url:
-            entries = sorted(lg.get_participants(), key=lambda p: p.get("asn", 0))
+            all_participants = lg.get_participants()
+            entries = sorted(all_participants, key=lambda p: p.get("asn", 0))
+            if request.user.is_authenticated:
+                user_asns = set(request.session.get("oidc_asns", []))
+                my_participants = [p for p in all_participants if p.get("asn") in user_asns]
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/participants_list.html", {
         "entries": entries,
+        "my_participants": my_participants,
         "lg_error": lg_error,
         "is_ix_admin": _is_ix_admin(request) if request.user.is_authenticated else False,
     })
