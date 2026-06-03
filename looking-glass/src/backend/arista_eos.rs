@@ -456,6 +456,51 @@ impl AristaEosDriver {
             });
         }
 
+        // Second pass: propagate inventory to sub-interfaces that share a physical
+        // transceiver with a sibling that already has an inventory entry.
+        //
+        // On some EOS versions, `show interfaces transceiver` returns breakout
+        // sub-interfaces (e.g. Ethernet13/2, Ethernet13/3) with an empty slot
+        // field even when the /1 sibling has slot="Et13" and full inventory.
+        // Since all lanes of a breakout QSFP share one physical transceiver,
+        // they all have the same vendor/model/serial.
+        {
+            // Build a map: base_name (e.g. "Ethernet13") → inventory entry
+            let mut base_inventory: std::collections::HashMap<String, &OpticsInventoryEntry> =
+                std::collections::HashMap::new();
+            for entry in &result {
+                if let Some(slash) = entry.name.rfind('/') {
+                    let base = &entry.name[..slash];
+                    base_inventory.entry(base.to_owned()).or_insert(entry);
+                }
+            }
+
+            // Find sub-interfaces not yet in result that share a base with an
+            // existing inventory entry.
+            let result_names: std::collections::HashSet<&str> =
+                result.iter().map(|e| e.name.as_str()).collect();
+
+            let mut additions: Vec<OpticsInventoryEntry> = Vec::new();
+            for iface_name in transceiver_info.interfaces.keys() {
+                if result_names.contains(iface_name.as_str()) {
+                    continue; // already has inventory
+                }
+                if let Some(slash) = iface_name.rfind('/') {
+                    let base = &iface_name[..slash];
+                    if let Some(sibling) = base_inventory.get(base) {
+                        additions.push(OpticsInventoryEntry {
+                            name: iface_name.clone(),
+                            media_type: sibling.media_type.clone(),
+                            vendor: sibling.vendor.clone(),
+                            model: sibling.model.clone(),
+                            serial_number: sibling.serial_number.clone(),
+                        });
+                    }
+                }
+            }
+            result.extend(additions);
+        }
+
         result.sort_by(|a, b| interface_sort_key(&a.name).cmp(&interface_sort_key(&b.name)));
         Ok(result)
     }
