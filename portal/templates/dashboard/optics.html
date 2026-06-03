@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Optics – SFMIX Portal{% endblock %}
+{% block container_class %}max-w-full{% endblock %}
 
 {% block content %}
 <div class="mb-4">
@@ -15,10 +16,11 @@
 {% endif %}
 
 {% if entries %}
-<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-  <table class="w-full text-sm">
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  <table class="w-full text-sm whitespace-nowrap">
     <thead class="bg-gray-50 text-left text-gray-500">
       <tr>
+        <th class="px-4 py-2 font-medium">Device</th>
         <th class="px-4 py-2 font-medium">Interface</th>
         <th class="px-4 py-2 font-medium">Status</th>
         <th class="px-4 py-2 font-medium">Media Type</th>
@@ -30,13 +32,13 @@
         <th class="px-4 py-2 font-medium">TX (dBm)</th>
         <th class="px-4 py-2 font-medium">RX (dBm)</th>
         <th class="px-4 py-2 font-medium">Bias (mA)</th>
-        <th class="px-4 py-2 font-medium">Device</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
       {% for entry in entries %}
       {% with lanes=entry.lanes %}
-      <tr>
+      <tr class="{% if forloop.counter|divisibleby:2 %}bg-gray-50{% else %}bg-white{% endif %}">
+        <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
         <td class="px-4 py-2 font-mono text-xs">
           {{ entry.name }}
           {% if entry.description %}
@@ -97,7 +99,6 @@
           <td class="px-4 py-2 text-xs text-gray-400">—</td>
           <td class="px-4 py-2 text-xs text-gray-400">—</td>
         {% endif %}
-        <td class="px-4 py-2 text-xs text-gray-500">{{ entry.device|default:"—" }}</td>
       </tr>
       {% endwith %}
       {% endfor %}
