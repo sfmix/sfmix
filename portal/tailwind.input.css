@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+/* ── SFMIX Design System Tokens ─────────────────────────────────────── */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/static/fonts/InterVariable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Fira Code",
+               Consolas, "Courier New", monospace;
+
+  /* Brand primary (deep teal) */
+  --color-brand-primary: #0b3640;
+  --color-brand-primary-light: #1a6070;
+  --color-brand-accent: #e8913a;
+  --color-brand-hero-dark: #071f26;
+
+  /* Portal accent (indigo scale) */
+  --color-portal-700: #3730a3;
+  --color-portal-600: #4f46e5;
+  --color-portal-100: #e0e7ff;
+}
+
+:root {
+  /* Semantic aliases for use in custom CSS */
+  --color-primary:        #0b3640;
+  --color-primary-light:  #1a6070;
+  --color-accent:         #e8913a;
+  --color-bg:             #ffffff;
+  --color-bg-alt:         #f5f7fa;
+  --color-text:           #333333;
+  --color-text-light:     #666666;
+  --color-border:         #dee2e6;
+
+  /* Layout tokens */
+  --container-width:  1100px;
+  --header-height:    64px;
+  --radius-card:      8px;
+  --radius-sm:        4px;
+  --radius-tag:       3px;
+}

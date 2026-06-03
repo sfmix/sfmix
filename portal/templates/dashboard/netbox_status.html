@@ -3,10 +3,10 @@
 
 {% block content %}
 <div class="mb-4">
-  <a href="/" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Back to dashboard</a>
+  <a href="/" class="text-sm" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; Back to dashboard</a>
 </div>
 
-<h1 class="text-2xl font-bold mb-6">NetBox Data Source Status</h1>
+<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">NetBox Data Source Status</h1>
 
 {% if health.error %}
 <div class="mb-6 flex items-center gap-3">

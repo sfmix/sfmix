@@ -3,18 +3,18 @@
 
 {% block content %}
 <div class="mb-4 flex items-center gap-2 text-sm">
-  <a href="{% url 'participant_detail' asn %}" class="text-indigo-600 hover:text-indigo-800">&larr; AS{{ asn }}</a>
+  <a href="{% url 'participant_detail' asn %}" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; AS{{ asn }}</a>
   <span class="text-gray-400">/</span>
   <span class="text-gray-600">MAC Address Table</span>
 </div>
 
-<h1 class="text-2xl font-bold mb-4">MAC Address Table for AS{{ asn }}</h1>
+<h1 class="text-2xl font-bold mb-4" style="color: var(--color-primary);">MAC Address Table for AS{{ asn }}</h1>
 
 <form method="get" class="mb-4 flex items-center gap-3">
   <label for="vlan" class="text-sm text-gray-600">Filter by VLAN:</label>
   <input type="text" name="vlan" id="vlan" value="{{ vlan_filter }}" placeholder="e.g. 998"
-         class="border border-gray-300 rounded px-3 py-1.5 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-indigo-300">
-  <button type="submit" class="bg-indigo-600 text-white text-sm px-3 py-1.5 rounded hover:bg-indigo-700 transition">Filter</button>
+         class="border border-gray-300 rounded px-3 py-1.5 text-sm w-28 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
+  <button type="submit" class="text-white text-sm px-3 py-1.5 rounded transition" style="background: var(--color-primary-light);" onmouseover="this.style.background='var(--color-primary)'" onmouseout="this.style.background='var(--color-primary-light)'">Filter</button>
   {% if vlan_filter %}
     <a href="{% url 'network_mac_table' asn %}" class="text-sm text-gray-500 hover:text-gray-700">Clear</a>
   {% endif %}
@@ -30,7 +30,7 @@
 <div x-data="sortableTable()">
   <div class="flex items-center justify-between mb-2">
     <input type="search" x-model="search" placeholder="Filter entries…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
     <span class="text-xs text-gray-500">
       <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
       <span x-show="!search">{{ entries|length }} entries</span>
@@ -43,27 +43,27 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'vlan' ? 'text-gray-900' : ''"
               @click="sortBy('vlan')">
-            VLAN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('vlan')"></span>
+            VLAN<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('vlan')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'mac' ? 'text-gray-900' : ''"
               @click="sortBy('mac')">
-            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('mac')"></span>
+            MAC Address<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('mac')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'type' ? 'text-gray-900' : ''"
               @click="sortBy('type')">
-            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('type')"></span>
+            Type<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('type')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'interface' ? 'text-gray-900' : ''"
               @click="sortBy('interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
+            Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'device' ? 'text-gray-900' : ''"
               @click="sortBy('device')">
-            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('device')"></span>
+            Device<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('device')"></span>
           </th>
         </tr>
       </thead>

@@ -5,37 +5,43 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}SFMIX Portal{% endblock %}</title>
+  <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32x32.png' %}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/apple-touch-icon.png' %}">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
     [x-cloak] { display: none !important; }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
-  <nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-    <a href="/" class="text-lg font-semibold text-indigo-700">SFMIX Portal</a>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
+  <nav class="h-16 px-6 flex items-center justify-between" style="background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+    <a href="/" class="flex items-center gap-3 no-underline">
+      <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="h-8" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));">
+      <span class="text-white/70 text-sm font-medium hidden sm:inline">Participant Portal</span>
+    </a>
     <div class="flex items-center gap-4 text-sm">
-      <a href="{% url 'participants_list' %}" class="text-gray-500 hover:text-gray-700">Participants</a>
+      <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">Participants</a>
       {% if user.is_authenticated %}
-        <span class="text-gray-600">{{ user.email }}</span>
+        <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
         {% if is_ix_admin %}
-          <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium">Admin</span>
-          <a href="{% url 'lldp_neighbors' %}" class="text-gray-500 hover:text-gray-700">LLDP</a>
-          <a href="{% url 'optics' %}" class="text-gray-500 hover:text-gray-700">Optics</a>
+          <span class="px-2 py-0.5 rounded text-xs font-medium" style="background: var(--color-portal-100); color: var(--color-portal-700);">Admin</span>
+          <a href="{% url 'lldp_neighbors' %}" class="text-white/70 hover:text-white transition">LLDP</a>
+          <a href="{% url 'optics' %}" class="text-white/70 hover:text-white transition">Optics</a>
           <div class="relative" x-data="{ open: false }" @click.away="open = false">
-            <button @click="open = !open" class="flex items-center gap-1 text-gray-500 hover:text-gray-700">
+            <button @click="open = !open" class="flex items-center gap-1 text-white/70 hover:text-white transition">
               Cache
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div x-show="open" x-cloak class="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded shadow-lg z-10">
+            <div x-show="open" x-cloak class="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-b-md shadow-lg z-10" style="box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
               <a href="{% url 'device_cache_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Devices</a>
               <a href="{% url 'netbox_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">NetBox</a>
             </div>
           </div>
         {% endif %}
-        <a href="{% url 'logout' %}" class="text-gray-500 hover:text-gray-700">Sign out</a>
+        <a href="{% url 'logout' %}" class="text-white/70 hover:text-white transition">Sign out</a>
       {% else %}
-        <a href="{% url 'login' %}" class="text-indigo-600 hover:text-indigo-800 font-medium">Sign in</a>
+        <a href="{% url 'login' %}" class="text-white font-medium hover:text-amber-300 transition">Sign in</a>
       {% endif %}
     </div>
   </nav>
@@ -44,7 +50,7 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="border-t border-gray-200 px-6 py-4 text-center text-xs text-gray-400">
+  <footer class="px-6 py-4 text-center text-xs" style="background: var(--color-primary); color: rgba(255,255,255,0.5);">
     &copy; San Francisco Metropolitan Internet eXchange
   </footer>
   <script>

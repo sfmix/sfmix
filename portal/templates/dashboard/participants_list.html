@@ -2,7 +2,7 @@
 {% block title %}Participants – SFMIX Portal{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">IXP Participants</h1>
+<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">IXP Participants</h1>
 
 {% if my_participants %}
 <div class="mb-6">
@@ -10,9 +10,9 @@
   <div class="flex flex-wrap gap-2">
     {% for member in my_participants %}
     <a href="{% url 'participant_detail' member.asn %}"
-       class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 hover:bg-indigo-100 hover:border-indigo-400 transition group">
-      <span class="font-mono text-xs font-semibold text-indigo-700">AS{{ member.asn }}</span>
-      <span class="text-sm text-gray-700 group-hover:text-indigo-800">{{ member.name }}</span>
+       class="inline-flex items-center gap-2 rounded-lg px-4 py-2 transition group" style="background: rgba(26,96,112,0.06); border: 1px solid rgba(26,96,112,0.2);" onmouseover="this.style.background='rgba(26,96,112,0.12)'; this.style.borderColor='rgba(26,96,112,0.4)'" onmouseout="this.style.background='rgba(26,96,112,0.06)'; this.style.borderColor='rgba(26,96,112,0.2)'">
+      <span class="font-mono text-xs font-semibold" style="color: var(--color-primary-light);">AS{{ member.asn }}</span>
+      <span class="text-sm text-gray-700">{{ member.name }}</span>
     </a>
     {% endfor %}
   </div>
@@ -29,7 +29,7 @@
 <div x-data="sortableTable()">
   <div class="flex items-center justify-between mb-2">
     <input type="search" x-model="search" placeholder="Filter participants…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
     <span class="text-xs text-gray-500">
       <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
       <span x-show="!search">{{ entries|length }} participants</span>
@@ -42,17 +42,17 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'asn' ? 'text-gray-900' : ''"
               @click="sortBy('asn')">
-            ASN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('asn')"></span>
+            ASN<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('asn')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'name' ? 'text-gray-900' : ''"
               @click="sortBy('name')">
-            Name<span class="text-indigo-500 text-xs ml-1" x-text="indicator('name')"></span>
+            Name<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('name')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'type' ? 'text-gray-900' : ''"
               @click="sortBy('type')">
-            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('type')"></span>
+            Type<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('type')"></span>
           </th>
         </tr>
       </thead>
@@ -64,10 +64,10 @@
             data-sort-name="{{ p.name|lower }}"
             data-sort-type="{{ p.participant_type|default:''|lower }}">
           <td class="px-4 py-2 font-mono text-xs">
-            <a href="{% url 'participant_detail' p.asn %}" class="text-indigo-600 hover:text-indigo-800">AS{{ p.asn }}</a>
+            <a href="{% url 'participant_detail' p.asn %}" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">AS{{ p.asn }}</a>
           </td>
           <td class="px-4 py-2">
-            <a href="{% url 'participant_detail' p.asn %}" class="hover:text-indigo-700">{{ p.name }}</a>
+            <a href="{% url 'participant_detail' p.asn %}" class="text-gray-800" onmouseover="this.style.color='var(--color-primary-light)'" onmouseout="this.style.color=''">{{ p.name }}</a>
           </td>
           <td class="px-4 py-2 text-xs">{{ p.participant_type|default:"—" }}</td>
         </tr>

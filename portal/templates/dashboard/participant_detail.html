@@ -3,11 +3,11 @@
 
 {% block content %}
 <div class="mb-4">
-  <a href="{% url 'participants_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Back to participants</a>
+  <a href="{% url 'participants_list' %}" class="text-sm" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; Back to participants</a>
 </div>
 
 <div class="flex flex-wrap items-baseline gap-3 mb-1">
-  <h1 class="text-2xl font-bold">AS{{ asn }}</h1>
+  <h1 class="text-2xl font-bold" style="color: var(--color-primary);">AS{{ asn }}</h1>
   {% if member.participant_type %}
   <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ member.participant_type }}</span>
   {% endif %}
@@ -20,11 +20,11 @@
 <section class="mb-8" x-data="sortableTable()">
   <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
     <div>
-      <h2 class="text-lg font-semibold">Live Interface Status</h2>
+      <h2 class="text-lg font-semibold" style="color: var(--color-primary);">Live Interface Status</h2>
       <p class="text-xs text-gray-500">Real-time data from network devices</p>
     </div>
     <input type="search" x-model="search" placeholder="Filter…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
   </div>
   <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
@@ -33,42 +33,42 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'interface' ? 'text-gray-900' : ''"
               @click="sortBy('interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
+            Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'device' ? 'text-gray-900' : ''"
               @click="sortBy('device')">
-            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('device')"></span>
+            Device<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('device')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'speed' ? 'text-gray-900' : ''"
               @click="sortBy('speed')">
-            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('speed')"></span>
+            Speed<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('speed')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'link' ? 'text-gray-900' : ''"
               @click="sortBy('link')">
-            Link<span class="text-indigo-500 text-xs ml-1" x-text="indicator('link')"></span>
+            Link<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('link')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'protocol' ? 'text-gray-900' : ''"
               @click="sortBy('protocol')">
-            Protocol<span class="text-indigo-500 text-xs ml-1" x-text="indicator('protocol')"></span>
+            Protocol<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('protocol')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'txpower' ? 'text-gray-900' : ''"
               @click="sortBy('txpower')">
-            TX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('txpower')"></span>
+            TX Power<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('txpower')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'rxpower' ? 'text-gray-900' : ''"
               @click="sortBy('rxpower')">
-            RX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('rxpower')"></span>
+            RX Power<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('rxpower')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'temp' ? 'text-gray-900' : ''"
               @click="sortBy('temp')">
-            Temp<span class="text-indigo-500 text-xs ml-1" x-text="indicator('temp')"></span>
+            Temp<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('temp')"></span>
           </th>
         </tr>
       </thead>
@@ -112,7 +112,7 @@
 </section>
 {% elif lg_error %}
 <section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3">Live Interface Status</h2>
+  <h2 class="text-lg font-semibold mb-3" style="color: var(--color-primary);">Live Interface Status</h2>
   <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
     Unable to fetch live data: {{ lg_error }}
   </div>
@@ -125,11 +125,11 @@
 <section class="mb-8" x-data="sortableTable()">
   <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
     <div>
-      <h2 class="text-lg font-semibold">Peering Ports</h2>
+      <h2 class="text-lg font-semibold" style="color: var(--color-primary);">Peering Ports</h2>
       <p class="text-xs text-gray-500">Configuration from NetBox</p>
     </div>
     <input type="search" x-model="search" placeholder="Filter…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
   </div>
   <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
@@ -138,22 +138,22 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'interface' ? 'text-gray-900' : ''"
               @click="sortBy('interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
+            Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'switch' ? 'text-gray-900' : ''"
               @click="sortBy('switch')">
-            Switch<span class="text-indigo-500 text-xs ml-1" x-text="indicator('switch')"></span>
+            Switch<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('switch')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'speed' ? 'text-gray-900' : ''"
               @click="sortBy('speed')">
-            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('speed')"></span>
+            Speed<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('speed')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'status' ? 'text-gray-900' : ''"
               @click="sortBy('status')">
-            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('status')"></span>
+            Status<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
@@ -188,9 +188,9 @@
 {% if ip_addresses %}
 <section class="mb-8" x-data="sortableTable()">
   <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-    <h2 class="text-lg font-semibold">IP Addresses</h2>
+    <h2 class="text-lg font-semibold" style="color: var(--color-primary);">IP Addresses</h2>
     <input type="search" x-model="search" placeholder="Filter…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
   </div>
   <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
@@ -199,22 +199,22 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'address' ? 'text-gray-900' : ''"
               @click="sortBy('address')">
-            Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('address')"></span>
+            Address<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('address')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'family' ? 'text-gray-900' : ''"
               @click="sortBy('family')">
-            Family<span class="text-indigo-500 text-xs ml-1" x-text="indicator('family')"></span>
+            Family<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('family')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'mac' ? 'text-gray-900' : ''"
               @click="sortBy('mac')">
-            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('mac')"></span>
+            MAC Address<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('mac')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'status' ? 'text-gray-900' : ''"
               @click="sortBy('status')">
-            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('status')"></span>
+            Status<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
@@ -245,23 +245,23 @@
 {% endif %}
 
 <section>
-  <h2 class="text-lg font-semibold mb-3">Links</h2>
+  <h2 class="text-lg font-semibold mb-3" style="color: var(--color-primary);">Links</h2>
   {% if is_own_network or is_ix_admin %}
   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mb-3">
     <a href="{% url 'network_mac_table' asn %}"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition">
-      <div class="font-medium text-indigo-700">MAC Table</div>
+       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:shadow-sm transition" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
+      <div class="font-medium" style="color: var(--color-primary-light);">MAC Table</div>
       <div class="text-xs text-gray-500 mt-0.5">Learned MAC addresses</div>
     </a>
   </div>
   {% endif %}
   <div class="flex flex-wrap gap-3 text-sm">
     <a href="https://www.peeringdb.com/asn/{{ asn }}" target="_blank"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
+       class="bg-white border border-gray-200 rounded-lg px-4 py-2 transition" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
       PeeringDB
     </a>
     <a href="https://lg.sfmix.org/" target="_blank"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-indigo-300 transition">
+       class="bg-white border border-gray-200 rounded-lg px-4 py-2 transition" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
       Looking Glass
     </a>
   </div>

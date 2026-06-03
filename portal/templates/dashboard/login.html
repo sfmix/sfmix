@@ -7,7 +7,7 @@
     <h1 class="text-xl font-semibold mb-2">SFMIX Participant Portal</h1>
     <p class="text-gray-500 text-sm mb-6">Sign in with your PeeringDB or GitHub account via SFMIX SSO.</p>
     <a href="{% url 'oidc_authentication_init' %}"
-       class="inline-block w-full bg-indigo-600 text-white rounded-md px-4 py-2.5 font-medium hover:bg-indigo-700 transition">
+       class="inline-block w-full text-white rounded-md px-4 py-2.5 font-medium transition" style="background: var(--color-primary-light);" onmouseover="this.style.background='var(--color-primary)'" onmouseout="this.style.background='var(--color-primary-light)'">
       Sign in with SFMIX SSO
     </a>
     <p class="text-xs text-gray-400 mt-4">Authenticated by <a href="https://login.sfmix.org" class="underline">login.sfmix.org</a></p>
