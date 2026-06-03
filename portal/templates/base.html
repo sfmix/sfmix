@@ -21,8 +21,7 @@
         {% if is_ix_admin %}
           <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium">Admin</span>
           <a href="{% url 'lldp_neighbors' %}" class="text-gray-500 hover:text-gray-700">LLDP</a>
-          <a href="{% url 'optics_status' %}" class="text-gray-500 hover:text-gray-700">Optics</a>
-          <a href="{% url 'optics_inventory' %}" class="text-gray-500 hover:text-gray-700">Inventory</a>
+          <a href="{% url 'optics' %}" class="text-gray-500 hover:text-gray-700">Optics</a>
           <div class="relative" x-data="{ open: false }" @click.away="open = false">
             <button @click="open = !open" class="flex items-center gap-1 text-gray-500 hover:text-gray-700">
               Cache

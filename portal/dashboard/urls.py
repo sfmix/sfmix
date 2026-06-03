@@ -12,7 +12,6 @@ urlpatterns = [
     path("admin/lldp/", views.lldp_neighbors, name="lldp_neighbors"),
     path("metrics/", views.metrics_view, name="metrics"),
     path("admin/netbox-status/", views.netbox_status_view, name="netbox_status"),
-    path("admin/optics/", views.optics_status_view, name="optics_status"),
-    path("admin/optics-inventory/", views.optics_inventory_view, name="optics_inventory"),
+    path("admin/optics/", views.optics_view, name="optics"),
     path("admin/device-cache/", views.device_cache_status_view, name="device_cache_status"),
 ]
