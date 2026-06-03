@@ -88,13 +88,24 @@ def network_mac_table(request, asn):
     try:
         lg = LookingGlassClient()
         if lg.base_url:
+            allowed_ports: set[tuple[str, str]] = set()
+            detail = lg.get_participant_detail(asn, token=token)
+            for port in detail.get("enriched_ports", []):
+                dev, iface = port.get("device", ""), port.get("interface", "")
+                if dev and iface:
+                    allowed_ports.add((dev, iface))
+                for member_dev, member_iface in port.get("member_interfaces", []):
+                    if member_dev and member_iface:
+                        allowed_ports.add((member_dev, member_iface))
+
             results = lg.get_mac_address_table(token=token, vlan=vlan)
             for device_result in results:
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
                     for entry in device_result["data"]:
                         entry["device"] = dev
-                        entries.append(entry)
+                        if (dev, entry.get("interface", "")) in allowed_ports:
+                            entries.append(entry)
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/network_mac_table.html", {
