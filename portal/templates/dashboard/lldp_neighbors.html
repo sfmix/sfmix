@@ -29,6 +29,11 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'device' ? 'text-gray-900' : ''"
+              @click="sortBy('device')">
+            Device<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('device')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'localif' ? 'text-gray-900' : ''"
               @click="sortBy('localif')">
             Local Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('localif')"></span>
@@ -49,26 +54,28 @@
             TTL<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('ttl')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'device' ? 'text-gray-900' : ''"
-              @click="sortBy('device')">
-            Device<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('device')"></span>
+              :class="sortCol === 'description' ? 'text-gray-900' : ''"
+              @click="sortBy('description')">
+            Description<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('description')"></span>
           </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for entry in entries %}
         <tr x-show="rowVisible($el)"
-            data-search="{{ entry.local_interface|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {{ entry.device|default:''|lower }}"
+            data-search="{{ entry.device|default:''|lower }} {{ entry.local_interface|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {{ entry.description|default:''|lower }}"
+            data-sort-device="{{ entry.device|default:''|lower }}"
             data-sort-localif="{{ entry.local_interface|lower }}"
             data-sort-neighbordev="{{ entry.neighbor_device|default:''|lower }}"
             data-sort-neighborport="{{ entry.neighbor_port|default:''|lower }}"
             data-sort-ttl="{{ entry.ttl|default:'' }}"
-            data-sort-device="{{ entry.device|default:''|lower }}">
+            data-sort-description="{{ entry.description|default:''|lower }}">
+          <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ entry.local_interface }}</td>
           <td class="px-4 py-2 text-xs">{{ entry.neighbor_device|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ entry.neighbor_port|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">{{ entry.ttl|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ entry.description|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
