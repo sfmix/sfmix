@@ -130,11 +130,19 @@ def lldp_neighbors(request):
                 if p.get("device") and p.get("interface")
             }
 
+            iface_description: dict[tuple[str, str], str] = {}
+            for device_result in lg.get_interfaces_status(token=token):
+                if device_result.get("success") and device_result.get("data"):
+                    dev = device_result.get("device", "")
+                    for iface in device_result["data"]:
+                        iface_description[(dev, iface["name"])] = iface.get("description", "")
+
             for entry in entries:
                 key = (entry.get("device", ""), entry.get("local_interface", ""))
                 participant = port_to_participant.get(key)
                 entry["participant_asn"] = participant["asn"] if participant else None
                 entry["participant_name"] = participant["name"] if participant else ""
+                entry["description"] = iface_description.get(key, "")
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/lldp_neighbors.html", {
