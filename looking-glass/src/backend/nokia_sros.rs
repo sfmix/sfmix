@@ -288,6 +288,16 @@ impl NokiaSrosDriver {
             let link_status = json_str(port, "oper-state");
 
             let transceiver = port.pointer("/transceiver");
+
+            // Skip ports with no equipped transceiver
+            let equipped = transceiver
+                .and_then(|t| t.get("equipped"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if !equipped {
+                continue;
+            }
+
             let media_type = transceiver
                 .and_then(|x| x.get("type"))
                 .and_then(|v| v.as_str())
@@ -483,10 +493,17 @@ impl NokiaSrosDriver {
                 .unwrap_or("")
                 .to_string();
 
+            let vendor = transceiver
+                .and_then(|t| t.get("vendor-name"))
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
+
             result.push(OpticsInventoryEntry {
                 name,
                 media_type,
-                vendor: None, // No vendor-name field in Nokia SR-OS YANG state
+                vendor,
                 model,
                 serial_number,
             });
