@@ -16,6 +16,7 @@ use lg_types::rpc::{
     DeviceInfo, DeviceResultEvent, ErrorEvent, ExecuteRequest,
     ServiceInfo, StreamEndEvent, StreamLineEvent,
 };
+use looking_glass::participants::PortClass;
 use looking_glass::service::{self, LookingGlass};
 use looking_glass::structured::CommandOutput;
 
@@ -34,6 +35,7 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/participants", get(participants_list))
         .route("/rpc/v1/participants.json", get(ixf_member_export))
         .route("/rpc/v1/participants/{asn}", get(participant_detail))
+        .route("/rpc/v1/participant-ports", get(participant_ports))
         .route("/rpc/v1/netbox/status", get(netbox_status))
         .route("/rpc/v1/device-cache/status", get(device_cache_status))
         .with_state(state)
@@ -223,6 +225,43 @@ async fn participant_detail(
         Some(p) => Json(serde_json::to_value(p).unwrap_or_default()).into_response(),
         None => (StatusCode::NOT_FOUND, "participant not found").into_response(),
     }
+}
+
+/// GET /rpc/v1/participant-ports — all participant (device, interface, asn, name) tuples
+async fn participant_ports(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let port_map = state.lg.port_map.load();
+    let participants = state.lg.participants();
+    let mut entries: Vec<serde_json::Value> = port_map
+        .iter()
+        .filter_map(|((device, interface), class)| {
+            if let PortClass::Participant { asn } = class {
+                let name = participants
+                    .get(*asn)
+                    .map(|p| p.name.clone())
+                    .unwrap_or_default();
+                Some(serde_json::json!({
+                    "device": device,
+                    "interface": interface,
+                    "asn": asn,
+                    "name": name,
+                }))
+            } else {
+                None
+            }
+        })
+        .collect();
+    entries.sort_by(|a, b| {
+        a["asn"].as_u64().cmp(&b["asn"].as_u64())
+            .then(a["device"].as_str().cmp(&b["device"].as_str()))
+            .then(a["interface"].as_str().cmp(&b["interface"].as_str()))
+    });
+    Json(entries).into_response()
 }
 
 /// GET /rpc/v1/device-cache/status — per-device background cache freshness

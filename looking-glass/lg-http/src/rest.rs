@@ -337,6 +337,16 @@ async fn get_ixf_member_export(
     }
 }
 
+/// Proxy participant port map from lg-server.
+async fn get_participant_ports(
+    State(state): State<HttpState>,
+) -> impl IntoResponse {
+    match state.rpc.get_json("/rpc/v1/participant-ports").await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
 /// Proxy participant detail from lg-server.
 async fn get_participant_detail(
     State(state): State<HttpState>,
@@ -512,6 +522,7 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
+        .route("/api/v1/participant-ports", get(get_participant_ports))
         .route("/api/v1/netbox/status", get(get_netbox_status))
         .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
