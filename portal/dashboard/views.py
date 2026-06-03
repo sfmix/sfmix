@@ -285,14 +285,15 @@ def netbox_status_view(request):
     })
 
 
-# ── Admin: Optics status ────────────────────────────────────────────
+# ── Admin: Optics (status + inventory) ─────────────────────────────
 
 @login_required
-def optics_status_view(request):
-    """Transceiver DOM status across all devices (admin only)."""
+def optics_view(request):
+    """Transceiver DOM status and hardware inventory across all devices (admin only)."""
     if not _is_ix_admin(request):
         return HttpResponseForbidden("IX Administrators only.")
-    entries = []
+    status_entries = []
+    inventory_entries = []
     lg_error = None
     token = request.session.get("oidc_id_token")
     try:
@@ -300,48 +301,23 @@ def optics_status_view(request):
         if not lg.base_url:
             lg_error = "Looking Glass not configured"
         else:
-            results = lg.get_optics(token=token)
-            for device_result in results:
+            for device_result in lg.get_optics(token=token):
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
                     for optic in device_result["data"]:
                         optic["device"] = dev
-                        entries.append(optic)
-    except Exception as e:
-        lg_error = str(e)
-    return render(request, "dashboard/optics_status.html", {
-        "entries": entries,
-        "lg_error": lg_error,
-        "is_ix_admin": True,
-    })
-
-
-# ── Admin: Optics inventory ─────────────────────────────────────────
-
-@login_required
-def optics_inventory_view(request):
-    """Transceiver hardware inventory across all devices (admin only)."""
-    if not _is_ix_admin(request):
-        return HttpResponseForbidden("IX Administrators only.")
-    entries = []
-    lg_error = None
-    token = request.session.get("oidc_id_token")
-    try:
-        lg = LookingGlassClient()
-        if not lg.base_url:
-            lg_error = "Looking Glass not configured"
-        else:
-            results = lg.get_optics_inventory(token=token)
-            for device_result in results:
+                        status_entries.append(optic)
+            for device_result in lg.get_optics_inventory(token=token):
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
                     for entry in device_result["data"]:
                         entry["device"] = dev
-                        entries.append(entry)
+                        inventory_entries.append(entry)
     except Exception as e:
         lg_error = str(e)
-    return render(request, "dashboard/optics_inventory.html", {
-        "entries": entries,
+    return render(request, "dashboard/optics.html", {
+        "status_entries": status_entries,
+        "inventory_entries": inventory_entries,
         "lg_error": lg_error,
         "is_ix_admin": True,
     })
