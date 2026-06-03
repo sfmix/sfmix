@@ -20,7 +20,7 @@
 {% else %}
   <div class="grid gap-4">
     {% for member in participants %}
-    <a href="{% url 'network_detail' member.asn %}"
+    <a href="{% url 'participant_detail' member.asn %}"
        class="block bg-white border border-gray-200 rounded-lg p-5 hover:border-indigo-300 hover:shadow-sm transition group">
       <div class="flex items-center justify-between">
         <div>
