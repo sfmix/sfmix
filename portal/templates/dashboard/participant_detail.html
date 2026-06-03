@@ -31,44 +31,44 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
-              @click="sortBy('Interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+              :class="sortCol === 'interface' ? 'text-gray-900' : ''"
+              @click="sortBy('interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
-              @click="sortBy('Device')">
-            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+              :class="sortCol === 'device' ? 'text-gray-900' : ''"
+              @click="sortBy('device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('device')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Speed' ? 'text-gray-900' : ''"
-              @click="sortBy('Speed')">
-            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Speed')"></span>
+              :class="sortCol === 'speed' ? 'text-gray-900' : ''"
+              @click="sortBy('speed')">
+            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('speed')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Link' ? 'text-gray-900' : ''"
-              @click="sortBy('Link')">
-            Link<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Link')"></span>
+              :class="sortCol === 'link' ? 'text-gray-900' : ''"
+              @click="sortBy('link')">
+            Link<span class="text-indigo-500 text-xs ml-1" x-text="indicator('link')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Protocol' ? 'text-gray-900' : ''"
-              @click="sortBy('Protocol')">
-            Protocol<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Protocol')"></span>
+              :class="sortCol === 'protocol' ? 'text-gray-900' : ''"
+              @click="sortBy('protocol')">
+            Protocol<span class="text-indigo-500 text-xs ml-1" x-text="indicator('protocol')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Txpower' ? 'text-gray-900' : ''"
-              @click="sortBy('Txpower')">
-            TX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Txpower')"></span>
+              :class="sortCol === 'txpower' ? 'text-gray-900' : ''"
+              @click="sortBy('txpower')">
+            TX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('txpower')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Rxpower' ? 'text-gray-900' : ''"
-              @click="sortBy('Rxpower')">
-            RX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Rxpower')"></span>
+              :class="sortCol === 'rxpower' ? 'text-gray-900' : ''"
+              @click="sortBy('rxpower')">
+            RX Power<span class="text-indigo-500 text-xs ml-1" x-text="indicator('rxpower')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Temp' ? 'text-gray-900' : ''"
-              @click="sortBy('Temp')">
-            Temp<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Temp')"></span>
+              :class="sortCol === 'temp' ? 'text-gray-900' : ''"
+              @click="sortBy('temp')">
+            Temp<span class="text-indigo-500 text-xs ml-1" x-text="indicator('temp')"></span>
           </th>
         </tr>
       </thead>
@@ -76,14 +76,14 @@
         {% for iface in live_interfaces %}
         <tr x-show="rowVisible($el)"
             data-search="{{ iface.name|lower }} {{ iface.device|default:''|lower }} {{ iface.speed|default:''|lower }} {{ iface.link_status|default:''|lower }} {{ iface.protocol_status|default:''|lower }}"
-            data-sort-Interface="{{ iface.name|lower }}"
-            data-sort-Device="{{ iface.device|default:''|lower }}"
-            data-sort-Speed="{{ iface.speed|default:'' }}"
-            data-sort-Link="{{ iface.link_status|default:''|lower }}"
-            data-sort-Protocol="{{ iface.protocol_status|default:''|lower }}"
-            data-sort-Txpower="{{ iface.tx_power|default:'' }}"
-            data-sort-Rxpower="{{ iface.rx_power|default:'' }}"
-            data-sort-Temp="{{ iface.temperature|default:'' }}">
+            data-sort-interface="{{ iface.name|lower }}"
+            data-sort-device="{{ iface.device|default:''|lower }}"
+            data-sort-speed="{{ iface.speed|default:'' }}"
+            data-sort-link="{{ iface.link_status|default:''|lower }}"
+            data-sort-protocol="{{ iface.protocol_status|default:''|lower }}"
+            data-sort-txpower="{{ iface.tx_power|default:'' }}"
+            data-sort-rxpower="{{ iface.rx_power|default:'' }}"
+            data-sort-temp="{{ iface.temperature|default:'' }}">
           <td class="px-4 py-2 font-mono text-xs">{% if iface.is_lag_member %}<span class="text-gray-400">└ </span>{% endif %}{{ iface.name }}</td>
           <td class="px-4 py-2 text-xs">{{ iface.device|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">{{ iface.speed|default:"—" }}</td>
@@ -136,24 +136,24 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
-              @click="sortBy('Interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+              :class="sortCol === 'interface' ? 'text-gray-900' : ''"
+              @click="sortBy('interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Switch' ? 'text-gray-900' : ''"
-              @click="sortBy('Switch')">
-            Switch<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Switch')"></span>
+              :class="sortCol === 'switch' ? 'text-gray-900' : ''"
+              @click="sortBy('switch')">
+            Switch<span class="text-indigo-500 text-xs ml-1" x-text="indicator('switch')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Speed' ? 'text-gray-900' : ''"
-              @click="sortBy('Speed')">
-            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Speed')"></span>
+              :class="sortCol === 'speed' ? 'text-gray-900' : ''"
+              @click="sortBy('speed')">
+            Speed<span class="text-indigo-500 text-xs ml-1" x-text="indicator('speed')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Status' ? 'text-gray-900' : ''"
-              @click="sortBy('Status')">
-            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Status')"></span>
+              :class="sortCol === 'status' ? 'text-gray-900' : ''"
+              @click="sortBy('status')">
+            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
@@ -161,10 +161,10 @@
         {% for port in peering_ports %}
         <tr x-show="rowVisible($el)"
             data-search="{{ port.interface|lower }} {{ port.device|default:''|lower }} {{ port.speed|default:'' }} {% if port.enabled %}enabled{% else %}disabled{% endif %}"
-            data-sort-Interface="{{ port.interface|lower }}"
-            data-sort-Switch="{{ port.device|default:''|lower }}"
-            data-sort-Speed="{{ port.speed|default:'' }}"
-            data-sort-Status="{% if port.enabled %}enabled{% else %}disabled{% endif %}">
+            data-sort-interface="{{ port.interface|lower }}"
+            data-sort-switch="{{ port.device|default:''|lower }}"
+            data-sort-speed="{{ port.speed|default:'' }}"
+            data-sort-status="{% if port.enabled %}enabled{% else %}disabled{% endif %}">
           <td class="px-4 py-2 font-mono text-xs">{{ port.interface }}</td>
           <td class="px-4 py-2">{{ port.device|default:"—" }}</td>
           <td class="px-4 py-2">
@@ -197,24 +197,24 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Address' ? 'text-gray-900' : ''"
-              @click="sortBy('Address')">
-            Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Address')"></span>
+              :class="sortCol === 'address' ? 'text-gray-900' : ''"
+              @click="sortBy('address')">
+            Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('address')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Family' ? 'text-gray-900' : ''"
-              @click="sortBy('Family')">
-            Family<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Family')"></span>
+              :class="sortCol === 'family' ? 'text-gray-900' : ''"
+              @click="sortBy('family')">
+            Family<span class="text-indigo-500 text-xs ml-1" x-text="indicator('family')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Mac' ? 'text-gray-900' : ''"
-              @click="sortBy('Mac')">
-            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Mac')"></span>
+              :class="sortCol === 'mac' ? 'text-gray-900' : ''"
+              @click="sortBy('mac')">
+            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('mac')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Status' ? 'text-gray-900' : ''"
-              @click="sortBy('Status')">
-            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Status')"></span>
+              :class="sortCol === 'status' ? 'text-gray-900' : ''"
+              @click="sortBy('status')">
+            Status<span class="text-indigo-500 text-xs ml-1" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
@@ -222,10 +222,10 @@
         {% for ip in ip_addresses %}
         <tr x-show="rowVisible($el)"
             data-search="{{ ip.address|lower }} {{ ip.family }} {{ ip.mac_address|default:''|lower }} {{ ip.status|lower }}"
-            data-sort-Address="{{ ip.address|lower }}"
-            data-sort-Family="{{ ip.family }}"
-            data-sort-Mac="{{ ip.mac_address|default:''|lower }}"
-            data-sort-Status="{{ ip.status|lower }}">
+            data-sort-address="{{ ip.address|lower }}"
+            data-sort-family="{{ ip.family }}"
+            data-sort-mac="{{ ip.mac_address|default:''|lower }}"
+            data-sort-status="{{ ip.status|lower }}">
           <td class="px-4 py-2 font-mono text-xs">{{ ip.address }}</td>
           <td class="px-4 py-2 text-xs">{{ ip.family }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ ip.mac_address|default:"—" }}</td>

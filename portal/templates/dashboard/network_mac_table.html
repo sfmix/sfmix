@@ -41,29 +41,29 @@
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Vlan' ? 'text-gray-900' : ''"
-              @click="sortBy('Vlan')">
-            VLAN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Vlan')"></span>
+              :class="sortCol === 'vlan' ? 'text-gray-900' : ''"
+              @click="sortBy('vlan')">
+            VLAN<span class="text-indigo-500 text-xs ml-1" x-text="indicator('vlan')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Mac' ? 'text-gray-900' : ''"
-              @click="sortBy('Mac')">
-            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Mac')"></span>
+              :class="sortCol === 'mac' ? 'text-gray-900' : ''"
+              @click="sortBy('mac')">
+            MAC Address<span class="text-indigo-500 text-xs ml-1" x-text="indicator('mac')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Type' ? 'text-gray-900' : ''"
-              @click="sortBy('Type')">
-            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Type')"></span>
+              :class="sortCol === 'type' ? 'text-gray-900' : ''"
+              @click="sortBy('type')">
+            Type<span class="text-indigo-500 text-xs ml-1" x-text="indicator('type')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Interface' ? 'text-gray-900' : ''"
-              @click="sortBy('Interface')">
-            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Interface')"></span>
+              :class="sortCol === 'interface' ? 'text-gray-900' : ''"
+              @click="sortBy('interface')">
+            Interface<span class="text-indigo-500 text-xs ml-1" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'Device' ? 'text-gray-900' : ''"
-              @click="sortBy('Device')">
-            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('Device')"></span>
+              :class="sortCol === 'device' ? 'text-gray-900' : ''"
+              @click="sortBy('device')">
+            Device<span class="text-indigo-500 text-xs ml-1" x-text="indicator('device')"></span>
           </th>
         </tr>
       </thead>
@@ -71,11 +71,11 @@
         {% for entry in entries %}
         <tr x-show="rowVisible($el)"
             data-search="{{ entry.vlan }} {{ entry.mac_address|lower }} {{ entry.entry_type|default:''|lower }} {{ entry.interface|lower }} {{ entry.device|default:''|lower }}"
-            data-sort-Vlan="{{ entry.vlan }}"
-            data-sort-Mac="{{ entry.mac_address|lower }}"
-            data-sort-Type="{{ entry.entry_type|default:''|lower }}"
-            data-sort-Interface="{{ entry.interface|lower }}"
-            data-sort-Device="{{ entry.device|default:''|lower }}">
+            data-sort-vlan="{{ entry.vlan }}"
+            data-sort-mac="{{ entry.mac_address|lower }}"
+            data-sort-type="{{ entry.entry_type|default:''|lower }}"
+            data-sort-interface="{{ entry.interface|lower }}"
+            data-sort-device="{{ entry.device|default:''|lower }}">
           <td class="px-4 py-2 font-mono text-xs">{{ entry.vlan }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ entry.mac_address }}</td>
           <td class="px-4 py-2 text-xs">{{ entry.entry_type|default:"—" }}</td>
