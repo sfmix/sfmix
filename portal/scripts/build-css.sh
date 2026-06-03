@@ -14,5 +14,5 @@ if [[ ! -x "$BINARY" ]]; then
 fi
 
 cd "$(dirname "$0")/.."
-"$BINARY" -i static/css/tailwind.input.css -o static/css/tailwind.css --minify
+"$BINARY" -i tailwind.input.css -o static/css/tailwind.css --minify
 echo "Done — static/css/tailwind.css updated."

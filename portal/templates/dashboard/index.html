@@ -2,7 +2,7 @@
 {% block title %}Dashboard – SFMIX Portal{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">Your Networks</h1>
+<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">Your Networks</h1>
 
 {% if not participants %}
   <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
@@ -21,13 +21,13 @@
   <div class="grid gap-4">
     {% for member in participants %}
     <a href="{% url 'participant_detail' member.asn %}"
-       class="block bg-white border border-gray-200 rounded-lg p-5 hover:border-indigo-300 hover:shadow-sm transition group">
+       class="block bg-white border border-gray-200 rounded-lg p-5 hover:shadow-sm transition group" style="border-radius: var(--radius-card);" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
       <div class="flex items-center justify-between">
         <div>
-          <span class="text-lg font-semibold text-indigo-700 group-hover:text-indigo-800">AS{{ member.asn }}</span>
+          <span class="text-lg font-semibold" style="color: var(--color-primary-light);">AS{{ member.asn }}</span>
           <span class="ml-2 text-gray-700">{{ member.name }}</span>
         </div>
-        <svg class="w-5 h-5 text-gray-400 group-hover:text-indigo-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 text-gray-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
       </div>
