@@ -56,6 +56,23 @@ scrape_configs:
         dropped: ["true"]
         maxFlows: ["20"]
         minValue: ["0.001"]
+    - job_name: sflow-rt-as40271
+      metrics_path: /app/prometheus/scripts/export.js/flows/ALL/txt
+      scheme: http
+      scrape_interval: 10s
+      scrape_timeout: 4s
+      static_configs:
+        - targets:
+          - metrics.sfo02.sfmix.org:8008
+      params:
+        metric: ["as40271"]
+        key: ["asn:[or:ipsource:ip6source]:both","asn:[or:ipdestination:ip6destination]:both","uc:[first:stack:.:ip:ip6]"]
+        label: ["source", "destination","protocol"]
+        value: ["bytes"]
+        scale: ["8"]
+        aggMode: ["edge"]
+        filter: ["(macsource=9C47F46D4231,9C47F46D2631|macdestination=9C47F46D4231,9C47F46D2631)&first:stack:.:mpls=null"]
+        maxFlows: ["100"]
     - job_name: netbox
       scheme: https
       scrape_interval: 10s
