@@ -292,8 +292,7 @@ def optics_view(request):
     """Transceiver DOM status and hardware inventory across all devices (admin only)."""
     if not _is_ix_admin(request):
         return HttpResponseForbidden("IX Administrators only.")
-    status_entries = []
-    inventory_entries = []
+    entries = []
     lg_error = None
     token = request.session.get("oidc_id_token")
     try:
@@ -301,23 +300,31 @@ def optics_view(request):
         if not lg.base_url:
             lg_error = "Looking Glass not configured"
         else:
+            status_by_key = {}
             for device_result in lg.get_optics(token=token):
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
                     for optic in device_result["data"]:
-                        optic["device"] = dev
-                        status_entries.append(optic)
+                        status_by_key[(dev, optic.get("name", ""))] = optic
+
             for device_result in lg.get_optics_inventory(token=token):
                 if device_result.get("success") and device_result.get("data"):
                     dev = device_result.get("device", "")
-                    for entry in device_result["data"]:
+                    for inv in device_result["data"]:
+                        key = (dev, inv.get("name", ""))
+                        entry = status_by_key.pop(key, {})
+                        entry.update({k: v for k, v in inv.items() if k not in entry})
                         entry["device"] = dev
-                        inventory_entries.append(entry)
+                        entries.append(entry)
+
+            # status entries with no matching inventory record
+            for (dev, _), optic in status_by_key.items():
+                optic["device"] = dev
+                entries.append(optic)
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/optics.html", {
-        "status_entries": status_entries,
-        "inventory_entries": inventory_entries,
+        "entries": entries,
         "lg_error": lg_error,
         "is_ix_admin": True,
     })
