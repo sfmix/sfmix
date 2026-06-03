@@ -17,6 +17,26 @@
     mode: u=rwx,go=rx
   with_items:
     - "{{ sflow_rt_store_dir }}"
+    - /opt/sflow-rt/etc
+
+- name: "Sflow-rt: Deploy license key"
+  become: true
+  ansible.builtin.copy:
+    content: "{{ sflow_rt_swkey | to_nice_json }}\n"
+    dest: /opt/sflow-rt/swkey.json
+    owner: nobody
+    group: nogroup
+    mode: "0644"
+  no_log: true
+
+- name: "Sflow-rt: Deploy bgp.js"
+  become: true
+  ansible.builtin.template:
+    src: bgp.js.j2
+    dest: /opt/sflow-rt/etc/bgp.js
+    owner: root
+    group: root
+    mode: "0664"
 
 - name: "Sflow-rt: run container: {{ sflow_rt_docker_container }}"
   community.docker.docker_container:
@@ -35,6 +55,7 @@
 # -Dbgp.start=yes
     volumes:
       - "{{ sflow_rt_store_dir }}:/sflow-rt/store"
+      - /opt/sflow-rt/swkey.json:/sflow-rt/swkey.json
 
 - name: "Install ~/sfmix/topology.py requirements"
   become: true

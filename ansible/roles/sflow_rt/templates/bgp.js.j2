@@ -1,0 +1,13 @@
+var birdReflectorIP = '{{ sflow_rt_bgp_bird_reflector_ip }}';
+var bgpdReflectorIP = '{{ sflow_rt_bgp_bgpd_reflector_ip }}'
+var myAS         = '{{ sflow_rt_bgp_as }}';
+var myID         = '{{ sflow_rt_bgp_id }}';
+
+// allow BGP connection from reflectorIP
+bgpAddNeighbor(birdReflectorIP,myAS,myID,{"ipv6": true});
+
+// direct sFlow from sFlowAgentIP to reflectorIP routing table
+// calculate a 60 second moving average byte rate for each route
+{% for agent_ip in sflow_rt_bgp_sources %}
+bgpAddSource("{{ agent_ip }}",birdReflectorIP,60,'bytes');
+{% endfor %}
