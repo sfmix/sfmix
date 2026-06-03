@@ -39,6 +39,11 @@
             Local Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('localif')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'description' ? 'text-gray-900' : ''"
+              @click="sortBy('description')">
+            Description<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('description')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'neighbordev' ? 'text-gray-900' : ''"
               @click="sortBy('neighbordev')">
             Neighbor Device<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('neighbordev')"></span>
@@ -63,15 +68,17 @@
       <tbody class="divide-y divide-gray-100">
         {% for entry in entries %}
         <tr x-show="rowVisible($el)"
-            data-search="{{ entry.device|default:''|lower }} {{ entry.local_interface|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {% if entry.participant_asn %}as{{ entry.participant_asn }} {{ entry.participant_name|lower }}{% endif %}"
+            data-search="{{ entry.device|default:''|lower }} {{ entry.local_interface|lower }} {{ entry.description|default:''|lower }} {{ entry.neighbor_device|default:''|lower }} {{ entry.neighbor_port|default:''|lower }} {{ entry.ttl|default:'' }} {% if entry.participant_asn %}as{{ entry.participant_asn }} {{ entry.participant_name|lower }}{% endif %}"
             data-sort-device="{{ entry.device|default:''|lower }}"
             data-sort-localif="{{ entry.local_interface|lower }}"
+            data-sort-description="{{ entry.description|default:''|lower }}"
             data-sort-neighbordev="{{ entry.neighbor_device|default:''|lower }}"
             data-sort-neighborport="{{ entry.neighbor_port|default:''|lower }}"
             data-sort-ttl="{{ entry.ttl|default:'' }}"
             data-sort-participant="{% if entry.participant_asn %}{{ entry.participant_asn }}{% endif %}">
           <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ entry.local_interface }}</td>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ entry.description|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">{{ entry.neighbor_device|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">{{ entry.neighbor_port|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">{{ entry.ttl|default:"—" }}</td>
