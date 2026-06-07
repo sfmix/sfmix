@@ -1,0 +1,7 @@
+---
+- name: Deploy LldpDomAgent to peering switches
+  hosts: peering_switch
+  gather_facts: false
+  roles:
+    - role: lldp_dom_agent
+      when: "'arista' in manufacturers"
