@@ -7,9 +7,15 @@
 # its transmit light is being received.
 #
 # TLV encoding (two LLDP-MED TLVs per interface, OUI 00:12:BB / TIA):
-#   Subtype 1  (Capabilities) — advertises Inventory support so remotes parse subtype 11
-#   Subtype 11 (Asset ID)     — "Optical RX dBm: -2.05" or multi-lane
-#                                "/"-separated for multi-lane optics
+#   Subtype 1  (Capabilities) — advertises Inventory bit so receivers parse Asset ID
+#   Subtype 11 (Asset ID) — "dBm:-2.05" (single) or "dBm:-0.01/-0.87/-0.73/0.28" (multi-lane)
+#
+# IMPORTANT: TIA-1057 limits LLDP-MED Asset ID to 32 characters.
+# Exceeding 32 chars causes EOS receivers to discard the entire LLDP PDU
+# as an Rx Error, breaking neighbor discovery.  The "dBm:" prefix (4 chars)
+# leaves 28 chars for values.  Worst-case 4-lane: "dBm:" + 4×"-10.00" + 3×"/" = 31 chars.
+# 8-lane optics would exceed 32 chars at 2-decimal precision; if needed,
+# reduce to 1 decimal or aggregate.
 #
 # EOS daemon config example:
 #   daemon LldpDomAgent
@@ -33,9 +39,26 @@ DEFAULT_POLL_SECS = 30    # Match LLDP tx-interval default
 # TIA LLDP-MED constants
 TIA_OUI = 0x0012BB
 MED_SUBTYPE_CAPABILITIES = 1
+MED_SUBTYPE_HW_REVISION = 5
+MED_SUBTYPE_FW_REVISION = 6
+MED_SUBTYPE_SW_REVISION = 7
+MED_SUBTYPE_SERIAL_NUMBER = 8
+MED_SUBTYPE_MFR_NAME = 9
+MED_SUBTYPE_MODEL_NAME = 10
 MED_SUBTYPE_ASSET_ID = 11
 # Capabilities payload: bits 0 (Capabilities) + 5 (Inventory), device type 4 (Network Connectivity)
 MED_CAPS_PAYLOAD = struct.pack('>HB', 0x0021, 4).decode('latin-1')
+# Inventory subtypes we inject (5-10) alongside Asset ID (11).
+# EOS also natively sends subtype 8, but we inject our own so the receiver gets
+# a complete contiguous set of subtypes 1 + 5-11 from the SDK.
+MED_INVENTORY_VALUES = {
+    MED_SUBTYPE_HW_REVISION:   "Photons",
+    MED_SUBTYPE_FW_REVISION:   "v1",
+    MED_SUBTYPE_SW_REVISION:   "LldpDomAgent",
+    MED_SUBTYPE_SERIAL_NUMBER: "AS12276",
+    MED_SUBTYPE_MFR_NAME:      "SFMIX",
+    MED_SUBTYPE_MODEL_NAME:    "Internet Exchange",
+}
 
 
 def log(msg):
@@ -47,42 +70,113 @@ def log_err(msg):
 
 
 def get_dom_data():
-    """Fetch DOM data for all interfaces via EOS CLI JSON output."""
+    """Fetch DOM data for all interfaces via EOS CLI JSON output.
+
+    Uses 'show interfaces transceiver dom' which returns only interfaces
+    that actually exist (excluding phantom breakout sub-ports) and provides
+    per-channel RX power data for multi-lane optics.
+
+    Prefers the in-process EOS eAPI unix-socket to avoid fork(), which can
+    crash EOS SDK agents on certain platforms.  Falls back to subprocess
+    (FastCli) if the socket isn't available.
+    """
+    # Method 1: local eAPI via Unix socket (no fork)
+    try:
+        import socket as _socket
+        sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+        sock.settimeout(15)
+        sock.connect("/var/run/command-api.sock")
+        payload = json.dumps({
+            "jsonrpc": "2.0", "method": "runCmds",
+            "params": {"version": 1,
+                       "cmds": ["show interfaces transceiver dom"],
+                       "format": "json"},
+            "id": 1
+        })
+        http_req = (
+            "POST /command-api HTTP/1.0\r\n"
+            "Content-Type: application/json\r\n"
+            "Content-Length: %d\r\n\r\n%s" % (len(payload), payload))
+        sock.sendall(http_req.encode())
+        chunks = []
+        while True:
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        sock.close()
+        raw = b"".join(chunks)
+        body = raw.split(b"\r\n\r\n", 1)[1]
+        resp = json.loads(body)
+        return resp["result"][0].get("interfaces", {})
+    except Exception as e:
+        log("eAPI socket unavailable, trying FastCli: %s" % e)
+
+    # Method 2: FastCli subprocess (works everywhere, but forks)
     try:
         result = subprocess.run(
             ["FastCli", "-p", "15", "-c",
-             "show interfaces transceiver detail | json"],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode != 0:
-            log_err("FastCli returned %d: %s" % (result.returncode, result.stderr))
-            return {}
-        return json.loads(result.stdout).get("interfaces", {})
+             "show interfaces transceiver dom | json"],
+            capture_output=True, text=True, timeout=15)
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            return data.get("interfaces", {})
     except Exception as e:
-        log_err("Failed to get DOM data: %s" % e)
-        return {}
+        log_err("FastCli failed: %s" % e)
+    return {}
+
+
+# LLDP-MED Asset ID maximum length (TIA-1057).  Exceeding this causes
+# the receiving EOS switch to discard the entire LLDP PDU as an Rx Error.
+MED_ASSET_ID_MAX_LEN = 32
 
 
 def format_rx_power(intf_dom):
     """Build a self-describing RX power string for LLDP-MED Asset ID.
 
-    Returns a string like "Optical RX dBm: -2.05" (single lane) or
-    "Optical RX dBm: -2.05/-3.12/-1.89/-2.34" (multi-lane), or None.
-    """
-    lanes = intf_dom.get("lanes", {})
-    if lanes:
-        powers = []
-        for lane_num in sorted(lanes.keys(), key=int):
-            lane = lanes[lane_num]
-            rx = lane.get("rxPower")
-            if rx is not None:
-                powers.append("%.2f" % rx)
-        if powers:
-            return "Optical RX dBm: %s" % "/".join(powers)
+    Parses the 'show interfaces transceiver dom | json' structure where
+    per-channel data lives under parameters.rxPower.channels.
 
-    rx = intf_dom.get("rxPower")
-    if rx is not None:
-        return "Optical RX dBm: %.2f" % rx
+    Uses the compact "dBm:" prefix (4 chars) to leave maximum room for
+    values within the 32-char LLDP-MED Asset ID limit (TIA-1057).
+
+    Returns a string like "dBm:-2.05" (single lane) or
+    "dBm:-0.01/-0.87/-0.73/0.28" (multi-lane), or None.
+    """
+    params = intf_dom.get("parameters", {})
+    rx_info = params.get("rxPower", {})
+    channels = rx_info.get("channels", {})
+
+    # Filter out the aggregate channel key "-"
+    lane_keys = [k for k in channels if k != "-"]
+    if len(lane_keys) > 1:
+        powers = []
+        all_dark = True
+        for ch in sorted(lane_keys, key=int):
+            val = channels[ch]
+            if val > -30.0:
+                all_dark = False
+            powers.append("%.2f" % val)
+        if all_dark:
+            return None   # No light on any lane
+        label = "dBm:%s" % "/".join(powers)
+        if len(label) > MED_ASSET_ID_MAX_LEN:
+            log_err("Asset ID too long (%d chars), skipping: %s" % (len(label), label))
+            return None
+        return label
+
+    if lane_keys:
+        val = channels[lane_keys[0]]
+        if val <= -30.0:
+            return None   # No light — port dark / unplugged
+        return "dBm:%.2f" % val
+
+    # Fallback: single-channel optics may only have the "-" key
+    if "-" in channels:
+        val = channels["-"]
+        if val <= -30.0:
+            return None
+        return "dBm:%.2f" % val
 
     return None
 
@@ -102,6 +196,7 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
 
         # TLV type objects
         self.tlv_med_caps = None
+        self.tlv_med_inventory = {}  # subtype -> (LldpTlvType, value)
         self.tlv_med_asset = None
 
         log("Agent constructed")
@@ -109,9 +204,12 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
     def on_initialized(self):
         log("Initialized")
         self.tlv_med_caps = eossdk.LldpTlvType(TIA_OUI, MED_SUBTYPE_CAPABILITIES)
+        for st, val in MED_INVENTORY_VALUES.items():
+            self.tlv_med_inventory[st] = (eossdk.LldpTlvType(TIA_OUI, st), val)
         self.tlv_med_asset = eossdk.LldpTlvType(TIA_OUI, MED_SUBTYPE_ASSET_ID)
         self._read_config()
-        self._poll_and_update()
+        # Defer first poll to on_timeout so the event loop is fully started
+        self.timeout_time_is(eossdk.now() + 5)
 
     def on_agent_option(self, key, value):
         """Called when a daemon option changes at runtime."""
@@ -140,12 +238,23 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 pass
         log("Poll interval: %d seconds" % self.poll_interval)
 
+    def _get_lldp_enabled_intfs(self):
+        """Return the set of interface names with LLDP TX enabled."""
+        enabled = set()
+        for intf_id in self.lldp_mgr.lldp_intf_iter():
+            if self.lldp_mgr.intf_enabled(intf_id):
+                enabled.add(intf_id.to_string())
+        return enabled
+
     def _poll_and_update(self):
-        """Fetch DOM data and update LLDP TLVs for all interfaces."""
+        """Fetch DOM data and update LLDP TLVs for LLDP-enabled interfaces."""
         dom_data = get_dom_data()
+        lldp_intfs = self._get_lldp_enabled_intfs()
         updated = set()
 
         for intf_name, intf_dom in dom_data.items():
+            if intf_name not in lldp_intfs:
+                continue
             label = format_rx_power(intf_dom)
             if label is None:
                 continue
@@ -153,9 +262,9 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
             try:
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
-                # LLDP-MED Capabilities (Inventory bit) so remotes parse Asset ID
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_caps, MED_CAPS_PAYLOAD)
-                # LLDP-MED Asset ID with human-readable label
+                for st, (tlv, val) in self.tlv_med_inventory.items():
+                    self.lldp_mgr.tx_tlv_set(neighbor, tlv, val)
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_asset, label)
                 updated.add(intf_name)
             except Exception as e:
@@ -168,6 +277,8 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_caps)
+                for tlv, _ in self.tlv_med_inventory.values():
+                    self.lldp_mgr.tx_tlv_del(neighbor, tlv)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_asset)
             except Exception:
                 pass
@@ -185,6 +296,8 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_caps)
+                for tlv, _ in self.tlv_med_inventory.values():
+                    self.lldp_mgr.tx_tlv_del(neighbor, tlv)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_asset)
             except Exception:
                 pass
