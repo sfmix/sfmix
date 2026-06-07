@@ -1,0 +1,33 @@
+---
+- name: Copy LldpDomAgent to flash
+  ansible.netcommon.net_put:
+    src: "{{ playbook_dir }}/../scripts/arista_eos/LldpDomAgent"
+    dest: /mnt/flash/LldpDomAgent
+    protocol: scp
+  notify: restart LldpDomAgent
+
+- name: Make LldpDomAgent executable
+  arista.eos.eos_command:
+    commands:
+      - command: "bash chmod +x /mnt/flash/LldpDomAgent"
+
+- name: Configure LldpDomAgent daemon
+  arista.eos.eos_config:
+    lines:
+      - exec /mnt/flash/LldpDomAgent
+      - no shutdown
+    parents: daemon LldpDomAgent
+
+- name: Suppress unnecessary LLDP TLVs
+  arista.eos.eos_config:
+    lines:
+      - no lldp tlv transmit link-aggregation
+      - no lldp tlv transmit management-address
+      - no lldp tlv transmit max-frame-size
+      - no lldp tlv transmit port-vlan
+      - no lldp tlv transmit power-via-mdi
+      - no lldp tlv transmit system-capabilities
+      - no lldp tlv transmit system-description
+      - no lldp tlv transmit med network-policy
+      - no lldp tlv transmit med serial-number
+    save_when: changed

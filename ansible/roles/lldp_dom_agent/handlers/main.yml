@@ -1,0 +1,8 @@
+---
+- name: restart LldpDomAgent
+  arista.eos.eos_command:
+    commands:
+      - command: configure
+      - command: daemon LldpDomAgent
+      - command: shutdown
+      - command: no shutdown
