@@ -14,16 +14,16 @@ full [LLDP-MED](https://en.wikipedia.org/wiki/Link_Layer_Discovery_Protocol#LLDP
 Inventory TLV set (OUI `00:12:BB` / TIA) on every LLDP-enabled interface that
 has a transceiver with valid RX power data:
 
-| Subtype | Name              | Payload |
-|---------|-------------------|---------|
-| 1       | Capabilities      | Inventory bit set, device type Network Connectivity |
-| 5       | Hardware Revision | `Photons` |
-| 6       | Firmware Revision | `v1` |
-| 7       | Software Revision | `LldpDomAgent` |
-| 8       | Serial Number     | `AS12276` |
-| 9       | Manufacturer Name | `SFMIX` |
-| 10      | Model Name        | `Internet Exchange` |
-| 11      | Asset ID          | `dBm:-2.05` or `dBm:-0.01/-0.87/-0.73/0.28` (multi-lane) |
+| Subtype | Name              | Payload                                                    |
+|---------|-------------------|------------------------------------------------------------|
+| 1       | Capabilities      | Inventory bit set, device type Network Connectivity        |
+| 5       | Hardware Revision | `Photons`                                                  |
+| 6       | Firmware Revision | `v1`                                                       |
+| 7       | Software Revision | `LldpDomAgent`                                             |
+| 8       | Serial Number     | `AS12276`                                                  |
+| 9       | Manufacturer Name | `SFMIX`                                                    |
+| 10      | Model Name        | `Internet Exchange`                                        |
+| 11      | Asset ID          | `dBm:-2.05` or `dBm:-0.01/-0.87/-0.73/0.28` (multi-lane)  |
 
 EOS receivers require the **complete set** of subtypes 1 + 5–11 to render any
 of them in `show lldp neighbors detail`.  Omitting any subtype causes EOS to
