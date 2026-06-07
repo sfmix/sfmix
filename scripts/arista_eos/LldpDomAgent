@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 SFMIX. BSD-2-Clause license.
+#
+# LldpDomAgent — EOS SDK agent that reads optical RX power (DOM) from
+# configured interfaces and advertises the values as custom LLDP
+# organizationally-defined TLVs so the remote device can see how well
+# its transmit light is being received.
+#
+# TLV encoding (two LLDP-MED TLVs per interface, OUI 00:12:BB / TIA):
+#   Subtype 1  (Capabilities) — advertises Inventory support so remotes parse subtype 11
+#   Subtype 11 (Asset ID)     — "Optical RX dBm: -2.05" or multi-lane
+#                                "/"-separated for multi-lane optics
+#
+# EOS daemon config example:
+#   daemon LldpDomAgent
+#      exec /mnt/flash/LldpDomAgent
+#      option POLL_INTERVAL value 30
+#      no shutdown
+#
+# The agent discovers all LLDP-enabled Ethernet interfaces automatically
+# and advertises RX power for every interface that has a transceiver with
+# DOM data.
+
+import eossdk
+import json
+import struct
+import subprocess
+import sys
+import syslog
+
+DEFAULT_POLL_SECS = 30    # Match LLDP tx-interval default
+
+# TIA LLDP-MED constants
+TIA_OUI = 0x0012BB
+MED_SUBTYPE_CAPABILITIES = 1
+MED_SUBTYPE_ASSET_ID = 11
+# Capabilities payload: bits 0 (Capabilities) + 5 (Inventory), device type 4 (Network Connectivity)
+MED_CAPS_PAYLOAD = struct.pack('>HB', 0x0021, 4).decode('latin-1')
+
+
+def log(msg):
+    syslog.syslog(syslog.LOG_INFO, "LldpDomAgent: %s" % msg)
+
+
+def log_err(msg):
+    syslog.syslog(syslog.LOG_ERR, "LldpDomAgent: %s" % msg)
+
+
+def get_dom_data():
+    """Fetch DOM data for all interfaces via EOS CLI JSON output."""
+    try:
+        result = subprocess.run(
+            ["FastCli", "-p", "15", "-c",
+             "show interfaces transceiver detail | json"],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            log_err("FastCli returned %d: %s" % (result.returncode, result.stderr))
+            return {}
+        return json.loads(result.stdout).get("interfaces", {})
+    except Exception as e:
+        log_err("Failed to get DOM data: %s" % e)
+        return {}
+
+
+def format_rx_power(intf_dom):
+    """Build a self-describing RX power string for LLDP-MED Asset ID.
+
+    Returns a string like "Optical RX dBm: -2.05" (single lane) or
+    "Optical RX dBm: -2.05/-3.12/-1.89/-2.34" (multi-lane), or None.
+    """
+    lanes = intf_dom.get("lanes", {})
+    if lanes:
+        powers = []
+        for lane_num in sorted(lanes.keys(), key=int):
+            lane = lanes[lane_num]
+            rx = lane.get("rxPower")
+            if rx is not None:
+                powers.append("%.2f" % rx)
+        if powers:
+            return "Optical RX dBm: %s" % "/".join(powers)
+
+    rx = intf_dom.get("rxPower")
+    if rx is not None:
+        return "Optical RX dBm: %.2f" % rx
+
+    return None
+
+
+class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
+    def __init__(self, sdk):
+        self.agent_mgr = sdk.get_agent_mgr()
+        self.timeout_mgr = sdk.get_timeout_mgr()
+        self.lldp_mgr = sdk.get_lldp_mgr()
+
+        eossdk.AgentHandler.__init__(self, self.agent_mgr)
+        eossdk.TimeoutHandler.__init__(self, self.timeout_mgr)
+
+        self.poll_interval = DEFAULT_POLL_SECS
+        # Track which interfaces have active TLVs so we can clean up
+        self.active_intfs = set()
+
+        # TLV type objects
+        self.tlv_med_caps = None
+        self.tlv_med_asset = None
+
+        log("Agent constructed")
+
+    def on_initialized(self):
+        log("Initialized")
+        self.tlv_med_caps = eossdk.LldpTlvType(TIA_OUI, MED_SUBTYPE_CAPABILITIES)
+        self.tlv_med_asset = eossdk.LldpTlvType(TIA_OUI, MED_SUBTYPE_ASSET_ID)
+        self._read_config()
+        self._poll_and_update()
+
+    def on_agent_option(self, key, value):
+        """Called when a daemon option changes at runtime."""
+        if key == "POLL_INTERVAL":
+            try:
+                self.poll_interval = int(value) if value else DEFAULT_POLL_SECS
+                log("Poll interval set to %d seconds" % self.poll_interval)
+            except ValueError:
+                log_err("Invalid POLL_INTERVAL: %s" % value)
+
+    def on_agent_enabled(self, enabled):
+        if not enabled:
+            log("Agent disabled, clearing TLVs")
+            self._clear_all_tlvs()
+            self.agent_mgr.agent_shutdown_complete_is(True)
+
+    def on_timeout(self):
+        self._poll_and_update()
+
+    def _read_config(self):
+        interval = self.agent_mgr.agent_option("POLL_INTERVAL")
+        if interval:
+            try:
+                self.poll_interval = int(interval)
+            except ValueError:
+                pass
+        log("Poll interval: %d seconds" % self.poll_interval)
+
+    def _poll_and_update(self):
+        """Fetch DOM data and update LLDP TLVs for all interfaces."""
+        dom_data = get_dom_data()
+        updated = set()
+
+        for intf_name, intf_dom in dom_data.items():
+            label = format_rx_power(intf_dom)
+            if label is None:
+                continue
+
+            try:
+                intf_id = eossdk.IntfId(intf_name)
+                neighbor = eossdk.LldpNeighbor(intf_id)
+                # LLDP-MED Capabilities (Inventory bit) so remotes parse Asset ID
+                self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_caps, MED_CAPS_PAYLOAD)
+                # LLDP-MED Asset ID with human-readable label
+                self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_asset, label)
+                updated.add(intf_name)
+            except Exception as e:
+                log_err("tx_tlv_set failed for %s: %s" % (intf_name, e))
+
+        # Clean up TLVs for interfaces that no longer have DOM data
+        stale = self.active_intfs - updated
+        for intf_name in stale:
+            try:
+                intf_id = eossdk.IntfId(intf_name)
+                neighbor = eossdk.LldpNeighbor(intf_id)
+                self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_caps)
+                self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_asset)
+            except Exception:
+                pass
+
+        self.active_intfs = updated
+        if updated:
+            log("Updated TLVs on %d interfaces" % len(updated))
+
+        # Schedule next poll (timeout_time_is is on TimeoutHandler, not TimeoutMgr)
+        self.timeout_time_is(eossdk.now() + self.poll_interval)
+
+    def _clear_all_tlvs(self):
+        for intf_name in self.active_intfs:
+            try:
+                intf_id = eossdk.IntfId(intf_name)
+                neighbor = eossdk.LldpNeighbor(intf_id)
+                self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_caps)
+                self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_asset)
+            except Exception:
+                pass
+        self.active_intfs = set()
+
+
+def main():
+    syslog.openlog("LldpDomAgent", syslog.LOG_PID, syslog.LOG_LOCAL4)
+    sdk = eossdk.Sdk("LldpDomAgent")
+    _ = LldpDomAgent(sdk)  # Must stay alive for main_loop
+    sdk.main_loop(sys.argv)
+
+
+if __name__ == "__main__":
+    main()
