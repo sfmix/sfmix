@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta name="google-site-verification" content="JHI4tOlfNEI9DhikfC6iKbOy_pXu0hdhD_ZMAyY2POs">
+  <meta property="og:title" content="{{ .Title }}">
+  <meta property="og:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ .Permalink }}">
+  <meta property="og:image" content="{{ "img/sfmix-logo-large.png" | absURL }}">
+  <meta property="og:site_name" content="SFMIX">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ .Title }}">
+  <meta name="twitter:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="{{ .Site.Params.theme_color }}">
+  <meta name="color-scheme" content="light">
+  <link rel="canonical" href="{{ .Permalink }}">
+  <title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} | SFMIX{{ end }}</title>
+  <link rel="icon" href="{{ "img/favicon.svg" | relURL }}" type="image/svg+xml">
+  <link rel="icon" href="{{ "favicon.ico" | relURL }}" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ "img/favicon-32x32.png" | relURL }}">
+  <link rel="icon" type="image/png" sizes="48x48" href="{{ "img/favicon-48x48.png" | relURL }}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ "img/favicon-192x192.png" | relURL }}">
+  <link rel="apple-touch-icon" href="{{ "img/apple-touch-icon.png" | relURL }}">
+  <link rel="manifest" href="{{ "site.webmanifest" | relURL }}">
+  <link rel="alternate" type="application/rss+xml" title="SFMIX" href="{{ "index.xml" | absURL }}">
+  <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
+  {{ if .IsHome }}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "SFMIX",
+    "legalName": "{{ .Site.Params.copyright_name }}",
+    "url": "{{ .Site.BaseURL }}",
+    "logo": "{{ "img/sfmix-logo-large.png" | absURL }}",
+    "description": "{{ .Site.Params.description }}",
+    "email": "{{ .Site.Params.email }}",
+    "telephone": "{{ .Site.Params.phone }}",
+    "sameAs": [
+      "https://www.peeringdb.com/ix/155"
+    ]
+  }
+  </script>
+  {{ else }}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "{{ .Title }}",
+    "url": "{{ .Permalink }}",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "SFMIX",
+      "url": "{{ .Site.BaseURL }}"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "{{ .Site.BaseURL }}"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ .Title }}",
+        "item": "{{ .Permalink }}"
+      }
+    ]
+  }
+  </script>
+  {{ end }}
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  {{- partial "nav.html" . -}}
+
+  <main id="main-content">
+    {{- block "main" . }}{{- end }}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; {{ now.Year }} {{ .Site.Params.copyright_name }} · <a href="/privacy/">Privacy Policy</a></p>
+    </div>
+  </footer>
+</body>
+</html>

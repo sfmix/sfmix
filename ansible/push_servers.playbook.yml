@@ -271,13 +271,6 @@
   roles:
     - snappy
 
-- name: "SFMIX Website"
-  hosts: sfmix_website
-  tags:
-    - sfmix_website
-  roles:
-    - sfmix_website
-
 - name: "IXP Participant Portal"
   hosts: ixp_portal
   tags:

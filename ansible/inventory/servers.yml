@@ -23,7 +23,6 @@ all:
         librenms:
         login:
         snappy:
-        sfmix_website:
         ixp_portal:
     netbox:
       hosts:
@@ -97,8 +96,6 @@ all:
     snappy:
       hosts:
         snappy.sfmix.org:
-    sfmix_website:
-      hosts: {}
     ixp_portal:
       hosts:
         portal.sfmix.org:
