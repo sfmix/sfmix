@@ -46,9 +46,6 @@ Meet the [people behind SFMIX](/team/).
 
 ## Pricing
 
-| Port Speed | Annual Fee |
-|------------|------------|
-| 10 Gbps    | $2,995     |
-| 100 Gbps   | $7,495     |
+{{< pricing >}}
 
-Fee exemptions are considered case-by-case for non-profits contributing in-kind services (root DNS operators, ccTLD/gTLD operators, public measurement tools, and similar). [See the full connection guide →](/connection-guide/)
+[See the full connection guide →](/connection-guide/)
