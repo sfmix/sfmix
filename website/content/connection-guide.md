@@ -26,14 +26,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 
 ### Pricing
 
-Annual membership fees (as of 2023):
-
-Fees are charged per capacity tier. Existing 1G ports remain supported.
-
-- **$2,995/year** — 10Gbps capacity (up to 4 ports in a LAG)
-- **$7,495/year** — 100Gbps capacity (no LAG limit)
-
-Fee exemptions are considered case-by-case for non-profits contributing in-kind services (e.g., root DNS, ccTLD/gTLD, public measurement tools). Contact [tech-c@sfmix.org](mailto:tech-c@sfmix.org).
+{{< pricing >}}
 
 ### Billing
 
