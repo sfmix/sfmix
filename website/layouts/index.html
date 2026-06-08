@@ -1,0 +1,26 @@
+{{ define "main" }}
+<section class="hero">
+  <!--
+    Background video: AdobeStock_190307308 (licensed via sfmix.org WordPress site)
+    Mobile fallback image: "Sutro Tower" by Marc Liyanage
+      https://www.flickr.com/photos/liyanage/5584629572/
+      License: CC BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)
+  -->
+  <video class="hero-video" autoplay muted loop playsinline aria-hidden="true">
+    <source src="{{ "video/hero-bg.mp4" | relURL }}" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <h1>San Francisco Metropolitan Internet eXchange</h1>
+    <img src="{{ "img/sfmix-logo-large.png" | relURL }}" alt="SFMIX" class="hero-logo" width="1064" height="266">
+    <p class="tagline">{{ .Site.Params.tagline }}</p>
+    <p class="hero-subtitle">Bay Area's nonprofit, member-governed Internet Exchange. Peer with 100+ networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.</p>
+    <div class="hero-cta">
+      <a href="{{ "/connection-guide/" | relURL }}" class="btn btn-primary">Connect to SFMIX</a>
+      <a href="{{ "/about/" | relURL }}" class="btn btn-outline">About SFMIX</a>
+      <a href="https://alice.sfmix.org/" class="btn btn-outline" target="_blank" rel="noopener">Route Browser</a>
+      <a href="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" class="btn btn-outline" target="_blank" rel="noopener">Traffic Statistics</a>
+    </div>
+  </div>
+</section>
+{{ end }}

@@ -6,9 +6,9 @@
 
 ---
 
-## 🌐 Website
+## 🌐 `website/`
 
-The public-facing Hugo static site now lives in its own repo: [sfmix/website](https://github.com/sfmix/website). Deployed to [web.sfmix.org](https://web.sfmix.org/) via GitHub Pages.
+Hugo static site for [sfmix.org](https://sfmix.org/). Built and deployed to GitHub Pages via GitHub Actions (see `.github/workflows/website.yml`). Participants data is fetched from the looking glass at build time.
 
 ## 🔧 `ansible/`
 
@@ -17,7 +17,6 @@ Ansible roles and playbooks that keep the lights on — network devices, servers
 - **`sfmix_arouteserver`** / **`sfmix_route_server_linux`** — route server config generation ([ARouteServer](https://arouteserver.readthedocs.io/)) and BIRD deployment
 - **`sfmix_looking_glass`** — looking glass and participant data publishing
 - **`sfmix_network_devices`** — peering switch configuration management
-- **`sfmix_website`** — provisions the web server (nginx, Let's Encrypt TLS, deploy user for CI/CD)
 - **`sfmix_dns`** — authoritative DNS zone management
 - **`snappy`** — the speed test stack (LibreSpeed, OpenSpeedTest, TAUC TR-143, iperf3)
 - …and more (monitoring, flow collection, RPKI, etc.)

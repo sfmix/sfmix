@@ -1,0 +1,32 @@
+User-Agent: *
+Crawl-delay: 10
+Allow: /
+
+User-Agent: GPTBot
+Allow: /
+
+User-Agent: ClaudeBot
+Allow: /
+
+User-Agent: Applebot-Extended
+Allow: /
+
+User-Agent: GoogleOther
+Allow: /
+
+User-Agent: PerplexityBot
+Allow: /
+
+User-Agent: cohere-ai
+Allow: /
+
+User-Agent: Meta-ExternalAgent
+Allow: /
+
+User-Agent: Bytespider
+Allow: /
+
+User-Agent: CCBot
+Allow: /
+
+Sitemap: https://sfmix.org/sitemap.xml

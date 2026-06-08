@@ -1,0 +1,33 @@
+# SFMIX — San Francisco Metropolitan Internet eXchange
+
+> Bay Area's nonprofit, member-governed Internet Exchange. Peer with 100+ networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.
+
+## About
+
+SFMIX is an IRS 501(c)(12) cooperative Internet Exchange Point (IXP) in the San Francisco Bay Area. Networks connect a single cable and can peer with every other connected network over a shared switching fabric. An all-dark-fiber backbone links 9 carrier-neutral facilities.
+
+## Key Pages
+
+- [About SFMIX](https://sfmix.org/about/): What SFMIX is, why connect, history, and pricing
+- [Connection Guide](https://sfmix.org/connection-guide/): How to connect to the exchange
+- [Participants](https://sfmix.org/participants/): Current participant list with ASNs, IPs, and port speeds
+- [Locations](https://sfmix.org/locations/): Facility locations across the Bay Area
+- [Route Servers](https://sfmix.org/route-servers/): Route server details, IPs, and communities
+- [Looking Glass](https://sfmix.org/looking-glass/): Network diagnostic tools
+- [Statistics](https://sfmix.org/statistics/): Traffic graphs and metrics
+- [The Team](https://sfmix.org/team/): People behind SFMIX
+- [Documentation](https://sfmix.org/documentation/): Board minutes, architecture docs, bylaws
+- [Sponsors](https://sfmix.org/sponsors/): Organizations supporting SFMIX
+- [Contact](https://sfmix.org/contact/): How to reach us
+
+## Machine-Readable Data
+
+- [Participants (JSON)](https://lg.sfmix.org/participants_table.json): Participant table data
+- [IX-F Member Export](https://lg.sfmix.org/participants.json): Standard IX-F format
+- [PeeringDB](https://www.peeringdb.com/ix/155): SFMIX on PeeringDB
+
+## Contact
+
+- Email: tech-c@sfmix.org
+- Phone: +1 415 634-6712
+- PeeringDB: https://www.peeringdb.com/ix/155
