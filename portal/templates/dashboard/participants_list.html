@@ -138,7 +138,7 @@
             {% endif %}
           </td>
           <td style="padding: .6rem .85rem; vertical-align: middle;">
-            <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener" class="lnk-asn">AS{{ p.asn }}</a>
+            <a href="{% url 'participant_detail' p.asn %}" class="lnk-asn">AS{{ p.asn }}</a>
           </td>
           <td class="font-mono tabular-nums" style="padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text); white-space: nowrap;">{{ p.v4 }}</td>
           <td class="font-mono tabular-nums" style="padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text-light); white-space: nowrap; max-width: 14rem; overflow: hidden; text-overflow: ellipsis;" title="{{ p.v6 }}">{{ p.v6 }}</td>
@@ -183,7 +183,7 @@
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
             {% endif %}
           </div>
-          <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener" class="lnk-asn" style="display: inline-block; margin: .3rem 0 .7rem;">AS{{ p.asn }}</a>
+          <a href="{% url 'participant_detail' p.asn %}" class="lnk-asn" style="display: inline-block; margin: .3rem 0 .7rem;">AS{{ p.asn }}</a>
         </div>
         <div>
           {% if p.status == "active" %}
