@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="mb-6">
-  <h1 class="text-2xl font-bold" style="color: var(--color-primary);">Participants</h1>
-  <p class="text-sm text-gray-500 mt-1">Networks peering at the San Francisco Metropolitan Internet eXchange</p>
+  <h1 class="font-semibold" style="font-size: 2rem; color: var(--color-primary); margin: 0 0 0.4rem;">Participants</h1>
+  <p style="font-size: 1.05rem; color: var(--color-text-light); line-height: 1.55; max-width: 62ch; margin: 0;">Networks peering at the San Francisco Metropolitan Internet eXchange</p>
 </div>
 
 {% if my_participants %}
@@ -38,18 +38,20 @@
   <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
     <div class="relative">
       <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-      <input type="search" x-model="search" placeholder="Search participants…"
-             class="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:border-transparent"
-             style="--tw-ring-color: rgba(26,96,112,0.3);">
+      <input type="search" x-model="search" placeholder="Search name, ASN, or IP…"
+             class="border rounded-md pl-8 pr-3 w-72 focus:outline-none focus:ring-2 focus:border-transparent"
+             style="font-size: .92rem; padding: .55rem .8rem .55rem 2rem; border-color: var(--color-border); --tw-ring-color: rgba(26,96,112,0.12);">
     </div>
-    <div class="flex items-center gap-4 text-xs text-gray-500">
+    <div class="flex items-center gap-4" style="font-size: .85rem; color: var(--color-text-light);">
       <span>
         <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
-        <span x-show="!search">{{ entries|length }} participants</span>
+        <span x-show="!search"><strong style="color: var(--color-primary);">{{ entries|length }}</strong> participants</span>
       </span>
-      <a href="/api/v1/participants.json" class="inline-flex items-center gap-1 font-mono hover:text-gray-700 transition"
+      <a href="/api/v1/participants.json" class="font-mono transition"
+         style="font-size: .78rem; color: var(--color-primary-light); border: 1px dashed #b9c2cc; border-radius: 5px; padding: .3rem .55rem; text-decoration: none; white-space: nowrap;"
+         onmouseover="this.style.borderColor='var(--color-accent)'; this.style.color='var(--color-accent)'" onmouseout="this.style.borderColor='#b9c2cc'; this.style.color='var(--color-primary-light)'"
          title="IX-F Member Export (JSON)">
-        <span class="font-bold">{ }</span> JSON
+        {&nbsp;}&nbsp;JSON
       </a>
     </div>
   </div>
@@ -68,51 +70,58 @@
   </div>
 
   {# ── Desktop table ──────────────────────────────────────────── #}
-  <div class="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-left text-xs text-gray-500 uppercase tracking-wide sticky top-0 z-10" style="background: var(--color-primary);">
+  <div class="hidden lg:block bg-white border rounded-lg overflow-x-auto" style="border-color: var(--color-border);">
+    <table class="w-full" style="font-size: .92rem;">
+      <thead class="text-left sticky top-0 z-10" style="background: var(--color-primary);">
         <tr>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'name' ? 'text-white!' : ''"
-              @click="sortBy('name')">
-            Participant<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('name')"></span>
+              @click="sortBy('name')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            Participant<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'name' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('name')"></span>
           </th>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'asn' ? 'text-white!' : ''"
-              @click="sortBy('asn')">
-            ASN<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('asn')"></span>
+              @click="sortBy('asn')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            ASN<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'asn' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('asn')"></span>
           </th>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'v4' ? 'text-white!' : ''"
-              @click="sortBy('v4')">
-            IPv4<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('v4')"></span>
+              @click="sortBy('v4')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            IPv4<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'v4' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('v4')"></span>
           </th>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'v6' ? 'text-white!' : ''"
-              @click="sortBy('v6')">
-            IPv6<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('v6')"></span>
+              @click="sortBy('v6')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            IPv6<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'v6' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('v6')"></span>
           </th>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'speed' ? 'text-white!' : ''"
-              @click="sortBy('speed')">
-            Speed<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('speed')"></span>
+              @click="sortBy('speed')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            Speed<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'speed' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('speed')"></span>
           </th>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'site' ? 'text-white!' : ''"
-              @click="sortBy('site')">
-            Site<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('site')"></span>
+              @click="sortBy('site')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            Site<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'site' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('site')"></span>
           </th>
-          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'status' ? 'text-white!' : ''"
-              @click="sortBy('status')">
-            Status<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('status')"></span>
+              @click="sortBy('status')"
+              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
+            Status<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'status' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
+      <tbody class="wf-tbody">
         {% for p in entries %}
         <tr x-show="rowVisible($el)"
-            class="hover:bg-gray-50/80 transition-colors"
+            class="transition-colors" style="border-top: 1px solid var(--color-border);"
             data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}"
             data-sort-name="{{ p.name|lower }}"
             data-sort-asn="{{ p.asn }}"
@@ -121,27 +130,21 @@
             data-sort-speed="{{ p.speed_mbps }}"
             data-sort-site="{{ p.site|lower }}"
             data-sort-status="{{ p.status }}">
-          <td class="px-4 py-2">
+          <td style="padding: .6rem .85rem; vertical-align: middle;">
             {% if p.website %}
-            <a href="{{ p.website }}" target="_blank" rel="noopener"
-               class="text-gray-800 hover:underline" style="text-decoration-color: var(--color-primary-light);"
-               onmouseover="this.style.color='var(--color-primary-light)'" onmouseout="this.style.color=''">{{ p.name }}</a>
-            <svg class="inline w-3 h-3 ml-0.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <a href="{{ p.website }}" target="_blank" rel="noopener" class="lnk-name">{{ p.name }}</a><span class="lnk-ext">↗</span>
             {% else %}
-            <a href="{% url 'participant_detail' p.asn %}" class="text-gray-800"
-               onmouseover="this.style.color='var(--color-primary-light)'" onmouseout="this.style.color=''">{{ p.name }}</a>
+            <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
             {% endif %}
           </td>
-          <td class="px-4 py-2 font-mono text-xs">
-            <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener"
-               style="color: var(--color-primary-light);"
-               onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">{{ p.asn }}</a>
+          <td style="padding: .6rem .85rem; vertical-align: middle;">
+            <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener" class="lnk-asn">AS{{ p.asn }}</a>
           </td>
-          <td class="px-4 py-2 font-mono text-xs text-gray-600 tabular-nums">{{ p.v4 }}</td>
-          <td class="px-4 py-2 font-mono text-xs text-gray-600 tabular-nums" style="max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.v6 }}">{{ p.v6 }}</td>
-          <td class="px-4 py-2 text-xs font-medium text-gray-700">{{ p.speed|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs text-gray-600">{{ p.site|default:"—" }}</td>
-          <td class="px-4 py-2">
+          <td class="font-mono tabular-nums" style="padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text); white-space: nowrap;">{{ p.v4 }}</td>
+          <td class="font-mono tabular-nums" style="padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text-light); white-space: nowrap; max-width: 14rem; overflow: hidden; text-overflow: ellipsis;" title="{{ p.v6 }}">{{ p.v6 }}</td>
+          <td style="padding: .6rem .85rem; vertical-align: middle; font-weight: 600;">{{ p.speed|default:"—" }}</td>
+          <td style="padding: .6rem .85rem; vertical-align: middle; color: var(--color-text);">{{ p.site|default:"—" }}</td>
+          <td style="padding: .6rem .85rem; vertical-align: middle;">
             {% if p.status == "active" %}
             <span class="st-badge st-active">Active</span>
             {% elif p.status == "provisioning" %}
@@ -173,15 +176,14 @@
          data-sort-status="{{ p.status }}">
       <div class="flex items-start justify-between mb-2">
         <div>
-          <div class="font-medium text-gray-900 text-sm">
+          <div style="font-weight: 700; font-size: 1rem;">
             {% if p.website %}
-            <a href="{{ p.website }}" target="_blank" rel="noopener" class="hover:underline" style="text-decoration-color: var(--color-primary-light);">{{ p.name }}</a>
+            <a href="{{ p.website }}" target="_blank" rel="noopener" class="lnk-name">{{ p.name }} <span class="lnk-ext">↗</span></a>
             {% else %}
-            <a href="{% url 'participant_detail' p.asn %}" class="text-gray-900">{{ p.name }}</a>
+            <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
             {% endif %}
           </div>
-          <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener"
-             class="font-mono text-xs" style="color: var(--color-primary-light);">AS{{ p.asn }}</a>
+          <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener" class="lnk-asn" style="display: inline-block; margin: .3rem 0 .7rem;">AS{{ p.asn }}</a>
         </div>
         <div>
           {% if p.status == "active" %}
