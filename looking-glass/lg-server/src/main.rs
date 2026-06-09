@@ -11,6 +11,7 @@ use looking_glass::config::{self, ParticipantsSourceConfig};
 use looking_glass::frontend::telnet::TelnetServer;
 use looking_glass::netbox::{self, NetboxIxpData, NetboxStatus};
 use looking_glass::oidc;
+use looking_glass::peeringdb;
 use looking_glass::participants::{ParticipantMap, PortMap};
 use looking_glass::policy::PolicyEngine;
 use looking_glass::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
@@ -151,6 +152,7 @@ async fn main() -> Result<()> {
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
         device_state_cache: ArcSwap::from_pointee(std::collections::HashMap::new()),
         device_cache_cfg: server_cfg.device_cache.clone(),
+        peeringdb_cache: ArcSwap::from_pointee(peeringdb::PeeringdbCache::empty()),
     });
 
     // Device state cache: initial warm-up + background refresh
@@ -175,7 +177,16 @@ async fn main() -> Result<()> {
     }
 
     // NetBox participant source: initial fetch + background refresh
-    if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix }) = server_cfg.participants {
+    if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix, ref peeringdb }) = server_cfg.participants {
+        // Load PeeringDB cache from disk if configured
+        let pdb_config = peeringdb.clone();
+        if let Some(ref pdb) = pdb_config {
+            let cache = peeringdb::load_cache(std::path::Path::new(&pdb.cache_file));
+            if !cache.networks.is_empty() {
+                info!("Loaded PeeringDB cache: {} entries", cache.networks.len());
+            }
+            lg.peeringdb_cache.store(Arc::new(cache));
+        }
         lg.netbox_status.store(Arc::new(NetboxStatus {
             configured: true,
             participant_count: 0,
@@ -218,6 +229,17 @@ async fn main() -> Result<()> {
                         refresh_interval_secs,
                         url: Some(url.clone()),
                     }));
+
+                    // Refresh PeeringDB cache after initial NetBox fetch
+                    if let Some(ref pdb) = pdb_config {
+                        let asns: Vec<u32> = lg.netbox_participants.load().iter().map(|p| p.asn).collect();
+                        let current = lg.peeringdb_cache.load();
+                        let refreshed = peeringdb::refresh_cache(
+                            &current, &asns, pdb.ttl_secs,
+                            std::path::Path::new(&pdb.cache_file),
+                        ).await;
+                        lg.peeringdb_cache.store(Arc::new(refreshed));
+                    }
                 }
                 Err(e) => {
                     tracing::warn!("NetBox initial fetch failed: {e}");
@@ -232,6 +254,7 @@ async fn main() -> Result<()> {
                 let url = url.clone();
                 let token = token.clone();
                 let suffix = domain_suffix.clone();
+                let pdb_bg = pdb_config.clone();
                 tokio::spawn(async move {
                     let mut tick = tokio::time::interval(std::time::Duration::from_secs(refresh_interval_secs));
                     tick.tick().await;
@@ -261,6 +284,17 @@ async fn main() -> Result<()> {
                                     refresh_interval_secs,
                                     url: Some(url.clone()),
                                 }));
+
+                                // Refresh PeeringDB cache after NetBox refresh
+                                if let Some(ref pdb) = pdb_bg {
+                                    let asns: Vec<u32> = state.netbox_participants.load().iter().map(|p| p.asn).collect();
+                                    let current = state.peeringdb_cache.load();
+                                    let refreshed = peeringdb::refresh_cache(
+                                        &current, &asns, pdb.ttl_secs,
+                                        std::path::Path::new(&pdb.cache_file),
+                                    ).await;
+                                    state.peeringdb_cache.store(Arc::new(refreshed));
+                                }
                             }
                             Err(e) => {
                                 tracing::warn!("NetBox refresh failed: {e}");

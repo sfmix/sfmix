@@ -157,6 +157,7 @@ async fn main() -> Result<()> {
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
         device_state_cache: ArcSwap::from_pointee(std::collections::HashMap::new()),
         device_cache_cfg: config.device_cache.clone(),
+        peeringdb_cache: ArcSwap::from_pointee(looking_glass::peeringdb::PeeringdbCache::empty()),
     });
 
     // Device state cache: initial warm-up + background refresh
@@ -270,7 +271,7 @@ async fn main() -> Result<()> {
     }
 
     // NetBox participant source: initial fetch + background refresh
-    if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix }) = config.participants {
+    if let Some(ParticipantsSourceConfig::Netbox { ref url, ref token_env, refresh_interval_secs, ref domain_suffix, .. }) = config.participants {
         // Seed initial status as "configured but not yet fetched"
         lg.netbox_status.store(Arc::new(NetboxStatus {
             configured: true,

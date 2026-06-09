@@ -11,6 +11,7 @@ use crate::identity::Identity;
 use crate::netbox::{NetboxIxpData, NetboxStatus};
 use crate::oidc::OidcClient;
 use crate::participants::{ParticipantMap, PortMap, PortClass};
+use crate::peeringdb::PeeringdbCache;
 use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
 use crate::structured::{CommandOutput, DeviceStateCache, InterfaceOptics};
@@ -76,6 +77,8 @@ pub struct LookingGlass {
     /// Per-device background-polled state cache. Empty = cold start or disabled.
     pub device_state_cache: ArcSwap<HashMap<String, DeviceStateCache>>,
     pub device_cache_cfg: DeviceCacheConfig,
+    /// PeeringDB network cache (website URLs, IRR, policy, etc.).
+    pub peeringdb_cache: ArcSwap<PeeringdbCache>,
 }
 
 impl LookingGlass {

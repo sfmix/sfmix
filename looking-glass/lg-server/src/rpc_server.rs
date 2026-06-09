@@ -38,6 +38,7 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/participant-ports", get(participant_ports))
         .route("/rpc/v1/netbox/status", get(netbox_status))
         .route("/rpc/v1/device-cache/status", get(device_cache_status))
+        .route("/rpc/v1/peeringdb-cache", get(peeringdb_cache))
         .with_state(state)
 }
 
@@ -295,6 +296,18 @@ async fn device_cache_status(
         a["device"].as_str().unwrap_or("").cmp(b["device"].as_str().unwrap_or(""))
     });
     Json(entries).into_response()
+}
+
+/// GET /rpc/v1/peeringdb-cache — PeeringDB network cache
+async fn peeringdb_cache(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let cache = state.lg.peeringdb_cache.load();
+    Json(serde_json::to_value(&**cache).unwrap_or_default()).into_response()
 }
 
 /// GET /rpc/v1/netbox/status — NetBox cache health
