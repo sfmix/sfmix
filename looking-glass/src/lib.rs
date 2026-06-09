@@ -8,6 +8,7 @@ pub mod identity;
 pub mod netbox;
 pub mod oidc;
 pub mod participants;
+pub mod peeringdb;
 pub mod policy;
 pub mod ratelimit;
 pub mod structured;

@@ -261,7 +261,21 @@ pub enum ParticipantsSourceConfig {
         /// If unset, device names are used as-is from NetBox.
         #[serde(default)]
         domain_suffix: Option<String>,
+        /// PeeringDB network cache settings.
+        #[serde(default)]
+        peeringdb: Option<PeeringdbConfig>,
     },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PeeringdbConfig {
+    pub cache_file: String,
+    #[serde(default = "default_peeringdb_ttl")]
+    pub ttl_secs: u64,
+}
+
+fn default_peeringdb_ttl() -> u64 {
+    86400 // 24 hours
 }
 
 fn default_refresh_interval() -> u64 {
