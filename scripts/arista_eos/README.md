@@ -23,7 +23,7 @@ has a transceiver with valid RX power data:
 | 8       | Serial Number     | `AS12276`                                                  |
 | 9       | Manufacturer Name | `SFMIX`                                                    |
 | 10      | Model Name        | `Internet Exchange`                                        |
-| 11      | Asset ID          | `dBm:-2.05` or `dBm:-0.01/-0.87/-0.73/0.28` (multi-lane)  |
+| 11      | Asset ID          | `dBm:-2.05` or `dBm:-0.01/-0.87/-0.73/0.28` (multi-lane)   |
 
 EOS receivers require the **complete set** of subtypes 1 + 5–11 to render any
 of them in `show lldp neighbors detail`.  Omitting any subtype causes EOS to

@@ -10,6 +10,11 @@
 #   Subtype 1  (Capabilities) — advertises Inventory bit so receivers parse Asset ID
 #   Subtype 11 (Asset ID) — "dBm:-2.05" (single) or "dBm:-0.01/-0.87/-0.73/0.28" (multi-lane)
 #
+# SPECIAL VARIANT: Inventory subtypes 5-10 REMOVED.
+# switch01.sfo02 has corrupted SDK state from earlier crash loop;
+# injecting subtypes 5-10 triggers SIGABRT in the Lldp PDU builder.
+# This variant sets only Capabilities + Asset ID until the switch is rebooted.
+#
 # IMPORTANT: TIA-1057 limits LLDP-MED Asset ID to 32 characters.
 # Exceeding 32 chars causes EOS receivers to discard the entire LLDP PDU
 # as an Rx Error, breaking neighbor discovery.  The "dBm:" prefix (4 chars)
@@ -39,26 +44,9 @@ DEFAULT_POLL_SECS = 30    # Match LLDP tx-interval default
 # TIA LLDP-MED constants
 TIA_OUI = 0x0012BB
 MED_SUBTYPE_CAPABILITIES = 1
-MED_SUBTYPE_HW_REVISION = 5
-MED_SUBTYPE_FW_REVISION = 6
-MED_SUBTYPE_SW_REVISION = 7
-MED_SUBTYPE_SERIAL_NUMBER = 8
-MED_SUBTYPE_MFR_NAME = 9
-MED_SUBTYPE_MODEL_NAME = 10
 MED_SUBTYPE_ASSET_ID = 11
 # Capabilities payload: bits 0 (Capabilities) + 5 (Inventory), device type 4 (Network Connectivity)
 MED_CAPS_PAYLOAD = struct.pack('>HB', 0x0021, 4).decode('latin-1')
-# Inventory subtypes we inject (5-10) alongside Asset ID (11).
-# EOS also natively sends subtype 8, but we inject our own so the receiver gets
-# a complete contiguous set of subtypes 1 + 5-11 from the SDK.
-MED_INVENTORY_VALUES = {
-    MED_SUBTYPE_HW_REVISION:   "Photons",
-    MED_SUBTYPE_FW_REVISION:   "v1",
-    MED_SUBTYPE_SW_REVISION:   "LldpDomAgent",
-    MED_SUBTYPE_SERIAL_NUMBER: "AS12276",
-    MED_SUBTYPE_MFR_NAME:      "SFMIX",
-    MED_SUBTYPE_MODEL_NAME:    "Internet Exchange",
-}
 
 
 def log(msg):
@@ -196,7 +184,6 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
 
         # TLV type objects
         self.tlv_med_caps = None
-        self.tlv_med_inventory = {}  # subtype -> (LldpTlvType, value)
         self.tlv_med_asset = None
 
         log("Agent constructed")
@@ -204,8 +191,6 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
     def on_initialized(self):
         log("Initialized")
         self.tlv_med_caps = eossdk.LldpTlvType(TIA_OUI, MED_SUBTYPE_CAPABILITIES)
-        for st, val in MED_INVENTORY_VALUES.items():
-            self.tlv_med_inventory[st] = (eossdk.LldpTlvType(TIA_OUI, st), val)
         self.tlv_med_asset = eossdk.LldpTlvType(TIA_OUI, MED_SUBTYPE_ASSET_ID)
         self._read_config()
         # Defer first poll to on_timeout so the event loop is fully started
@@ -263,8 +248,6 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_caps, MED_CAPS_PAYLOAD)
-                for st, (tlv, val) in self.tlv_med_inventory.items():
-                    self.lldp_mgr.tx_tlv_set(neighbor, tlv, val)
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_asset, label)
                 updated.add(intf_name)
             except Exception as e:
@@ -277,8 +260,6 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_caps)
-                for tlv, _ in self.tlv_med_inventory.values():
-                    self.lldp_mgr.tx_tlv_del(neighbor, tlv)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_asset)
             except Exception:
                 pass
@@ -300,8 +281,6 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_caps)
-                for tlv, _ in self.tlv_med_inventory.values():
-                    self.lldp_mgr.tx_tlv_del(neighbor, tlv)
                 self.lldp_mgr.tx_tlv_del(neighbor, self.tlv_med_asset)
             except Exception:
                 pass
