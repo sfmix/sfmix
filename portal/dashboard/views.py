@@ -1,4 +1,5 @@
 import ipaddress
+import logging
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
@@ -8,7 +9,10 @@ from django.shortcuts import redirect, render
 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
+from .alice_client import AliceLGClient
 from .lg_client import LookingGlassClient, get_lg_client
+
+logger = logging.getLogger(__name__)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -151,103 +155,554 @@ def lldp_neighbors(request):
     })
 
 
+# ── Network detail helpers ─────────────────────────────────────────
+
+# Per-media-type RX power specs: (rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad)
+# Sources: IEEE 802.3 per-lane receiver sensitivity and overload specs.
+# warn zone = 1.5 dB inside the bad boundary on each side.
+_OPTIC_RX_SPECS: dict[str, tuple[float, float, float, float]] = {
+    # 1G
+    "1000BASE-T":   (-30.0, -30.0, 30.0, 30.0),   # copper, ignore
+    "1000BASE-LX":  (-19.0, -17.5, -0.5, 0.5),     # -19 to 0 dBm
+    "1000BASE-SX":  (-17.0, -15.5, -2.0, -0.5),
+    # 10G
+    "10GBASE-SR":   (-11.1, -9.6, -0.5, 1.0),      # -11.1 to -1 dBm
+    "10GBASE-LR":   (-14.4, -12.9, -0.5, 0.5),     # -14.4 to 0.5 dBm
+    "10GBASE-ER":   (-15.8, -14.3, -0.5, 1.0),     # -15.8 to -1 dBm
+    # 40G
+    "40GBASE-SR4":  (-9.5, -8.0, -0.5, 1.0),
+    "40GBASE-LR4":  (-13.7, -12.2, 1.5, 2.3),      # per-lane
+    "40GBASE-PSM4": (-13.0, -11.5, 1.5, 2.5),
+    # 100G
+    "100GBASE-SR4":  (-10.3, -8.8, 1.5, 2.4),
+    "100GBASE-LR4":  (-10.6, -9.1, 1.5, 2.4),      # per-lane
+    "100GBASE-ER4":  (-13.5, -12.0, 1.5, 2.4),
+    "100GBASE-LR":   (-10.6, -9.1, 1.5, 2.4),
+    "100GBASE-CR4":  (-30.0, -30.0, 30.0, 30.0),   # DAC, ignore
+    # 400G
+    "400GBASE-SR8":  (-10.3, -8.8, 1.5, 2.4),
+    "400GBASE-DR4":  (-10.6, -9.1, 1.5, 2.4),
+    "400GBASE-FR4":  (-10.6, -9.1, 1.5, 2.4),
+    "400GBASE-LR8":  (-10.6, -9.1, 1.5, 2.4),
+    "400GBASE-ZR":   (-18.0, -16.5, 2.0, 3.5),
+    "400GBASE-ZRP":  (-18.0, -16.5, 2.0, 3.5),
+}
+# Fallback for unknown types
+_OPTIC_RX_DEFAULT = (-14.0, -12.0, 1.5, 3.0)
+
+
+def _optic_spec(media_type):
+    """Return the (rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad) tuple for a media type."""
+    if not media_type:
+        return _OPTIC_RX_DEFAULT
+    key = media_type.upper().strip()
+    return _OPTIC_RX_SPECS.get(key, _OPTIC_RX_DEFAULT)
+
+
+def _optic_band(rx_dbm, media_type=""):
+    """Classify RX power level against per-optic-type thresholds."""
+    if rx_dbm is None:
+        return "unknown"
+    rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad = _optic_spec(media_type)
+    if rx_dbm < rx_min_bad or rx_dbm > rx_max_bad:
+        return "bad"
+    if rx_dbm < rx_min_warn or rx_dbm > rx_max_warn:
+        return "warn"
+    return "good"
+
+
+def _optic_band_label(band):
+    """Human label for an optic band."""
+    return {"good": "Nominal", "warn": "Marginal", "bad": "Out of range"}.get(band, "—")
+
+
+def _optic_meter_pos(rx_dbm, media_type=""):
+    """Compute meter position (0-100%) using the type-specific RX range."""
+    if rx_dbm is None:
+        return 50
+    rx_min_bad, _, _, rx_max_bad = _optic_spec(media_type)
+    span = rx_max_bad - rx_min_bad
+    if span <= 0:
+        return 50
+    return max(2, min(98, ((rx_dbm - rx_min_bad) / span) * 100))
+
+
+def _format_speed_gbps(speed_mbps):
+    """Format port speed in Mbps to Gbps integer or decimal."""
+    if not speed_mbps:
+        return 0
+    return speed_mbps / 1000
+
+
+def _dqt(device, port):
+    """Device-qualified name as plain text (e.g. 'switch01.sfo02:Ethernet22/1')."""
+    short = device.split(".sfmix.org")[0] if device else device
+    return f"{short}:{port}"
+
+
+def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_key,
+                         participant_ips, arp_by_ip, ndp_by_ip, rs_sessions, can_see_admin):
+    """Build the logical port tree from NetBox + live data.
+
+    Returns a list of logical port dicts ready for the template.
+    """
+    # Index IPs by participant_lag_id (interface_id of the enriched port)
+    ips_by_lag_id: dict[int, list[dict]] = {}
+    unmatched_ips: list[dict] = []
+    for ip_entry in participant_ips:
+        lag_id = ip_entry.get("participant_lag_id")
+        if lag_id:
+            ips_by_lag_id.setdefault(lag_id, []).append(ip_entry)
+        else:
+            unmatched_ips.append(ip_entry)
+
+    # Collect all port IPs (bare addresses) for RS session matching
+    all_port_ips: dict[str, int] = {}  # ip_addr -> enriched port interface_id
+
+    alice_base = getattr(settings, "ALICE_LG_URL", "").rstrip("/")
+
+    logical_ports = []
+
+    for port in enriched_ports:
+        dev = port.get("device", "")
+        iface_name = port.get("interface", "")
+        speed_mbps = port.get("speed") or 0
+        members = port.get("member_interfaces", [])
+        is_lag = bool(members)
+        port_iface_id = port.get("interface_id", 0)
+
+        # Build physical member list
+        physical = []
+        if is_lag:
+            per_member_speed = speed_mbps // max(len(members), 1)
+            for mem_dev, mem_iface in members:
+                physical.append(_build_physical_port(
+                    mem_dev, mem_iface, iface_by_key, optics_by_key, lldp_by_key,
+                    can_see_admin, netbox_speed_mbps=per_member_speed))
+        else:
+            physical.append(_build_physical_port(
+                dev, iface_name, iface_by_key, optics_by_key, lldp_by_key,
+                can_see_admin, netbox_speed_mbps=speed_mbps))
+
+        # Derive link state from physical members
+        known = [p for p in physical if p["link_status"] != "unknown"]
+        up_count = sum(1 for p in known if p["link_status"] in ("up", "connected"))
+        total = len(physical)
+        if not known:
+            # No live data — assume up based on enabled state
+            link_state = "up" if port.get("enabled", True) else "down"
+            eff_speed = speed_mbps
+        elif up_count == 0:
+            link_state = "down"
+            eff_speed = 0
+        else:
+            link_state = "degraded" if up_count < len(known) else "up"
+            eff_speed = sum(
+                p["speed_mbps"] for p in physical
+                if p["link_status"] in ("up", "connected")
+            )
+
+        # L3: Match IPs to this port via participant_lag_id → interface_id
+        port_ips = ips_by_lag_id.get(port_iface_id, [])
+        if not port_ips and len(enriched_ports) == 1:
+            # Single-port participant: assign all IPs regardless of lag_id
+            port_ips = participant_ips
+
+        port_v4 = None
+        port_v6 = None
+        bound_mac_v4 = None
+        bound_mac_v6 = None
+        port_ip_addrs: set[str] = set()
+        for ip_entry in port_ips:
+            addr = ip_entry.get("address", "").split("/")[0]
+            family = ip_entry.get("family", "")
+            port_ip_addrs.add(addr)
+            if family == "IPv4" and not port_v4:
+                port_v4 = ip_entry.get("address")
+                bound_mac_v4 = arp_by_ip.get(addr)
+            elif family == "IPv6" and not port_v6:
+                port_v6 = ip_entry.get("address")
+                bound_mac_v6 = ndp_by_ip.get(addr)
+
+        # Record IP → port mapping for RS session matching
+        for addr in port_ip_addrs:
+            all_port_ips[addr] = port_iface_id
+
+        # L4: Route-server sessions matched by neighbor IP → port IP
+        port_rs = []
+        for session in rs_sessions:
+            sess_addr = session.get("address", "")
+            # Only include sessions whose neighbor address matches an IP on this port
+            if port_ip_addrs and sess_addr not in port_ip_addrs:
+                continue
+            is_v4 = "." in sess_addr
+            is_v6 = ":" in sess_addr
+            rs_id = session.get("rs_id", "")
+            neighbor_id = session.get("id", "")
+            routes_url = (
+                f"{alice_base}/routeservers/{rs_id}"
+                f"/neighbors/{neighbor_id}/routes"
+                if alice_base and rs_id and neighbor_id else ""
+            )
+            port_rs.append({
+                "name": session.get("rs_name", ""),
+                "asn": session.get("asn", 0),
+                "state": session.get("state", ""),
+                "uptime": _format_uptime(session.get("uptime", 0)),
+                "description": session.get("description", ""),
+                "v4_received": session.get("routes_received", 0) if is_v4 else 0,
+                "v4_accepted": session.get("routes_accepted", 0) if is_v4 else 0,
+                "v4_rejected": session.get("routes_filtered", 0) if is_v4 else 0,
+                "v6_received": session.get("routes_received", 0) if is_v6 else 0,
+                "v6_accepted": session.get("routes_accepted", 0) if is_v6 else 0,
+                "v6_rejected": session.get("routes_filtered", 0) if is_v6 else 0,
+                "address": sess_addr,
+                "is_down": (
+                    session.get("state", "").lower()
+                    not in ("established", "up")
+                ),
+                "routes_url": routes_url,
+            })
+
+        logical_ports.append({
+            "id": iface_name,
+            "device": dev,
+            "name": iface_name,
+            "kind": "lag" if is_lag else "single",
+            "speed_mbps": speed_mbps,
+            "speed_gbps": _format_speed_gbps(speed_mbps),
+            "enabled": port.get("enabled", True),
+            "link_state": link_state,
+            "members_up": up_count,
+            "members_total": total,
+            "effective_speed_gbps": _format_speed_gbps(eff_speed),
+            "physical": physical,
+            "v4": port_v4 or "—",
+            "v6": port_v6 or "—",
+            "bound_mac_v4": bound_mac_v4 or "—",
+            "bound_mac_v6": bound_mac_v6 or "—",
+            "route_servers": port_rs,
+        })
+
+    return logical_ports
+
+
+def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_by_key,
+                         can_see_admin, netbox_speed_mbps=0):
+    """Build a single physical port dict from live data lookups."""
+    iface = iface_by_key.get((device, iface_name), {})
+    link_status = iface.get("link_status", "unknown")
+    speed_mbps = iface.get("speed", 0) or 0
+    if isinstance(speed_mbps, str):
+        try:
+            speed_mbps = int(speed_mbps)
+        except (ValueError, TypeError):
+            speed_mbps = 0
+    # Fall back to NetBox speed if live data has no speed
+    if not speed_mbps and netbox_speed_mbps:
+        speed_mbps = netbox_speed_mbps
+
+    phy = {
+        "device": device,
+        "name": iface_name,
+        "link_status": link_status,
+        "speed_mbps": speed_mbps,
+        "speed_gbps": _format_speed_gbps(speed_mbps),
+    }
+
+    # L1: Optics (admin only)
+    if can_see_admin:
+        optic = optics_by_key.get((device, iface_name), {})
+        if optic.get("dom_supported"):
+            lanes_raw = optic.get("lanes", [])
+            media_type = optic.get("media_type", "")
+            lanes = []
+            for i, lane in enumerate(lanes_raw):
+                rx = lane.get("rx_power_dbm")
+                tx = lane.get("tx_power_dbm")
+                band = _optic_band(rx, media_type)
+                lanes.append({
+                    "index": i,
+                    "label": lane.get("label", f"Lane {i+1}"),
+                    "rx_dbm": rx,
+                    "rx_formatted": f"{rx:.1f}" if rx is not None else "—",
+                    "tx_dbm": tx,
+                    "tx_formatted": f"{tx:.1f}" if tx is not None else "—",
+                    "band": band,
+                    "band_label": _optic_band_label(band),
+                    "meter_pos": _optic_meter_pos(rx, media_type),
+                })
+            phy["lanes"] = lanes
+            temp = optic.get("temperature_c")
+            phy["temperature_c"] = f"{temp:.1f}" if temp is not None else None
+            phy["media_type"] = optic.get("media_type", "")
+            phy["serial"] = optic.get("serial_number", "") or ""
+            phy["tx_bias_ok"] = link_status in ("up", "connected")
+        else:
+            phy["lanes"] = []
+            phy["temperature_c"] = None
+            phy["media_type"] = ""
+            phy["serial"] = ""
+            phy["tx_bias_ok"] = False
+    else:
+        phy["lanes"] = []
+
+    # L2: LLDP neighbor
+    lldp = lldp_by_key.get((device, iface_name))
+    if lldp:
+        phy["lldp"] = {
+            "sys_name": lldp.get("system_name", ""),
+            "port_id": lldp.get("neighbor_interface", ""),
+            "chassis_id": lldp.get("chassis_id", ""),
+        }
+    else:
+        phy["lldp"] = None
+
+    return phy
+
+
+def _format_uptime(seconds):
+    """Format seconds into a human-readable uptime string."""
+    if not seconds or not isinstance(seconds, (int, float)):
+        return "—"
+    seconds = int(seconds)
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    if days > 0:
+        return f"{days}d {hours}h"
+    minutes = (seconds % 3600) // 60
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
+def _compute_alerts(logical_ports):
+    """Compute health alerts from logical port data (admin only)."""
+    alerts = []
+    for lp in logical_ports:
+        port_label = _dqt(lp["device"], lp["name"])
+        if lp["link_state"] == "down":
+            alerts.append({
+                "severity": "crit",
+                "icon": "⛔",
+                "title": f"{port_label} is down",
+                "body": "All member links are offline. Route-server sessions are idle and no traffic is passing on this logical port.",
+                "where": f"{port_label} · L1/L2",
+            })
+        elif lp["link_state"] == "degraded":
+            alerts.append({
+                "severity": "warn",
+                "icon": "⚠",
+                "title": f"{port_label} degraded — {lp['members_up']}/{lp['members_total']} members up",
+                "body": (
+                    f"A member link is down; the bundle is running at "
+                    f"{lp['effective_speed_gbps']:.0f}G of {lp['speed_gbps']:.0f}G. "
+                    f"Redundancy is lost until the link is restored."
+                ),
+                "where": f"{port_label} · L1",
+            })
+        # Check optics on physical ports
+        for phy in lp["physical"]:
+            if phy["link_status"] not in ("up", "connected"):
+                continue
+            for lane in phy.get("lanes", []):
+                if lane["band"] in ("warn", "bad"):
+                    phy_label = _dqt(phy["device"], phy["name"])
+                    alerts.append({
+                        "severity": "crit" if lane["band"] == "bad" else "warn",
+                        "icon": "⚠",
+                        "title": f"{phy_label} optic {lane['band_label'].lower()} on {lane['label']}",
+                        "body": f"RX {lane['rx_formatted']} dBm is outside the nominal window. Inspect the fiber / patch or schedule an optic replacement.",
+                        "where": f"{phy_label} · L1",
+                    })
+        # Check route rejections
+        total_rejected = sum(
+            rs.get("v4_rejected", 0) + rs.get("v6_rejected", 0)
+            for rs in lp["route_servers"]
+        )
+        if total_rejected > 0:
+            alerts.append({
+                "severity": "warn",
+                "icon": "⚠",
+                "title": f"{total_rejected} route{'s' if total_rejected != 1 else ''} rejected on {port_label}",
+                "body": "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). Advertised routes may not be reaching peers as expected.",
+                "where": f"{port_label} · L4",
+            })
+    return alerts
+
+
+def _fetch_lldp_by_key(lg, token):
+    """Fetch LLDP neighbors and index by (device, local_interface)."""
+    lldp_by_key = {}
+    try:
+        results = lg.get_lldp_neighbors(token=token)
+        for device_result in results:
+            if device_result.get("success") and device_result.get("data"):
+                dev = device_result.get("device", "")
+                for entry in device_result["data"]:
+                    lldp_by_key[(dev, entry.get("local_interface", ""))] = entry
+    except Exception:
+        logger.warning("Failed to fetch LLDP neighbors", exc_info=True)
+    return lldp_by_key
+
+
+def _fetch_arp_by_ip(lg, token):
+    """Fetch ARP table and index by IP address string."""
+    arp_by_ip = {}
+    try:
+        results = lg.get_arp(token=token)
+        for device_result in results:
+            if device_result.get("success") and device_result.get("data"):
+                for entry in device_result["data"]:
+                    addr = entry.get("address", "")
+                    mac = entry.get("mac_address", "")
+                    if addr and mac:
+                        arp_by_ip[addr] = mac
+    except Exception:
+        logger.warning("Failed to fetch ARP table", exc_info=True)
+    return arp_by_ip
+
+
+def _fetch_ndp_by_ip(lg, token):
+    """Fetch IPv6 NDP table and index by IP address string."""
+    ndp_by_ip = {}
+    try:
+        results = lg.get_ipv6_neighbors(token=token)
+        for device_result in results:
+            if device_result.get("success") and device_result.get("data"):
+                for entry in device_result["data"]:
+                    addr = entry.get("address", "")
+                    mac = entry.get("mac_address", "")
+                    if addr and mac:
+                        ndp_by_ip[addr] = mac
+    except Exception:
+        logger.warning("Failed to fetch NDP table", exc_info=True)
+    return ndp_by_ip
+
+
+def _fetch_rs_sessions(asn):
+    """Fetch route-server sessions for ASN from Alice-LG."""
+    try:
+        alice = AliceLGClient()
+        if alice.base_url:
+            return alice.get_neighbors_for_asn(asn)
+    except Exception:
+        logger.warning("Failed to fetch Alice RS sessions for AS%s", asn, exc_info=True)
+    return []
+
+
 def participant_detail(request, asn):
-    """Participant info page; live optics shown to IXP admins and own-network users."""
+    """Network detail page with layered service-stackup view."""
     user_asns = request.session.get("oidc_asns", []) if request.user.is_authenticated else []
     is_admin = _is_ix_admin(request) if request.user.is_authenticated else False
-    can_see_live = is_admin or (asn in user_asns)
+    can_see_admin = is_admin or (asn in user_asns)
     token = request.session.get("oidc_id_token") if request.user.is_authenticated else None
 
     member = {}
     ip_addresses = []
-    peering_ports = []
+    enriched_ports = []
+    pdb_entry = {}
+    logical_ports = []
+    alerts = []
+    lg_error = None
+
     try:
         lg = LookingGlassClient()
         if lg.base_url:
+            # 1. NetBox participant data
             detail = lg.get_participant_detail(asn, token=token)
             member = {
                 "asn": detail.get("asn"),
-                "name": detail.get("name"),
-                "participant_type": detail.get("participant_type"),
+                "name": detail.get("name", ""),
+                "participant_type": detail.get("participant_type", ""),
             }
             ip_addresses = detail.get("ip_addresses", [])
-            peering_ports = detail.get("enriched_ports", [])
-    except Exception:
-        pass
+            enriched_ports = detail.get("enriched_ports", [])
 
-    live_interfaces = []
-    lg_error = None
-    if can_see_live:
-        try:
-            lg = LookingGlassClient()
-            if lg.base_url:
-                iface_results = lg.get_interfaces_status(token, asn=asn)
-                for device_result in iface_results:
+            # 2. PeeringDB cache for website URL
+            try:
+                pdb_data = lg.get_peeringdb_cache()
+                pdb_entry = pdb_data.get("networks", {}).get(str(asn), {})
+            except Exception:
+                pass
+
+            # 3. Live interface status (indexed by device+name)
+            #    ASN filter requires auth; fall back to unfiltered for public
+            iface_by_key = {}
+            try:
+                asn_filter = asn if token else None
+                for device_result in lg.get_interfaces_status(token, asn=asn_filter):
                     if device_result.get("success") and device_result.get("data"):
                         dev = device_result.get("device", "")
                         for iface in device_result["data"]:
-                            iface["device"] = dev
-                            live_interfaces.append(iface)
+                            iface_by_key[(dev, iface["name"])] = iface
+            except Exception:
+                logger.warning("Failed to fetch interface status", exc_info=True)
 
-                # Mark LAG members and reorder so each parent is immediately
-                # followed by its children (sorted by name).
-                for iface in live_interfaces:
-                    parent = iface.get("port_channel")
-                    if parent:
-                        iface["is_lag_member"] = True
-                        iface["parent_lag"] = parent
+            # 4. Optics (admin only)
+            optics_by_key = {}
+            if can_see_admin:
+                try:
+                    for device_result in lg.get_optics(token, asn=asn):
+                        if device_result.get("success") and device_result.get("data"):
+                            dev = device_result.get("device", "")
+                            for optic in device_result["data"]:
+                                optics_by_key[(dev, optic.get("name", ""))] = optic
+                except Exception:
+                    logger.warning("Failed to fetch optics", exc_info=True)
 
-                members_by_parent: dict = {}
-                for iface in live_interfaces:
-                    if iface.get("is_lag_member"):
-                        members_by_parent.setdefault(iface["parent_lag"], []).append(iface)
-                for v in members_by_parent.values():
-                    v.sort(key=lambda i: i["name"])
-                ordered = []
-                seen_members: set = set()
-                for iface in live_interfaces:
-                    if iface.get("is_lag_member"):
-                        continue
-                    ordered.append(iface)
-                    for child in members_by_parent.get(iface["name"], []):
-                        ordered.append(child)
-                        seen_members.add(id(child))
-                for iface in live_interfaces:
-                    if iface.get("is_lag_member") and id(iface) not in seen_members:
-                        ordered.append(iface)
-                live_interfaces = ordered
+            # 5. LLDP neighbors
+            lldp_by_key = _fetch_lldp_by_key(lg, token)
 
-                optics_results = lg.get_optics(token, asn=asn)
-                optics_by_key = {}
-                for device_result in optics_results:
-                    if device_result.get("success") and device_result.get("data"):
-                        dev = device_result.get("device", "")
-                        for optic in device_result["data"]:
-                            optics_by_key[(dev, optic.get("name", ""))] = optic
-                for iface in live_interfaces:
-                    optic = optics_by_key.get((iface.get("device", ""), iface["name"]))
-                    if optic and optic.get("dom_supported"):
-                        lanes = optic.get("lanes", [])
-                        if lanes:
-                            lane = lanes[0]
-                            tx = lane.get("tx_power_dbm")
-                            rx = lane.get("rx_power_dbm")
-                            iface["tx_power"] = f"{tx:.2f} dBm" if tx is not None else None
-                            iface["rx_power"] = f"{rx:.2f} dBm" if rx is not None else None
-                        temp = optic.get("temperature_c")
-                        iface["temperature"] = f"{temp:.1f}°C" if temp is not None else None
-                        iface["media_type"] = optic.get("media_type", "")
-        except Exception as e:
-            lg_error = str(e)
+            # 6. ARP + NDP
+            arp_by_ip = _fetch_arp_by_ip(lg, token)
+            ndp_by_ip = _fetch_ndp_by_ip(lg, token)
+
+            # 7. Route-server sessions from Alice-LG
+            rs_sessions = _fetch_rs_sessions(asn)
+
+            # 8. Build logical port tree
+            logical_ports = _build_logical_ports(
+                enriched_ports, iface_by_key, optics_by_key, lldp_by_key,
+                ip_addresses, arp_by_ip, ndp_by_ip, rs_sessions, can_see_admin,
+            )
+
+            # 9. Compute alerts (admin only)
+            if can_see_admin:
+                alerts = _compute_alerts(logical_ports)
+
+    except Exception as e:
+        lg_error = str(e)
+        logger.exception("Error loading network detail for AS%s", asn)
+
+    # Derive aggregate network status
+    if logical_ports:
+        if all(lp["link_state"] == "down" for lp in logical_ports):
+            net_status = "down"
+        elif any(lp["link_state"] != "up" for lp in logical_ports):
+            net_status = "degraded"
+        else:
+            net_status = "active"
+    else:
+        net_status = "unknown"
+
+    total_physical = sum(len(lp["physical"]) for lp in logical_ports)
+    total_active_gbps = sum(lp["effective_speed_gbps"] for lp in logical_ports)
+    total_provisioned_gbps = sum(lp["speed_gbps"] for lp in logical_ports)
 
     return render(request, "dashboard/participant_detail.html", {
         "asn": asn,
         "member": member,
-        "ip_addresses": ip_addresses,
-        "peering_ports": peering_ports,
-        "live_interfaces": live_interfaces,
+        "website": pdb_entry.get("website", ""),
+        "net_status": net_status,
+        "logical_ports": logical_ports,
+        "logical_port_count": len(logical_ports),
+        "physical_port_count": total_physical,
+        "total_active_gbps": total_active_gbps,
+        "total_provisioned_gbps": total_provisioned_gbps,
+        "alerts": alerts,
         "lg_error": lg_error,
-        "can_see_live": can_see_live,
+        "can_see_admin": can_see_admin,
         "is_own_network": asn in user_asns,
         "is_ix_admin": is_admin,
     })

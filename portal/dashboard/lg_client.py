@@ -70,6 +70,14 @@ class LookingGlassClient:
             params["vlan"] = vlan
         return self._get("/api/v1/mac-address-table", token, params or None)
 
+    def get_arp(self, token: str | None = None) -> list[dict[str, Any]]:
+        """Get ARP table (IPv4 neighbor-to-MAC mapping)."""
+        return self._get("/api/v1/arp", token)
+
+    def get_ipv6_neighbors(self, token: str | None = None) -> list[dict[str, Any]]:
+        """Get IPv6 neighbor table (NDP)."""
+        return self._get("/api/v1/ipv6/neighbors", token)
+
     def get_participants(self) -> list[dict[str, Any]]:
         """Get IXP participant list (no auth required)."""
         return self._get("/api/v1/participants")

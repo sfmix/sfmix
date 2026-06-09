@@ -1,269 +1,393 @@
 {% extends "base.html" %}
-{% block title %}AS{{ asn }} – SFMIX Portal{% endblock %}
+{% block title %}{{ member.name|default:"Network" }} (AS{{ asn }}) – SFMIX Portal{% endblock %}
+{% block container_class %}max-w-6xl{% endblock %}
 
 {% block content %}
 <div class="mb-4">
   <a href="{% url 'participants_list' %}" class="text-sm" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; Back to participants</a>
 </div>
 
-<div class="flex flex-wrap items-baseline gap-3 mb-1">
-  <h1 class="text-2xl font-bold" style="color: var(--color-primary);">AS{{ asn }}</h1>
-  {% if member.participant_type %}
-  <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ member.participant_type }}</span>
-  {% endif %}
+{% if lg_error %}
+<div class="nd-alert warn mb-6">
+  <span class="nd-alert-icon">&#9888;</span>
+  <div>Unable to fetch some data: {{ lg_error }}</div>
 </div>
-{% if member.name %}<p class="text-gray-600 mb-6">{{ member.name }}</p>{% endif %}
+{% endif %}
 
-{% if can_see_live %}
-
-{% if live_interfaces %}
-<section class="mb-8" x-data="sortableTable()">
-  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-    <div>
-      <h2 class="text-lg font-semibold" style="color: var(--color-primary);">Live Interface Status</h2>
-      <p class="text-xs text-gray-500">Real-time data from network devices</p>
+{# ── Network Header ─────────────────────────────────────────── #}
+<div class="nd-net-head">
+  <div class="nd-net-id">
+    <h1 class="nd-net-title">
+      {{ member.name|default:"Unknown Network" }}
+      <span class="nd-asn-tag">AS{{ asn }}</span>
+    </h1>
+    <div class="nd-net-meta">
+      {% if member.participant_type %}<span><b>Type:</b> {{ member.participant_type }}</span>{% endif %}
+      <span><b>Ports:</b> {{ logical_port_count }} logical, {{ physical_port_count }} physical</span>
+      <span><b>Capacity:</b>
+        {% if total_active_gbps == total_provisioned_gbps %}
+          {{ total_active_gbps|floatformat:0 }}G active
+        {% else %}
+          {{ total_active_gbps|floatformat:0 }}G active / {{ total_provisioned_gbps|floatformat:0 }}G provisioned
+        {% endif %}
+      </span>
     </div>
-    <input type="search" x-model="search" placeholder="Filter…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
-  </div>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
-        <tr>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'interface' ? 'text-gray-900' : ''"
-              @click="sortBy('interface')">
-            Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('interface')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'device' ? 'text-gray-900' : ''"
-              @click="sortBy('device')">
-            Device<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('device')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'speed' ? 'text-gray-900' : ''"
-              @click="sortBy('speed')">
-            Speed<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('speed')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'link' ? 'text-gray-900' : ''"
-              @click="sortBy('link')">
-            Link<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('link')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'protocol' ? 'text-gray-900' : ''"
-              @click="sortBy('protocol')">
-            Protocol<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('protocol')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'txpower' ? 'text-gray-900' : ''"
-              @click="sortBy('txpower')">
-            TX Power<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('txpower')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'rxpower' ? 'text-gray-900' : ''"
-              @click="sortBy('rxpower')">
-            RX Power<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('rxpower')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'temp' ? 'text-gray-900' : ''"
-              @click="sortBy('temp')">
-            Temp<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('temp')"></span>
-          </th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for iface in live_interfaces %}
-        <tr x-show="rowVisible($el)"
-            data-search="{{ iface.name|lower }} {{ iface.device|default:''|lower }} {{ iface.speed|default:''|lower }} {{ iface.link_status|default:''|lower }} {{ iface.protocol_status|default:''|lower }}"
-            data-sort-interface="{{ iface.name|lower }}"
-            data-sort-device="{{ iface.device|default:''|lower }}"
-            data-sort-speed="{{ iface.speed|default:'' }}"
-            data-sort-link="{{ iface.link_status|default:''|lower }}"
-            data-sort-protocol="{{ iface.protocol_status|default:''|lower }}"
-            data-sort-txpower="{{ iface.tx_power|default:'' }}"
-            data-sort-rxpower="{{ iface.rx_power|default:'' }}"
-            data-sort-temp="{{ iface.temperature|default:'' }}">
-          <td class="px-4 py-2 font-mono text-xs">{% if iface.is_lag_member %}<span class="text-gray-400">└ </span>{% endif %}{{ iface.name }}</td>
-          <td class="px-4 py-2 text-xs">{{ iface.device|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs">{{ iface.speed|default:"—" }}</td>
-          <td class="px-4 py-2">
-            {% if iface.link_status == "up" or iface.link_status == "connected" %}
-              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ iface.link_status|title }}</span>
-            {% else %}
-              <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{{ iface.link_status|default:"Down" }}</span>
-            {% endif %}
-          </td>
-          <td class="px-4 py-2">
-            {% if iface.protocol_status == "up" %}
-              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Up</span>
-            {% else %}
-              <span class="inline-block bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">{{ iface.protocol_status|default:"—" }}</span>
-            {% endif %}
-          </td>
-          <td class="px-4 py-2 text-xs font-mono">{{ iface.tx_power|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs font-mono">{{ iface.rx_power|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs">{{ iface.temperature|default:"—" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% elif lg_error %}
-<section class="mb-8">
-  <h2 class="text-lg font-semibold mb-3" style="color: var(--color-primary);">Live Interface Status</h2>
-  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-    Unable to fetch live data: {{ lg_error }}
-  </div>
-</section>
-{% endif %}
-
-{% endif %}{# can_see_live #}
-
-{% if peering_ports %}
-<section class="mb-8" x-data="sortableTable()">
-  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-    <div>
-      <h2 class="text-lg font-semibold" style="color: var(--color-primary);">Peering Ports</h2>
-      <p class="text-xs text-gray-500">Configuration from NetBox</p>
+    <div class="nd-net-overview">
+      <span class="nd-ov-chip">
+        {% if net_status == "active" %}<span class="nd-dot nd-dot-up"></span> Active
+        {% elif net_status == "degraded" %}<span class="nd-dot nd-dot-warn"></span> Degraded
+        {% elif net_status == "down" %}<span class="nd-dot nd-dot-down"></span> Down
+        {% else %}<span class="nd-dot nd-dot-unk"></span> Unknown
+        {% endif %}
+      </span>
     </div>
-    <input type="search" x-model="search" placeholder="Filter…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
   </div>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
-        <tr>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'interface' ? 'text-gray-900' : ''"
-              @click="sortBy('interface')">
-            Interface<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('interface')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'switch' ? 'text-gray-900' : ''"
-              @click="sortBy('switch')">
-            Switch<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('switch')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'speed' ? 'text-gray-900' : ''"
-              @click="sortBy('speed')">
-            Speed<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('speed')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'status' ? 'text-gray-900' : ''"
-              @click="sortBy('status')">
-            Status<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('status')"></span>
-          </th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for port in peering_ports %}
-        <tr x-show="rowVisible($el)"
-            data-search="{{ port.interface|lower }} {{ port.device|default:''|lower }} {{ port.speed|default:'' }} {% if port.enabled %}enabled{% else %}disabled{% endif %}"
-            data-sort-interface="{{ port.interface|lower }}"
-            data-sort-switch="{{ port.device|default:''|lower }}"
-            data-sort-speed="{{ port.speed|default:'' }}"
-            data-sort-status="{% if port.enabled %}enabled{% else %}disabled{% endif %}">
-          <td class="px-4 py-2 font-mono text-xs">{{ port.interface }}</td>
-          <td class="px-4 py-2">{{ port.device|default:"—" }}</td>
-          <td class="px-4 py-2">
-            {% if port.speed %}{{ port.speed }} Mbps{% else %}—{% endif %}
-          </td>
-          <td class="px-4 py-2">
-            {% if port.enabled %}
-              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Enabled</span>
-            {% else %}
-              <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">Disabled</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="nd-net-actions">
+    <a href="https://www.peeringdb.com/asn/{{ asn }}" target="_blank" class="nd-btn">PeeringDB <span class="nd-ext">&#8599;</span></a>
+    {% if website %}<a href="{{ website }}" target="_blank" class="nd-btn">Website <span class="nd-ext">&#8599;</span></a>{% endif %}
+    <a href="https://alice.sfmix.org/search?q=as{{ asn }}" target="_blank" class="nd-btn">Alice LG <span class="nd-ext">&#8599;</span></a>
+    {% if is_own_network or is_ix_admin %}
+    <a href="{% url 'network_mac_table' asn %}" class="nd-btn nd-btn-primary">MAC Table</a>
+    {% endif %}
   </div>
-</section>
+</div>
+
+{# ── Scope Legend ────────────────────────────────────────────── #}
+{% if can_see_admin %}
+<div class="nd-scope-legend">
+  <span class="nd-sl-title">Reading this page</span>
+  <span class="nd-sl-item"><span class="nd-scope-key nd-scope-pub"></span> Public &mdash; visible to anyone</span>
+  <span class="nd-sl-item"><span class="nd-scope-key nd-scope-admin"></span> Admin &mdash; network &amp; IX admins only</span>
+  <span class="nd-sl-item">Stack: <b style="color:#c2701f">L1</b> physical &middot; <b style="color:#1a6070">L2</b> link/LLDP &middot; <b style="color:#2a5a8c">L3</b> ARP/NDP &middot; <b style="color:#1d7a3e">L4+</b> route servers</span>
+</div>
 {% endif %}
 
-{% if ip_addresses %}
-<section class="mb-8" x-data="sortableTable()">
-  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-    <h2 class="text-lg font-semibold" style="color: var(--color-primary);">IP Addresses</h2>
-    <input type="search" x-model="search" placeholder="Filter…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
+{# ── Health Alerts (admin only) ──────────────────────────────── #}
+{% if can_see_admin and alerts %}
+<div class="nd-alerts">
+  {% for alert in alerts %}
+  <div class="nd-alert {{ alert.severity }}">
+    <span class="nd-alert-icon">{{ alert.icon }}</span>
+    <div class="nd-alert-body">
+      <b>{{ alert.title }}</b> {{ alert.body }}
+      <span class="nd-alert-where">{{ alert.where }}</span>
+    </div>
   </div>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
-        <tr>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'address' ? 'text-gray-900' : ''"
-              @click="sortBy('address')">
-            Address<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('address')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'family' ? 'text-gray-900' : ''"
-              @click="sortBy('family')">
-            Family<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('family')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'mac' ? 'text-gray-900' : ''"
-              @click="sortBy('mac')">
-            MAC Address<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('mac')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'status' ? 'text-gray-900' : ''"
-              @click="sortBy('status')">
-            Status<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('status')"></span>
-          </th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for ip in ip_addresses %}
-        <tr x-show="rowVisible($el)"
-            data-search="{{ ip.address|lower }} {{ ip.family }} {{ ip.mac_address|default:''|lower }} {{ ip.status|lower }}"
-            data-sort-address="{{ ip.address|lower }}"
-            data-sort-family="{{ ip.family }}"
-            data-sort-mac="{{ ip.mac_address|default:''|lower }}"
-            data-sort-status="{{ ip.status|lower }}">
-          <td class="px-4 py-2 font-mono text-xs">{{ ip.address }}</td>
-          <td class="px-4 py-2 text-xs">{{ ip.family }}</td>
-          <td class="px-4 py-2 font-mono text-xs">{{ ip.mac_address|default:"—" }}</td>
-          <td class="px-4 py-2">
-            {% if ip.status == "active" %}
-              <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Active</span>
-            {% else %}
-              <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ ip.status|title }}</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
+  {% endfor %}
+</div>
 {% endif %}
 
-<section>
-  <h2 class="text-lg font-semibold mb-3" style="color: var(--color-primary);">Links</h2>
-  {% if is_own_network or is_ix_admin %}
-  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mb-3">
-    <a href="{% url 'network_mac_table' asn %}"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:shadow-sm transition" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
-      <div class="font-medium" style="color: var(--color-primary-light);">MAC Table</div>
-      <div class="text-xs text-gray-500 mt-0.5">Learned MAC addresses</div>
-    </a>
+{# ── Logical Ports ───────────────────────────────────────────── #}
+{% for lp in logical_ports %}
+<div class="nd-lport{% if lp.link_state == 'down' %} nd-lport-down{% endif %}">
+
+  {# ─ Logical port header ─ #}
+  <div class="nd-lport-head">
+    <span class="nd-lp-title">
+      <span class="nd-dq-d">{{ lp.device|cut:".sfmix.org" }}</span>{{ lp.name }}
+    </span>
+    {% if lp.kind == "lag" %}
+    <span class="nd-lp-kind">LAG</span>
+    <span class="nd-lp-speed">{{ lp.members_total }}&times;{{ lp.physical.0.speed_gbps|floatformat:0 }}G</span>
+    {% else %}
+    <span class="nd-lp-kind nd-lp-kind-single">Single</span>
+    <span class="nd-lp-speed">{{ lp.speed_gbps|floatformat:0 }}G</span>
+    {% endif %}
+    <span class="nd-spacer"></span>
+    {% if lp.link_state == "up" %}
+    <span class="nd-ls-badge nd-ls-up"><i></i> Up</span>
+    {% elif lp.link_state == "degraded" %}
+    <span class="nd-ls-badge nd-ls-degraded"><i></i> Degraded {{ lp.members_up }}/{{ lp.members_total }}</span>
+    {% else %}
+    <span class="nd-ls-badge nd-ls-down"><i></i> Down</span>
+    {% endif %}
+    {% if lp.link_state != "down" and lp.kind == "lag" %}
+    <span class="nd-lp-speed" style="color:var(--color-text-light)">{{ lp.effective_speed_gbps|floatformat:0 }}G effective</span>
+    {% endif %}
   </div>
-  {% endif %}
-  <div class="flex flex-wrap gap-3 text-sm">
-    <a href="https://www.peeringdb.com/asn/{{ asn }}" target="_blank"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-2 transition" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
-      PeeringDB
-    </a>
-    <a href="https://lg.sfmix.org/" target="_blank"
-       class="bg-white border border-gray-200 rounded-lg px-4 py-2 transition" onmouseover="this.style.borderColor='var(--color-primary-light)'" onmouseout="this.style.borderColor=''">
-      Looking Glass
-    </a>
-  </div>
-</section>
+
+  <div class="nd-stack">
+
+    {# ── L1: Physical & Optics (admin only) ──────────────── #}
+    {% if can_see_admin %}
+    <div class="nd-lband nd-l1 nd-admin-band">
+      <div class="nd-lband-tag">
+        <span class="nd-lt-l">L1</span>
+        <span class="nd-lt-name">Physical</span>
+        <span class="nd-lt-scope">Admin</span>
+      </div>
+      <div class="nd-lband-body">
+        <div class="nd-pmembers">
+          {% for phy in lp.physical %}
+          <div class="nd-pmember{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-pmember-down{% endif %}">
+            <div class="nd-pm-head">
+              <span class="nd-pm-name">
+                <span class="nd-dq-d">{{ phy.device|cut:".sfmix.org" }}</span>{{ phy.name }}
+              </span>
+              <span class="nd-pm-speed">{{ phy.speed_gbps|floatformat:0 }}G</span>
+              {% if phy.media_type %}<span class="nd-pm-mod">{{ phy.media_type }}</span>{% endif %}
+              <span class="nd-spacer"></span>
+              {% if phy.link_status == "up" or phy.link_status == "connected" %}
+              <span class="nd-ls-dot nd-ls-dot-up"><i></i> Up</span>
+              {% else %}
+              <span class="nd-ls-dot nd-ls-dot-down"><i></i> {{ phy.link_status|default:"Down"|title }}</span>
+              {% endif %}
+            </div>
+            {% if phy.temperature_c or phy.serial %}
+            <div class="nd-pm-meta">
+              {% if phy.temperature_c %}<span><b>Temp:</b> {{ phy.temperature_c }}&deg;C</span>{% endif %}
+              {% if phy.serial %}<span><b>Serial:</b> {{ phy.serial }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% if phy.lanes %}
+            <div class="nd-lanes">
+              {% for lane in phy.lanes %}
+              <div class="nd-lane nd-lane-{{ lane.band }}">
+                <div class="nd-ln">{{ lane.label }}</div>
+                <div class="nd-rx">{{ lane.rx_formatted }}</div>
+                <div class="nd-rxu">dBm RX</div>
+                <div class="nd-meter">
+                  <div class="nd-needle" style="left: {{ lane.meter_pos }}%"></div>
+                </div>
+                <div class="nd-qual">{{ lane.band_label }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── L2: Link · LLDP ────────────────────────────────── #}
+    <div class="nd-lband nd-l2">
+      <div class="nd-lband-tag">
+        <span class="nd-lt-l">L2</span>
+        <span class="nd-lt-name">Link &middot; LLDP</span>
+        <span class="nd-lt-scope">Public</span>
+      </div>
+      <div class="nd-lband-body">
+        {% for phy in lp.physical %}
+        {% if phy.lldp %}
+        <div class="nd-lldp-pill{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-lldp-down{% endif %}">
+          <div class="nd-llp-side nd-llp-local">
+            <div class="nd-llp-label">Local</div>
+            <div class="nd-llp-host">{{ phy.device|cut:".sfmix.org" }}</div>
+            <div class="nd-llp-if">{{ phy.name }}</div>
+          </div>
+          <div class="nd-llp-conn">
+            {% if phy.link_status == "up" or phy.link_status == "connected" %}
+            <span class="nd-llp-dot nd-llp-dot-up"></span>
+            {% else %}
+            <span class="nd-llp-dot nd-llp-dot-down"></span>
+            {% endif %}
+            <span class="nd-llp-arrow">&harr;</span>
+          </div>
+          <div class="nd-llp-side nd-llp-remote">
+            <div class="nd-llp-label">Remote</div>
+            <div class="nd-llp-host">{{ phy.lldp.sys_name|default:"—" }}</div>
+            <div class="nd-llp-if">{{ phy.lldp.port_id|default:"—" }}</div>
+          </div>
+        </div>
+        {% elif phy.link_status != "up" and phy.link_status != "connected" %}
+        <div class="nd-lldp-pill nd-lldp-down">
+          <div class="nd-llp-side nd-llp-local">
+            <div class="nd-llp-label">Local</div>
+            <div class="nd-llp-host">{{ phy.device|cut:".sfmix.org" }}</div>
+            <div class="nd-llp-if">{{ phy.name }}</div>
+          </div>
+          <div class="nd-llp-conn">
+            <span class="nd-llp-dot nd-llp-dot-down"></span>
+            <span class="nd-llp-arrow">&times;</span>
+          </div>
+          <div class="nd-llp-side nd-llp-remote">
+            <div class="nd-llp-down-label">Link down &mdash; no LLDP</div>
+          </div>
+        </div>
+        {% else %}
+        <div class="nd-lldp-pill">
+          <div class="nd-llp-side nd-llp-local">
+            <div class="nd-llp-label">Local</div>
+            <div class="nd-llp-host">{{ phy.device|cut:".sfmix.org" }}</div>
+            <div class="nd-llp-if">{{ phy.name }}</div>
+          </div>
+          <div class="nd-llp-conn">
+            <span class="nd-llp-dot nd-llp-dot-up"></span>
+            <span class="nd-llp-arrow">&harr;</span>
+          </div>
+          <div class="nd-llp-side nd-llp-remote">
+            <div class="nd-llp-down-label">No LLDP data</div>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── L3: Network · ARP/NDP ──────────────────────────── #}
+    <div class="nd-lband nd-l3">
+      <div class="nd-lband-tag">
+        <span class="nd-lt-l">L3</span>
+        <span class="nd-lt-name">Network</span>
+        <span class="nd-lt-scope">Public</span>
+      </div>
+      <div class="nd-lband-body">
+        <div class="nd-addr-grid">
+          {% if lp.v4 != "—" %}
+          <div class="nd-addr">
+            <span class="nd-af">IPv4</span>
+            <span class="nd-val">{{ lp.v4 }}</span>
+          </div>
+          {% endif %}
+          {% if lp.v6 != "—" %}
+          <div class="nd-addr">
+            <span class="nd-af">IPv6</span>
+            <span class="nd-val">{{ lp.v6 }}</span>
+          </div>
+          {% endif %}
+          {% if lp.v4 == "—" and lp.v6 == "—" %}
+          <div class="nd-addr">
+            <span class="nd-val" style="color:var(--color-text-light); font-style:italic">No IPs assigned</span>
+          </div>
+          {% endif %}
+        </div>
+        {% if lp.bound_mac_v4 != "—" or lp.bound_mac_v6 != "—" %}
+        <div class="nd-mac-pair">
+          {% if lp.bound_mac_v4 != "—" %}
+          <div class="nd-mac-box">
+            <div class="nd-af">ARP (IPv4)</div>
+            <div class="nd-val">{{ lp.bound_mac_v4 }}</div>
+          </div>
+          {% endif %}
+          {% if lp.bound_mac_v6 != "—" %}
+          <div class="nd-mac-box">
+            <div class="nd-af">NDP (IPv6)</div>
+            <div class="nd-val">{{ lp.bound_mac_v6 }}</div>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── L4+: Route Servers ─────────────────────────────── #}
+    {% if lp.route_servers %}
+    <div class="nd-lband nd-l4">
+      <div class="nd-lband-tag">
+        <span class="nd-lt-l">L4+</span>
+        <span class="nd-lt-name">Route Servers</span>
+        <span class="nd-lt-scope">Public</span>
+      </div>
+      <div class="nd-lband-body">
+        {# Desktop: table view #}
+        <table class="nd-rs-table">
+          <thead>
+            <tr>
+              <th>Route Server</th>
+              <th>State</th>
+              <th>Uptime</th>
+              <th>AF</th>
+              <th>Received</th>
+              <th>Accepted</th>
+              <th>Rejected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rs in lp.route_servers %}
+            {% if rs.v4_received or rs.v4_accepted or "." in rs.address %}
+            <tr>
+              <td class="nd-rs-name" rowspan="2">
+                {% if rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.name }} <span class="nd-ext">&#8599;</span></a>{% else %}{{ rs.name }}{% endif %}
+                <div style="font-size:.72rem; color:var(--color-text-light); font-weight:400">{{ rs.address }}</div>
+              </td>
+              <td rowspan="2">
+                {% if rs.is_down %}
+                <span class="nd-rs-state nd-rs-down"><i></i> {{ rs.state|default:"Down" }}</span>
+                {% else %}
+                <span class="nd-rs-state nd-rs-up"><i></i> {{ rs.state }}</span>
+                {% endif %}
+              </td>
+              <td rowspan="2" style="font-family:var(--font-mono);font-size:.82rem">{{ rs.uptime }}</td>
+              <td class="nd-af-label">IPv4</td>
+              <td>{{ rs.v4_received|default:"—" }}</td>
+              <td>{{ rs.v4_accepted|default:"—" }}</td>
+              <td class="{% if rs.v4_rejected %}nd-rej{% else %}nd-rej-zero{% endif %}">{% if rs.v4_rejected and rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.v4_rejected }}</a>{% else %}{{ rs.v4_rejected|default:"0" }}{% endif %}</td>
+            </tr>
+            <tr>
+              <td class="nd-af-label">IPv6</td>
+              <td>{{ rs.v6_received|default:"—" }}</td>
+              <td>{{ rs.v6_accepted|default:"—" }}</td>
+              <td class="{% if rs.v6_rejected %}nd-rej{% else %}nd-rej-zero{% endif %}">{% if rs.v6_rejected and rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.v6_rejected }}</a>{% else %}{{ rs.v6_rejected|default:"0" }}{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td class="nd-rs-name">
+                {% if rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.name }} <span class="nd-ext">&#8599;</span></a>{% else %}{{ rs.name }}{% endif %}
+                <div style="font-size:.72rem; color:var(--color-text-light); font-weight:400">{{ rs.address }}</div>
+              </td>
+              <td>
+                {% if rs.is_down %}
+                <span class="nd-rs-state nd-rs-down"><i></i> {{ rs.state|default:"Down" }}</span>
+                {% else %}
+                <span class="nd-rs-state nd-rs-up"><i></i> {{ rs.state }}</span>
+                {% endif %}
+              </td>
+              <td style="font-family:var(--font-mono);font-size:.82rem">{{ rs.uptime }}</td>
+              <td class="nd-af-label">IPv6</td>
+              <td>{{ rs.v6_received|default:"—" }}</td>
+              <td>{{ rs.v6_accepted|default:"—" }}</td>
+              <td class="{% if rs.v6_rejected %}nd-rej{% else %}nd-rej-zero{% endif %}">{% if rs.v6_rejected and rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.v6_rejected }}</a>{% else %}{{ rs.v6_rejected|default:"0" }}{% endif %}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {# Mobile: compact card view #}
+        <div class="nd-rs-compact">
+          {% for rs in lp.route_servers %}
+          <div class="nd-rsc-card{% if rs.is_down %} nd-rsc-down{% endif %}">
+            <div class="nd-rsc-top">
+              <span class="nd-rsc-name">{% if rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.name }} <span class="nd-ext">&#8599;</span></a>{% else %}{{ rs.name }}{% endif %}</span>
+              {% if rs.is_down %}
+              <span class="nd-rsc-state nd-rsc-state-down"><i></i> {{ rs.state|default:"Down" }}</span>
+              {% else %}
+              <span class="nd-rsc-state nd-rsc-state-up"><i></i> {{ rs.state }}</span>
+              {% endif %}
+            </div>
+            <div class="nd-rsc-rows">
+              {% if rs.v4_received or "." in rs.address %}
+              <div class="nd-rsc-af">
+                <span class="nd-rsc-aflab">v4</span>
+                <span class="nd-rsc-counts">
+                  {{ rs.v4_received }}<span class="nd-sl">/</span>{{ rs.v4_accepted }}<span class="nd-sl">/</span><span class="{% if rs.v4_rejected %}nd-rej{% else %}nd-rej-zero{% endif %}">{% if rs.v4_rejected and rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.v4_rejected }}</a>{% else %}{{ rs.v4_rejected }}{% endif %}</span>
+                </span>
+              </div>
+              {% endif %}
+              {% if rs.v6_received or ":" in rs.address %}
+              <div class="nd-rsc-af">
+                <span class="nd-rsc-aflab">v6</span>
+                <span class="nd-rsc-counts">
+                  {{ rs.v6_received }}<span class="nd-sl">/</span>{{ rs.v6_accepted }}<span class="nd-sl">/</span><span class="{% if rs.v6_rejected %}nd-rej{% else %}nd-rej-zero{% endif %}">{% if rs.v6_rejected and rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.v6_rejected }}</a>{% else %}{{ rs.v6_rejected }}{% endif %}</span>
+                </span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# .nd-stack #}
+</div>{# .nd-lport #}
+{% empty %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-sm text-yellow-800 text-center">
+  No ports found for AS{{ asn }}. This network may not yet be provisioned.
+</div>
+{% endfor %}
+
 {% endblock %}
