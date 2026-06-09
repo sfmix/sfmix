@@ -23,6 +23,14 @@
     state: directory
     owner: "{{ looking_glass_user }}"
     group: "{{ looking_glass_group }}"
+
+- name: Create PeeringDB cache directory
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/looking-glass
+    state: directory
+    owner: "{{ looking_glass_user }}"
+    group: "{{ looking_glass_group }}"
     mode: "0750"
 
 - name: Generate SSH host key
@@ -190,6 +198,7 @@
       PrivateTmp=true
       NoNewPrivileges=true
       ReadOnlyPaths={{ looking_glass_config_dir }}
+      ReadWritePaths=/var/lib/looking-glass
 
       [Install]
       WantedBy=multi-user.target
