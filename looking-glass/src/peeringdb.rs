@@ -237,10 +237,14 @@ struct PeeringdbApiNetwork {
     info_type: String,
     #[serde(default)]
     policy_general: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_zero")]
     info_prefixes4: u32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_zero")]
     info_prefixes6: u32,
+}
+
+fn null_as_zero<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+    Option::<u32>::deserialize(d).map(|o| o.unwrap_or(0))
 }
 
 async fn fetch_batch(client: &reqwest::Client, url: &str) -> Result<Vec<PeeringdbApiNetwork>> {
