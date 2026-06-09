@@ -55,7 +55,7 @@
   </div>
 
   {# ── Mobile sort dropdown ───────────────────────────────────── #}
-  <div class="sm:hidden mb-3">
+  <div class="lg:hidden mb-3">
     <select @change="mobileSortBy($event.target.value)"
             class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
       <option value="v4">Sort by IPv4</option>
@@ -68,7 +68,7 @@
   </div>
 
   {# ── Desktop table ──────────────────────────────────────────── #}
-  <div class="hidden sm:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  <div class="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="text-left text-xs text-gray-500 uppercase tracking-wide sticky top-0 z-10" style="background: var(--color-primary);">
         <tr>
@@ -159,7 +159,7 @@
   </div>
 
   {# ── Mobile cards ───────────────────────────────────────────── #}
-  <div class="sm:hidden grid gap-3">
+  <div class="lg:hidden grid gap-3">
     {% for p in entries %}
     <div x-show="rowVisible($el)"
          class="bg-white border border-gray-200 rounded-lg p-4"
