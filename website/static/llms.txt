@@ -1,6 +1,6 @@
 # SFMIX — San Francisco Metropolitan Internet eXchange
 
-> Bay Area's nonprofit, member-governed Internet Exchange. Peer with 100+ networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.
+> Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.
 
 ## About
 
