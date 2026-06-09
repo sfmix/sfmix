@@ -68,14 +68,56 @@ fn color_errors(v: u64, mode: ColorMode) -> String {
     format!("{}", s.red())
 }
 
-/// Colorize an optical Rx power reading based on thresholds.
-fn color_rx_power(dbm: Option<f64>, mode: ColorMode) -> String {
+/// Per-media-type RX power specs: (rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad).
+/// Sources: IEEE 802.3 per-lane receiver sensitivity and overload points.
+/// Warn zone is ~1.5 dB inside the bad boundary on each side.
+fn optic_rx_spec(media_type: &str) -> (f64, f64, f64, f64) {
+    match media_type {
+        // 1G
+        "1000BASE-T"  => (-30.0, -30.0, 30.0, 30.0), // copper — always ok
+        "1000BASE-LX" => (-19.0, -17.5, -0.5,  0.5),
+        "1000BASE-SX" => (-17.0, -15.5, -2.0, -0.5),
+        // 10G
+        "10GBASE-SR" => (-11.1,  -9.6, -0.5, 1.0),
+        "10GBASE-LR" => (-14.4, -12.9, -0.5, 0.5),
+        "10GBASE-ER" => (-15.8, -14.3, -0.5, 1.0),
+        // 40G
+        "40GBASE-SR4"  => ( -9.5,  -8.0, -0.5, 1.0),
+        "40GBASE-LR4"  => (-13.7, -12.2,  1.5, 2.3),
+        "40GBASE-PSM4" => (-13.0, -11.5,  1.5, 2.5),
+        // 100G
+        "100GBASE-SR4" => (-10.3,  -8.8, 1.5, 2.4),
+        "100GBASE-LR4" => (-10.6,  -9.1, 1.5, 2.4),
+        "100GBASE-ER4" => (-13.5, -12.0, 1.5, 2.4),
+        "100GBASE-LR"  => (-10.6,  -9.1, 1.5, 2.4),
+        "100GBASE-CR4" => (-30.0, -30.0, 30.0, 30.0), // DAC — always ok
+        // 400G
+        "400GBASE-SR8" => (-10.3,  -8.8, 1.5, 2.4),
+        "400GBASE-DR4" => (-10.6,  -9.1, 1.5, 2.4),
+        "400GBASE-FR4" => (-10.6,  -9.1, 1.5, 2.4),
+        "400GBASE-LR8" => (-10.6,  -9.1, 1.5, 2.4),
+        "400GBASE-ZR"  => (-18.0, -16.5, 2.0, 3.5),
+        "400GBASE-ZRP" => (-18.0, -16.5, 2.0, 3.5),
+        // Fallback for unknown types
+        _ => (-14.0, -12.0, 1.5, 3.0),
+    }
+}
+
+/// Colorize an optical Rx power reading using per-media-type thresholds.
+fn color_rx_power(dbm: Option<f64>, media_type: &str, mode: ColorMode) -> String {
     let s = fmt_dbm(dbm);
     if mode == ColorMode::Plain { return s; }
     match dbm {
-        Some(v) if v < -30.0 => format!("{}", s.red()),
-        Some(v) if v < -10.0 => format!("{}", s.yellow()),
-        Some(_) => format!("{}", s.green()),
+        Some(v) => {
+            let (min_bad, min_warn, max_warn, max_bad) = optic_rx_spec(media_type);
+            if v < min_bad || v > max_bad {
+                format!("{}", s.red())
+            } else if v < min_warn || v > max_warn {
+                format!("{}", s.yellow())
+            } else {
+                format!("{}", s.green())
+            }
+        }
         None => s,
     }
 }
@@ -528,7 +570,7 @@ fn render_optics(entries: &[InterfaceOptics], color: ColorMode) -> String {
                 temp,
                 volt,
                 fmt_dbm(lane.and_then(|l| l.tx_power_dbm)),
-                color_rx_power(lane.and_then(|l| l.rx_power_dbm), color),
+                color_rx_power(lane.and_then(|l| l.rx_power_dbm), &e.media_type, color),
                 fmt_ma(lane.and_then(|l| l.tx_bias_ma)),
             ]);
         } else {
@@ -548,7 +590,7 @@ fn render_optics(entries: &[InterfaceOptics], color: ColorMode) -> String {
                     format!("  Lane {}", lane.lane),
                     String::new(), String::new(), String::new(), String::new(), String::new(),
                     fmt_dbm(lane.tx_power_dbm),
-                    color_rx_power(lane.rx_power_dbm, color),
+                    color_rx_power(lane.rx_power_dbm, &e.media_type, color),
                     fmt_ma(lane.tx_bias_ma),
                 ]);
             }
@@ -586,7 +628,7 @@ fn render_optics_detail(entries: &[InterfaceOptics], color: ColorMode) -> String
                     "    Lane {}: Tx={} Rx={} Bias={}",
                     lane.lane,
                     fmt_dbm(lane.tx_power_dbm),
-                    color_rx_power(lane.rx_power_dbm, color),
+                    color_rx_power(lane.rx_power_dbm, &e.media_type, color),
                     fmt_ma(lane.tx_bias_ma),
                 );
             }
