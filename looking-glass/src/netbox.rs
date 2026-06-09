@@ -73,7 +73,6 @@ pub struct EnrichedPort {
     /// NetBox device ID (used for IX-F switch_id).
     pub device_id: u64,
     /// Interface ID in NetBox (used to match IP addresses via participant_lag).
-    #[serde(skip)]
     pub interface_id: u64,
     /// Speed in Mbps (converted from NetBox kbps), e.g. 10000 = 10G.
     pub speed: Option<u64>,
@@ -97,7 +96,7 @@ pub struct ParticipantIp {
     pub mac_address: Option<String>,
     pub status: String,
     /// The peering port interface ID this IP is linked to (via participant_lag).
-    #[serde(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub participant_lag_id: Option<u64>,
 }
 
