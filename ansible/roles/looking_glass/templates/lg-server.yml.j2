@@ -64,6 +64,9 @@ participants:
 {% if looking_glass_netbox_domain_suffix is defined %}
   domain_suffix: "{{ looking_glass_netbox_domain_suffix }}"
 {% endif %}
+  peeringdb:
+    cache_file: "{{ looking_glass_peeringdb_cache_file | default('/var/lib/looking-glass/peeringdb-cache.json') }}"
+    ttl_secs: {{ looking_glass_peeringdb_ttl_secs | default(86400) }}
 
 vlans:
   public:
