@@ -1,18 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Participants – SFMIX Portal{% endblock %}
+{% block title %}Participants – SFMIX{% endblock %}
+{% block container_class %}max-w-6xl{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">IXP Participants</h1>
+<div class="mb-6">
+  <h1 class="text-2xl font-bold" style="color: var(--color-primary);">Participants</h1>
+  <p class="text-sm text-gray-500 mt-1">Networks peering at the San Francisco Metropolitan Internet eXchange</p>
+</div>
 
 {% if my_participants %}
 <div class="mb-6">
-  <p class="text-sm text-gray-500 mb-2">Your Networks</p>
+  <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Your Networks</p>
   <div class="flex flex-wrap gap-2">
     {% for member in my_participants %}
     <a href="{% url 'participant_detail' member.asn %}"
-       class="inline-flex items-center gap-2 rounded-lg px-4 py-2 transition group" style="background: rgba(26,96,112,0.06); border: 1px solid rgba(26,96,112,0.2);" onmouseover="this.style.background='rgba(26,96,112,0.12)'; this.style.borderColor='rgba(26,96,112,0.4)'" onmouseout="this.style.background='rgba(26,96,112,0.06)'; this.style.borderColor='rgba(26,96,112,0.2)'">
+       class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition"
+       style="background: rgba(26,96,112,0.06); border: 1px solid rgba(26,96,112,0.18);"
+       onmouseover="this.style.background='rgba(26,96,112,0.12)'; this.style.borderColor='rgba(26,96,112,0.35)'"
+       onmouseout="this.style.background='rgba(26,96,112,0.06)'; this.style.borderColor='rgba(26,96,112,0.18)'">
       <span class="font-mono text-xs font-semibold" style="color: var(--color-primary-light);">AS{{ member.asn }}</span>
-      <span class="text-sm text-gray-700">{{ member.name }}</span>
+      <span class="text-gray-700">{{ member.name }}</span>
     </a>
     {% endfor %}
   </div>
@@ -27,53 +34,175 @@
 
 {% if entries %}
 <div x-data="sortableTable()">
-  <div class="flex items-center justify-between mb-2">
-    <input type="search" x-model="search" placeholder="Filter participants…"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
-    <span class="text-xs text-gray-500">
-      <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
-      <span x-show="!search">{{ entries|length }} participants</span>
-    </span>
+  {# ── Toolbar ────────────────────────────────────────────────── #}
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+    <div class="relative">
+      <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input type="search" x-model="search" placeholder="Search participants…"
+             class="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:border-transparent"
+             style="--tw-ring-color: rgba(26,96,112,0.3);">
+    </div>
+    <div class="flex items-center gap-4 text-xs text-gray-500">
+      <span>
+        <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
+        <span x-show="!search">{{ entries|length }} participants</span>
+      </span>
+      <a href="/api/v1/participants.json" class="inline-flex items-center gap-1 font-mono hover:text-gray-700 transition"
+         title="IX-F Member Export (JSON)">
+        <span class="font-bold">{ }</span> JSON
+      </a>
+    </div>
   </div>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+
+  {# ── Mobile sort dropdown ───────────────────────────────────── #}
+  <div class="sm:hidden mb-3">
+    <select @change="mobileSortBy($event.target.value)"
+            class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
+      <option value="v4">Sort by IPv4</option>
+      <option value="name">Sort by Name</option>
+      <option value="asn">Sort by ASN</option>
+      <option value="speed">Sort by Speed</option>
+      <option value="site">Sort by Site</option>
+      <option value="status">Sort by Status</option>
+    </select>
+  </div>
+
+  {# ── Desktop table ──────────────────────────────────────────── #}
+  <div class="hidden sm:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
+      <thead class="text-left text-xs text-gray-500 uppercase tracking-wide sticky top-0 z-10" style="background: var(--color-primary);">
         <tr>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'asn' ? 'text-gray-900' : ''"
-              @click="sortBy('asn')">
-            ASN<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('asn')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'name' ? 'text-gray-900' : ''"
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'name' ? 'text-white!' : ''"
               @click="sortBy('name')">
-            Name<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('name')"></span>
+            Participant<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('name')"></span>
           </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'type' ? 'text-gray-900' : ''"
-              @click="sortBy('type')">
-            Type<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('type')"></span>
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'asn' ? 'text-white!' : ''"
+              @click="sortBy('asn')">
+            ASN<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('asn')"></span>
+          </th>
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'v4' ? 'text-white!' : ''"
+              @click="sortBy('v4')">
+            IPv4<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('v4')"></span>
+          </th>
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'v6' ? 'text-white!' : ''"
+              @click="sortBy('v6')">
+            IPv6<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('v6')"></span>
+          </th>
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'speed' ? 'text-white!' : ''"
+              @click="sortBy('speed')">
+            Speed<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('speed')"></span>
+          </th>
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'site' ? 'text-white!' : ''"
+              @click="sortBy('site')">
+            Site<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('site')"></span>
+          </th>
+          <th class="px-4 py-2.5 font-medium cursor-pointer select-none whitespace-nowrap text-white/80 hover:text-white transition"
+              :class="sortCol === 'status' ? 'text-white!' : ''"
+              @click="sortBy('status')">
+            Status<span class="text-[10px] ml-0.5 text-white/60" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for p in entries %}
         <tr x-show="rowVisible($el)"
-            data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.participant_type|default:''|lower }}"
-            data-sort-asn="{{ p.asn }}"
+            class="hover:bg-gray-50/80 transition-colors"
+            data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}"
             data-sort-name="{{ p.name|lower }}"
-            data-sort-type="{{ p.participant_type|default:''|lower }}">
-          <td class="px-4 py-2 font-mono text-xs">
-            <a href="{% url 'participant_detail' p.asn %}" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">AS{{ p.asn }}</a>
-          </td>
+            data-sort-asn="{{ p.asn }}"
+            data-sort-v4="{{ p.v4_sort }}"
+            data-sort-v6="{{ p.v6 }}"
+            data-sort-speed="{{ p.speed_mbps }}"
+            data-sort-site="{{ p.site|lower }}"
+            data-sort-status="{{ p.status }}">
           <td class="px-4 py-2">
-            <a href="{% url 'participant_detail' p.asn %}" class="text-gray-800" onmouseover="this.style.color='var(--color-primary-light)'" onmouseout="this.style.color=''">{{ p.name }}</a>
+            {% if p.website %}
+            <a href="{{ p.website }}" target="_blank" rel="noopener"
+               class="text-gray-800 hover:underline" style="text-decoration-color: var(--color-primary-light);"
+               onmouseover="this.style.color='var(--color-primary-light)'" onmouseout="this.style.color=''">{{ p.name }}</a>
+            <svg class="inline w-3 h-3 ml-0.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            {% else %}
+            <a href="{% url 'participant_detail' p.asn %}" class="text-gray-800"
+               onmouseover="this.style.color='var(--color-primary-light)'" onmouseout="this.style.color=''">{{ p.name }}</a>
+            {% endif %}
           </td>
-          <td class="px-4 py-2 text-xs">{{ p.participant_type|default:"—" }}</td>
+          <td class="px-4 py-2 font-mono text-xs">
+            <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener"
+               style="color: var(--color-primary-light);"
+               onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">{{ p.asn }}</a>
+          </td>
+          <td class="px-4 py-2 font-mono text-xs text-gray-600 tabular-nums">{{ p.v4 }}</td>
+          <td class="px-4 py-2 font-mono text-xs text-gray-600 tabular-nums" style="max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.v6 }}">{{ p.v6 }}</td>
+          <td class="px-4 py-2 text-xs font-medium text-gray-700">{{ p.speed|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ p.site|default:"—" }}</td>
+          <td class="px-4 py-2">
+            {% if p.status == "active" %}
+            <span class="st-badge st-active">Active</span>
+            {% elif p.status == "provisioning" %}
+            <span class="st-badge st-prov">Provisioning</span>
+            {% elif p.status == "infrastructure" %}
+            <span class="st-badge st-infra">Infrastructure</span>
+            {% else %}
+            <span class="st-badge st-inact">Inactive</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  {# ── Mobile cards ───────────────────────────────────────────── #}
+  <div class="sm:hidden grid gap-3">
+    {% for p in entries %}
+    <div x-show="rowVisible($el)"
+         class="bg-white border border-gray-200 rounded-lg p-4"
+         data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}"
+         data-sort-name="{{ p.name|lower }}"
+         data-sort-asn="{{ p.asn }}"
+         data-sort-v4="{{ p.v4_sort }}"
+         data-sort-v6="{{ p.v6 }}"
+         data-sort-speed="{{ p.speed_mbps }}"
+         data-sort-site="{{ p.site|lower }}"
+         data-sort-status="{{ p.status }}">
+      <div class="flex items-start justify-between mb-2">
+        <div>
+          <div class="font-medium text-gray-900 text-sm">
+            {% if p.website %}
+            <a href="{{ p.website }}" target="_blank" rel="noopener" class="hover:underline" style="text-decoration-color: var(--color-primary-light);">{{ p.name }}</a>
+            {% else %}
+            <a href="{% url 'participant_detail' p.asn %}" class="text-gray-900">{{ p.name }}</a>
+            {% endif %}
+          </div>
+          <a href="{{ p.peeringdb_url }}" target="_blank" rel="noopener"
+             class="font-mono text-xs" style="color: var(--color-primary-light);">AS{{ p.asn }}</a>
+        </div>
+        <div>
+          {% if p.status == "active" %}
+          <span class="st-badge st-active">Active</span>
+          {% elif p.status == "provisioning" %}
+          <span class="st-badge st-prov">Provisioning</span>
+          {% elif p.status == "infrastructure" %}
+          <span class="st-badge st-infra">Infrastructure</span>
+          {% else %}
+          <span class="st-badge st-inact">Inactive</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 mt-2">
+        <div><span class="text-gray-400">IPv4</span> <span class="font-mono text-gray-700 tabular-nums">{{ p.v4 }}</span></div>
+        <div><span class="text-gray-400">Speed</span> <span class="text-gray-700">{{ p.speed|default:"—" }}</span></div>
+        <div class="col-span-2 truncate"><span class="text-gray-400">IPv6</span> <span class="font-mono text-gray-700 tabular-nums">{{ p.v6 }}</span></div>
+        <div><span class="text-gray-400">Site</span> <span class="text-gray-700">{{ p.site|default:"—" }}</span></div>
+      </div>
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% elif not lg_error %}

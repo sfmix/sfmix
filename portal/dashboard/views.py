@@ -60,7 +60,6 @@ def index(request):
     return redirect("participants_list")
 
 
-
 @login_required
 def network_mac_table(request, asn):
     """MAC address table for a participant network."""
@@ -254,6 +253,79 @@ def participant_detail(request, asn):
     })
 
 
+def _format_speed(speed_mbps):
+    """Format port speed in Mbps to human-readable string."""
+    if not speed_mbps:
+        return ""
+    if speed_mbps >= 1000:
+        g = speed_mbps / 1000
+        return f"{int(g)}G" if g == int(g) else f"{g:.1f}G"
+    return f"{int(speed_mbps)}M"
+
+
+def _site_from_device(device_fqdn):
+    """Extract site code from a device FQDN like 'switch01.sfo02.sfmix.org'."""
+    if not device_fqdn:
+        return ""
+    parts = device_fqdn.split(".")
+    return parts[1].upper() if len(parts) >= 2 else ""
+
+
+def _derive_status(participant):
+    """Derive a display status from participant data."""
+    ptype = (participant.get("participant_type") or "").lower()
+    if ptype in ("ixp", "routeserver"):
+        return "infrastructure"
+    ips = participant.get("ip_addresses", [])
+    ports = participant.get("enriched_ports", [])
+    if not ips and not ports:
+        return "inactive"
+    has_active_ip = any(ip.get("status", "").lower() == "active" for ip in ips)
+    has_enabled_port = any(p.get("enabled", False) for p in ports)
+    if has_active_ip and has_enabled_port:
+        return "active"
+    if ips or ports:
+        return "provisioning"
+    return "inactive"
+
+
+def _ip_sort_key(ip_str):
+    """Convert dotted-quad IPv4 to a sortable integer, or 2^32 for missing."""
+    if not ip_str or ip_str == "\u2014":
+        return 2**32
+    try:
+        addr = ip_str.split("/")[0]
+        return int(ipaddress.ip_address(addr))
+    except (ValueError, TypeError):
+        return 2**32
+
+
+def _flatten_participant(p, pdb_cache):
+    """Flatten a NetboxParticipant into a template-ready dict."""
+    asn = p.get("asn", 0)
+    ips = p.get("ip_addresses", [])
+    ports = p.get("enriched_ports", [])
+    v4 = next((ip["address"] for ip in ips if ip.get("family") == "IPv4"), "\u2014")
+    v6 = next((ip["address"] for ip in ips if ip.get("family") == "IPv6"), "\u2014")
+    speed_mbps = ports[0].get("speed") if ports else None
+    device = ports[0].get("device", "") if ports else ""
+    pdb = pdb_cache.get(str(asn), {})
+    return {
+        "asn": asn,
+        "name": p.get("name", ""),
+        "v4": v4,
+        "v6": v6,
+        "v4_sort": _ip_sort_key(v4),
+        "speed_mbps": speed_mbps or 0,
+        "speed": _format_speed(speed_mbps),
+        "site": _site_from_device(device),
+        "status": _derive_status(p),
+        "participant_type": p.get("participant_type", ""),
+        "website": pdb.get("website", ""),
+        "peeringdb_url": f"https://www.peeringdb.com/asn/{asn}",
+    }
+
+
 def participants_list(request):
     """Public IXP participant list (no auth required)."""
     entries = []
@@ -263,10 +335,17 @@ def participants_list(request):
         lg = LookingGlassClient()
         if lg.base_url:
             all_participants = lg.get_participants()
-            entries = sorted(all_participants, key=lambda p: p.get("asn", 0))
+            pdb_networks = {}
+            try:
+                pdb_data = lg.get_peeringdb_cache()
+                pdb_networks = pdb_data.get("networks", {})
+            except Exception:
+                pass
+            flat = [_flatten_participant(p, pdb_networks) for p in all_participants]
+            entries = sorted(flat, key=lambda p: p["v4_sort"])
             if request.user.is_authenticated:
                 user_asns = set(request.session.get("oidc_asns", []))
-                my_participants = [p for p in all_participants if p.get("asn") in user_asns]
+                my_participants = [p for p in flat if p["asn"] in user_asns]
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/participants_list.html", {

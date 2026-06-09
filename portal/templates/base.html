@@ -60,41 +60,61 @@
       sortCol: null,
       sortDir: 'asc',
       _tbody: null,
+      _cardGrid: null,
 
       init() {
         this._tbody = this.$el.querySelector('tbody');
+        this._cardGrid = this.$el.querySelector('.sm\\:hidden.grid');
       },
 
-      rowVisible(row) {
+      rowVisible(el) {
         if (!this.search) return true;
-        return (row.dataset.search || '').includes(this.search.toLowerCase());
+        return (el.dataset.search || '').includes(this.search.toLowerCase());
       },
 
-      sortBy(col) {
-        this.sortDir = (this.sortCol === col && this.sortDir === 'asc') ? 'desc' : 'asc';
-        this.sortCol = col;
-        if (!this._tbody) return;
-        const dir = this.sortDir === 'asc' ? 1 : -1;
-        Array.from(this._tbody.querySelectorAll('tr'))
+      _sortElements(container, selector, col, dir) {
+        if (!container) return;
+        const d = dir === 'asc' ? 1 : -1;
+        Array.from(container.querySelectorAll(selector))
           .sort((a, b) => {
             const av = a.getAttribute('data-sort-' + col) || '';
             const bv = b.getAttribute('data-sort-' + col) || '';
             if (av === '' && bv !== '') return 1;
             if (bv === '' && av !== '') return -1;
             const an = parseFloat(av), bn = parseFloat(bv);
-            return ((!isNaN(an) && !isNaN(bn)) ? (an - bn) : av.localeCompare(bv)) * dir;
+            return ((!isNaN(an) && !isNaN(bn)) ? (an - bn) : av.localeCompare(bv)) * d;
           })
-          .forEach(r => this._tbody.appendChild(r));
+          .forEach(el => container.appendChild(el));
+      },
+
+      sortBy(col) {
+        this.sortDir = (this.sortCol === col && this.sortDir === 'asc') ? 'desc' : 'asc';
+        this.sortCol = col;
+        this._sortElements(this._tbody, 'tr', col, this.sortDir);
+        this._sortElements(this._cardGrid, ':scope > div', col, this.sortDir);
+      },
+
+      mobileSortBy(col) {
+        this.sortDir = 'asc';
+        this.sortCol = col;
+        this._sortElements(this._tbody, 'tr', col, this.sortDir);
+        this._sortElements(this._cardGrid, ':scope > div', col, this.sortDir);
       },
 
       indicator(col) {
-        return this.sortCol === col ? (this.sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+        return this.sortCol === col ? (this.sortDir === 'asc' ? ' \u2191' : ' \u2193') : '';
       },
 
       get visibleCount() {
-        if (!this._tbody) return 0;
-        return Array.from(this._tbody.querySelectorAll('tr'))
-          .filter(r => this.rowVisible(r)).length;
+        let count = 0;
+        if (this._tbody) {
+          count = Array.from(this._tbody.querySelectorAll('tr'))
+            .filter(r => this.rowVisible(r)).length;
+        } else if (this._cardGrid) {
+          count = Array.from(this._cardGrid.querySelectorAll(':scope > div'))
+            .filter(el => this.rowVisible(el)).length;
+        }
+        return count;
       }
     };
   }
