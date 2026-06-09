@@ -1,10 +1,17 @@
 ---
+# switch01.sfo02 has corrupted SDK state — inventory subtypes 5-10 trigger
+# SIGABRT.  Deploy the no-inventory variant until the switch is rebooted.
 - name: Copy LldpDomAgent to flash
   ansible.netcommon.net_put:
-    src: "{{ playbook_dir }}/../scripts/arista_eos/LldpDomAgent"
+    src: "{{ playbook_dir }}/../scripts/arista_eos/{{ lldp_dom_agent_script }}"
     dest: /mnt/flash/LldpDomAgent
     protocol: scp
   notify: restart LldpDomAgent
+  vars:
+    lldp_dom_agent_script: >-
+      {{ 'LldpDomAgent.no-inventory'
+         if inventory_hostname == 'switch01.sfo02'
+         else 'LldpDomAgent' }}
 
 - name: Make LldpDomAgent executable
   arista.eos.eos_command:

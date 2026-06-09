@@ -283,9 +283,13 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
             except Exception:
                 pass
 
+        added = updated - self.active_intfs
+        removed = stale
         self.active_intfs = updated
-        if updated:
-            log("Updated TLVs on %d interfaces" % len(updated))
+        if added:
+            log("Added TLVs on: %s" % ", ".join(sorted(added)))
+        if removed:
+            log("Removed TLVs from: %s" % ", ".join(sorted(removed)))
 
         # Schedule next poll (timeout_time_is is on TimeoutHandler, not TimeoutMgr)
         self.timeout_time_is(eossdk.now() + self.poll_interval)
