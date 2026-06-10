@@ -5,6 +5,7 @@ import ipaddress
 import json
 import logging
 import netrc
+import sys
 import re
 import os
 import subprocess
@@ -33,6 +34,8 @@ class CustomFormatter(logging.Formatter):
     }
 
     def format(self, record):
+        if not sys.stderr.isatty():
+            return logging.Formatter(self.message_format).format(record)
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
@@ -751,7 +754,7 @@ class AristaEOSDevice(DeviceDiscovery):
         for iface_name, netbox_interface in nb_ifaces.items():
             if iface_name not in on_device_interfaces:
                 if delete_interfaces:
-                    logger.info(
+                    logger.warning(
                         f"{'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
                         f" interface: {netbox_interface.device!r}/{netbox_interface!r}"
                     )
@@ -1151,7 +1154,7 @@ class NokiaSROSDevice(NetconfSSHDevice):
                 if nb_iface_name.split("/", 1)[0] not in device_port_prefixes:
                     continue
                 if nb_iface_name not in on_device_ports:
-                    logger.info(
+                    logger.warning(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
                         f" interface: {self.device_name} / {nb_iface_name}"
                     )
@@ -1220,7 +1223,7 @@ class NokiaSROSDevice(NetconfSSHDevice):
                 if first not in vprn_names:
                     continue
                 if nb_iface_name not in on_device_names:
-                    logger.info(
+                    logger.warning(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
                         f" VPRN interface: {self.device_name} / {nb_iface_name}"
                     )
@@ -1417,7 +1420,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 if "/" in nb_iface_name:
                     continue
                 if nb_iface_name not in on_device_ifaces:
-                    logger.info(
+                    logger.warning(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
                         f" interface: {self.device_name} / {nb_iface_name}"
                     )
@@ -1485,7 +1488,7 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                 if "/" not in nb_iface_name:
                     continue
                 if nb_iface_name not in on_device_ri_ifaces:
-                    logger.info(
+                    logger.warning(
                         f"  {'[DRY-RUN] Would delete' if dry_run else 'Deleting'}"
                         f" routing instance interface: {self.device_name} / {nb_iface_name}"
                     )
