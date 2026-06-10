@@ -1682,7 +1682,7 @@ def enumerate_peering_devices() -> Generator[DeviceDiscovery, None, None]:
     """Yield DeviceDiscovery instances for all devices with the peering_switch role."""
     logger.debug("Enumerating peering devices from NetBox")
     netbox = netbox_api_client()
-    for nb_device in netbox.dcim.devices.filter(role="peering_switch"):
+    for nb_device in netbox.dcim.devices.filter(role="peering_switch", status="active"):
         mfr = nb_device.device_type.manufacturer.name
         cls = _MANUFACTURER_CLASS_MAP.get(mfr)
         if cls is None:
