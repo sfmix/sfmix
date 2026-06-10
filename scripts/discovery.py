@@ -1916,8 +1916,11 @@ if __name__ == "__main__":
     peering_prefixes = [prefix for _, prefix in peering_lans]
     vlan_ip_mac_map: Dict[VLAN_IP, str] = dict()
     for vlan_id, peering_lan_prefix in peering_lans:
-        vlan_ip_macs = discover_vlan_ip_mac_map(vlan_id, peering_lan_prefix)
-        vlan_ip_mac_map.update(vlan_ip_macs)
+        try:
+            vlan_ip_macs = discover_vlan_ip_mac_map(vlan_id, peering_lan_prefix)
+            vlan_ip_mac_map.update(vlan_ip_macs)
+        except Exception as e:
+            logger.error(f"IP/MAC discovery failed for VLAN {vlan_id} ({peering_lan_prefix}): {e}")
 
     if args.sync_ip_macs:
         update_netbox_ip_macs(vlan_ip_mac_map, peering_prefixes, dry_run=args.dry_run)
@@ -1956,7 +1959,10 @@ if __name__ == "__main__":
 
     if args.sync_core_port_tags:
         for device in devices:
-            device.sync_port_tags(dry_run=args.dry_run)
+            try:
+                device.sync_port_tags(dry_run=args.dry_run)
+            except Exception as e:
+                logger.error(f"Core port tag sync failed for {device.device_name}: {e}")
     else:
         logger.info(
             "Skipping core port tag sync. To enable: --sync-core-port-tags"
@@ -1972,7 +1978,10 @@ if __name__ == "__main__":
 
     if args.sync_interface_ips:
         for device in devices:
-            device.sync_interface_ips(dry_run=args.dry_run)
+            try:
+                device.sync_interface_ips(dry_run=args.dry_run)
+            except Exception as e:
+                logger.error(f"Interface IP sync failed for {device.device_name}: {e}")
     else:
         logger.info("Skipping interface IP sync. To enable: --sync-interface-ips")
 
