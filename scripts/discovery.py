@@ -1778,9 +1778,10 @@ def update_netbox_interface_description_asn_participant(
             asn_slug = f"as{asn}"
             participant = all_tenants.get(asn_slug)
             if participant is None:
-                raise ValueError(
-                    f"Could not find participant for ASN {asn} ({asn_slug})"
+                logger.error(
+                    f"Could not find participant for ASN {asn} ({asn_slug}); skipping"
                 )
+                continue
             old = interface.custom_fields.get("participant")
             existing_id = old["id"] if isinstance(old, dict) else old
             if existing_id != participant.id:
