@@ -1742,12 +1742,14 @@ def update_netbox_peering_port_tags_by_vlan(dry_run: bool = False) -> None:
                 f" {interface.device.name} / {interface.name}"
             )
             if not dry_run:
-                interface.tags = [
+                new_tags = [
                     {"slug": tag["slug"]}
                     for tag in interface.tags
                     if tag.slug != "peering_port"
                 ]
-                interface.save()
+                netbox.dcim.interfaces.update(
+                    [{"id": interface.id, "tags": new_tags}]
+                )
 
 
 def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> bool:
