@@ -1927,40 +1927,40 @@ if __name__ == "__main__":
             "Skipping hardware interface discovery. To enable: --sync-hardware-interfaces"
         )
 
-    peering_lans = list_peering_lans()
-    peering_prefixes = [prefix for _, prefix in peering_lans]
-    vlan_ip_mac_map: Dict[VLAN_IP, str] = dict()
-    for vlan_id, peering_lan_prefix in peering_lans:
-        try:
-            vlan_ip_macs = discover_vlan_ip_mac_map(vlan_id, peering_lan_prefix)
-            vlan_ip_mac_map.update(vlan_ip_macs)
-        except Exception as e:
-            logger.error(f"IP/MAC discovery failed for VLAN {vlan_id} ({peering_lan_prefix}): {e}")
+    need_ip_mac_scan = args.sync_ip_macs or args.sync_ip_participant_lag
+    if need_ip_mac_scan:
+        peering_lans = list_peering_lans()
+        peering_prefixes = [prefix for _, prefix in peering_lans]
+        vlan_ip_mac_map: Dict[VLAN_IP, str] = dict()
+        for vlan_id, peering_lan_prefix in peering_lans:
+            try:
+                vlan_ip_macs = discover_vlan_ip_mac_map(vlan_id, peering_lan_prefix)
+                vlan_ip_mac_map.update(vlan_ip_macs)
+            except Exception as e:
+                logger.error(f"IP/MAC discovery failed for VLAN {vlan_id} ({peering_lan_prefix}): {e}")
 
-    if args.sync_ip_macs:
-        update_netbox_ip_macs(vlan_ip_mac_map, peering_prefixes, dry_run=args.dry_run)
+        if args.sync_ip_macs:
+            update_netbox_ip_macs(vlan_ip_mac_map, peering_prefixes, dry_run=args.dry_run)
+
+        if args.sync_ip_participant_lag:
+            vlan_mac_port_map: Dict[VLAN_MAC, PORT] = dict()
+            for device in devices:
+                try:
+                    vlan_mac_port_map.update(device.get_vlan_mac_port_map())
+                except Exception as e:
+                    logger.error(f"MAC table lookup failed for {device.device_name}: {e}")
+
+            ip_port_map: Dict[str, PORT] = dict()
+            for (vlan, ip), mac in vlan_ip_mac_map.items():
+                port = vlan_mac_port_map.get((vlan, mac))
+                if not port:
+                    logger.warning(f"Warning, no port found for {vlan}, {mac} :/ ... Skipping")
+                    continue
+                ip_port_map[ip] = port
+
+            update_netbox_ip_participant_lag(ip_port_map, peering_prefixes, dry_run=args.dry_run)
     else:
         logger.info("Skipping IP MAC sync. To enable: --sync-ip-macs")
-
-    # MAC table pipeline — Arista EOS only (non-EOS returns empty map)
-    vlan_mac_port_map: Dict[VLAN_MAC, PORT] = dict()
-    for device in devices:
-        try:
-            vlan_mac_port_map.update(device.get_vlan_mac_port_map())
-        except Exception as e:
-            logger.error(f"MAC table lookup failed for {device.device_name}: {e}")
-
-    ip_port_map: Dict[str, PORT] = dict()
-    for (vlan, ip), mac in vlan_ip_mac_map.items():
-        port = vlan_mac_port_map.get((vlan, mac))
-        if not port:
-            logger.warning(f"Warning, no port found for {vlan}, {mac} :/ ... Skipping")
-            continue
-        ip_port_map[ip] = port
-
-    if args.sync_ip_participant_lag:
-        update_netbox_ip_participant_lag(ip_port_map, peering_prefixes, dry_run=args.dry_run)
-    else:
         logger.info(
             "Skipping IP participant lag sync. To enable: --sync-ip-participant-lag"
         )
