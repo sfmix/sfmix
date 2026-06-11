@@ -742,6 +742,7 @@ class AristaEOSDevice(DeviceDiscovery):
         # the LAG is down, but each Ethernet member still reports its real bandwidth and
         # its interfaceMembership field regardless of link state).
         lag_configured_speed: Dict[str, int] = {}
+        iface_lag_member: Dict[str, str] = {}  # Ethernet iface name → Port-Channel name
         for iname, idetails in interfaces_response.items():
             membership = idetails.get("interfaceMembership", "")
             if membership.startswith("Member of "):
@@ -750,6 +751,7 @@ class AristaEOSDevice(DeviceDiscovery):
                     lag_configured_speed.get(pc_name, 0)
                     + int(idetails.get("bandwidth", 0) / 1_000)
                 )
+                iface_lag_member[iname] = pc_name
 
         for iface_name, netbox_interface in nb_ifaces.items():
             if iface_name not in on_device_interfaces:
@@ -931,6 +933,19 @@ class AristaEOSDevice(DeviceDiscovery):
                             ].id
                         else:
                             existing_interface.untagged_vlan = None
+                    changed = True
+
+                desired_lag_name = iface_lag_member.get(interface_name)
+                desired_lag_id = nb_ifaces[desired_lag_name].id if desired_lag_name and desired_lag_name in nb_ifaces else None
+                current_lag_id = existing_interface.lag.id if existing_interface.lag else None
+                if current_lag_id != desired_lag_id:
+                    old_lag_name = existing_interface.lag.name if existing_interface.lag else None
+                    logger.info(
+                        f"    {'[DRY-RUN] Would update' if dry_run else 'Updating'}"
+                        f" lag: {old_lag_name!r} -> {desired_lag_name!r}"
+                    )
+                    if not dry_run:
+                        existing_interface.lag = desired_lag_id
                     changed = True
 
                 if changed and not dry_run:
