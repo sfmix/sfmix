@@ -147,6 +147,13 @@ def format_rx_power(intf_dom):
     rx_info = params.get("rxPower", {})
     channels = rx_info.get("channels", {})
 
+    # Some transceivers report a present module with no RX reading: the channel
+    # value comes back as null (None) or a non-numeric placeholder.  Drop those
+    # so the comparisons below can't raise TypeError (e.g. None <= -30.0), which
+    # would escape on_timeout and SIGABRT the agent via the SWIG director.
+    channels = {k: v for k, v in channels.items()
+                if isinstance(v, (int, float))}
+
     # Filter out the aggregate channel key "-"
     lane_keys = [k for k in channels if k != "-"]
     if len(lane_keys) > 1:
@@ -255,11 +262,13 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
         for intf_name, intf_dom in dom_data.items():
             if intf_name not in lldp_intfs:
                 continue
-            label = format_rx_power(intf_dom)
-            if label is None:
-                continue
-
+            # All per-interface work is wrapped so a single bad interface (e.g.
+            # malformed DOM data) is logged and skipped instead of escaping
+            # on_timeout and crashing the whole agent via the SWIG director.
             try:
+                label = format_rx_power(intf_dom)
+                if label is None:
+                    continue
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_caps, MED_CAPS_PAYLOAD)
@@ -268,7 +277,7 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_asset, label)
                 updated.add(intf_name)
             except Exception as e:
-                log_err("tx_tlv_set failed for %s: %s" % (intf_name, e))
+                log_err("processing %s failed: %s" % (intf_name, e))
 
         # Clean up TLVs for interfaces that no longer have DOM data
         stale = self.active_intfs - updated
