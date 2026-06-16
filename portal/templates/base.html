@@ -1,6 +1,7 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,31 +19,54 @@
   <nav class="h-16 px-6 flex items-center justify-between" style="background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
     <a href="/" class="flex items-center gap-3 no-underline">
       <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="h-8" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));">
-      <span class="text-white/70 text-sm font-medium hidden sm:inline">Participant Portal</span>
+      <span class="text-white/70 text-sm font-medium hidden sm:inline">{% translate "Participant Portal" %}</span>
     </a>
     <div class="flex items-center gap-4 text-sm">
-      <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">Participants</a>
+      <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">{% translate "Participants" %}</a>
       {% if user.is_authenticated %}
         <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
         {% if is_ix_admin %}
-          <span class="px-2 py-0.5 rounded text-xs font-medium" style="background: var(--color-portal-100); color: var(--color-portal-700);">Admin</span>
-          <a href="{% url 'lldp_neighbors' %}" class="text-white/70 hover:text-white transition">LLDP</a>
-          <a href="{% url 'optics' %}" class="text-white/70 hover:text-white transition">Optics</a>
+          <span class="px-2 py-0.5 rounded text-xs font-medium" style="background: var(--color-portal-100); color: var(--color-portal-700);">{% translate "Admin" %}</span>
+          <a href="{% url 'lldp_neighbors' %}" class="text-white/70 hover:text-white transition">{% translate "LLDP" %}</a>
+          <a href="{% url 'optics' %}" class="text-white/70 hover:text-white transition">{% translate "Optics" %}</a>
           <div class="relative" x-data="{ open: false }" @click.away="open = false">
             <button @click="open = !open" class="flex items-center gap-1 text-white/70 hover:text-white transition">
-              Cache
+              {% translate "Cache" %}
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div x-show="open" x-cloak class="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-b-md shadow-lg z-10" style="box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
-              <a href="{% url 'device_cache_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Devices</a>
-              <a href="{% url 'netbox_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">NetBox</a>
+              <a href="{% url 'device_cache_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "Devices" %}</a>
+              <a href="{% url 'netbox_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "NetBox" %}</a>
             </div>
           </div>
         {% endif %}
-        <a href="{% url 'logout' %}" class="text-white/70 hover:text-white transition">Sign out</a>
+        <a href="{% url 'logout' %}" class="text-white/70 hover:text-white transition">{% translate "Sign out" %}</a>
       {% else %}
-        <a href="{% url 'login' %}" class="text-white font-medium hover:text-amber-300 transition">Sign in</a>
+        <a href="{% url 'login' %}" class="text-white font-medium hover:text-amber-300 transition">{% translate "Sign in" %}</a>
       {% endif %}
+
+      {# Language picker — posts to the built-in set_language view, which stores
+         the choice in the django_language cookie and redirects back here. #}
+      {% get_current_language as LANGUAGE_CODE %}
+      {% get_language_info_list for LANGUAGES as languages %}
+      <div class="relative" x-data="{ open: false }" @click.away="open = false">
+        <button @click="open = !open" class="flex items-center gap-1 text-white/70 hover:text-white transition" aria-label="{% translate 'Change language' %}">
+          {% for lang in languages %}{% if lang.code == LANGUAGE_CODE %}{{ lang.name_local|capfirst }}{% endif %}{% endfor %}
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div x-show="open" x-cloak class="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-b-md shadow-lg z-10" style="box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+          <form action="{% url 'set_language' %}" method="post">
+            {% csrf_token %}
+            <input name="next" type="hidden" value="{{ request.get_full_path }}">
+            {% for lang in languages %}
+            <button type="submit" name="language" value="{{ lang.code }}"
+                    class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 {% if lang.code == LANGUAGE_CODE %}font-semibold text-gray-900{% else %}text-gray-600{% endif %}">
+              {{ lang.name_local|capfirst }}
+            </button>
+            {% endfor %}
+          </form>
+        </div>
+      </div>
     </div>
   </nav>
 

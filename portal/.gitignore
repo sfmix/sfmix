@@ -5,3 +5,6 @@ __pycache__/
 .env
 .venv/
 cache/
+# Compiled gettext catalogs — built from the committed .po via `compilemessages`
+# (Docker build does this; for local dev run it once after editing .po files).
+*.mo

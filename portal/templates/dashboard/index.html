@@ -1,19 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Dashboard – SFMIX Portal{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "Dashboard" %} – SFMIX Portal{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">Your Networks</h1>
+<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">{% translate "Your Networks" %}</h1>
 
 {% if not participants %}
   <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
-    <p class="font-medium">No participant networks found.</p>
-    <p class="mt-1">Your account is not associated with any ASNs that are SFMIX participants.
-    If you believe this is an error, contact <a href="mailto:tech-c@sfmix.org" class="underline">tech-c@sfmix.org</a>.</p>
+    <p class="font-medium">{% translate "No participant networks found." %}</p>
+    <p class="mt-1">{% blocktranslate %}Your account is not associated with any ASNs that are SFMIX participants.
+    If you believe this is an error, contact <a href="mailto:tech-c@sfmix.org" class="underline">tech-c@sfmix.org</a>.{% endblocktranslate %}</p>
   </div>
 
   {% if asns %}
   <div class="mt-4 text-sm text-gray-500">
-    <p>Your PeeringDB account is associated with these ASNs: <span class="font-mono">{% for a in asns %}AS{{ a }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></p>
+    <p>{% translate "Your PeeringDB account is associated with these ASNs:" %} <span class="font-mono">{% for a in asns %}AS{{ a }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></p>
   </div>
   {% endif %}
 

@@ -6,6 +6,7 @@ from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
+from django.utils.translation import gettext, ngettext
 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
@@ -71,7 +72,7 @@ def network_mac_table(request, asn):
     """MAC address table for a participant network."""
     asns = request.session.get("oidc_asns", [])
     if asn not in asns:
-        return HttpResponseForbidden("You do not have access to this network.")
+        return HttpResponseForbidden(gettext("You do not have access to this network."))
     vlan = request.GET.get("vlan")
     token = request.session.get("oidc_id_token")
     entries = []
@@ -112,14 +113,14 @@ def network_mac_table(request, asn):
 def lldp_neighbors(request):
     """LLDP neighbor table (admin only)."""
     if not _is_ix_admin(request):
-        return HttpResponseForbidden("IX Administrators only.")
+        return HttpResponseForbidden(gettext("IX Administrators only."))
     entries = []
     lg_error = None
     token = request.session.get("oidc_id_token")
     try:
         lg = LookingGlassClient()
         if not lg.base_url:
-            lg_error = "Looking Glass not configured"
+            lg_error = gettext("Looking Glass not configured")
         else:
             results = lg.get_lldp_neighbors(token=token)
             for device_result in results:
@@ -215,7 +216,11 @@ def _optic_band(rx_dbm, media_type=""):
 
 def _optic_band_label(band):
     """Human label for an optic band."""
-    return {"good": "Nominal", "warn": "Marginal", "bad": "Out of range"}.get(band, "—")
+    return {
+        "good": gettext("Nominal"),
+        "warn": gettext("Marginal"),
+        "bad": gettext("Out of range"),
+    }.get(band, "—")
 
 
 def _optic_meter_pos(rx_dbm, media_type=""):
@@ -487,20 +492,27 @@ def _compute_alerts(logical_ports):
             alerts.append({
                 "severity": "crit",
                 "icon": "⛔",
-                "title": f"{port_label} is down",
-                "body": "All member links are offline. Route-server sessions are idle and no traffic is passing on this logical port.",
+                "title": gettext("%(port)s is down") % {"port": port_label},
+                "body": gettext("All member links are offline. Route-server sessions are idle and no traffic is passing on this logical port."),
                 "where": f"{port_label} · L1/L2",
             })
         elif lp["link_state"] == "degraded":
             alerts.append({
                 "severity": "warn",
                 "icon": "⚠",
-                "title": f"{port_label} degraded — {lp['members_up']}/{lp['members_total']} members up",
-                "body": (
-                    f"A member link is down; the bundle is running at "
-                    f"{lp['effective_speed_gbps']:.0f}G of {lp['speed_gbps']:.0f}G. "
-                    f"Redundancy is lost until the link is restored."
-                ),
+                "title": gettext("%(port)s degraded — %(up)s/%(total)s members up") % {
+                    "port": port_label,
+                    "up": lp["members_up"],
+                    "total": lp["members_total"],
+                },
+                "body": gettext(
+                    "A member link is down; the bundle is running at "
+                    "%(effective)sG of %(total)sG. "
+                    "Redundancy is lost until the link is restored."
+                ) % {
+                    "effective": f"{lp['effective_speed_gbps']:.0f}",
+                    "total": f"{lp['speed_gbps']:.0f}",
+                },
                 "where": f"{port_label} · L1",
             })
         # Check optics on physical ports
@@ -513,8 +525,14 @@ def _compute_alerts(logical_ports):
                     alerts.append({
                         "severity": "crit" if lane["band"] == "bad" else "warn",
                         "icon": "⚠",
-                        "title": f"{phy_label} optic {lane['band_label'].lower()} on {lane['label']}",
-                        "body": f"RX {lane['rx_formatted']} dBm is outside the nominal window. Inspect the fiber / patch or schedule an optic replacement.",
+                        "title": gettext("%(port)s optic %(band)s on %(lane)s") % {
+                            "port": phy_label,
+                            "band": lane["band_label"].lower(),
+                            "lane": lane["label"],
+                        },
+                        "body": gettext("RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or schedule an optic replacement.") % {
+                            "rx": lane["rx_formatted"],
+                        },
                         "where": f"{phy_label} · L1",
                     })
         # Check route rejections
@@ -526,8 +544,12 @@ def _compute_alerts(logical_ports):
             alerts.append({
                 "severity": "warn",
                 "icon": "⚠",
-                "title": f"{total_rejected} route{'s' if total_rejected != 1 else ''} rejected on {port_label}",
-                "body": "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). Advertised routes may not be reaching peers as expected.",
+                "title": ngettext(
+                    "%(count)s route rejected on %(port)s",
+                    "%(count)s routes rejected on %(port)s",
+                    total_rejected,
+                ) % {"count": total_rejected, "port": port_label},
+                "body": gettext("Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). Advertised routes may not be reaching peers as expected."),
                 "where": f"{port_label} · L4",
             })
     return alerts
@@ -828,7 +850,7 @@ def metrics_view(request):
 def netbox_status_view(request):
     """Show NetBox cache health and freshness to IX administrators."""
     if not _is_ix_admin(request):
-        return HttpResponseForbidden("IX Administrators only.")
+        return HttpResponseForbidden(gettext("IX Administrators only."))
     health = {}
     try:
         lg = get_lg_client()
@@ -847,14 +869,14 @@ def netbox_status_view(request):
 def optics_view(request):
     """Transceiver DOM status and hardware inventory across all devices (admin only)."""
     if not _is_ix_admin(request):
-        return HttpResponseForbidden("IX Administrators only.")
+        return HttpResponseForbidden(gettext("IX Administrators only."))
     entries = []
     lg_error = None
     token = request.session.get("oidc_id_token")
     try:
         lg = LookingGlassClient()
         if not lg.base_url:
-            lg_error = "Looking Glass not configured"
+            lg_error = gettext("Looking Glass not configured")
         else:
             status_by_key = {}
             for device_result in lg.get_optics(token=token):
@@ -892,7 +914,7 @@ def optics_view(request):
 def device_cache_status_view(request):
     """Show background device cache freshness to IX administrators."""
     if not _is_ix_admin(request):
-        return HttpResponseForbidden("IX Administrators only.")
+        return HttpResponseForbidden(gettext("IX Administrators only."))
     devices = []
     lg_error = None
     token = request.session.get("oidc_id_token")

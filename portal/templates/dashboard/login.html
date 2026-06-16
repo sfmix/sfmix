@@ -1,20 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Sign In – SFMIX Portal{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "Sign In" %} – SFMIX Portal{% endblock %}
 
 {% block content %}
 <div class="flex flex-col items-center justify-center mt-20">
   <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-sm w-full text-center">
-    <h1 class="text-xl font-semibold mb-2">SFMIX Participant Portal</h1>
-    <p class="text-gray-500 text-sm mb-6">Sign in with your PeeringDB or GitHub account via SFMIX SSO.</p>
+    <h1 class="text-xl font-semibold mb-2">{% translate "SFMIX Participant Portal" %}</h1>
+    <p class="text-gray-500 text-sm mb-6">{% translate "Sign in with your PeeringDB or GitHub account via SFMIX SSO." %}</p>
     <a href="{% url 'oidc_authentication_init' %}"
        class="inline-block w-full text-white rounded-md px-4 py-2.5 font-medium transition" style="background: var(--color-primary-light);" onmouseover="this.style.background='var(--color-primary)'" onmouseout="this.style.background='var(--color-primary-light)'">
-      Sign in with SFMIX SSO
+      {% translate "Sign in with SFMIX SSO" %}
     </a>
-    <p class="text-xs text-gray-400 mt-4">Authenticated by <a href="https://login.sfmix.org" class="underline">login.sfmix.org</a></p>
+    <p class="text-xs text-gray-400 mt-4">{% blocktranslate %}Authenticated by <a href="https://login.sfmix.org" class="underline">login.sfmix.org</a>{% endblocktranslate %}</p>
     {% if dev_login_enabled %}
     <div class="mt-6 pt-4 border-t border-dashed border-gray-300">
-      <p class="text-xs text-amber-600 font-medium mb-2">Local dev only</p>
-      <a href="{% url 'dev_login' %}" class="inline-block text-sm text-gray-600 underline hover:text-gray-900">Dev login (bypass SSO)</a>
+      <p class="text-xs text-amber-600 font-medium mb-2">{% translate "Local dev only" %}</p>
+      <a href="{% url 'dev_login' %}" class="inline-block text-sm text-gray-600 underline hover:text-gray-900">{% translate "Dev login (bypass SSO)" %}</a>
     </div>
     {% endif %}
   </div>
