@@ -6,7 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# gettext provides msgfmt, needed by `manage.py compilemessages` to build the .mo catalogs.
+RUN apt-get update && apt-get install -y --no-install-recommends curl gettext && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
@@ -15,6 +16,10 @@ RUN curl -fsSL https://github.com/tailwindlabs/tailwindcss/releases/download/v4.
       -o /usr/local/bin/tailwindcss \
     && chmod +x /usr/local/bin/tailwindcss \
     && tailwindcss -i tailwind.input.css -o static/css/tailwind.css --minify
+
+# Compile translation catalogs (.po → .mo). .mo files are gitignored, so they
+# must be built into the image for non-English locales to render.
+RUN python manage.py compilemessages
 
 RUN python manage.py collectstatic --noinput
 

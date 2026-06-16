@@ -1,0 +1,783 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-16 03:20-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? "
+"1 : 2;\n"
+
+#: dashboard/views.py:75
+msgid "You do not have access to this network."
+msgstr "No tiene acceso a esta red."
+
+#: dashboard/views.py:116 dashboard/views.py:853 dashboard/views.py:872
+#: dashboard/views.py:917
+msgid "IX Administrators only."
+msgstr "Solo para administradores del IX."
+
+#: dashboard/views.py:123 dashboard/views.py:879
+msgid "Looking Glass not configured"
+msgstr "Looking Glass no configurado"
+
+#: dashboard/views.py:220
+msgid "Nominal"
+msgstr "Nominal"
+
+#: dashboard/views.py:221
+msgid "Marginal"
+msgstr "Marginal"
+
+#: dashboard/views.py:222
+msgid "Out of range"
+msgstr "Fuera de rango"
+
+#: dashboard/views.py:495
+#, python-format
+msgid "%(port)s is down"
+msgstr "%(port)s está caído"
+
+#: dashboard/views.py:496
+msgid ""
+"All member links are offline. Route-server sessions are idle and no traffic "
+"is passing on this logical port."
+msgstr "Todos los enlaces miembro están desconectados. Las sesiones del servidor de rutas están inactivas y no pasa tráfico por este puerto lógico."
+
+#: dashboard/views.py:503
+#, python-format
+msgid "%(port)s degraded — %(up)s/%(total)s members up"
+msgstr "%(port)s degradado — %(up)s/%(total)s miembros activos"
+
+#: dashboard/views.py:509
+#, python-format
+msgid ""
+"A member link is down; the bundle is running at %(effective)sG of "
+"%(total)sG. Redundancy is lost until the link is restored."
+msgstr "Un enlace miembro está caído; el grupo funciona a %(effective)sG de %(total)sG. Se pierde la redundancia hasta que se restablezca el enlace."
+
+#: dashboard/views.py:528
+#, python-format
+msgid "%(port)s optic %(band)s on %(lane)s"
+msgstr "Óptica de %(port)s %(band)s en %(lane)s"
+
+#: dashboard/views.py:533
+#, python-format
+msgid ""
+"RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
+"schedule an optic replacement."
+msgstr "RX %(rx)s dBm está fuera del rango nominal. Inspeccione la fibra / el latiguillo o programe el reemplazo de la óptica."
+
+#: dashboard/views.py:548
+#, python-format
+msgid "%(count)s route rejected on %(port)s"
+msgid_plural "%(count)s routes rejected on %(port)s"
+msgstr[0] "%(count)s ruta rechazada en %(port)s"
+msgstr[1] "%(count)s rutas rechazadas en %(port)s"
+msgstr[2] "%(count)s rutas rechazadas en %(port)s"
+
+#: dashboard/views.py:552
+msgid ""
+"Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
+"Advertised routes may not be reaching peers as expected."
+msgstr "Se están filtrando prefijos (IRR / RPKI inválido, bogon o max-prefix). Es posible que las rutas anunciadas no lleguen a los peers como se espera."
+
+#: ixp_portal/settings.py:107
+msgid "English"
+msgstr "Inglés"
+
+#: ixp_portal/settings.py:108
+msgid "Español"
+msgstr "Español"
+
+#: ixp_portal/settings.py:109
+msgid "Deutsch"
+msgstr "Alemán"
+
+#: templates/base.html:22
+msgid "Participant Portal"
+msgstr "Portal del participante"
+
+#: templates/base.html:25 templates/dashboard/netbox_status.html:73
+#: templates/dashboard/participants_list.html:3
+#: templates/dashboard/participants_list.html:8
+msgid "Participants"
+msgstr "Participantes"
+
+#: templates/base.html:29 templates/dashboard/participant_detail.html:118
+msgid "Admin"
+msgstr "Administrador"
+
+#: templates/base.html:30
+msgid "LLDP"
+msgstr "LLDP"
+
+#: templates/base.html:31 templates/dashboard/device_cache_status.html:78
+#: templates/dashboard/optics.html:3 templates/dashboard/optics.html:11
+msgid "Optics"
+msgstr "Ópticas"
+
+#: templates/base.html:34 templates/dashboard/netbox_status.html:45
+msgid "Cache"
+msgstr "Caché"
+
+#: templates/base.html:38
+msgid "Devices"
+msgstr "Dispositivos"
+
+#: templates/base.html:39
+msgid "NetBox"
+msgstr "NetBox"
+
+#: templates/base.html:43
+msgid "Sign out"
+msgstr "Cerrar sesión"
+
+#: templates/base.html:45
+msgid "Sign in"
+msgstr "Iniciar sesión"
+
+#: templates/base.html:53
+msgid "Change language"
+msgstr "Cambiar idioma"
+
+#: templates/dashboard/device_cache_status.html:3
+#: templates/dashboard/device_cache_status.html:10
+msgid "Device Cache Status"
+msgstr "Estado de la caché de dispositivos"
+
+#: templates/dashboard/device_cache_status.html:7
+#: templates/dashboard/lldp_neighbors.html:7
+#: templates/dashboard/netbox_status.html:7 templates/dashboard/optics.html:8
+msgid "Back to dashboard"
+msgstr "Volver al panel"
+
+#: templates/dashboard/device_cache_status.html:14
+msgid "Unable to fetch cache status:"
+msgstr "No se pudo obtener el estado de la caché:"
+
+#: templates/dashboard/device_cache_status.html:26
+#: templates/dashboard/netbox_status.html:15
+msgid "Error"
+msgstr "Error"
+
+#: templates/dashboard/device_cache_status.html:30
+msgid "Polling disabled"
+msgstr "Sondeo desactivado"
+
+#: templates/dashboard/device_cache_status.html:34
+#, python-format
+msgid "Active (%(secs)ss interval)"
+msgstr "Activo (intervalo de %(secs)ss)"
+
+#: templates/dashboard/device_cache_status.html:48
+msgid "Interfaces"
+msgstr "Interfaces"
+
+#: templates/dashboard/device_cache_status.html:49
+#: templates/dashboard/device_cache_status.html:59
+#: templates/dashboard/device_cache_status.html:69
+#: templates/dashboard/device_cache_status.html:79
+#: templates/dashboard/device_cache_status.html:89
+#: templates/dashboard/device_cache_status.html:99
+#: templates/dashboard/device_cache_status.html:109
+#: templates/dashboard/network_mac_table.html:37
+msgid "entries"
+msgstr "entradas"
+
+#: templates/dashboard/device_cache_status.html:51
+#: templates/dashboard/device_cache_status.html:61
+#: templates/dashboard/device_cache_status.html:71
+#: templates/dashboard/device_cache_status.html:81
+#: templates/dashboard/device_cache_status.html:91
+#: templates/dashboard/device_cache_status.html:101
+#: templates/dashboard/device_cache_status.html:111
+#, python-format
+msgid "%(secs)ss ago"
+msgstr "hace %(secs)ss"
+
+#: templates/dashboard/device_cache_status.html:51
+#: templates/dashboard/device_cache_status.html:61
+#: templates/dashboard/device_cache_status.html:71
+#: templates/dashboard/device_cache_status.html:81
+#: templates/dashboard/device_cache_status.html:91
+#: templates/dashboard/device_cache_status.html:101
+#: templates/dashboard/device_cache_status.html:111
+msgid "not cached"
+msgstr "no almacenado en caché"
+
+#: templates/dashboard/device_cache_status.html:58
+#: templates/dashboard/lldp_neighbors.html:3
+#: templates/dashboard/lldp_neighbors.html:10
+msgid "LLDP Neighbors"
+msgstr "Vecinos LLDP"
+
+#: templates/dashboard/device_cache_status.html:68
+#: templates/dashboard/network_mac_table.html:3
+#: templates/dashboard/participant_detail.html:51
+msgid "MAC Table"
+msgstr "Tabla MAC"
+
+#: templates/dashboard/device_cache_status.html:88
+msgid "Optics Inventory"
+msgstr "Inventario de ópticas"
+
+#: templates/dashboard/device_cache_status.html:98
+msgid "ARP Table"
+msgstr "Tabla ARP"
+
+#: templates/dashboard/device_cache_status.html:108
+msgid "IPv6 Neighbors"
+msgstr "Vecinos IPv6"
+
+#: templates/dashboard/device_cache_status.html:121
+msgid "No device cache data — polling may be disabled."
+msgstr "No hay datos de caché de dispositivos — el sondeo puede estar desactivado."
+
+#: templates/dashboard/index.html:3
+msgid "Dashboard"
+msgstr "Panel"
+
+#: templates/dashboard/index.html:6
+#: templates/dashboard/participants_list.html:14
+msgid "Your Networks"
+msgstr "Sus redes"
+
+#: templates/dashboard/index.html:10
+msgid "No participant networks found."
+msgstr "No se encontraron redes de participante."
+
+#: templates/dashboard/index.html:11
+msgid ""
+"Your account is not associated with any ASNs that are SFMIX participants.\n"
+"    If you believe this is an error, contact <a href=\"mailto:tech-c@sfmix."
+"org\" class=\"underline\">tech-c@sfmix.org</a>."
+msgstr "Su cuenta no está asociada con ningún ASN que sea participante de SFMIX.\n    Si cree que esto es un error, póngase en contacto con <a href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
+
+#: templates/dashboard/index.html:17
+msgid "Your PeeringDB account is associated with these ASNs:"
+msgstr "Su cuenta de PeeringDB está asociada con estos ASN:"
+
+#: templates/dashboard/lldp_neighbors.html:14
+msgid "Unable to fetch LLDP data:"
+msgstr "No se pudieron obtener los datos LLDP:"
+
+#: templates/dashboard/lldp_neighbors.html:21
+msgid "Filter neighbors…"
+msgstr "Filtrar vecinos…"
+
+#: templates/dashboard/lldp_neighbors.html:25
+msgid "neighbors"
+msgstr "vecinos"
+
+#: templates/dashboard/lldp_neighbors.html:35
+#: templates/dashboard/network_mac_table.html:67
+#: templates/dashboard/optics.html:36
+msgid "Device"
+msgstr "Dispositivo"
+
+#: templates/dashboard/lldp_neighbors.html:40
+msgid "Local Interface"
+msgstr "Interfaz local"
+
+#: templates/dashboard/lldp_neighbors.html:45
+msgid "Description"
+msgstr "Descripción"
+
+#: templates/dashboard/lldp_neighbors.html:50
+msgid "Neighbor Device"
+msgstr "Dispositivo vecino"
+
+#: templates/dashboard/lldp_neighbors.html:55
+msgid "Neighbor Port"
+msgstr "Puerto vecino"
+
+#: templates/dashboard/lldp_neighbors.html:65
+#: templates/dashboard/participants_list.html:82
+msgid "Participant"
+msgstr "Participante"
+
+#: templates/dashboard/lldp_neighbors.html:105
+msgid "No LLDP neighbors found."
+msgstr "No se encontraron vecinos LLDP."
+
+#: templates/dashboard/login.html:3
+msgid "Sign In"
+msgstr "Iniciar sesión"
+
+#: templates/dashboard/login.html:8
+msgid "SFMIX Participant Portal"
+msgstr "Portal de participantes de SFMIX"
+
+#: templates/dashboard/login.html:9
+msgid "Sign in with your PeeringDB or GitHub account via SFMIX SSO."
+msgstr "Inicie sesión con su cuenta de PeeringDB o GitHub mediante SFMIX SSO."
+
+#: templates/dashboard/login.html:12
+msgid "Sign in with SFMIX SSO"
+msgstr "Iniciar sesión con SFMIX SSO"
+
+#: templates/dashboard/login.html:14
+msgid ""
+"Authenticated by <a href=\"https://login.sfmix.org\" "
+"class=\"underline\">login.sfmix.org</a>"
+msgstr "Autenticado por <a href=\"https://login.sfmix.org\" class=\"underline\">login.sfmix.org</a>"
+
+#: templates/dashboard/login.html:17
+msgid "Local dev only"
+msgstr "Solo para desarrollo local"
+
+#: templates/dashboard/login.html:18
+msgid "Dev login (bypass SSO)"
+msgstr "Inicio de sesión de desarrollo (omitir SSO)"
+
+#: templates/dashboard/netbox_status.html:3
+msgid "NetBox Status"
+msgstr "Estado de NetBox"
+
+#: templates/dashboard/netbox_status.html:10
+msgid "NetBox Data Source Status"
+msgstr "Estado de la fuente de datos NetBox"
+
+#: templates/dashboard/netbox_status.html:25
+msgid "Healthy"
+msgstr "Correcto"
+
+#: templates/dashboard/netbox_status.html:29
+#: templates/dashboard/participant_detail.html:39
+#: templates/dashboard/participant_detail.html:101
+msgid "Degraded"
+msgstr "Degradado"
+
+#: templates/dashboard/netbox_status.html:33
+msgid "Not configured"
+msgstr "No configurado"
+
+#: templates/dashboard/netbox_status.html:37
+msgid "No data"
+msgstr "Sin datos"
+
+#: templates/dashboard/netbox_status.html:48
+msgid "Source URL"
+msgstr "URL de origen"
+
+#: templates/dashboard/netbox_status.html:52
+msgid "Cache age"
+msgstr "Antigüedad de la caché"
+
+#: templates/dashboard/netbox_status.html:57
+msgid "never refreshed"
+msgstr "nunca actualizado"
+
+#: templates/dashboard/netbox_status.html:62
+msgid "Refresh interval"
+msgstr "Intervalo de actualización"
+
+#: templates/dashboard/netbox_status.html:70
+msgid "Data Counts"
+msgstr "Recuentos de datos"
+
+#: templates/dashboard/netbox_status.html:77
+msgid "Peering ports"
+msgstr "Puertos de peering"
+
+#: templates/dashboard/netbox_status.html:81
+msgid "Core ports"
+msgstr "Puertos de núcleo"
+
+#: templates/dashboard/netbox_status.html:85
+msgid "Port map entries"
+msgstr "Entradas del mapa de puertos"
+
+#: templates/dashboard/netbox_status.html:90
+msgid "Last error"
+msgstr "Último error"
+
+#: templates/dashboard/netbox_status.html:99
+#, python-format
+msgid ""
+"Data is refreshed automatically by the Looking Glass service every "
+"%(interval)ss."
+msgstr "El servicio Looking Glass actualiza los datos automáticamente cada %(interval)ss."
+
+#: templates/dashboard/network_mac_table.html:9
+msgid "MAC Address Table"
+msgstr "Tabla de direcciones MAC"
+
+#: templates/dashboard/network_mac_table.html:12
+#, python-format
+msgid "MAC Address Table for AS%(asn)s"
+msgstr "Tabla de direcciones MAC para AS%(asn)s"
+
+#: templates/dashboard/network_mac_table.html:15
+msgid "Filter by VLAN:"
+msgstr "Filtrar por VLAN:"
+
+#: templates/dashboard/network_mac_table.html:16
+msgid "e.g. 998"
+msgstr "p. ej. 998"
+
+#: templates/dashboard/network_mac_table.html:18
+msgid "Filter"
+msgstr "Filtrar"
+
+#: templates/dashboard/network_mac_table.html:20
+msgid "Clear"
+msgstr "Borrar"
+
+#: templates/dashboard/network_mac_table.html:26
+msgid "Unable to fetch MAC table:"
+msgstr "No se pudo obtener la tabla MAC:"
+
+#: templates/dashboard/network_mac_table.html:33
+msgid "Filter entries…"
+msgstr "Filtrar entradas…"
+
+#: templates/dashboard/network_mac_table.html:52
+msgid "MAC Address"
+msgstr "Dirección MAC"
+
+#: templates/dashboard/network_mac_table.html:57
+msgid "Type"
+msgstr "Tipo"
+
+#: templates/dashboard/network_mac_table.html:62
+#: templates/dashboard/optics.html:41
+msgid "Interface"
+msgstr "Interfaz"
+
+#: templates/dashboard/network_mac_table.html:93
+#, python-format
+msgid "No MAC address entries found for VLAN %(vlan)s."
+msgstr "No se encontraron entradas de direcciones MAC para la VLAN %(vlan)s."
+
+#: templates/dashboard/network_mac_table.html:93
+msgid "No MAC address entries found."
+msgstr "No se encontraron entradas de direcciones MAC."
+
+#: templates/dashboard/optics.html:15
+msgid "Unable to fetch optics data:"
+msgstr "No se pudieron obtener los datos de ópticas:"
+
+#: templates/dashboard/optics.html:22
+msgid "Filter by interface, vendor, model…"
+msgstr "Filtrar por interfaz, fabricante, modelo…"
+
+#: templates/dashboard/optics.html:26
+msgid "transceivers"
+msgstr "transceptores"
+
+#: templates/dashboard/optics.html:46
+#: templates/dashboard/participants_list.html:118
+msgid "Status"
+msgstr "Estado"
+
+#: templates/dashboard/optics.html:51
+msgid "Media Type"
+msgstr "Tipo de medio"
+
+#: templates/dashboard/optics.html:56
+msgid "Vendor"
+msgstr "Fabricante"
+
+#: templates/dashboard/optics.html:61
+msgid "Model"
+msgstr "Modelo"
+
+#: templates/dashboard/optics.html:66
+msgid "Serial"
+msgstr "Número de serie"
+
+#: templates/dashboard/optics.html:71
+msgid "Temp (°C)"
+msgstr "Temp. (°C)"
+
+#: templates/dashboard/optics.html:76
+msgid "Voltage (V)"
+msgstr "Voltaje (V)"
+
+#: templates/dashboard/optics.html:91
+msgid "Bias (mA)"
+msgstr "Corriente de polarización (mA)"
+
+#: templates/dashboard/optics.html:180
+msgid "Lane values shown for lane 1; ×N indicates multi-lane optic"
+msgstr "Valores mostrados para el carril 1; ×N indica óptica multicarril"
+
+#: templates/dashboard/optics.html:184
+msgid "No optics data found."
+msgstr "No se encontraron datos de ópticas."
+
+#: templates/dashboard/participant_detail.html:3
+#: templates/dashboard/participant_detail.html:234
+msgid "Network"
+msgstr "Red"
+
+#: templates/dashboard/participant_detail.html:8
+msgid "Back to participants"
+msgstr "Volver a participantes"
+
+#: templates/dashboard/participant_detail.html:14
+msgid "Unable to fetch some data:"
+msgstr "No se pudieron obtener algunos datos:"
+
+#: templates/dashboard/participant_detail.html:22
+msgid "Unknown Network"
+msgstr "Red desconocida"
+
+#: templates/dashboard/participant_detail.html:26
+msgid "Type:"
+msgstr "Tipo:"
+
+#: templates/dashboard/participant_detail.html:27
+msgid "Ports:"
+msgstr "Puertos:"
+
+#: templates/dashboard/participant_detail.html:27
+#, python-format
+msgid "%(logical)s logical, %(physical)s physical"
+msgstr "%(logical)s lógicos, %(physical)s físicos"
+
+#: templates/dashboard/participant_detail.html:28
+msgid "Capacity:"
+msgstr "Capacidad:"
+
+#: templates/dashboard/participant_detail.html:30
+#, python-format
+msgid "%(active)sG active"
+msgstr "%(active)sG activos"
+
+#: templates/dashboard/participant_detail.html:32
+#, python-format
+msgid "%(active)sG active / %(provisioned)sG provisioned"
+msgstr "%(active)sG activos / %(provisioned)sG aprovisionados"
+
+#: templates/dashboard/participant_detail.html:38
+#: templates/dashboard/participants_list.html:150
+#: templates/dashboard/participants_list.html:191
+msgid "Active"
+msgstr "Activo"
+
+#: templates/dashboard/participant_detail.html:40
+#: templates/dashboard/participant_detail.html:103
+#: templates/dashboard/participant_detail.html:134
+#: templates/dashboard/participant_detail.html:308
+#: templates/dashboard/participant_detail.html:333
+#: templates/dashboard/participant_detail.html:356
+msgid "Down"
+msgstr "Caído"
+
+#: templates/dashboard/participant_detail.html:41
+msgid "Unknown"
+msgstr "Desconocido"
+
+#: templates/dashboard/participant_detail.html:48
+msgid "Website"
+msgstr "Sitio web"
+
+#: templates/dashboard/participant_detail.html:59
+msgid "Reading this page"
+msgstr "Cómo leer esta página"
+
+#: templates/dashboard/participant_detail.html:60
+msgid "Public &mdash; visible to anyone"
+msgstr "Público &mdash; visible para cualquiera"
+
+#: templates/dashboard/participant_detail.html:61
+msgid "Admin &mdash; network &amp; IX admins only"
+msgstr "Administración &mdash; solo administradores de red &amp; IX"
+
+#: templates/dashboard/participant_detail.html:62
+msgid "Stack:"
+msgstr "Pila:"
+
+#: templates/dashboard/participant_detail.html:62
+msgid "physical"
+msgstr "físico"
+
+#: templates/dashboard/participant_detail.html:62
+msgid "link/LLDP"
+msgstr "enlace/LLDP"
+
+#: templates/dashboard/participant_detail.html:62
+msgid "ARP/NDP"
+msgstr "ARP/NDP"
+
+#: templates/dashboard/participant_detail.html:62
+msgid "route servers"
+msgstr "servidores de rutas"
+
+#: templates/dashboard/participant_detail.html:94
+msgid "Single"
+msgstr "Único"
+
+#: templates/dashboard/participant_detail.html:99
+#: templates/dashboard/participant_detail.html:132
+msgid "Up"
+msgstr "Activo"
+
+#: templates/dashboard/participant_detail.html:106
+#, python-format
+msgid "%(speed)sG effective"
+msgstr "%(speed)sG efectivos"
+
+#: templates/dashboard/participant_detail.html:117
+msgid "Physical"
+msgstr "Físico"
+
+#: templates/dashboard/participant_detail.html:139
+msgid "Temp:"
+msgstr "Temp.:"
+
+#: templates/dashboard/participant_detail.html:140
+msgid "Serial:"
+msgstr "N.º de serie:"
+
+#: templates/dashboard/participant_detail.html:169
+msgid "Link"
+msgstr "Enlace"
+
+#: templates/dashboard/participant_detail.html:170
+#: templates/dashboard/participant_detail.html:235
+#: templates/dashboard/participant_detail.html:282
+msgid "Public"
+msgstr "Público"
+
+#: templates/dashboard/participant_detail.html:177
+#: templates/dashboard/participant_detail.html:198
+#: templates/dashboard/participant_detail.html:213
+msgid "Local"
+msgstr "Local"
+
+#: templates/dashboard/participant_detail.html:190
+msgid "Remote"
+msgstr "Remoto"
+
+#: templates/dashboard/participant_detail.html:207
+msgid "Link down &mdash; no LLDP"
+msgstr "Enlace caído &mdash; sin LLDP"
+
+#: templates/dashboard/participant_detail.html:222
+msgid "No LLDP data"
+msgstr "Sin datos LLDP"
+
+#: templates/dashboard/participant_detail.html:253
+msgid "No IPs assigned"
+msgstr "Sin IP asignadas"
+
+#: templates/dashboard/participant_detail.html:281
+msgid "Route Servers"
+msgstr "Servidores de rutas"
+
+#: templates/dashboard/participant_detail.html:289
+msgid "Route Server"
+msgstr "Servidor de rutas"
+
+#: templates/dashboard/participant_detail.html:290
+msgid "State"
+msgstr "Estado"
+
+#: templates/dashboard/participant_detail.html:291
+msgid "Uptime"
+msgstr "Tiempo activo"
+
+#: templates/dashboard/participant_detail.html:293
+msgid "Received"
+msgstr "Recibidas"
+
+#: templates/dashboard/participant_detail.html:294
+msgid "Accepted"
+msgstr "Aceptadas"
+
+#: templates/dashboard/participant_detail.html:295
+msgid "Rejected"
+msgstr "Rechazadas"
+
+#: templates/dashboard/participant_detail.html:390
+#, python-format
+msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
+msgstr "No se encontraron puertos para AS%(asn)s. Es posible que esta red aún no esté aprovisionada."
+
+#: templates/dashboard/participants_list.html:9
+msgid "Networks peering at the San Francisco Metropolitan Internet eXchange"
+msgstr "Redes que hacen peering en el San Francisco Metropolitan Internet eXchange"
+
+#: templates/dashboard/participants_list.html:32
+msgid "Unable to fetch participant list:"
+msgstr "No se pudo obtener la lista de participantes:"
+
+#: templates/dashboard/participants_list.html:42
+msgid "Search name, ASN, or IP…"
+msgstr "Buscar nombre, ASN o IP…"
+
+#: templates/dashboard/participants_list.html:49
+msgid "participants"
+msgstr "participantes"
+
+#: templates/dashboard/participants_list.html:54
+msgid "IX-F Member Export (JSON)"
+msgstr "Exportación de miembros IX-F (JSON)"
+
+#: templates/dashboard/participants_list.html:64
+msgid "Sort by IPv4"
+msgstr "Ordenar por IPv4"
+
+#: templates/dashboard/participants_list.html:65
+msgid "Sort by Name"
+msgstr "Ordenar por nombre"
+
+#: templates/dashboard/participants_list.html:66
+msgid "Sort by ASN"
+msgstr "Ordenar por ASN"
+
+#: templates/dashboard/participants_list.html:67
+msgid "Sort by Speed"
+msgstr "Ordenar por velocidad"
+
+#: templates/dashboard/participants_list.html:68
+msgid "Sort by Site"
+msgstr "Ordenar por sitio"
+
+#: templates/dashboard/participants_list.html:69
+msgid "Sort by Status"
+msgstr "Ordenar por estado"
+
+#: templates/dashboard/participants_list.html:106
+#: templates/dashboard/participants_list.html:203
+msgid "Speed"
+msgstr "Velocidad"
+
+#: templates/dashboard/participants_list.html:112
+#: templates/dashboard/participants_list.html:205
+msgid "Site"
+msgstr "Sitio"
+
+#: templates/dashboard/participants_list.html:152
+#: templates/dashboard/participants_list.html:193
+msgid "Provisioning"
+msgstr "Aprovisionando"
+
+#: templates/dashboard/participants_list.html:154
+#: templates/dashboard/participants_list.html:195
+msgid "Infrastructure"
+msgstr "Infraestructura"
+
+#: templates/dashboard/participants_list.html:156
+#: templates/dashboard/participants_list.html:197
+msgid "Inactive"
+msgstr "Inactivo"
+
+#: templates/dashboard/participants_list.html:213
+msgid "No participants found."
+msgstr "No se encontraron participantes."

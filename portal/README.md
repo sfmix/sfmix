@@ -97,6 +97,27 @@ The script downloads the Tailwind CLI v4.3.0 binary to `/tmp` on first run (cach
 runs) and emits a minified CSS file. Commit the updated `static/css/tailwind.css`. The Docker
 image build (`docker-compose up --build`) also regenerates it automatically.
 
+### Internationalization (i18n)
+
+The portal uses Django's native i18n (LTR string translation). Supported languages are
+configured in `LANGUAGES` (`ixp_portal/settings.py`): English (default), Spanish (`es`), German
+(`de`). The active language is resolved per request by `LocaleMiddleware`: the `django_language`
+cookie (set by the in-nav language picker) → session → `Accept-Language` header → English.
+
+Workflow after adding/changing user-facing strings:
+
+```bash
+cd portal
+# Mark strings: {% translate %}/{% blocktranslate %} in templates, gettext()/ngettext() in Python.
+python manage.py makemessages -l es -l de   # update locale/<lang>/LC_MESSAGES/django.po
+# ...edit the .po files to add translations...
+python manage.py compilemessages            # build the .mo files (needs the `gettext` package)
+```
+
+Only the `.po` catalogs are committed; the compiled `.mo` files are gitignored and rebuilt by
+`compilemessages` (the Docker image build does this automatically). Run `compilemessages` once
+locally so `runserver` renders the non-English locales.
+
 For full OIDC testing against `login.sfmix.org`, set these env vars:
 ```bash
 export OIDC_RP_CLIENT_ID=portal

@@ -1,16 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Participants – SFMIX{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "Participants" %} – SFMIX{% endblock %}
 {% block container_class %}max-w-6xl{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-  <h1 class="font-semibold" style="font-size: 2rem; color: var(--color-primary); margin: 0 0 0.4rem;">Participants</h1>
-  <p style="font-size: 1.05rem; color: var(--color-text-light); line-height: 1.55; max-width: 62ch; margin: 0;">Networks peering at the San Francisco Metropolitan Internet eXchange</p>
+  <h1 class="font-semibold" style="font-size: 2rem; color: var(--color-primary); margin: 0 0 0.4rem;">{% translate "Participants" %}</h1>
+  <p style="font-size: 1.05rem; color: var(--color-text-light); line-height: 1.55; max-width: 62ch; margin: 0;">{% translate "Networks peering at the San Francisco Metropolitan Internet eXchange" %}</p>
 </div>
 
 {% if my_participants %}
 <div class="mb-6">
-  <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Your Networks</p>
+  <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">{% translate "Your Networks" %}</p>
   <div class="flex flex-wrap gap-2">
     {% for member in my_participants %}
     <a href="{% url 'participant_detail' member.asn %}"
@@ -28,7 +29,7 @@
 
 {% if lg_error %}
 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
-  Unable to fetch participant list: {{ lg_error }}
+  {% translate "Unable to fetch participant list:" %} {{ lg_error }}
 </div>
 {% endif %}
 
@@ -38,19 +39,19 @@
   <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
     <div class="relative">
       <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-      <input type="search" x-model="search" placeholder="Search name, ASN, or IP…"
+      <input type="search" x-model="search" placeholder="{% translate 'Search name, ASN, or IP…' %}"
              class="border rounded-md pl-8 pr-3 w-72 focus:outline-none focus:ring-2 focus:border-transparent"
              style="font-size: .92rem; padding: .55rem .8rem .55rem 2rem; border-color: var(--color-border); --tw-ring-color: rgba(26,96,112,0.12);">
     </div>
     <div class="flex items-center gap-4" style="font-size: .85rem; color: var(--color-text-light);">
       <span>
         <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
-        <span x-show="!search"><strong style="color: var(--color-primary);">{{ entries|length }}</strong> participants</span>
+        <span x-show="!search"><strong style="color: var(--color-primary);">{{ entries|length }}</strong> {% translate "participants" %}</span>
       </span>
       <a href="/api/v1/participants.json" class="font-mono transition"
          style="font-size: .78rem; color: var(--color-primary-light); border: 1px dashed #b9c2cc; border-radius: 5px; padding: .3rem .55rem; text-decoration: none; white-space: nowrap;"
          onmouseover="this.style.borderColor='var(--color-accent)'; this.style.color='var(--color-accent)'" onmouseout="this.style.borderColor='#b9c2cc'; this.style.color='var(--color-primary-light)'"
-         title="IX-F Member Export (JSON)">
+         title="{% translate 'IX-F Member Export (JSON)' %}">
         {&nbsp;}&nbsp;JSON
       </a>
     </div>
@@ -60,12 +61,12 @@
   <div class="lg:hidden mb-3">
     <select @change="mobileSortBy($event.target.value)"
             class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
-      <option value="v4">Sort by IPv4</option>
-      <option value="name">Sort by Name</option>
-      <option value="asn">Sort by ASN</option>
-      <option value="speed">Sort by Speed</option>
-      <option value="site">Sort by Site</option>
-      <option value="status">Sort by Status</option>
+      <option value="v4">{% translate "Sort by IPv4" %}</option>
+      <option value="name">{% translate "Sort by Name" %}</option>
+      <option value="asn">{% translate "Sort by ASN" %}</option>
+      <option value="speed">{% translate "Sort by Speed" %}</option>
+      <option value="site">{% translate "Sort by Site" %}</option>
+      <option value="status">{% translate "Sort by Status" %}</option>
     </select>
   </div>
 
@@ -78,7 +79,7 @@
               :class="sortCol === 'name' ? 'text-white!' : ''"
               @click="sortBy('name')"
               onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            Participant<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'name' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('name')"></span>
+            {% translate "Participant" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'name' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('name')"></span>
           </th>
           <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'asn' ? 'text-white!' : ''"
@@ -102,19 +103,19 @@
               :class="sortCol === 'speed' ? 'text-white!' : ''"
               @click="sortBy('speed')"
               onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            Speed<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'speed' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('speed')"></span>
+            {% translate "Speed" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'speed' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('speed')"></span>
           </th>
           <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'site' ? 'text-white!' : ''"
               @click="sortBy('site')"
               onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            Site<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'site' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('site')"></span>
+            {% translate "Site" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'site' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('site')"></span>
           </th>
           <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
               :class="sortCol === 'status' ? 'text-white!' : ''"
               @click="sortBy('status')"
               onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            Status<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'status' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('status')"></span>
+            {% translate "Status" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'status' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
@@ -146,13 +147,13 @@
           <td style="padding: .6rem .85rem; vertical-align: middle; color: var(--color-text);">{{ p.site|default:"—" }}</td>
           <td style="padding: .6rem .85rem; vertical-align: middle;">
             {% if p.status == "active" %}
-            <span class="st-badge st-active">Active</span>
+            <span class="st-badge st-active">{% translate "Active" %}</span>
             {% elif p.status == "provisioning" %}
-            <span class="st-badge st-prov">Provisioning</span>
+            <span class="st-badge st-prov">{% translate "Provisioning" %}</span>
             {% elif p.status == "infrastructure" %}
-            <span class="st-badge st-infra">Infrastructure</span>
+            <span class="st-badge st-infra">{% translate "Infrastructure" %}</span>
             {% else %}
-            <span class="st-badge st-inact">Inactive</span>
+            <span class="st-badge st-inact">{% translate "Inactive" %}</span>
             {% endif %}
           </td>
         </tr>
@@ -187,21 +188,21 @@
         </div>
         <div>
           {% if p.status == "active" %}
-          <span class="st-badge st-active">Active</span>
+          <span class="st-badge st-active">{% translate "Active" %}</span>
           {% elif p.status == "provisioning" %}
-          <span class="st-badge st-prov">Provisioning</span>
+          <span class="st-badge st-prov">{% translate "Provisioning" %}</span>
           {% elif p.status == "infrastructure" %}
-          <span class="st-badge st-infra">Infrastructure</span>
+          <span class="st-badge st-infra">{% translate "Infrastructure" %}</span>
           {% else %}
-          <span class="st-badge st-inact">Inactive</span>
+          <span class="st-badge st-inact">{% translate "Inactive" %}</span>
           {% endif %}
         </div>
       </div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 mt-2">
         <div><span class="text-gray-400">IPv4</span> <span class="font-mono text-gray-700 tabular-nums">{{ p.v4 }}</span></div>
-        <div><span class="text-gray-400">Speed</span> <span class="text-gray-700">{{ p.speed|default:"—" }}</span></div>
+        <div><span class="text-gray-400">{% translate "Speed" %}</span> <span class="text-gray-700">{{ p.speed|default:"—" }}</span></div>
         <div class="col-span-2 truncate"><span class="text-gray-400">IPv6</span> <span class="font-mono text-gray-700 tabular-nums">{{ p.v6 }}</span></div>
-        <div><span class="text-gray-400">Site</span> <span class="text-gray-700">{{ p.site|default:"—" }}</span></div>
+        <div><span class="text-gray-400">{% translate "Site" %}</span> <span class="text-gray-700">{{ p.site|default:"—" }}</span></div>
       </div>
     </div>
     {% endfor %}
@@ -209,7 +210,7 @@
 </div>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
-  No participants found.
+  {% translate "No participants found." %}
 </div>
 {% endif %}
 {% endblock %}

@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+from django.utils.translation import gettext_lazy as _
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ── Cache backend (swap to RedisCache / MemcachedCache via env) ──
@@ -48,6 +50,11 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # LocaleMiddleware must sit after SessionMiddleware (it can read the
+    # language from the session) and before CommonMiddleware. It resolves the
+    # active language per request from the django_language cookie → session →
+    # Accept-Language header → LANGUAGE_CODE.
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -72,6 +79,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
+                "django.template.context_processors.i18n",
             ],
         },
     },
@@ -88,6 +96,19 @@ DATABASES = {
         "NAME": BASE_DIR / "db" / "db.sqlite3",
     }
 }
+
+# --- Internationalization ---
+# LTR string translation only (for now). Active language is resolved by
+# LocaleMiddleware: django_language cookie (set by the in-nav picker via the
+# set_language view) → session → Accept-Language header → LANGUAGE_CODE.
+USE_I18N = True
+LANGUAGE_CODE = "en"
+LANGUAGES = [
+    ("en", _("English")),
+    ("es", _("Español")),
+    ("de", _("Deutsch")),
+]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 # --- Static files ---
 STATIC_URL = "/static/"
