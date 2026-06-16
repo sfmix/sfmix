@@ -14,11 +14,11 @@
   <div class="flex flex-wrap gap-2">
     {% for member in my_participants %}
     <a href="{% url 'participant_detail' member.asn %}"
-       class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition"
+       class="inline-flex items-baseline gap-2 rounded-lg px-4 py-2 text-sm transition"
        style="background: rgba(26,96,112,0.06); border: 1px solid rgba(26,96,112,0.18);"
        onmouseover="this.style.background='rgba(26,96,112,0.12)'; this.style.borderColor='rgba(26,96,112,0.35)'"
        onmouseout="this.style.background='rgba(26,96,112,0.06)'; this.style.borderColor='rgba(26,96,112,0.18)'">
-      <span class="font-mono text-xs font-semibold" style="color: var(--color-primary-light);">AS{{ member.asn }}</span>
+      <span class="font-mono font-semibold" style="color: var(--color-primary-light);">AS{{ member.asn }}</span>
       <span class="text-gray-700">{{ member.name }}</span>
     </a>
     {% endfor %}
