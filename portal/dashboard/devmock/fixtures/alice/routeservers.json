@@ -1,0 +1,6 @@
+{
+  "routeservers": [
+    {"id": "rs1", "name": "RS1 (route-server-1.example.net)"},
+    {"id": "rs2", "name": "RS2 (route-server-2.example.net)"}
+  ]
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "device": "switch01.pop1.example.net",
+    "last_error": null,
+    "poll_interval_secs": 60,
+    "interfaces": {"count": 4, "age_secs": 22},
+    "lldp_neighbors": {"count": 2, "age_secs": 22},
+    "mac_table": {"count": 4, "age_secs": 18},
+    "optics": {"count": 3, "age_secs": 31},
+    "optics_inventory": {"count": 3, "age_secs": 305},
+    "arp_table": {"count": 2, "age_secs": 18},
+    "ipv6_neighbors": {"count": 2, "age_secs": 18}
+  },
+  {
+    "device": "switch02.pop2.example.net",
+    "last_error": null,
+    "poll_interval_secs": 60,
+    "interfaces": {"count": 1, "age_secs": 27},
+    "lldp_neighbors": {"count": 1, "age_secs": 27},
+    "mac_table": {"count": 1, "age_secs": 19},
+    "optics": {"count": 1, "age_secs": 33},
+    "optics_inventory": {"count": 1, "age_secs": 310},
+    "arp_table": {"count": 1, "age_secs": 19},
+    "ipv6_neighbors": {"count": 1, "age_secs": 19}
+  }
+]

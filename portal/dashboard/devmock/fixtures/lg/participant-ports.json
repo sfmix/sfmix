@@ -1,0 +1,6 @@
+[
+  {"device": "switch01.pop1.example.net", "interface": "Ethernet1", "asn": 64496, "name": "Example Networks LLC"},
+  {"device": "switch01.pop1.example.net", "interface": "Ethernet2", "asn": 64496, "name": "Example Networks LLC"},
+  {"device": "switch01.pop1.example.net", "interface": "Ethernet3", "asn": 64498, "name": "Doc Example Peer Co."},
+  {"device": "switch02.pop2.example.net", "interface": "Ethernet5", "asn": 64497, "name": "Placeholder Transit Inc."}
+]

@@ -1,0 +1,10 @@
+{
+  "neighbors": [
+    {"id": "neigh_64496_v4", "address": "192.0.2.10", "asn": 64496, "state": "established", "routes_received": 120, "routes_accepted": 118, "routes_filtered": 2, "uptime": 360000, "description": "AS64496 Example Networks LLC"},
+    {"id": "neigh_64496_v6", "address": "2001:db8:0:1::10", "asn": 64496, "state": "established", "routes_received": 90, "routes_accepted": 90, "routes_filtered": 0, "uptime": 360000, "description": "AS64496 Example Networks LLC"},
+    {"id": "neigh_64497_v4", "address": "192.0.2.11", "asn": 64497, "state": "established", "routes_received": 340, "routes_accepted": 338, "routes_filtered": 2, "uptime": 720000, "description": "AS64497 Placeholder Transit Inc."},
+    {"id": "neigh_64497_v6", "address": "2001:db8:0:1::11", "asn": 64497, "state": "established", "routes_received": 210, "routes_accepted": 210, "routes_filtered": 0, "uptime": 720000, "description": "AS64497 Placeholder Transit Inc."},
+    {"id": "neigh_64498_v4", "address": "192.0.2.12", "asn": 64498, "state": "established", "routes_received": 45, "routes_accepted": 45, "routes_filtered": 0, "uptime": 90000, "description": "AS64498 Doc Example Peer Co."},
+    {"id": "neigh_64498_v6", "address": "2001:db8:0:1::12", "asn": 64498, "state": "established", "routes_received": 30, "routes_accepted": 30, "routes_filtered": 0, "uptime": 90000, "description": "AS64498 Doc Example Peer Co."}
+  ]
+}

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import path
 
 from . import views
@@ -15,3 +16,8 @@ urlpatterns = [
     path("admin/optics/", views.optics_view, name="optics"),
     path("admin/device-cache/", views.device_cache_status_view, name="device_cache_status"),
 ]
+
+# DEBUG-only dev login bypass (gated; absent / 404 in production).
+if getattr(settings, "DEV_LOGIN_ENABLED", False):
+    from . import devauth
+    urlpatterns.append(path("dev/login/", devauth.dev_login, name="dev_login"))

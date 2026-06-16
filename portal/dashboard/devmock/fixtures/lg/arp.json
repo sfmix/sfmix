@@ -1,0 +1,17 @@
+[
+  {
+    "success": true,
+    "device": "switch01.pop1.example.net",
+    "data": [
+      {"address": "192.0.2.10", "mac_address": "0200.5e10.0a01"},
+      {"address": "192.0.2.12", "mac_address": "0200.5e10.0a03"}
+    ]
+  },
+  {
+    "success": true,
+    "device": "switch02.pop2.example.net",
+    "data": [
+      {"address": "192.0.2.11", "mac_address": "0200.5e10.0a02"}
+    ]
+  }
+]
