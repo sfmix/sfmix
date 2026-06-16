@@ -11,9 +11,12 @@
 #   Subtype 11 (Asset ID) — "dBm:-2.05" (single) or "dBm:-0.01/-0.87/-0.73/0.28" (multi-lane)
 #
 # SPECIAL VARIANT: Inventory subtypes 5-10 REMOVED.
-# switch01.sfo02 has corrupted SDK state from earlier crash loop;
-# injecting subtypes 5-10 triggers SIGABRT in the Lldp PDU builder.
-# This variant sets only Capabilities + Asset ID until the switch is rebooted.
+# Deployed on switch01.sfo02 as a conservative reduction (Capabilities +
+# Asset ID only). NOTE: the crash loop on switch01 was ultimately a null
+# RX-power TypeError in format_rx_power (see below / README), NOT corrupted
+# SDK state — the earlier "subtypes 5-10 trigger SIGABRT / needs reboot"
+# theory was never confirmed. With the null-RX fix this variant runs stably;
+# the full variant likely would too, but is left unverified on that box.
 #
 # IMPORTANT: TIA-1057 limits LLDP-MED Asset ID to 32 characters.
 # Exceeding 32 chars causes EOS receivers to discard the entire LLDP PDU
@@ -135,6 +138,13 @@ def format_rx_power(intf_dom):
     rx_info = params.get("rxPower", {})
     channels = rx_info.get("channels", {})
 
+    # Some transceivers report a present module with no RX reading: the channel
+    # value comes back as null (None) or a non-numeric placeholder.  Drop those
+    # so the comparisons below can't raise TypeError (e.g. None <= -30.0), which
+    # would escape on_timeout and SIGABRT the agent via the SWIG director.
+    channels = {k: v for k, v in channels.items()
+                if isinstance(v, (int, float))}
+
     # Filter out the aggregate channel key "-"
     lane_keys = [k for k in channels if k != "-"]
     if len(lane_keys) > 1:
@@ -240,18 +250,20 @@ class LldpDomAgent(eossdk.AgentHandler, eossdk.TimeoutHandler):
         for intf_name, intf_dom in dom_data.items():
             if intf_name not in lldp_intfs:
                 continue
-            label = format_rx_power(intf_dom)
-            if label is None:
-                continue
-
+            # All per-interface work is wrapped so a single bad interface (e.g.
+            # malformed DOM data) is logged and skipped instead of escaping
+            # on_timeout and crashing the whole agent via the SWIG director.
             try:
+                label = format_rx_power(intf_dom)
+                if label is None:
+                    continue
                 intf_id = eossdk.IntfId(intf_name)
                 neighbor = eossdk.LldpNeighbor(intf_id)
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_caps, MED_CAPS_PAYLOAD)
                 self.lldp_mgr.tx_tlv_set(neighbor, self.tlv_med_asset, label)
                 updated.add(intf_name)
             except Exception as e:
-                log_err("tx_tlv_set failed for %s: %s" % (intf_name, e))
+                log_err("processing %s failed: %s" % (intf_name, e))
 
         # Clean up TLVs for interfaces that no longer have DOM data
         stale = self.active_intfs - updated
