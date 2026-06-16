@@ -9,6 +9,9 @@ use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, trace, warn};
 
+use russh::client::AuthResult;
+use russh::MethodKind;
+
 use crate::config::{DeviceAuthMethod, DeviceConfig};
 
 /// Timeout for SSH connect + auth.
@@ -95,6 +98,32 @@ async fn ssh_connect(config: &DeviceConfig) -> Result<client::Handle<ClientHandl
     .context("SSH connect timed out")?
     .context("SSH connect failed")?;
 
+    // Probe the server's advertised auth methods with a "none" request.
+    // This avoids triggering spurious auth-failure logs on devices that
+    // don't support a method we'd otherwise try (e.g. keyboard-interactive
+    // on Nokia SR OS, which only advertises publickey+password).
+    let server_methods = match session
+        .authenticate_none(&config.username)
+        .await
+        .context("SSH none-auth probe failed")?
+    {
+        AuthResult::Success => {
+            // Server accepted "none" auth (unlikely but valid).
+            debug!(device = config.name, "SSH authenticated via none");
+            return Ok(session);
+        }
+        AuthResult::Failure {
+            remaining_methods, ..
+        } => {
+            debug!(
+                device = config.name,
+                methods = ?remaining_methods,
+                "server advertised auth methods"
+            );
+            remaining_methods
+        }
+    };
+
     let authenticated = match config.auth_method {
         DeviceAuthMethod::SshKey => {
             let key_path = config
@@ -117,39 +146,57 @@ async fn ssh_connect(config: &DeviceConfig) -> Result<client::Handle<ClientHandl
             let password = std::env::var("LG_DEVICE_PASSWORD")
                 .context("LG_DEVICE_PASSWORD not set for password auth")?;
 
-            let ki_result = session
-                .authenticate_keyboard_interactive_start(&config.username, None::<String>)
-                .await
-                .context("SSH keyboard-interactive start failed")?;
+            // Try keyboard-interactive first, but only if the server advertises it.
+            let ki_success = if server_methods.contains(&MethodKind::KeyboardInteractive) {
+                let ki_result = session
+                    .authenticate_keyboard_interactive_start(&config.username, None::<String>)
+                    .await
+                    .context("SSH keyboard-interactive start failed")?;
 
-            match ki_result {
-                KeyboardInteractiveAuthResponse::Success => true,
-                KeyboardInteractiveAuthResponse::Failure { .. } => {
-                    debug!(device = config.name, "keyboard-interactive rejected, trying password");
-                    session
-                        .authenticate_password(&config.username, &password)
-                        .await
-                        .context("SSH password auth failed")?
-                        .success()
-                }
-                KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } => {
-                    let responses: Vec<String> = prompts.iter().map(|_| password.clone()).collect();
-                    let reply = session
-                        .authenticate_keyboard_interactive_respond(responses)
-                        .await
-                        .context("SSH keyboard-interactive respond failed")?;
-                    match reply {
-                        KeyboardInteractiveAuthResponse::Success => true,
-                        KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } if prompts.is_empty() => {
-                            let final_reply = session
-                                .authenticate_keyboard_interactive_respond(vec![])
-                                .await
-                                .context("SSH keyboard-interactive final respond failed")?;
-                            matches!(final_reply, KeyboardInteractiveAuthResponse::Success)
+                match ki_result {
+                    KeyboardInteractiveAuthResponse::Success => true,
+                    KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } => {
+                        let responses: Vec<String> =
+                            prompts.iter().map(|_| password.clone()).collect();
+                        let reply = session
+                            .authenticate_keyboard_interactive_respond(responses)
+                            .await
+                            .context("SSH keyboard-interactive respond failed")?;
+                        match reply {
+                            KeyboardInteractiveAuthResponse::Success => true,
+                            KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. }
+                                if prompts.is_empty() =>
+                            {
+                                let final_reply = session
+                                    .authenticate_keyboard_interactive_respond(vec![])
+                                    .await
+                                    .context("SSH keyboard-interactive final respond failed")?;
+                                matches!(final_reply, KeyboardInteractiveAuthResponse::Success)
+                            }
+                            _ => false,
                         }
-                        _ => false,
                     }
+                    KeyboardInteractiveAuthResponse::Failure { .. } => false,
                 }
+            } else {
+                debug!(
+                    device = config.name,
+                    "server does not advertise keyboard-interactive, skipping"
+                );
+                false
+            };
+
+            if ki_success {
+                true
+            } else if server_methods.contains(&MethodKind::Password) {
+                debug!(device = config.name, "trying password auth");
+                session
+                    .authenticate_password(&config.username, &password)
+                    .await
+                    .context("SSH password auth failed")?
+                    .success()
+            } else {
+                false
             }
         }
     };
