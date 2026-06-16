@@ -107,8 +107,17 @@ switch# bash grep LldpDomAgent /var/log/messages | tail
   `tx_tlv_del` for each interface/subtype.
 - **Do not inject IEEE 802.1 TLVs** (OUI `00:80:C2`). EOS manages those
   natively and the SDK will SIGABRT.
-- **switch01.sfo02** has corrupted SDK state from an earlier crash loop.
-  The agent is disabled there and needs a full switch reboot to clear it.
-- Dark ports (RX power ≤ −30 dBm) and interfaces without DOM data are
-  automatically skipped.  TLVs are cleaned up when a port goes dark.
+- **Null RX-power readings crash the poll loop if unguarded.** Some
+  transceivers report a present module with a `null` RX-power channel value
+  (seen on switch01.sfo02 — Ethernet38–42, 46). `format_rx_power()` now drops
+  non-numeric channel values before comparing them; without that guard,
+  `None <= -30.0` raised `TypeError`, escaped `on_timeout`, and SIGABRT'd the
+  agent via the SWIG director on every poll — a tight crash loop that also
+  filled `/var/log` (tmpfs) with per-restart QuickTrace files. This was
+  previously misdiagnosed as "corrupted SDK state needing a reboot"; it is a
+  code bug, fixed with no reboot. All per-interface work is also wrapped in
+  `try/except` so one bad interface can never take down the agent.
+- Dark ports (RX power ≤ −30 dBm) and interfaces without DOM data (incl. null
+  RX readings) are automatically skipped.  TLVs are cleaned up when a port
+  goes dark.
 - The executable must be `chmod +x`.
