@@ -1,0 +1,19 @@
+[
+  {
+    "success": true,
+    "device": "switch01.pop1.example.net",
+    "data": [
+      {"vlan": 100, "mac_address": "0200.5e10.0a01", "entry_type": "dynamic", "interface": "Ethernet1"},
+      {"vlan": 100, "mac_address": "0200.5e20.0b01", "entry_type": "dynamic", "interface": "Ethernet1"},
+      {"vlan": 100, "mac_address": "0200.5e20.0b02", "entry_type": "dynamic", "interface": "Ethernet2"},
+      {"vlan": 100, "mac_address": "0200.5e10.0a03", "entry_type": "dynamic", "interface": "Ethernet3"}
+    ]
+  },
+  {
+    "success": true,
+    "device": "switch02.pop2.example.net",
+    "data": [
+      {"vlan": 100, "mac_address": "0200.5e10.0a02", "entry_type": "dynamic", "interface": "Ethernet5"}
+    ]
+  }
+]

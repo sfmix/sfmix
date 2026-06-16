@@ -1,0 +1,74 @@
+[
+  {
+    "success": true,
+    "device": "switch01.pop1.example.net",
+    "data": [
+      {
+        "name": "Ethernet1",
+        "link_status": "up",
+        "description": "AS64496 Example Networks LLC",
+        "dom_supported": true,
+        "media_type": "10GBASE-LR",
+        "temperature_c": 41.2,
+        "voltage_v": 3.28,
+        "serial_number": "PLACEHOLDER0001",
+        "vendor": "ExampleOptics",
+        "model": "EX-SFP-10G-LR",
+        "lanes": [
+          {"label": "Lane 1", "rx_power_dbm": -13.5, "tx_power_dbm": -2.1, "tx_bias_ma": 7.5}
+        ]
+      },
+      {
+        "name": "Ethernet2",
+        "link_status": "down",
+        "description": "AS64496 Example Networks LLC",
+        "dom_supported": true,
+        "media_type": "10GBASE-LR",
+        "temperature_c": 38.9,
+        "voltage_v": 3.30,
+        "serial_number": "PLACEHOLDER0002",
+        "vendor": "ExampleOptics",
+        "model": "EX-SFP-10G-LR",
+        "lanes": [
+          {"label": "Lane 1", "rx_power_dbm": null, "tx_power_dbm": null, "tx_bias_ma": null}
+        ]
+      },
+      {
+        "name": "Ethernet3",
+        "link_status": "up",
+        "description": "AS64498 Doc Example Peer Co.",
+        "dom_supported": true,
+        "media_type": "10GBASE-LR",
+        "temperature_c": 40.1,
+        "voltage_v": 3.29,
+        "serial_number": "PLACEHOLDER0003",
+        "vendor": "ExampleOptics",
+        "model": "EX-SFP-10G-LR",
+        "lanes": [
+          {"label": "Lane 1", "rx_power_dbm": -8.2, "tx_power_dbm": -2.0, "tx_bias_ma": 7.2}
+        ]
+      }
+    ]
+  },
+  {
+    "success": true,
+    "device": "switch02.pop2.example.net",
+    "data": [
+      {
+        "name": "Ethernet5",
+        "link_status": "up",
+        "description": "AS64497 Placeholder Transit Inc.",
+        "dom_supported": true,
+        "media_type": "10GBASE-SR",
+        "temperature_c": 36.4,
+        "voltage_v": 3.31,
+        "serial_number": "PLACEHOLDER0004",
+        "vendor": "ExampleOptics",
+        "model": "EX-SFP-10G-SR",
+        "lanes": [
+          {"label": "Lane 1", "rx_power_dbm": -6.9, "tx_power_dbm": -2.4, "tx_bias_ma": 6.8}
+        ]
+      }
+    ]
+  }
+]

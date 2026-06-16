@@ -1,0 +1,41 @@
+[
+  {
+    "success": true,
+    "device": "switch01.pop1.example.net",
+    "data": [
+      {
+        "local_interface": "Ethernet1",
+        "system_name": "router1.as64496.example.net",
+        "neighbor_device": "router1.as64496.example.net",
+        "neighbor_interface": "et-0/0/1",
+        "neighbor_port": "et-0/0/1",
+        "chassis_id": "0200.5e10.0001",
+        "ttl": 120
+      },
+      {
+        "local_interface": "Ethernet3",
+        "system_name": "router1.as64498.example.net",
+        "neighbor_device": "router1.as64498.example.net",
+        "neighbor_interface": "xe-0/0/3",
+        "neighbor_port": "xe-0/0/3",
+        "chassis_id": "0200.5e10.0003",
+        "ttl": 120
+      }
+    ]
+  },
+  {
+    "success": true,
+    "device": "switch02.pop2.example.net",
+    "data": [
+      {
+        "local_interface": "Ethernet5",
+        "system_name": "router1.as64497.example.net",
+        "neighbor_device": "router1.as64497.example.net",
+        "neighbor_interface": "HundredGigE0/0/5",
+        "neighbor_port": "HundredGigE0/0/5",
+        "chassis_id": "0200.5e10.0002",
+        "ttl": 120
+      }
+    ]
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "asn": 64496,
+    "name": "Example Networks LLC",
+    "participant_type": "peer",
+    "ip_addresses": [
+      {"address": "192.0.2.10/24", "family": "IPv4", "status": "active", "participant_lag_id": 1001},
+      {"address": "2001:db8:0:1::10/64", "family": "IPv6", "status": "active", "participant_lag_id": 1001}
+    ],
+    "enriched_ports": [
+      {
+        "device": "switch01.pop1.example.net",
+        "interface": "Port-Channel1",
+        "interface_id": 1001,
+        "speed": 20000,
+        "enabled": true,
+        "member_interfaces": [
+          ["switch01.pop1.example.net", "Ethernet1"],
+          ["switch01.pop1.example.net", "Ethernet2"]
+        ]
+      }
+    ]
+  },
+  {
+    "asn": 64497,
+    "name": "Placeholder Transit Inc.",
+    "participant_type": "peer",
+    "ip_addresses": [
+      {"address": "192.0.2.11/24", "family": "IPv4", "status": "active", "participant_lag_id": 1002},
+      {"address": "2001:db8:0:1::11/64", "family": "IPv6", "status": "active", "participant_lag_id": 1002}
+    ],
+    "enriched_ports": [
+      {
+        "device": "switch02.pop2.example.net",
+        "interface": "Ethernet5",
+        "interface_id": 1002,
+        "speed": 10000,
+        "enabled": true,
+        "member_interfaces": []
+      }
+    ]
+  },
+  {
+    "asn": 64498,
+    "name": "Doc Example Peer Co.",
+    "participant_type": "peer",
+    "ip_addresses": [
+      {"address": "192.0.2.12/24", "family": "IPv4", "status": "active", "participant_lag_id": 1003},
+      {"address": "2001:db8:0:1::12/64", "family": "IPv6", "status": "active", "participant_lag_id": 1003}
+    ],
+    "enriched_ports": [
+      {
+        "device": "switch01.pop1.example.net",
+        "interface": "Ethernet3",
+        "interface_id": 1003,
+        "speed": 10000,
+        "enabled": true,
+        "member_interfaces": []
+      }
+    ]
+  }
+]

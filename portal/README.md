@@ -30,16 +30,56 @@ Set the resulting client secret as `OIDC_RP_CLIENT_SECRET` in the portal's envir
 
 ## Local Development
 
+For working on the pages, run with **fixtures + a dev login** — no real OIDC,
+no backend services, fully populated pages, offline:
+
 ```bash
 cd portal
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# For local dev without real OIDC, create a superuser:
 python manage.py migrate
-python manage.py createsuperuser
 
-# Run dev server
+LG_USE_FIXTURES=true python manage.py runserver
+# open http://localhost:8000/login/ → "Dev login (bypass SSO)" → pick a persona
+```
+
+> Note: auth is OIDC-only and admin/ASN gating reads session keys (not Django's
+> `is_superuser`), so `createsuperuser` does **not** let you log in or see admin
+> pages locally. Use the dev login instead.
+
+### How it works (and how to extend it)
+
+- **Dev login** (`dashboard/devauth.py`): a `DEBUG`-only `/dev/login/` route that
+  logs in a throwaway user and seeds the same session keys the real OIDC backend
+  writes (`oidc_asns`, `oidc_is_ix_admin`, …). Personas: **admin** (IX admin, no
+  networks), **admin_member** (IX admin *and* network admin for AS64496 & AS64497),
+  **member** (AS64496, no admin), **public** (no networks) — to exercise every
+  gating path. Custom: `?admin=1&asns=64496,64497`.
+- **Auto-login** (mirror prod from the first request): set `DEV_AUTOLOGIN` to a
+  persona key (or a spec like `admin,64496,64497`) and the dev server comes up
+  already logged in, no click-through:
+  ```bash
+  DEV_AUTOLOGIN=admin_member LG_USE_FIXTURES=true python manage.py runserver
+  ```
+  Leave it unset to test the real login/logout flow.
+- **Fixtures** (`dashboard/devmock/`): when `LG_USE_FIXTURES=true`, the Looking
+  Glass / Alice client `_get` is patched to read JSON fixtures, one file per API
+  endpoint. The data is **synthetic placeholder content only — never real
+  participants** (doc-range ASNs/IPs, fake org names). To add a field, a new
+  endpoint/method, a param variant, or a whole new data source, follow the four
+  recipes in [`dashboard/devmock/fixtures/README.md`](dashboard/devmock/fixtures/README.md).
+- **Both are hard-gated on `DEBUG`** (`LG_USE_FIXTURES`/`DEV_LOGIN_ENABLED` AND
+  with `DEBUG` in `settings.py`), so they can never activate in production even
+  if the env var is set.
+
+To run against **live data** instead, omit `LG_USE_FIXTURES` and set real OIDC +
+`IXP_LOOKING_GLASS_URL` (see below). The dev login still works for the session
+seed; live endpoints need a real OIDC `id_token`.
+
+### Quickstart with real OIDC + superuser (legacy)
+
+```bash
+python manage.py migrate
 python manage.py runserver
 ```
 

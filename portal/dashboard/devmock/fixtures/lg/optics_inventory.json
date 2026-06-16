@@ -1,0 +1,18 @@
+[
+  {
+    "success": true,
+    "device": "switch01.pop1.example.net",
+    "data": [
+      {"name": "Ethernet1", "vendor": "ExampleOptics", "model": "EX-SFP-10G-LR", "serial_number": "PLACEHOLDER0001", "media_type": "10GBASE-LR"},
+      {"name": "Ethernet2", "vendor": "ExampleOptics", "model": "EX-SFP-10G-LR", "serial_number": "PLACEHOLDER0002", "media_type": "10GBASE-LR"},
+      {"name": "Ethernet3", "vendor": "ExampleOptics", "model": "EX-SFP-10G-LR", "serial_number": "PLACEHOLDER0003", "media_type": "10GBASE-LR"}
+    ]
+  },
+  {
+    "success": true,
+    "device": "switch02.pop2.example.net",
+    "data": [
+      {"name": "Ethernet5", "vendor": "ExampleOptics", "model": "EX-SFP-10G-SR", "serial_number": "PLACEHOLDER0004", "media_type": "10GBASE-SR"}
+    ]
+  }
+]

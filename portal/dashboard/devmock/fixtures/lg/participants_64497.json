@@ -1,0 +1,19 @@
+{
+  "asn": 64497,
+  "name": "Placeholder Transit Inc.",
+  "participant_type": "peer",
+  "ip_addresses": [
+    {"address": "192.0.2.11/24", "family": "IPv4", "status": "active", "participant_lag_id": 1002},
+    {"address": "2001:db8:0:1::11/64", "family": "IPv6", "status": "active", "participant_lag_id": 1002}
+  ],
+  "enriched_ports": [
+    {
+      "device": "switch02.pop2.example.net",
+      "interface": "Ethernet5",
+      "interface_id": 1002,
+      "speed": 10000,
+      "enabled": true,
+      "member_interfaces": []
+    }
+  ]
+}

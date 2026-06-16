@@ -1,0 +1,11 @@
+{
+  "configured": true,
+  "age_secs": 312,
+  "last_error": null,
+  "url": "https://netbox.example.net",
+  "refresh_interval_secs": 14400,
+  "participant_count": 3,
+  "peering_port_count": 4,
+  "core_port_count": 2,
+  "port_map_size": 6
+}

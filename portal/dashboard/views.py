@@ -49,7 +49,9 @@ def _ip_in_trusted_networks(ip_str):
 def login_view(request):
     if request.user.is_authenticated:
         return redirect("/")
-    return render(request, "dashboard/login.html")
+    return render(request, "dashboard/login.html", {
+        "dev_login_enabled": getattr(settings, "DEV_LOGIN_ENABLED", False),
+    })
 
 
 def logout_view(request):

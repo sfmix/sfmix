@@ -28,6 +28,13 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-dev-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
+# ── Local-dev affordances — HARD-GATED on DEBUG ──
+# Both flags AND with DEBUG, so setting the env var in production (where
+# DJANGO_DEBUG=false) can never enable them. See dashboard/devmock and
+# dashboard/devauth. Off by default even in DEBUG, so live mode still works.
+LG_USE_FIXTURES = DEBUG and os.environ.get("LG_USE_FIXTURES", "false").lower() in ("true", "1", "yes")
+DEV_LOGIN_ENABLED = DEBUG and os.environ.get("DEV_LOGIN", "true").lower() in ("true", "1", "yes")
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -46,6 +53,13 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
 ]
+
+# DEBUG-only: auto-login a dev persona on every request so `runserver` comes up
+# already authenticated (mirrors the prod SSO experience). Set e.g.
+# DEV_AUTOLOGIN=admin_member. The middleware self-disables unless DEBUG +
+# DEV_LOGIN_ENABLED, but we only even add it when the env var is present.
+if DEV_LOGIN_ENABLED and os.environ.get("DEV_AUTOLOGIN", "").strip():
+    MIDDLEWARE.append("dashboard.devauth.DevAutologinMiddleware")
 
 ROOT_URLCONF = "ixp_portal.urls"
 
@@ -90,7 +104,17 @@ AUTHENTICATION_BACKENDS = [
     "dashboard.backends.SFMIXOIDCBackend",
 ]
 
-LOGIN_URL = "/oidc/authenticate/"
+# The dev-login bypass authenticates a plain Django user, which needs a backend
+# present in AUTHENTICATION_BACKENDS so get_user() can rehydrate the session on
+# subsequent requests. Only added when the dev login is enabled (DEBUG-gated).
+if DEV_LOGIN_ENABLED:
+    AUTHENTICATION_BACKENDS.append("django.contrib.auth.backends.ModelBackend")
+
+# Send unauthenticated users to the local login page (a safe public placeholder
+# with the SSO button — and the dev-login link in DEBUG), rather than bouncing
+# straight into the Authentik OIDC flow. This keeps gated pages usable in local
+# dev and gives prod a normal login landing instead of an auto-redirect.
+LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 

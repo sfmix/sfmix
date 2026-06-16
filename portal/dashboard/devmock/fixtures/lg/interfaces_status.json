@@ -1,0 +1,19 @@
+[
+  {
+    "success": true,
+    "device": "switch01.pop1.example.net",
+    "data": [
+      {"name": "Ethernet1", "link_status": "up", "speed": 10000, "description": "AS64496 Example Networks LLC"},
+      {"name": "Ethernet2", "link_status": "down", "speed": 10000, "description": "AS64496 Example Networks LLC"},
+      {"name": "Ethernet3", "link_status": "up", "speed": 10000, "description": "AS64498 Doc Example Peer Co."},
+      {"name": "Port-Channel1", "link_status": "up", "speed": 20000, "description": "AS64496 Example Networks LLC"}
+    ]
+  },
+  {
+    "success": true,
+    "device": "switch02.pop2.example.net",
+    "data": [
+      {"name": "Ethernet5", "link_status": "up", "speed": 10000, "description": "AS64497 Placeholder Transit Inc."}
+    ]
+  }
+]

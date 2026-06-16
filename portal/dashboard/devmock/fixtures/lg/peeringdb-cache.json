@@ -1,0 +1,7 @@
+{
+  "networks": {
+    "64496": {"website": "https://example.com", "info_type": "Content", "policy_general": "Open"},
+    "64497": {"website": "https://transit.example.net", "info_type": "NSP", "policy_general": "Selective"},
+    "64498": {"website": "https://peer.example.org", "info_type": "Enterprise", "policy_general": "Open"}
+  }
+}
