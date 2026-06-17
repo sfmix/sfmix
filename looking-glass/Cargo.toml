@@ -44,7 +44,7 @@ schemars = "1"
 tabled = { version = "0.20", features = ["ansi"] }
 owo-colors = "4"
 reqwest.workspace = true
-jsonwebtoken = "9"
+jsonwebtoken = "10"
 rand = "0.8"
 regex = "1"
 chrono.workspace = true
