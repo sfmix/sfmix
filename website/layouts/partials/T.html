@@ -1,0 +1,15 @@
+{{- /*
+  T — gettext-style translation helper.
+
+  The English source string IS the key (the msgid), exactly like gettext /
+  Django's {% translate %}. There is no en.toml: English is the source, so
+  authors just write plain English in templates. Translators fill in
+  i18n/<lang>.toml files whose keys are the English sentences and whose values
+  are the translations (the .po "msgid -> msgstr" model). Any string with no
+  entry for the current language falls back to the English source.
+
+  Usage:  {{ partial "T.html" "Connect to SFMIX" }}
+  HTML:   {{ partial "T.html" "Contact <a href=…>us</a>." | safeHTML }}
+*/ -}}
+{{- $msgid := . -}}
+{{- with (i18n $msgid) }}{{ . }}{{ else }}{{ $msgid }}{{ end -}}

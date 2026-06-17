@@ -1,7 +1,64 @@
 baseURL = 'https://sfmix.org/'
-languageCode = 'en-us'
 title = 'SFMIX – San Francisco Metropolitan Internet eXchange'
 disableKinds = ['taxonomy', 'term']
+
+# --- Internationalization -------------------------------------------------
+# English is the default and lives at the site root (/). Every other language
+# is built into its own subtree (/es/, /de/, /en-pirate/, /en-genz/).
+#
+# Two translation surfaces, both authored in plain language:
+#   * Page prose  -> translated Markdown files (content/about.es.md, …).
+#   * UI chrome   -> gettext-style catalogs (i18n/es.toml, …) whose keys are
+#                    the English source strings. English itself needs no
+#                    catalog; missing strings fall back to English.
+defaultContentLanguage = 'en'
+defaultContentLanguageInSubdir = false
+
+[languages]
+  [languages.en]
+    languageName = 'English'   # native name shown in the picker
+    languageCode = 'en-US'
+    weight = 1
+    title = 'SFMIX – San Francisco Metropolitan Internet eXchange'
+    [languages.en.params]
+      description = "SFMIX is an Internet Exchange (IX) based within San Francisco, California. IXs serve as a focal point of bandwidth or network capacity. Participating entities interconnect or peer with one another to improve network performance."
+  [languages.es]
+    languageName = 'Español'
+    languageCode = 'es-ES'
+    weight = 2
+    title = 'SFMIX – San Francisco Metropolitan Internet eXchange'
+    [languages.es.params]
+      description = "SFMIX es un Punto de Intercambio de Internet (IX) ubicado en San Francisco, California. Los IX sirven como punto focal de ancho de banda o capacidad de red. Las entidades participantes se interconectan o intercambian tráfico entre sí para mejorar el rendimiento de la red."
+  [languages.de]
+    languageName = 'Deutsch'
+    languageCode = 'de-DE'
+    weight = 3
+    title = 'SFMIX – San Francisco Metropolitan Internet eXchange'
+    [languages.de.params]
+      description = "SFMIX ist ein Internet-Knoten (IX) mit Sitz in San Francisco, Kalifornien. IX dienen als Knotenpunkt für Bandbreite bzw. Netzwerkkapazität. Teilnehmende Organisationen verbinden sich direkt miteinander, um die Netzwerkleistung zu verbessern."
+  # Novelty locales — mirror the portal's language picker. English-derived and
+  # only reachable via the picker (no browser sends "Pirate" in Accept-Language,
+  # so the JS auto-detect never selects them). languageCode stays a real BCP-47
+  # tag ("en") for <html lang>.
+  # Novelty locales use distinct base language keys (pirate/genz) rather than
+  # "en-…": Hugo's i18n matcher collapses any en-derived tag back to the empty
+  # "en" bundle, so the catalog would never load. A standalone key gets its own
+  # bundle and a clean /pirate/ , /genz/ URL; languageCode stays "en" so the
+  # rendered <html lang> is still valid English for assistive tech.
+  [languages.pirate]
+    languageName = 'Pirate'
+    languageCode = 'en'
+    weight = 4
+    title = 'SFMIX – Th’ San Francisco Metropolitan Internet eXchange'
+    [languages.pirate.params]
+      description = "SFMIX be an Internet Exchange (IX) moored in San Francisco, California, where crews o' networks meet t' swap their bits direct-like, savin' coin an' speedin' the voyage."
+  [languages.genz]
+    languageName = 'Gen Z'
+    languageCode = 'en'
+    weight = 5
+    title = 'SFMIX – the San Francisco Metropolitan Internet eXchange fr'
+    [languages.genz.params]
+      description = "SFMIX is an Internet Exchange (IX) in San Francisco, California — basically where networks link up and trade bits directly. It's faster, cheaper, and lowkey the move for better performance. No cap."
 
 [sitemap]
   changefreq = "weekly"
@@ -11,13 +68,15 @@ disableKinds = ['taxonomy', 'term']
   unsafe = true
 
 [params]
-  description = "SFMIX is an Internet Exchange (IX) based within San Francisco, California. IXs serve as a focal point of bandwidth or network capacity. Participating entities interconnect or peer with one another to improve network performance."
-  tagline = "Local, sustainable, organic … bits."
   email = "tech-c@sfmix.org"
   phone = "+1 415 634-6712"
   copyright_name = "San Francisco Metropolitan Internet eXchange"
   theme_color = "#1a3a5c"
 
+# One menu definition, shared across all languages (top-level config cascades
+# into every language). Labels are the English source text and are translated
+# in the template via the T partial; link URLs are localized at render time
+# with relLangURL (which prefixes the active language: /es/about/ …).
 [menus]
 
 [[menus.about]]
@@ -66,7 +125,9 @@ disableKinds = ['taxonomy', 'term']
   weight = 4
 
 [[menus.main]]
-  name = "Connect"
+  # Distinct from the "Connect" dropdown category above so the label isn't
+  # duplicated in the nav (its own msgid; translated in i18n/<lang>.toml).
+  name = "Get Connected"
   url = "/connection-guide/"
   weight = 5
 
