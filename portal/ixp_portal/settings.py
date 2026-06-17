@@ -1,8 +1,6 @@
 import os
 from pathlib import Path
 
-from django.utils.translation import gettext_lazy as _
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ── Cache backend (swap to RedisCache / MemcachedCache via env) ──
@@ -119,12 +117,17 @@ for _code, _name in (("en-pirate", "Pirate"), ("en-genz", "Gen Z")):
         "name_local": _name,
     }
 
+# Names are intentionally plain (not gettext-wrapped) native names: the picker
+# always displays each language's own local name (get_language_info name_local),
+# never a name translated into the active language — so "Español" stays "Español"
+# even when the UI is in German. Keeping these untranslatable prevents that rule
+# from being accidentally broken and keeps the names out of the .po catalogs.
 LANGUAGES = [
-    ("en", _("English")),
-    ("es", _("Español")),
-    ("de", _("Deutsch")),
-    ("en-pirate", _("Pirate")),
-    ("en-genz", _("Gen Z")),
+    ("en", "English"),
+    ("es", "Español"),
+    ("de", "Deutsch"),
+    ("en-pirate", "Pirate"),
+    ("en-genz", "Gen Z"),
 ]
 LOCALE_PATHS = [BASE_DIR / "locale"]
 

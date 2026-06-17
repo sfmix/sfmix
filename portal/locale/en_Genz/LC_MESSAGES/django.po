@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-16 23:15-0500\n"
+"POT-Creation-Date: 2026-06-16 23:37-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: Gen Z\n"
@@ -51,7 +51,9 @@ msgstr "%(port)s is down bad, it's giving offline"
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
-msgstr "every member link is ghosted, route-server seshes just chillin idle and zero traffic moving on this logical port, it's giving dead"
+msgstr ""
+"every member link is ghosted, route-server seshes just chillin idle and zero "
+"traffic moving on this logical port, it's giving dead"
 
 #: dashboard/views.py:503
 #, python-format
@@ -63,7 +65,9 @@ msgstr "%(port)s lowkey cooked — only %(up)s/%(total)s members up"
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
 "%(total)sG. Redundancy is lost until the link is restored."
-msgstr "a member link dipped; bundle vibin at only %(effective)sG outta %(total)sG. no backup rizz till that link comes back, sus"
+msgstr ""
+"a member link dipped; bundle vibin at only %(effective)sG outta %(total)sG. "
+"no backup rizz till that link comes back, sus"
 
 #: dashboard/views.py:528
 #, python-format
@@ -75,7 +79,9 @@ msgstr "%(port)s optic %(band)s on %(lane)s, peep it"
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
 "schedule an optic replacement."
-msgstr "RX %(rx)s dBm is acting up outside the chill zone fr. check the fiber / patch or book an optic glow-up"
+msgstr ""
+"RX %(rx)s dBm is acting up outside the chill zone fr. check the fiber / "
+"patch or book an optic glow-up"
 
 #: dashboard/views.py:548
 #, python-format
@@ -88,27 +94,9 @@ msgstr[1] "%(count)s routes rejected on %(port)s, ratio'd"
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
-msgstr "prefixes getting filtered (IRR / RPKI-invalid, bogon, or max-prefix), big L. your advertised routes might be left on read by peers, not bussin"
-
-#: ixp_portal/settings.py:123
-msgid "English"
-msgstr "English"
-
-#: ixp_portal/settings.py:124
-msgid "Español"
-msgstr "Español"
-
-#: ixp_portal/settings.py:125
-msgid "Deutsch"
-msgstr "Deutsch"
-
-#: ixp_portal/settings.py:126
-msgid "Pirate"
-msgstr "Pirate"
-
-#: ixp_portal/settings.py:127
-msgid "Gen Z"
-msgstr "Gen Z"
+msgstr ""
+"prefixes getting filtered (IRR / RPKI-invalid, bogon, or max-prefix), big L. "
+"your advertised routes might be left on read by peers, not bussin"
 
 #: templates/base.html:22
 msgid "Participant Portal"
@@ -268,7 +256,10 @@ msgid ""
 "Your account is not associated with any ASNs that are SFMIX participants.\n"
 "    If you believe this is an error, contact <a href=\"mailto:tech-c@sfmix."
 "org\" class=\"underline\">tech-c@sfmix.org</a>."
-msgstr "your account ain't linked to any SFMIX-participant ASNs, it's giving empty.\n    if you think that's an L, slide into <a href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
+msgstr ""
+"your account ain't linked to any SFMIX-participant ASNs, it's giving empty.\n"
+"    if you think that's an L, slide into <a href=\"mailto:tech-c@sfmix.org\" "
+"class=\"underline\">tech-c@sfmix.org</a>."
 
 #: templates/dashboard/index.html:17
 msgid "Your PeeringDB account is associated with these ASNs:"
@@ -337,7 +328,9 @@ msgstr "Pull up with SFMIX SSO"
 msgid ""
 "Authenticated by <a href=\"https://login.sfmix.org\" "
 "class=\"underline\">login.sfmix.org</a>"
-msgstr "verified by <a href=\"https://login.sfmix.org\" class=\"underline\">login.sfmix.org</a>"
+msgstr ""
+"verified by <a href=\"https://login.sfmix.org\" class=\"underline\">login."
+"sfmix.org</a>"
 
 #: templates/dashboard/login.html:17
 msgid "Local dev only"
@@ -518,7 +511,9 @@ msgstr "Bias (mA)"
 
 #: templates/dashboard/optics.html:180
 msgid "Lane values shown for lane 1; ×N indicates multi-lane optic"
-msgstr "lane values shown for lane 1; ×N means multi-lane optic, just so you know bestie"
+msgstr ""
+"lane values shown for lane 1; ×N means multi-lane optic, just so you know "
+"bestie"
 
 #: templates/dashboard/optics.html:184
 msgid "No optics data found."
@@ -712,11 +707,15 @@ msgstr "Rejected, ratio'd"
 #: templates/dashboard/participant_detail.html:390
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
-msgstr "no ports for AS%(asn)s fr, it's giving empty. this network might not be provisioned yet, sus"
+msgstr ""
+"no ports for AS%(asn)s fr, it's giving empty. this network might not be "
+"provisioned yet, sus"
 
 #: templates/dashboard/participants_list.html:9
 msgid "Networks peering at the San Francisco Metropolitan Internet eXchange"
-msgstr "Networks peering at the San Francisco Metropolitan Internet eXchange, the whole squad"
+msgstr ""
+"Networks peering at the San Francisco Metropolitan Internet eXchange, the "
+"whole squad"
 
 #: templates/dashboard/participants_list.html:32
 msgid "Unable to fetch participant list:"
