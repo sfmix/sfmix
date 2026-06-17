@@ -2,5 +2,43 @@
 - name: Looking Glass (Rust)
   hosts: looking_glass_rust
   gather_facts: true
+  pre_tasks:
+    # Build the lg-server device inventory from NetBox rather than a static
+    # list: every active device in the "peering_switch" role (populated by
+    # inventory/netbox.peering_switches.yml). Connection target is the
+    # device's NetBox primary IPv4 (ansible_host) — the management address —
+    # and the platform is derived from its manufacturer. Devices whose
+    # manufacturer lg-server can't drive (e.g. juniper) are skipped.
+    - name: Report peering_switch devices skipped (unsupported manufacturer)
+      ansible.builtin.debug:
+        msg: >-
+          Skipping {{ item }}: manufacturer
+          '{{ hostvars[item].manufacturers | default([]) | first | default("unknown") }}'
+          is not supported by looking-glass (no lg-server driver).
+      loop: "{{ groups['peering_switch'] | default([]) | sort }}"
+      when: >-
+        (hostvars[item].manufacturers | default([]) | first | default(''))
+        not in looking_glass_manufacturer_platform_map
+
+    - name: Build looking-glass device list from NetBox peering_switch role
+      ansible.builtin.set_fact:
+        looking_glass_devices: >-
+          {{ looking_glass_devices | default([]) + [{
+               'name': item ~ '.' ~ looking_glass_netbox_domain_suffix,
+               'platform': _lg_platform,
+               'host': hostvars[item].ansible_host,
+             } | combine(
+               {'command_timeout_secs': looking_glass_platform_command_timeout[_lg_platform]}
+               if _lg_platform in looking_glass_platform_command_timeout else {}
+             )] }}
+      vars:
+        _lg_manufacturer: "{{ hostvars[item].manufacturers | default([]) | first | default('') }}"
+        _lg_platform: "{{ looking_glass_manufacturer_platform_map[_lg_manufacturer] | default('') }}"
+      loop: "{{ groups['peering_switch'] | default([]) | sort }}"
+      when: _lg_manufacturer in looking_glass_manufacturer_platform_map
+
+    - name: Show resolved looking-glass device list
+      ansible.builtin.debug:
+        var: looking_glass_devices
   roles:
     - looking_glass

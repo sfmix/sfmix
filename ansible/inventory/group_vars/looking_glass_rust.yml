@@ -65,42 +65,19 @@ looking_glass_public_vlans:
   - "999"
 looking_glass_network_slug: "sfmix"
 looking_glass_version: "0.1.0"
-looking_glass_devices:
-  - name: switch01.sfo01.sfmix.org
-    platform: arista_eos
-  - name: switch01.sfo02.sfmix.org
-    platform: arista_eos
-  - name: switch02.sfo02.sfmix.org
-    platform: arista_eos
-  - name: switch01.fmt01.sfmix.org
-    platform: arista_eos
-  - name: switch02.fmt01.sfmix.org
-    platform: arista_eos
-  - name: switch03.fmt01.sfmix.org
-    platform: arista_eos
-  - name: switch01.scl01.sfmix.org
-    platform: arista_eos
-  - name: switch01.scl02.sfmix.org
-    platform: arista_eos
-  - name: switch01.scl04.sfmix.org
-    platform: arista_eos
-  - name: switch01.sjc01.sfmix.org
-    platform: arista_eos
-  - name: switch02.sjc01.sfmix.org
-    platform: arista_eos
-  - name: switch03.sjc01.sfmix.org
-    platform: arista_eos
-  - name: switch04.sjc01.sfmix.org
-    platform: arista_eos
-  - name: switch01.sjc02.sfmix.org
-    platform: arista_eos
-  - name: switch01.scl05.sfmix.org
-    platform: arista_eos
-  - name: cr1.sjc01.transit.sfmix.org
-    host: management.cr1.sjc01.transit.sfmix.org
-    platform: nokia_sros
-    command_timeout_secs: 120
-  - name: cr1.scl02.transit.sfmix.org
-    host: management.cr1.scl02.transit.sfmix.org
-    platform: nokia_sros
-    command_timeout_secs: 120
+# looking_glass_devices is built dynamically by the looking_glass play's
+# pre_task from the NetBox dynamic inventory: every active device in the
+# "peering_switch" role (see inventory/netbox.peering_switches.yml). The maps
+# below translate that NetBox data into lg-server device config.
+#
+# Manufacturer (NetBox) → looking-glass platform. lg-server only implements
+# these two drivers; devices whose manufacturer is not listed here (e.g.
+# juniper) are unsupported and skipped with a warning rather than emitted
+# (an unknown platform would fail lg-server config parsing outright).
+looking_glass_manufacturer_platform_map:
+  arista: arista_eos
+  nokia: nokia_sros
+# Per-platform command-timeout override (seconds). Nokia SR-OS `show` output
+# can be megabytes of JSON; the lg-server default (15s) is too short.
+looking_glass_platform_command_timeout:
+  nokia_sros: 120
