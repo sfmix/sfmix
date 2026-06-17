@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-16 23:15-0500\n"
+"POT-Creation-Date: 2026-06-16 23:37-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: Pirate\n"
@@ -51,7 +51,9 @@ msgstr "%(port)s has gone to Davy Jones' locker"
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
-msgstr "All the crew's links be offline. Route-server parleys lie idle an' nary a soul sails through this logical port."
+msgstr ""
+"All the crew's links be offline. Route-server parleys lie idle an' nary a "
+"soul sails through this logical port."
 
 #: dashboard/views.py:503
 #, python-format
@@ -63,7 +65,9 @@ msgstr "%(port)s be takin' on water — %(up)s/%(total)s crew still afloat"
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
 "%(total)sG. Redundancy is lost until the link is restored."
-msgstr "A crew link be sunk; the bundle sails at %(effective)sG o' %(total)sG. Yer spare riggin' be lost 'til the link be mended."
+msgstr ""
+"A crew link be sunk; the bundle sails at %(effective)sG o' %(total)sG. Yer "
+"spare riggin' be lost 'til the link be mended."
 
 #: dashboard/views.py:528
 #, python-format
@@ -75,7 +79,9 @@ msgstr "%(port)s spyglass %(band)s on %(lane)s"
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
 "schedule an optic replacement."
-msgstr "RX %(rx)s dBm be outside the shipshape range. Inspect the fiber / patch or order a fresh spyglass, matey."
+msgstr ""
+"RX %(rx)s dBm be outside the shipshape range. Inspect the fiber / patch or "
+"order a fresh spyglass, matey."
 
 #: dashboard/views.py:548
 #, python-format
@@ -88,27 +94,9 @@ msgstr[1] "%(count)s routes tossed overboard on %(port)s"
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
-msgstr "Yer prefixes be gettin' filtered (IRR / RPKI-invalid, bogon, or max-prefix). Charted routes may not be reachin' yer fellow mateys as ye reckon."
-
-#: ixp_portal/settings.py:123
-msgid "English"
-msgstr "English"
-
-#: ixp_portal/settings.py:124
-msgid "Español"
-msgstr "Español"
-
-#: ixp_portal/settings.py:125
-msgid "Deutsch"
-msgstr "Deutsch"
-
-#: ixp_portal/settings.py:126
-msgid "Pirate"
-msgstr "Pirate"
-
-#: ixp_portal/settings.py:127
-msgid "Gen Z"
-msgstr "Gen Z"
+msgstr ""
+"Yer prefixes be gettin' filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
+"Charted routes may not be reachin' yer fellow mateys as ye reckon."
 
 #: templates/base.html:22
 msgid "Participant Portal"
@@ -268,7 +256,10 @@ msgid ""
 "Your account is not associated with any ASNs that are SFMIX participants.\n"
 "    If you believe this is an error, contact <a href=\"mailto:tech-c@sfmix."
 "org\" class=\"underline\">tech-c@sfmix.org</a>."
-msgstr "Yer account be lashed to no ASNs sailin' under the SFMIX flag.\n    If ye reckon this be an error, send a message in a bottle to <a href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
+msgstr ""
+"Yer account be lashed to no ASNs sailin' under the SFMIX flag.\n"
+"    If ye reckon this be an error, send a message in a bottle to <a "
+"href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
 
 #: templates/dashboard/index.html:17
 msgid "Your PeeringDB account is associated with these ASNs:"
@@ -337,7 +328,9 @@ msgstr "Climb aboard with SFMIX SSO"
 msgid ""
 "Authenticated by <a href=\"https://login.sfmix.org\" "
 "class=\"underline\">login.sfmix.org</a>"
-msgstr "Vouched for by <a href=\"https://login.sfmix.org\" class=\"underline\">login.sfmix.org</a>"
+msgstr ""
+"Vouched for by <a href=\"https://login.sfmix.org\" class=\"underline\">login."
+"sfmix.org</a>"
 
 #: templates/dashboard/login.html:17
 msgid "Local dev only"
@@ -414,7 +407,9 @@ msgstr "Last blunder"
 msgid ""
 "Data is refreshed automatically by the Looking Glass service every "
 "%(interval)ss."
-msgstr "The booty be restocked on its own by the Spyglass service every %(interval)ss."
+msgstr ""
+"The booty be restocked on its own by the Spyglass service every "
+"%(interval)ss."
 
 #: templates/dashboard/network_mac_table.html:9
 msgid "MAC Address Table"
@@ -712,7 +707,9 @@ msgstr "Tossed overboard"
 #: templates/dashboard/participant_detail.html:390
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
-msgstr "No ports be found for AS%(asn)s. This fleet may not yet be stocked an' rigged."
+msgstr ""
+"No ports be found for AS%(asn)s. This fleet may not yet be stocked an' "
+"rigged."
 
 #: templates/dashboard/participants_list.html:9
 msgid "Networks peering at the San Francisco Metropolitan Internet eXchange"

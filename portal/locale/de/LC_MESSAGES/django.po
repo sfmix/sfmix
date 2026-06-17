@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-16 03:20-0500\n"
+"POT-Creation-Date: 2026-06-16 23:37-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: German\n"
@@ -51,7 +51,9 @@ msgstr "%(port)s ist ausgefallen"
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
-msgstr "Alle Mitgliedsverbindungen sind offline. Die Route-Server-Sitzungen sind inaktiv und über diesen logischen Port fließt kein Verkehr."
+msgstr ""
+"Alle Mitgliedsverbindungen sind offline. Die Route-Server-Sitzungen sind "
+"inaktiv und über diesen logischen Port fließt kein Verkehr."
 
 #: dashboard/views.py:503
 #, python-format
@@ -63,7 +65,10 @@ msgstr "%(port)s beeinträchtigt — %(up)s/%(total)s Mitglieder aktiv"
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
 "%(total)sG. Redundancy is lost until the link is restored."
-msgstr "Eine Mitgliedsverbindung ist ausgefallen; das Bündel läuft mit %(effective)sG von %(total)sG. Die Redundanz ist verloren, bis die Verbindung wiederhergestellt ist."
+msgstr ""
+"Eine Mitgliedsverbindung ist ausgefallen; das Bündel läuft mit "
+"%(effective)sG von %(total)sG. Die Redundanz ist verloren, bis die "
+"Verbindung wiederhergestellt ist."
 
 #: dashboard/views.py:528
 #, python-format
@@ -75,7 +80,9 @@ msgstr "Optik von %(port)s %(band)s auf %(lane)s"
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
 "schedule an optic replacement."
-msgstr "RX %(rx)s dBm liegt außerhalb des Nominalbereichs. Überprüfen Sie die Faser / das Patchkabel oder planen Sie einen Optik-Austausch."
+msgstr ""
+"RX %(rx)s dBm liegt außerhalb des Nominalbereichs. Überprüfen Sie die "
+"Faser / das Patchkabel oder planen Sie einen Optik-Austausch."
 
 #: dashboard/views.py:548
 #, python-format
@@ -88,19 +95,9 @@ msgstr[1] "%(count)s Routen auf %(port)s abgelehnt"
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
-msgstr "Präfixe werden gefiltert (IRR / RPKI-ungültig, Bogon oder Max-Prefix). Angekündigte Routen erreichen die Peers möglicherweise nicht wie erwartet."
-
-#: ixp_portal/settings.py:107
-msgid "English"
-msgstr "Englisch"
-
-#: ixp_portal/settings.py:108
-msgid "Español"
-msgstr "Spanisch"
-
-#: ixp_portal/settings.py:109
-msgid "Deutsch"
-msgstr "Deutsch"
+msgstr ""
+"Präfixe werden gefiltert (IRR / RPKI-ungültig, Bogon oder Max-Prefix). "
+"Angekündigte Routen erreichen die Peers möglicherweise nicht wie erwartet."
 
 #: templates/base.html:22
 msgid "Participant Portal"
@@ -260,7 +257,10 @@ msgid ""
 "Your account is not associated with any ASNs that are SFMIX participants.\n"
 "    If you believe this is an error, contact <a href=\"mailto:tech-c@sfmix."
 "org\" class=\"underline\">tech-c@sfmix.org</a>."
-msgstr "Ihr Konto ist mit keinem ASN verknüpft, das SFMIX-Teilnehmer ist.\n    Wenn Sie glauben, dass dies ein Fehler ist, wenden Sie sich an <a href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
+msgstr ""
+"Ihr Konto ist mit keinem ASN verknüpft, das SFMIX-Teilnehmer ist.\n"
+"    Wenn Sie glauben, dass dies ein Fehler ist, wenden Sie sich an <a "
+"href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
 
 #: templates/dashboard/index.html:17
 msgid "Your PeeringDB account is associated with these ASNs:"
@@ -319,7 +319,8 @@ msgstr "SFMIX-Teilnehmerportal"
 
 #: templates/dashboard/login.html:9
 msgid "Sign in with your PeeringDB or GitHub account via SFMIX SSO."
-msgstr "Melden Sie sich mit Ihrem PeeringDB- oder GitHub-Konto über SFMIX SSO an."
+msgstr ""
+"Melden Sie sich mit Ihrem PeeringDB- oder GitHub-Konto über SFMIX SSO an."
 
 #: templates/dashboard/login.html:12
 msgid "Sign in with SFMIX SSO"
@@ -329,7 +330,9 @@ msgstr "Mit SFMIX SSO anmelden"
 msgid ""
 "Authenticated by <a href=\"https://login.sfmix.org\" "
 "class=\"underline\">login.sfmix.org</a>"
-msgstr "Authentifiziert durch <a href=\"https://login.sfmix.org\" class=\"underline\">login.sfmix.org</a>"
+msgstr ""
+"Authentifiziert durch <a href=\"https://login.sfmix.org\" "
+"class=\"underline\">login.sfmix.org</a>"
 
 #: templates/dashboard/login.html:17
 msgid "Local dev only"
@@ -406,7 +409,9 @@ msgstr "Letzter Fehler"
 msgid ""
 "Data is refreshed automatically by the Looking Glass service every "
 "%(interval)ss."
-msgstr "Die Daten werden vom Looking-Glass-Dienst automatisch alle %(interval)ss aktualisiert."
+msgstr ""
+"Die Daten werden vom Looking-Glass-Dienst automatisch alle %(interval)ss "
+"aktualisiert."
 
 #: templates/dashboard/network_mac_table.html:9
 msgid "MAC Address Table"
@@ -704,7 +709,9 @@ msgstr "Abgelehnt"
 #: templates/dashboard/participant_detail.html:390
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
-msgstr "Keine Ports für AS%(asn)s gefunden. Dieses Netzwerk ist möglicherweise noch nicht bereitgestellt."
+msgstr ""
+"Keine Ports für AS%(asn)s gefunden. Dieses Netzwerk ist möglicherweise noch "
+"nicht bereitgestellt."
 
 #: templates/dashboard/participants_list.html:9
 msgid "Networks peering at the San Francisco Metropolitan Internet eXchange"
