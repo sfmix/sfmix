@@ -112,7 +112,7 @@ msgstr "Gen Z"
 
 #: templates/base.html:22
 msgid "Participant Portal"
-msgstr "Participant Portal (the homies hub)"
+msgstr "Participant Portal (the besties hub)"
 
 #: templates/base.html:25 templates/dashboard/netbox_status.html:73
 #: templates/dashboard/participants_list.html:3
@@ -226,7 +226,7 @@ msgstr "not cached, it's giving empty"
 #: templates/dashboard/lldp_neighbors.html:3
 #: templates/dashboard/lldp_neighbors.html:10
 msgid "LLDP Neighbors"
-msgstr "LLDP Neighbors (the link homies)"
+msgstr "LLDP Neighbors (the link besties)"
 
 #: templates/dashboard/device_cache_status.html:68
 #: templates/dashboard/network_mac_table.html:3
@@ -323,7 +323,7 @@ msgstr "Pull Up"
 
 #: templates/dashboard/login.html:8
 msgid "SFMIX Participant Portal"
-msgstr "SFMIX Participant Portal (the homies hub)"
+msgstr "SFMIX Participant Portal (the besties hub)"
 
 #: templates/dashboard/login.html:9
 msgid "Sign in with your PeeringDB or GitHub account via SFMIX SSO."
@@ -531,7 +531,7 @@ msgstr "Network"
 
 #: templates/dashboard/participant_detail.html:8
 msgid "Back to participants"
-msgstr "back to the homies"
+msgstr "back to the besties"
 
 #: templates/dashboard/participant_detail.html:14
 msgid "Unable to fetch some data:"
@@ -720,7 +720,7 @@ msgstr "Networks peering at the San Francisco Metropolitan Internet eXchange, th
 
 #: templates/dashboard/participants_list.html:32
 msgid "Unable to fetch participant list:"
-msgstr "couldn't grab the homies list, big L:"
+msgstr "couldn't grab the besties list, big L:"
 
 #: templates/dashboard/participants_list.html:42
 msgid "Search name, ASN, or IP…"
@@ -728,7 +728,7 @@ msgstr "search name, ASN, or IP…"
 
 #: templates/dashboard/participants_list.html:49
 msgid "participants"
-msgstr "homies"
+msgstr "besties"
 
 #: templates/dashboard/participants_list.html:54
 msgid "IX-F Member Export (JSON)"
@@ -785,4 +785,4 @@ msgstr "Inactive, ghosted"
 
 #: templates/dashboard/participants_list.html:213
 msgid "No participants found."
-msgstr "no homies found fr, it's giving empty"
+msgstr "no besties found fr, it's giving empty"
