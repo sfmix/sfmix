@@ -137,17 +137,21 @@ img { max-width: 100%; height: auto; }
 .nav-item { position: relative; }
 
 .nav-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  height: var(--header-height);
   padding: 0 0.9rem;
-  line-height: var(--header-height);
   color: rgba(255,255,255,0.9);
   background: none;
   border: none;
   font: inherit;
   font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .nav-link:hover { color: var(--color-white); background: rgba(255,255,255,0.1); text-decoration: none; }
 
@@ -644,7 +648,7 @@ img { max-width: 100%; height: auto; }
   }
   .site-nav.open { display: block; }
   .nav-list { flex-direction: column; align-items: stretch; }
-  .nav-link { line-height: 3rem; padding: 0 1.5rem; }
+  .nav-link { display: flex; height: 3rem; padding: 0 1.5rem; }
   .dropdown-menu {
     position: static;
     box-shadow: none;
