@@ -40,7 +40,7 @@ msgstr "kinda mid ngl"
 
 #: dashboard/views.py:222
 msgid "Out of range"
-msgstr "way off, this cooked"
+msgstr "hella sus, port is cooked"
 
 #: dashboard/views.py:495
 #, python-format
@@ -106,7 +106,7 @@ msgstr "Participant Portal (the besties hub)"
 #: templates/dashboard/participants_list.html:3
 #: templates/dashboard/participants_list.html:8
 msgid "Participants"
-msgstr "the Homies"
+msgstr "the Besties"
 
 #: templates/base.html:29 templates/dashboard/participant_detail.html:118
 msgid "Admin"
@@ -302,7 +302,7 @@ msgstr "Neighbor Port"
 #: templates/dashboard/lldp_neighbors.html:65
 #: templates/dashboard/participants_list.html:82
 msgid "Participant"
-msgstr "Homie"
+msgstr "Bestie"
 
 #: templates/dashboard/lldp_neighbors.html:105
 msgid "No LLDP neighbors found."
@@ -448,7 +448,7 @@ msgstr "MAC Address"
 
 #: templates/dashboard/network_mac_table.html:57
 msgid "Type"
-msgstr "Type"
+msgstr "Type Shit"
 
 #: templates/dashboard/network_mac_table.html:62
 #: templates/dashboard/optics.html:41
