@@ -103,10 +103,28 @@ DATABASES = {
 # set_language view) → session → Accept-Language header → LANGUAGE_CODE.
 USE_I18N = True
 LANGUAGE_CODE = "en"
+
+# Custom/novelty locales. Django only ships LANG_INFO metadata (display name,
+# text direction, plural rule) for real languages, so a made-up code would make
+# get_language_info() — used by the picker — raise KeyError. Register the metadata
+# here. These are English-based variants, so they use en-<variant> codes (locale
+# dirs en_Pirate / en_Genz) and the standard 2-form English plural rule.
+from django.conf.locale import LANG_INFO  # noqa: E402
+
+for _code, _name in (("en-pirate", "Pirate"), ("en-genz", "Gen Z")):
+    LANG_INFO[_code] = {
+        "bidi": False,
+        "code": _code,
+        "name": _name,
+        "name_local": _name,
+    }
+
 LANGUAGES = [
     ("en", _("English")),
     ("es", _("Español")),
     ("de", _("Deutsch")),
+    ("en-pirate", _("Pirate")),
+    ("en-genz", _("Gen Z")),
 ]
 LOCALE_PATHS = [BASE_DIR / "locale"]
 
