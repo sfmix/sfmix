@@ -21,5 +21,5 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
-russh = "0.54"
-rand = "0.8"
+russh = "0.61"
+rand = "0.10"

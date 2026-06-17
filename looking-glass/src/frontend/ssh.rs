@@ -4,7 +4,7 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use russh::server::{self, Auth, Msg, Server as _, Session};
-use russh::{Channel, ChannelId, CryptoVec, MethodKind};
+use russh::{Channel, ChannelId, MethodKind};
 use russh::keys::{Certificate, PublicKey};
 use russh::keys::ssh_key::{self, Fingerprint, HashAlg};
 use tokio::net::TcpListener;
@@ -262,7 +262,7 @@ impl SshSessionHandler {
             // Helper to write with line-ending transformation (can't use self.write_data in spawned task)
             async fn write(handle: &server::Handle, channel_id: ChannelId, data: &[u8]) {
                 let transformed = transform_line_endings(data);
-                let _ = handle.data(channel_id, CryptoVec::from_slice(&transformed)).await;
+                let _ = handle.data(channel_id, transformed).await;
             }
 
             // Start device authorization flow
@@ -349,7 +349,7 @@ impl SshSessionHandler {
         if let Some(ch) = self.channel_id {
             // Transform \n to \r\n, but don't double-transform \r\n
             let transformed = transform_line_endings(data);
-            let _ = session.data(ch, CryptoVec::from_slice(&transformed));
+            let _ = session.data(ch, transformed);
         }
     }
 
@@ -418,7 +418,7 @@ impl<'a> SessionWriter for SshWriter<'a> {
     async fn write_bytes(&mut self, data: &[u8]) -> Result<()> {
         if let Some(ch) = self.channel_id {
             let transformed = transform_line_endings(data);
-            let _ = self.session.data(ch, CryptoVec::from_slice(&transformed));
+            let _ = self.session.data(ch, transformed);
         }
         Ok(())
     }
@@ -694,7 +694,7 @@ async fn inject_agent_cert(
 
     // Generate ephemeral Ed25519 keypair
     let ephemeral_key = ssh_key::PrivateKey::random(
-        &mut rand::thread_rng(),
+        &mut rand::rng(),
         ssh_key::Algorithm::Ed25519,
     ).map_err(|e| anyhow::anyhow!("failed to generate ephemeral key: {e}"))?;
 
@@ -706,7 +706,7 @@ async fn inject_agent_cert(
     let valid_before = now + cert_lifetime_secs;
 
     let mut builder = ssh_key::certificate::Builder::new_with_random_nonce(
-        &mut rand::thread_rng(),
+        &mut rand::rng(),
         ephemeral_key.public_key().key_data().clone(),
         now,
         valid_before,
