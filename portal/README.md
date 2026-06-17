@@ -101,8 +101,9 @@ image build (`docker-compose up --build`) also regenerates it automatically.
 
 The portal uses Django's native i18n (LTR string translation). Supported languages are
 configured in `LANGUAGES` (`ixp_portal/settings.py`): English (default), Spanish (`es`), German
-(`de`). The active language is resolved per request by `LocaleMiddleware`: the `django_language`
-cookie (set by the in-nav language picker) → session → `Accept-Language` header → English.
+(`de`), plus two novelty locales — Pirate (`en-pirate`) and Gen Z (`en-genz`). The active
+language is resolved per request by `LocaleMiddleware`: the `django_language` cookie (set by the
+in-nav language picker) → session → `Accept-Language` header → English.
 
 Workflow after adding/changing user-facing strings:
 
@@ -117,6 +118,21 @@ python manage.py compilemessages            # build the .mo files (needs the `ge
 Only the `.po` catalogs are committed; the compiled `.mo` files are gitignored and rebuilt by
 `compilemessages` (the Docker image build does this automatically). Run `compilemessages` once
 locally so `runserver` renders the non-English locales.
+
+**Adding a custom / novelty locale** (how `en-pirate` and `en-genz` were added). Django only
+ships locale metadata for real languages, so a made-up code needs three things:
+
+1. **Register metadata in `LANG_INFO`** (in `ixp_portal/settings.py`, before `LANGUAGES`) so the
+   picker's `get_language_info()` doesn't `KeyError`: an entry with `bidi`, `code`, `name`,
+   `name_local`.
+2. **Add the code to `LANGUAGES`.** English-based variants use `en-<variant>` codes; Django maps
+   the code to a locale directory via `to_locale()` (e.g. `en-pirate` → `locale/en_Pirate/`).
+3. **Create + translate + compile the catalog:** `python manage.py makemessages -l en_Pirate`
+   (use the *locale-dir* name with the `-l` flag), translate the `.po`, then `compilemessages`.
+
+⚠️ **Gotcha:** for an unknown locale, `makemessages` writes a placeholder
+`Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;` header that crashes gettext at runtime.
+Replace it with a valid rule — English-like locales use `nplurals=2; plural=(n != 1);`.
 
 For full OIDC testing against `login.sfmix.org`, set these env vars:
 ```bash
