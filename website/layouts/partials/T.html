@@ -11,5 +11,14 @@
   Usage:  {{ partial "T.html" "Connect to SFMIX" }}
   HTML:   {{ partial "T.html" "Contact <a href=…>us</a>." | safeHTML }}
 */ -}}
+{{- /*
+  Return the raw (unescaped) string so the caller controls escaping. Emitting
+  the value with {{ . }} here would HTML-escape it inside this template's
+  html/template context, which breaks HTML-bearing translations (e.g. a string
+  containing <a href=…>): the markup gets escaped before the call site's
+  | safeHTML can mark it safe, leaving &lt;a&gt; in the output. With `return`,
+  plain-text call sites still escape normally and HTML call sites that pipe
+  through | safeHTML render correctly.
+*/ -}}
 {{- $msgid := . -}}
-{{- with (i18n $msgid) }}{{ . }}{{ else }}{{ $msgid }}{{ end -}}
+{{- return (or (i18n $msgid) $msgid) -}}
