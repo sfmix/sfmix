@@ -45,8 +45,7 @@
         <a href="{% url 'login' %}" class="text-white font-medium hover:text-amber-300 transition">{% translate "Sign in" %}</a>
       {% endif %}
 
-      {# Language picker — posts to the built-in set_language view, which stores
-         the choice in the django_language cookie and redirects back here. #}
+      {# Language picker — posts to the set_language view; it stores the choice in the django_language cookie and redirects back here. #}
       {% get_current_language as LANGUAGE_CODE %}
       {% get_language_info_list for LANGUAGES as languages %}
       <div class="relative" x-data="{ open: false }" @click.away="open = false">
