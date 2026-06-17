@@ -16,16 +16,16 @@
     {{/* Desktop: full table */}}
     <div class="participants-desktop">
     <table>
-      <caption>SFMIX Participants</caption>
+      <caption>{{ partial "T.html" "SFMIX Participants" }}</caption>
       <thead>
         <tr>
-          <th scope="col">Organization</th>
-          <th scope="col">ASN</th>
-          <th scope="col">Type</th>
-          <th scope="col">Location</th>
-          <th scope="col">Speed</th>
-          <th scope="col">IPv4</th>
-          <th scope="col">IPv6</th>
+          <th scope="col">{{ partial "T.html" "Organization" }}</th>
+          <th scope="col">{{ partial "T.html" "ASN" }}</th>
+          <th scope="col">{{ partial "T.html" "Type" }}</th>
+          <th scope="col">{{ partial "T.html" "Location" }}</th>
+          <th scope="col">{{ partial "T.html" "Speed" }}</th>
+          <th scope="col">{{ partial "T.html" "IPv4" }}</th>
+          <th scope="col">{{ partial "T.html" "IPv6" }}</th>
         </tr>
       </thead>
       <tbody>
@@ -63,7 +63,7 @@
           <span class="participant-meta">AS{{ $asn }} · {{ $type }}{{ with index .peering_ports 0 }} · {{ .speed }}{{ end }}</span>
         </summary>
         <div class="participant-details">
-          <p><a href="https://www.peeringdb.com/asn/{{ $asn }}">PeeringDB →</a></p>
+          <p><a href="https://www.peeringdb.com/asn/{{ $asn }}">{{ partial "T.html" "PeeringDB →" }}</a></p>
           {{ range .peering_ports }}
           <div class="participant-port">
             <div><strong>{{ .location }}</strong> — {{ .speed }}</div>
@@ -76,7 +76,7 @@
       {{ end }}
     </div>
 
-    <p class="table-footer">{{ len . }} participants. Data sourced from <a href="https://lg.sfmix.org/participants_table.json">lg.sfmix.org</a>. Last updated {{ now.Format "January 2, 2006 15:04 MST" }}.</p>
+    <p class="table-footer">{{ len . }} {{ if eq (len .) 1 }}{{ partial "T.html" "participant" }}{{ else }}{{ partial "T.html" "participants" }}{{ end }}. {{ partial "T.html" "Data sourced from" }} <a href="https://lg.sfmix.org/participants_table.json">lg.sfmix.org</a>. {{ partial "T.html" "Last updated" }} {{ now.Format "January 2, 2006 15:04 MST" }}.</p>
     {{ end }}
   </div>
 </div>

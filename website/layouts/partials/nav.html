@@ -1,46 +1,74 @@
 <header class="site-header">
   <div class="container nav-container">
-    <a href="{{ "/" | relURL }}" class="site-logo">
+    <a href="{{ "/" | relLangURL }}" class="site-logo">
       <img src="{{ "img/sfmix-logo-large.png" | relURL }}" alt="SFMIX" class="logo-img" width="160" height="40">
     </a>
-    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+    <button class="nav-toggle" aria-label="{{ partial "T.html" "Toggle navigation" }}" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
     <nav class="site-nav" id="site-nav">
       <ul class="nav-list">
         {{/* About dropdown */}}
         <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle" aria-expanded="false">About</button>
+          <button class="nav-link dropdown-toggle" aria-expanded="false">{{ partial "T.html" "About" }}</button>
           <ul class="dropdown-menu">
             {{ range .Site.Menus.about }}
-            <li><a href="{{ .URL | relURL }}" class="dropdown-link">{{ .Name }}</a></li>
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}" class="dropdown-link">{{ partial "T.html" .Name }}</a></li>
             {{ end }}
           </ul>
         </li>
         {{/* Connect dropdown */}}
         <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle" aria-expanded="false">Connect</button>
+          <button class="nav-link dropdown-toggle" aria-expanded="false">{{ partial "T.html" "Connect" }}</button>
           <ul class="dropdown-menu">
             {{ range .Site.Menus.connect }}
-            <li><a href="{{ .URL | relURL }}" class="dropdown-link">{{ .Name }}</a></li>
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}" class="dropdown-link">{{ partial "T.html" .Name }}</a></li>
             {{ end }}
           </ul>
         </li>
         {{/* Services dropdown */}}
         <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle" aria-expanded="false">Services</button>
+          <button class="nav-link dropdown-toggle" aria-expanded="false">{{ partial "T.html" "Services" }}</button>
           <ul class="dropdown-menu">
             {{ range .Site.Menus.services }}
-            <li><a href="{{ .URL | relURL }}" class="dropdown-link">{{ .Name }}</a></li>
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}" class="dropdown-link">{{ partial "T.html" .Name }}</a></li>
             {{ end }}
           </ul>
         </li>
         {{/* Top-level items */}}
         {{ range .Site.Menus.main }}
         <li class="nav-item">
-          <a href="{{ .URL | relURL }}" class="nav-link">{{ .Name }}</a>
+          <a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}" class="nav-link">{{ partial "T.html" .Name }}</a>
         </li>
         {{ end }}
+        {{/*
+          Language picker — native language names only (never translated), the
+          same convention as the portal. Links to this page's translation when
+          one exists, otherwise to that language's home. The button stores the
+          choice in localStorage so the auto-detect redirect respects it.
+          Reuses the .has-dropdown markup so the existing nav JS drives it.
+        */}}
+        {{ $trans := dict }}
+        {{ range .AllTranslations }}{{ $trans = merge $trans (dict .Language.Lang .RelPermalink) }}{{ end }}
+        <li class="nav-item has-dropdown lang-picker">
+          <button class="nav-link dropdown-toggle" aria-expanded="false" aria-label="{{ partial "T.html" "Change language" }}">
+            {{ .Site.Language.LanguageName }}
+          </button>
+          <ul class="dropdown-menu">
+            {{ $cur := .Site.Language.Lang }}
+            {{ range .Site.Languages }}
+            {{ $url := index $trans .Lang }}
+            {{ if not $url }}{{ $url = cond (eq .Lang "en") "/" (printf "/%s/" .Lang) }}{{ end }}
+            <li>
+              <a href="{{ $url }}" class="dropdown-link{{ if eq .Lang $cur }} is-active{{ end }}"
+                 hreflang="{{ .LanguageCode | default .Lang }}"
+                 onclick="try{localStorage.setItem('sfmix-lang','{{ .Lang }}');sessionStorage.setItem('sfmix-lang-redirected','1');}catch(e){}">
+                {{ .LanguageName }}
+              </a>
+            </li>
+            {{ end }}
+          </ul>
+        </li>
       </ul>
     </nav>
   </div>

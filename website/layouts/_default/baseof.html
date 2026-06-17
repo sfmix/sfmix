@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ .Site.Language.LanguageCode | default .Site.Language.Lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
   <meta property="og:url" content="{{ .Permalink }}">
   <meta property="og:image" content="{{ "img/sfmix-logo-large.png" | absURL }}">
   <meta property="og:site_name" content="SFMIX">
-  <meta property="og:locale" content="en_US">
+  <meta property="og:locale" content="{{ replace (.Site.Language.LanguageCode | default "en-US") "-" "_" }}">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="{{ .Title }}">
   <meta name="twitter:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
@@ -19,6 +19,10 @@
   <meta name="theme-color" content="{{ .Site.Params.theme_color }}">
   <meta name="color-scheme" content="light">
   <link rel="canonical" href="{{ .Permalink }}">
+  {{/* hreflang alternates: tell search engines about every translation of this page. */}}
+  {{ range .AllTranslations }}
+  <link rel="alternate" hreflang="{{ .Language.LanguageCode | default .Language.Lang }}" href="{{ .Permalink }}">
+  {{ end }}
   <title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} | SFMIX{{ end }}</title>
   <link rel="icon" href="{{ "img/favicon.svg" | relURL }}" type="image/svg+xml">
   <link rel="icon" href="{{ "favicon.ico" | relURL }}" sizes="any">
@@ -29,6 +33,46 @@
   <link rel="manifest" href="{{ "site.webmanifest" | relURL }}">
   <link rel="alternate" type="application/rss+xml" title="SFMIX" href="{{ "index.xml" | absURL }}">
   <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
+  {{/*
+    Client-side language negotiation — the GitHub Pages stand-in for a server
+    reading Accept-Language. Runs before paint. On first visit it matches the
+    browser's languages against the ones we publish and redirects to the best
+    match; an explicit pick (stored in localStorage by the picker) always wins
+    and a session flag prevents redirect loops. Novelty locales are never
+    auto-selected. Pages with no translation in the preferred language stay
+    as-is.
+  */}}
+  {{ $trans := dict }}
+  {{ range .AllTranslations }}{{ $trans = merge $trans (dict .Language.Lang .RelPermalink) }}{{ end }}
+  <script>
+  (function () {
+    try {
+      var current = {{ .Site.Language.Lang }};
+      var translations = {{ $trans }};
+      var autoLangs = ["en", "es", "de"]; // never auto-pick novelty locales
+      var stored = null;
+      try { stored = localStorage.getItem("sfmix-lang"); } catch (e) {}
+
+      var pref = stored;
+      if (!pref) {
+        var browser = navigator.languages || [navigator.language || "en"];
+        for (var i = 0; i < browser.length && !pref; i++) {
+          var base = String(browser[i]).toLowerCase().split("-")[0];
+          if (autoLangs.indexOf(base) !== -1) pref = base;
+        }
+        pref = pref || "en";
+      }
+
+      if (pref && pref !== current && translations[pref]) {
+        // Redirect at most once per tab, so manually visiting another language sticks.
+        if (!sessionStorage.getItem("sfmix-lang-redirected")) {
+          sessionStorage.setItem("sfmix-lang-redirected", "1");
+          location.replace(translations[pref]);
+        }
+      }
+    } catch (e) { /* never let i18n break the page */ }
+  })();
+  </script>
   {{ if .IsHome }}
   <script type="application/ld+json">
   {
@@ -83,7 +127,7 @@
   {{ end }}
 </head>
 <body>
-  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <a href="#main-content" class="skip-link">{{ partial "T.html" "Skip to main content" }}</a>
   {{- partial "nav.html" . -}}
 
   <main id="main-content">
@@ -92,7 +136,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>&copy; {{ now.Year }} {{ .Site.Params.copyright_name }} · <a href="/privacy/">Privacy Policy</a></p>
+      <p>&copy; {{ now.Year }} {{ .Site.Params.copyright_name }} · <a href="{{ "/privacy/" | relLangURL }}">{{ partial "T.html" "Privacy Policy" }}</a></p>
     </div>
   </footer>
 </body>

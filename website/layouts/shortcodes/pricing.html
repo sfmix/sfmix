@@ -1,12 +1,12 @@
-<p>Annual membership fees (as of 2023):</p>
+<p>{{ partial "T.html" "Annual membership fees (as of 2023):" }}</p>
 <table>
   <thead>
-    <tr><th>Port Speed</th><th>Annual Fee</th><th>Notes</th></tr>
+    <tr><th>{{ partial "T.html" "Port Speed" }}</th><th>{{ partial "T.html" "Annual Fee" }}</th><th>{{ partial "T.html" "Notes" }}</th></tr>
   </thead>
   <tbody>
-    <tr><td><strong>1 Gbps</strong></td><td><strong>$995/year</strong></td><td>Prefer 10G with rate limit over multiple 1G ports</td></tr>
-    <tr><td><strong>10 Gbps</strong></td><td><strong>$2,995/year</strong></td><td>Up to 4 ports in a LAG</td></tr>
-    <tr><td><strong>100 Gbps</strong></td><td><strong>$7,495/year</strong></td><td>No LAG limit</td></tr>
+    <tr><td><strong>1 Gbps</strong></td><td><strong>$995/year</strong></td><td>{{ partial "T.html" "Prefer 10G with rate limit over multiple 1G ports" }}</td></tr>
+    <tr><td><strong>10 Gbps</strong></td><td><strong>$2,995/year</strong></td><td>{{ partial "T.html" "Up to 4 ports in a LAG" }}</td></tr>
+    <tr><td><strong>100 Gbps</strong></td><td><strong>$7,495/year</strong></td><td>{{ partial "T.html" "No LAG limit" }}</td></tr>
   </tbody>
 </table>
-<p>Fee exemptions are considered on a case-by-case for non-profits contributing in-kind services that benefit all members of the exchange equally (e.g., root DNS, ccTLD/gTLD, public measurement tools). Contact <a href="mailto:tech-c@sfmix.org">tech-c@sfmix.org</a> to submit an appeal for a fee exemption.</p>
+<p>{{ partial "T.html" `Fee exemptions are considered on a case-by-case for non-profits contributing in-kind services that benefit all members of the exchange equally (e.g., root DNS, ccTLD/gTLD, public measurement tools). Contact <a href="mailto:tech-c@sfmix.org">tech-c@sfmix.org</a> to submit an appeal for a fee exemption.` | safeHTML }}</p>
