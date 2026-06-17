@@ -56,6 +56,14 @@ async fn main() -> Result<()> {
         )
         .init();
 
+    // jsonwebtoken 10 routes RSA/EC verification through a process-level
+    // CryptoProvider. With more than one backend compiled into the dependency
+    // graph (aws-lc-rs via rustls, ring via russh) it cannot auto-select one
+    // and panics the worker thread on the first token verification — surfacing
+    // as a 502 for every authenticated request. Install the provider explicitly
+    // once at startup. Idempotent: Err means it was already set, which is fine.
+    let _ = jsonwebtoken::crypto::aws_lc::DEFAULT_PROVIDER.install_default();
+
     let cli = Cli::parse();
 
     info!("Loading configuration from {}", cli.config.display());

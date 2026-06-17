@@ -19,6 +19,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+jsonwebtoken.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
