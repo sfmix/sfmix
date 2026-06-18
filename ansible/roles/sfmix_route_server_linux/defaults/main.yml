@@ -2,6 +2,21 @@
 sfmix_route_server_linux_birdwatcher_directory: "/opt/birdwatcher"
 sfmix_route_server_linux_birdwatcher_repo: "https://github.com/alice-lg/birdwatcher"
 sfmix_route_server_linux_birdwatcher_version: "master"
+# birdwatcher serves a ~1.1M-route RIB; the parsed master table is cached live as
+# nested Go maps (~512MiB working set) that dwarf the 3MB JSON response. With the
+# old 768m cap, Go's default GC pacing (GOGC=100) tried to grow the heap to ~2x the
+# live set (~1GiB) before collecting and hit the cgroup limit first -> memcg OOM-kill
+# (exit 137) every ~8 min. Fix is NOT a bigger host: cap stays a HARD ceiling that
+# contains birdwatcher so it can never trigger a global OOM and threaten bird. We
+# just lift it enough for the GC to breathe (1024m) and set GOMEMLIMIT below it so
+# the Go runtime self-throttles (trades CPU for memory) instead of being killed.
+# Worst case host use: bird (~407MiB) + birdwatcher (1024m) + OS << 3.8GiB.
+sfmix_route_server_linux_birdwatcher_memory_limit: "1024m"
+sfmix_route_server_linux_birdwatcher_gomemlimit: "896MiB"
+sfmix_route_server_linux_birdwatcher_cpus_limit: 2
+# Make birdwatcher the first OOM victim if the host ever hits global memory
+# pressure, so bird (mission-critical) is never the one killed.
+sfmix_route_server_linux_birdwatcher_oom_score_adj: 1000
 sfmix_route_server_linux_rtr_hostname: 192.33.255.13 # rpki-linux.sfmix.org
 sfmix_route_server_linux_rtr_port: 3323
 sfmix_route_server_linux_bird_exporter_repo: https://github.com/czerwonk/bird_exporter.git
