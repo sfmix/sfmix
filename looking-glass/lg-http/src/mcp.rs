@@ -475,7 +475,6 @@ impl ServerHandler for McpHandler {
              For connectivity checks: {prefix}__ping / {prefix}__traceroute\n\
              Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_lldp_neighbors",
             self.network_slug,
-            prefix = format!("looking_glass__{}", self.network_slug),
         ))
     }
 

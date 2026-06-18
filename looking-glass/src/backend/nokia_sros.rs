@@ -227,6 +227,8 @@ impl NokiaSrosDriver {
         })
     }
 
+    // Staged for Nokia MAC address-table support (not yet dispatched to).
+    #[allow(dead_code)]
     fn parse_mac_table(&self, val: &Value) -> Vec<MacEntry> {
         let entries = val.pointer("/fdb/mac")
             .and_then(|v| v.as_array())

@@ -116,6 +116,9 @@ struct LookingGlassMcp {
     lg: Arc<LookingGlass>,
     identity: Identity,
     rate_key: String,
+    // Required by the rmcp #[tool_router]/#[tool_handler] macro pair; the
+    // generated handler consults it even though no code reads it directly.
+    #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
 }
 

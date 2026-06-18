@@ -6,6 +6,8 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
     pub service: looking_glass::config::ServiceConfig,
+    // Parsed from config for schema completeness; not consumed by the server yet.
+    #[allow(dead_code)]
     pub site: looking_glass::config::SiteConfig,
     pub rpc: RpcConfig,
     #[serde(default)]
