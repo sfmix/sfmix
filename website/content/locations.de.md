@@ -11,7 +11,7 @@ Um sich zu verbinden, erteilen Sie dem Betreiber des Meet-Me-Rooms (MMR) an Ihre
 
 Alle Standorte bieten Glasfaser-Konnektivität mit **10, 100 oder 400 Gbit/s**.
 
-*Nur SMF (10 km, 1310 nm Optiken). Kein MMF oder Kupfer. In der Astound-Suite sind durchstimmbare oder farbige DWDM-Optiken erforderlich (passiver MUX zu SFMIX). BiDi verfügbar für 10G und 100G.*
+*Nur Singlemode-Faser (10 km, 1310 nm Optiken). Kein Multimode-Faser oder Kupfer. In der Astound-Suite sind durchstimmbare oder farbige DWDM-Optiken erforderlich (passiver MUX zu SFMIX). BiDi verfügbar für 10G und 100G.*
 
 | SFMIX-Standortcode | Adresse | Einrichtungsbetreiber | MMR-Betreiber / Portal |
 |-----------------|---------|-------------------|-----------------------|

@@ -11,7 +11,7 @@ Para conectarte, realiza un pedido de interconexión con el operador de la sala 
 
 Todas las ubicaciones ofrecen conectividad de fibra de **10, 100 o 400Gbps**.
 
-*Solo SMF (óptica de 10km 1310nm). Sin MMF ni cobre. Se requiere óptica DWDM sintonizable o coloreada en la suite de Astound (MUX pasivo hacia SFMIX). BiDi disponible para 10G y 100G.*
+*Solo fibra monomodo (óptica de 10km 1310nm). Sin fibra multimodo ni cobre. Se requiere óptica DWDM sintonizable o coloreada en la suite de Astound (MUX pasivo hacia SFMIX). BiDi disponible para 10G y 100G.*
 
 | Código de sede SFMIX | Dirección | Operador de la instalación | Operador / portal de la MMR |
 |-----------------|---------|-------------------|-----------------------|

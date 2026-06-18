@@ -11,7 +11,7 @@ To climb aboard, place a cross-connection order with th' meet-me room (MMR) oper
 
 All ports o' call offer **10, 100, or 400Gbps** fiber connectivity.
 
-*SMF only (10km 1310nm optics). No MMF nor copper. Tunable or colored DWDM optics required in th' Astound suite (passive MUX to SFMIX). BiDi available for 10G an' 100G.*
+*Single-mode fiber only (10km 1310nm optics). No multi-mode fiber nor copper. Tunable or colored DWDM optics required in th' Astound suite (passive MUX to SFMIX). BiDi available for 10G an' 100G.*
 
 | SFMIX Site Code | Address | Facility Operator | MMR Operator / Portal |
 |-----------------|---------|-------------------|-----------------------|

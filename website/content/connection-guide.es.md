@@ -43,7 +43,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 
 ## Requisitos técnicos
 
-- **Solo SMF** — sin cobre ni MMF.
+- **Solo fibra monomodo** — sin cobre ni fibra multimodo.
 - Se requiere un ASN público asignado por un RIR ([RFC 1930](https://datatracker.ietf.org/doc/html/rfc1930), [RFC 6996](https://datatracker.ietf.org/doc/html/rfc6996)). No se permiten ASN privados.
 - Se requiere una entrada de [PeeringDB](https://peeringdb.org/) mantenida.
 - **Una dirección MAC por enlace lógico.** La seguridad de puertos permite 2 MAC de forma temporal para migraciones de routers, pero solo 1 a largo plazo.
