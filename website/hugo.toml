@@ -71,7 +71,7 @@ defaultContentLanguageInSubdir = false
   email = "tech-c@sfmix.org"
   phone = "+1 415 634-6712"
   copyright_name = "San Francisco Metropolitan Internet eXchange"
-  theme_color = "#1a3a5c"
+  theme_color = "#0b3640"
 
 # One menu definition, shared across all languages (top-level config cascades
 # into every language). Labels are the English source text and are translated
