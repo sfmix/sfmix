@@ -21,6 +21,24 @@ pub struct Command {
     pub filter_source: Option<String>,
 }
 
+/// Parse an Autonomous System Number from user input.
+///
+/// Accepts a bare integer (`13335`) as well as the `AS<number>` and
+/// `ASN<number>` forms (case-insensitive, e.g. `AS13335`, `asn13335`) so
+/// values can be copy-pasted directly from peering portals and BGP output.
+/// Returns `None` if the remaining text is not a valid `u32`.
+pub fn parse_asn(input: &str) -> Option<u32> {
+    let s = input.trim();
+    let digits = match s.get(..3) {
+        Some(p) if p.eq_ignore_ascii_case("asn") => &s[3..],
+        _ => match s.get(..2) {
+            Some(p) if p.eq_ignore_ascii_case("as") => &s[2..],
+            _ => s,
+        },
+    };
+    digits.parse::<u32>().ok()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Verb {
@@ -127,3 +145,44 @@ impl fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_asn;
+
+    #[test]
+    fn parses_bare_integer() {
+        assert_eq!(parse_asn("13335"), Some(13335));
+    }
+
+    #[test]
+    fn parses_as_prefix() {
+        assert_eq!(parse_asn("AS13335"), Some(13335));
+        assert_eq!(parse_asn("as13335"), Some(13335));
+        assert_eq!(parse_asn("As13335"), Some(13335));
+    }
+
+    #[test]
+    fn parses_asn_prefix() {
+        assert_eq!(parse_asn("ASN13335"), Some(13335));
+        assert_eq!(parse_asn("asn13335"), Some(13335));
+    }
+
+    #[test]
+    fn trims_surrounding_whitespace() {
+        assert_eq!(parse_asn("  AS13335 "), Some(13335));
+    }
+
+    #[test]
+    fn rejects_non_numeric() {
+        assert_eq!(parse_asn(""), None);
+        assert_eq!(parse_asn("as"), None);
+        assert_eq!(parse_asn("asn"), None);
+        assert_eq!(parse_asn("AS"), None);
+        assert_eq!(parse_asn("Ethernet1"), None);
+        assert_eq!(parse_asn("13335x"), None);
+        assert_eq!(parse_asn("AS13335x"), None);
+        // No separator/space variants — only the bare prefix is stripped.
+        assert_eq!(parse_asn("AS 13335"), None);
+    }
+}
