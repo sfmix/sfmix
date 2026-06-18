@@ -1,0 +1,67 @@
+---
+- name: Ensure lg-neighborhood-watch directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}"
+    state: directory
+    mode: ug=rwx,o=rx
+
+# Push the local looking-glass workspace (control node) to the host and build
+# the image there, matching the looking_glass role's local-build model. The
+# build context is the workspace root so all member crates are visible to cargo.
+- name: Synchronize lg-neighborhood-watch source
+  become: true
+  ansible.posix.synchronize:
+    src: "{{ sfmix_route_server_linux_lg_neighborhood_watch_src }}/"
+    dest: "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}/repo/"
+    delete: true
+    rsync_opts:
+      - "--exclude=target"
+      - "--exclude=.git"
+  notify: Rebuild lg-neighborhood-watch docker container
+
+- name: Check if lg-neighborhood-watch image exists
+  become: true
+  community.docker.docker_image_info:
+    name: "lg-neighborhood-watch:{{ sfmix_route_server_linux_lg_neighborhood_watch_version | replace('/', '_') }}"
+  register: lg_neighborhood_watch_image_info
+
+- name: Trigger lg-neighborhood-watch build if image missing
+  ansible.builtin.command: /bin/true
+  changed_when: true
+  when: lg_neighborhood_watch_image_info.images | length == 0
+  notify: Rebuild lg-neighborhood-watch docker container
+
+- name: Build lg-neighborhood-watch and remove old container
+  ansible.builtin.meta: flush_handlers
+
+- name: Place lg-neighborhood-watch config
+  become: true
+  ansible.builtin.template:
+    src: lg-neighborhood-watch.yml.j2
+    dest: "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}/config.yml"
+    mode: ug=rw,o=r
+  notify: Restart lg-neighborhood-watch
+
+- name: Run lg-neighborhood-watch
+  become: true
+  community.docker.docker_container:
+    name: lg-neighborhood-watch
+    image: "lg-neighborhood-watch:{{ sfmix_route_server_linux_lg_neighborhood_watch_version | replace('/', '_') }}"
+    restart_policy: unless-stopped
+    state: started
+    # Host networking is required: AF_PACKET capture and on-link ICMP solicit
+    # must see/use the host's peering VLAN interfaces directly.
+    network_mode: host
+    log_driver: local
+    # Only the raw-socket capability; everything else dropped. The binary carries
+    # a cap_net_raw file capability so it runs as an unprivileged user.
+    capabilities:
+      - NET_RAW
+    memory: "{{ sfmix_route_server_linux_lg_neighborhood_watch_memory_limit }}"
+    # Bias the kernel to kill this sensor first, never bird, under memory pressure.
+    oom_score_adj: "{{ sfmix_route_server_linux_lg_neighborhood_watch_oom_score_adj }}"
+    env:
+      LG_RPC_SECRET: "{{ sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret }}"
+    volumes:
+      - "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}/config.yml:/etc/lg-neighborhood-watch/config.yml:ro"

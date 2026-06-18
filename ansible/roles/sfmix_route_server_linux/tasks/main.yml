@@ -19,6 +19,11 @@
     - bird_exporter
   ansible.builtin.import_tasks: bird_exporter.yml
 
+- name: "Install and configure lg-neighborhood-watch"
+  tags:
+    - lg_neighborhood_watch
+  ansible.builtin.import_tasks: lg-neighborhood-watch.yml
+
 # Install fping, as a place to discover MACs from
 - name: "Install fping"
   become: true

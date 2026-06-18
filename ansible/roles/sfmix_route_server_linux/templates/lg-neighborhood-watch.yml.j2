@@ -1,0 +1,10 @@
+# Managed by Ansible (sfmix_route_server_linux role). Do not edit by hand.
+bind: "{{ sfmix_route_server_linux_lg_neighborhood_watch_bind }}"
+lg_rpc_url: "{{ sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url }}"
+lg_rpc_secret_env: LG_RPC_SECRET
+interfaces:
+{% for iface in sfmix_route_server_linux_lg_neighborhood_watch_interfaces %}
+  - "{{ iface }}"
+{% endfor %}
+lg_poll_interval_secs: {{ sfmix_route_server_linux_lg_neighborhood_watch_lg_poll_interval_secs }}
+solicit_interval_secs: {{ sfmix_route_server_linux_lg_neighborhood_watch_solicit_interval_secs }}

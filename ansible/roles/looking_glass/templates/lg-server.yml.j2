@@ -87,6 +87,17 @@ device_cache:
   mac_table_state_file: "{{ looking_glass_mac_table_state_file | default('/var/lib/looking-glass/mac-table.json') }}"
   mac_table_retention_secs: {{ looking_glass_mac_table_retention_secs | default(604800) }}
 
+{% if looking_glass_discovered_sensor_url is defined %}
+# Discovered ARP/NDP neighbors: poll the lg-neighborhood-watch sensor on the
+# route server and accumulate a durable, persisted table (first/last-seen,
+# conflict detection, tenant-change invalidation). State file lives under the
+# ReadWritePaths state dir so history survives restarts.
+discovered:
+  sensor_url: "{{ looking_glass_discovered_sensor_url }}"
+  poll_interval_secs: {{ looking_glass_discovered_poll_interval_secs | default(60) }}
+  state_file: "{{ looking_glass_discovered_state_file | default('/var/lib/looking-glass/discovered-neighbors.json') }}"
+{% endif %}
+
 rate_limits:
   global:
     max_concurrent: 10
