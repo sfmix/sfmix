@@ -82,6 +82,10 @@ device_cache:
     interfaces: {{ looking_glass_device_cache_ttl_interfaces | default(30) }}
     lldp_neighbors: {{ looking_glass_device_cache_ttl_lldp | default(120) }}
     mac_address_table: {{ looking_glass_device_cache_ttl_mac | default(30) }}
+  # MAC-table store: first/last-seen tracking + last-known entries persisted
+  # across restarts (lives under the ReadWritePaths state dir).
+  mac_table_state_file: "{{ looking_glass_mac_table_state_file | default('/var/lib/looking-glass/mac-table.json') }}"
+  mac_table_retention_secs: {{ looking_glass_mac_table_retention_secs | default(604800) }}
 
 rate_limits:
   global:
