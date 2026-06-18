@@ -181,8 +181,9 @@ img { max-width: 100%; height: auto; }
 .dropdown-open > .nav-link { color: var(--color-white); background: rgba(255,255,255,0.10); box-shadow: inset 0 -2px 0 var(--color-accent); }
 
 .dropdown-toggle::after {
-  content: " ▾";
+  content: "▾";
   font-size: 1.3em;
+  margin-left: 0.4em;
 }
 
 .dropdown-menu {
