@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-16 23:37-0500\n"
+"POT-Creation-Date: 2026-06-18 02:14-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: German\n"
@@ -17,37 +17,37 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: dashboard/views.py:75
+#: dashboard/views.py:77
 msgid "You do not have access to this network."
 msgstr "Sie haben keinen Zugriff auf dieses Netzwerk."
 
-#: dashboard/views.py:116 dashboard/views.py:853 dashboard/views.py:872
-#: dashboard/views.py:917
+#: dashboard/views.py:118 dashboard/views.py:897 dashboard/views.py:916
+#: dashboard/views.py:961
 msgid "IX Administrators only."
 msgstr "Nur für IX-Administratoren."
 
-#: dashboard/views.py:123 dashboard/views.py:879
+#: dashboard/views.py:125 dashboard/views.py:923
 msgid "Looking Glass not configured"
 msgstr "Looking Glass nicht konfiguriert"
 
-#: dashboard/views.py:220
+#: dashboard/views.py:222
 msgid "Nominal"
 msgstr "Nominal"
 
-#: dashboard/views.py:221
+#: dashboard/views.py:223
 msgid "Marginal"
 msgstr "Grenzwertig"
 
-#: dashboard/views.py:222
+#: dashboard/views.py:224
 msgid "Out of range"
 msgstr "Außerhalb des Bereichs"
 
-#: dashboard/views.py:495
+#: dashboard/views.py:500
 #, python-format
 msgid "%(port)s is down"
 msgstr "%(port)s ist ausgefallen"
 
-#: dashboard/views.py:496
+#: dashboard/views.py:501
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
@@ -55,12 +55,12 @@ msgstr ""
 "Alle Mitgliedsverbindungen sind offline. Die Route-Server-Sitzungen sind "
 "inaktiv und über diesen logischen Port fließt kein Verkehr."
 
-#: dashboard/views.py:503
+#: dashboard/views.py:508
 #, python-format
 msgid "%(port)s degraded — %(up)s/%(total)s members up"
 msgstr "%(port)s beeinträchtigt — %(up)s/%(total)s Mitglieder aktiv"
 
-#: dashboard/views.py:509
+#: dashboard/views.py:514
 #, python-format
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
@@ -70,12 +70,12 @@ msgstr ""
 "%(effective)sG von %(total)sG. Die Redundanz ist verloren, bis die "
 "Verbindung wiederhergestellt ist."
 
-#: dashboard/views.py:528
+#: dashboard/views.py:533
 #, python-format
 msgid "%(port)s optic %(band)s on %(lane)s"
 msgstr "Optik von %(port)s %(band)s auf %(lane)s"
 
-#: dashboard/views.py:533
+#: dashboard/views.py:538
 #, python-format
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
@@ -84,14 +84,14 @@ msgstr ""
 "RX %(rx)s dBm liegt außerhalb des Nominalbereichs. Überprüfen Sie die "
 "Faser / das Patchkabel oder planen Sie einen Optik-Austausch."
 
-#: dashboard/views.py:548
+#: dashboard/views.py:553
 #, python-format
 msgid "%(count)s route rejected on %(port)s"
 msgid_plural "%(count)s routes rejected on %(port)s"
 msgstr[0] "%(count)s Route auf %(port)s abgelehnt"
 msgstr[1] "%(count)s Routen auf %(port)s abgelehnt"
 
-#: dashboard/views.py:552
+#: dashboard/views.py:557
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
@@ -142,7 +142,7 @@ msgstr "Abmelden"
 msgid "Sign in"
 msgstr "Anmelden"
 
-#: templates/base.html:53
+#: templates/base.html:52
 msgid "Change language"
 msgstr "Sprache ändern"
 
@@ -522,7 +522,7 @@ msgid "No optics data found."
 msgstr "Keine Optik-Daten gefunden."
 
 #: templates/dashboard/participant_detail.html:3
-#: templates/dashboard/participant_detail.html:234
+#: templates/dashboard/participant_detail.html:250
 msgid "Network"
 msgstr "Netzwerk"
 
@@ -574,9 +574,9 @@ msgstr "Aktiv"
 #: templates/dashboard/participant_detail.html:40
 #: templates/dashboard/participant_detail.html:103
 #: templates/dashboard/participant_detail.html:134
-#: templates/dashboard/participant_detail.html:308
-#: templates/dashboard/participant_detail.html:333
-#: templates/dashboard/participant_detail.html:356
+#: templates/dashboard/participant_detail.html:324
+#: templates/dashboard/participant_detail.html:349
+#: templates/dashboard/participant_detail.html:372
 msgid "Down"
 msgstr "Ausgefallen"
 
@@ -651,62 +651,89 @@ msgid "Link"
 msgstr "Link"
 
 #: templates/dashboard/participant_detail.html:170
-#: templates/dashboard/participant_detail.html:235
-#: templates/dashboard/participant_detail.html:282
+#: templates/dashboard/participant_detail.html:251
+#: templates/dashboard/participant_detail.html:298
 msgid "Public"
 msgstr "Öffentlich"
 
-#: templates/dashboard/participant_detail.html:177
-#: templates/dashboard/participant_detail.html:198
-#: templates/dashboard/participant_detail.html:213
+#: templates/dashboard/participant_detail.html:178
+#: templates/dashboard/participant_detail.html:199
+#: templates/dashboard/participant_detail.html:214
 msgid "Local"
 msgstr "Lokal"
 
-#: templates/dashboard/participant_detail.html:190
+#: templates/dashboard/participant_detail.html:191
 msgid "Remote"
 msgstr "Remote"
 
-#: templates/dashboard/participant_detail.html:207
+#: templates/dashboard/participant_detail.html:208
 msgid "Link down &mdash; no LLDP"
 msgstr "Link ausgefallen &mdash; kein LLDP"
 
-#: templates/dashboard/participant_detail.html:222
+#: templates/dashboard/participant_detail.html:223
 msgid "No LLDP data"
 msgstr "Keine LLDP-Daten"
 
-#: templates/dashboard/participant_detail.html:253
+#: templates/dashboard/participant_detail.html:229
+msgid "MACs learned"
+msgstr "Gelernte MACs"
+
+#: templates/dashboard/participant_detail.html:233
+#, python-format
+msgid "VLAN %(vlan)s"
+msgstr "VLAN %(vlan)s"
+
+#: templates/dashboard/participant_detail.html:235
+msgid "First seen"
+msgstr "Zuerst gesehen"
+
+#: templates/dashboard/participant_detail.html:235
+#, python-format
+msgid "first seen %(d)s"
+msgstr "zuerst gesehen %(d)s"
+
+#: templates/dashboard/participant_detail.html:236
+msgid "Last seen"
+msgstr "Zuletzt gesehen"
+
+#: templates/dashboard/participant_detail.html:236
+#, python-format
+msgid "seen %(a)s ago"
+msgstr "vor %(a)s gesehen"
+
+#: templates/dashboard/participant_detail.html:269
 msgid "No IPs assigned"
 msgstr "Keine IPs zugewiesen"
 
-#: templates/dashboard/participant_detail.html:281
+#: templates/dashboard/participant_detail.html:297
 msgid "Route Servers"
 msgstr "Route-Server"
 
-#: templates/dashboard/participant_detail.html:289
+#: templates/dashboard/participant_detail.html:305
 msgid "Route Server"
 msgstr "Route-Server"
 
-#: templates/dashboard/participant_detail.html:290
+#: templates/dashboard/participant_detail.html:306
 msgid "State"
 msgstr "Zustand"
 
-#: templates/dashboard/participant_detail.html:291
+#: templates/dashboard/participant_detail.html:307
 msgid "Uptime"
 msgstr "Betriebszeit"
 
-#: templates/dashboard/participant_detail.html:293
+#: templates/dashboard/participant_detail.html:309
 msgid "Received"
 msgstr "Empfangen"
 
-#: templates/dashboard/participant_detail.html:294
+#: templates/dashboard/participant_detail.html:310
 msgid "Accepted"
 msgstr "Akzeptiert"
 
-#: templates/dashboard/participant_detail.html:295
+#: templates/dashboard/participant_detail.html:311
 msgid "Rejected"
 msgstr "Abgelehnt"
 
-#: templates/dashboard/participant_detail.html:390
+#: templates/dashboard/participant_detail.html:406
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
 msgstr ""
