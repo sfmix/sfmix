@@ -278,8 +278,7 @@ body {
 .nd-llp-down-label { font-size: .78rem; color: var(--color-text-light); font-style: italic; }
 
 /* Per-port learned MACs (L2) */
-.nd-llp-group { margin-bottom: .5rem; }
-.nd-llp-macs { margin: 0 0 .1rem .4rem; padding-left: .55rem; border-left: 2px solid #eee; }
+.nd-llp-macs { margin: .15rem 0 .1rem .4rem; padding-left: .55rem; border-left: 2px solid #eee; }
 .nd-llp-macs-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-light); font-weight: 600; margin-bottom: .15rem; }
 .nd-mac-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; font-size: .75rem; padding: .05rem 0; }
 .nd-mac-addr { font-family: var(--font-mono); font-size: .76rem; color: var(--color-primary); }

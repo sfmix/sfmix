@@ -171,7 +171,6 @@
       </div>
       <div class="nd-lband-body">
         {% for phy in lp.physical %}
-        <div class="nd-llp-group">
         {% if phy.lldp %}
         <div class="nd-lldp-pill{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-lldp-down{% endif %}">
           <div class="nd-llp-side nd-llp-local">
@@ -224,10 +223,11 @@
           </div>
         </div>
         {% endif %}
-        {% if phy.macs %}
+        {% endfor %}
+        {% if lp.macs %}
         <div class="nd-llp-macs">
           <div class="nd-llp-macs-label">{% translate "MACs learned" %}</div>
-          {% for m in phy.macs %}
+          {% for m in lp.macs %}
           <div class="nd-mac-row">
             <span class="nd-mac-addr">{{ m.mac_address }}</span>
             <span class="nd-mac-vlan">{% blocktranslate with vlan=m.vlan %}VLAN {{ vlan }}{% endblocktranslate %}</span>
@@ -238,8 +238,6 @@
           {% endfor %}
         </div>
         {% endif %}
-        </div>
-        {% endfor %}
       </div>
     </div>
 

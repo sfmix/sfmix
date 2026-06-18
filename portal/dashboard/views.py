@@ -287,11 +287,11 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
             for mem_dev, mem_iface in members:
                 physical.append(_build_physical_port(
                     mem_dev, mem_iface, iface_by_key, optics_by_key, lldp_by_key,
-                    macs_by_key, can_see_admin, netbox_speed_mbps=per_member_speed))
+                    can_see_admin, netbox_speed_mbps=per_member_speed))
         else:
             physical.append(_build_physical_port(
                 dev, iface_name, iface_by_key, optics_by_key, lldp_by_key,
-                macs_by_key, can_see_admin, netbox_speed_mbps=speed_mbps))
+                can_see_admin, netbox_speed_mbps=speed_mbps))
 
         # Derive link state from physical members
         known = [p for p in physical if p["link_status"] != "unknown"]
@@ -373,11 +373,19 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
                 "routes_url": routes_url,
             })
 
+        # L2: MACs learned on this logical port. The fabric reports learned
+        # MACs on the bundle (Port-Channel) for LAGs and on the interface
+        # itself for single ports, so gather from the port's own interface
+        # and every member (deduped) to cover both.
+        mac_keys = {(dev, iface_name)} | {(p["device"], p["name"]) for p in physical}
+        port_macs = [m for key in mac_keys for m in macs_by_key.get(key, [])]
+
         logical_ports.append({
             "id": iface_name,
             "device": dev,
             "name": iface_name,
             "kind": "lag" if is_lag else "single",
+            "macs": port_macs,
             "speed_mbps": speed_mbps,
             "speed_gbps": _format_speed_gbps(speed_mbps),
             "enabled": port.get("enabled", True),
@@ -397,7 +405,7 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
 
 
 def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_by_key,
-                         macs_by_key, can_see_admin, netbox_speed_mbps=0):
+                         can_see_admin, netbox_speed_mbps=0):
     """Build a single physical port dict from live data lookups."""
     iface = iface_by_key.get((device, iface_name), {})
     link_status = iface.get("link_status", "unknown")
@@ -466,9 +474,6 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
         }
     else:
         phy["lldp"] = None
-
-    # L2: MAC addresses learned on this port
-    phy["macs"] = macs_by_key.get((device, iface_name), [])
 
     return phy
 
