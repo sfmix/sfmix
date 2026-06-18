@@ -1,4 +1,11 @@
 ---
+- name: "Blacklist BIRD from unattended-upgrades"
+  tags:
+    - apt
+    - unattended_upgrades
+    - bird_blacklist
+  ansible.builtin.import_tasks: unattended_upgrades.yml
+
 - name: "Install and configure BIRD"
   ansible.builtin.import_tasks: bird.yml
 
