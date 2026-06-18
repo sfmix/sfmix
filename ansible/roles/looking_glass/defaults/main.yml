@@ -33,6 +33,9 @@ looking_glass_device_cache_ttl_optics: 15
 looking_glass_device_cache_ttl_interfaces: 30
 looking_glass_device_cache_ttl_lldp: 120
 looking_glass_device_cache_ttl_mac: 30
+# MAC-table store (first/last-seen + last-known entries, persisted across restarts)
+looking_glass_mac_table_state_file: /var/lib/looking-glass/mac-table.json
+looking_glass_mac_table_retention_secs: 604800
 
 # RPC settings
 looking_glass_rpc_bind: "127.0.0.1:9090"
