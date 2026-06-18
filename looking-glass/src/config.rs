@@ -317,6 +317,17 @@ pub struct DeviceCacheConfig {
     pub poll_interval_secs: u64,
     #[serde(default)]
     pub ttl: DeviceCacheTtlConfig,
+    /// Where to persist the MAC-table store (first/last-seen + last-known
+    /// entries). Unset keeps it in-memory only (lost on restart).
+    #[serde(default)]
+    pub mac_table_state_file: Option<String>,
+    /// Drop MAC entries not seen within this many seconds. 0 disables pruning.
+    #[serde(default = "default_mac_retention_secs")]
+    pub mac_table_retention_secs: i64,
+}
+
+fn default_mac_retention_secs() -> i64 {
+    7 * 24 * 3600 // 7 days
 }
 
 /// Per-resource-type TTL overrides (seconds). Falls back to `default` when absent.

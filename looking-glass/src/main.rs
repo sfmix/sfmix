@@ -163,7 +163,17 @@ async fn main() -> Result<()> {
     // Device state cache: initial warm-up + background refresh
     if config.device_cache.poll_interval_secs > 0 {
         info!("Warming device state cache (poll interval: {}s)", config.device_cache.poll_interval_secs);
-        let initial = lg.device_pool.poll_all_devices().await;
+        // Persistent MAC-table store: stamps first/last-seen onto polled entries
+        // and survives restarts (incl. serving last-known data for down devices).
+        let mut mac_store = looking_glass::mac_table::MacTableStore::load(
+            config.device_cache.mac_table_state_file.clone().map(PathBuf::from),
+            config.device_cache.mac_table_retention_secs,
+        );
+        let mut initial = lg.device_pool.poll_all_devices().await;
+        mac_store.update(&mut initial);
+        if let Err(e) = mac_store.save() {
+            tracing::warn!("Failed to save MAC-table store: {e}");
+        }
         info!("Device state cache ready: {} devices", initial.len());
         lg.device_state_cache.store(Arc::new(initial));
 
@@ -174,7 +184,11 @@ async fn main() -> Result<()> {
             tick.tick().await;
             loop {
                 tick.tick().await;
-                let fresh = state.device_pool.poll_all_devices().await;
+                let mut fresh = state.device_pool.poll_all_devices().await;
+                mac_store.update(&mut fresh);
+                if let Err(e) = mac_store.save() {
+                    tracing::warn!("Failed to save MAC-table store: {e}");
+                }
                 tracing::debug!("Device state cache refreshed: {} devices", fresh.len());
                 state.device_state_cache.store(Arc::new(fresh));
             }

@@ -173,6 +173,12 @@ device_cache:
     interfaces: 30
     lldp_neighbors: 120 # topology changes rarely
     mac_address_table: 30
+  # MAC-table store: stamps first-seen/last-seen onto every learned MAC and
+  # persists across restarts. While a device is unreachable the last-known
+  # entries are served as stale data. Omit mac_table_state_file to keep the
+  # store in memory only (timestamps reset on restart).
+  mac_table_state_file: /var/lib/looking-glass/mac-table.json
+  mac_table_retention_secs: 604800  # drop MACs unseen for 7 days; 0 = never
 
 # ---------------------------------------------------------------------------
 # Policies — command access rules (first-match evaluation)

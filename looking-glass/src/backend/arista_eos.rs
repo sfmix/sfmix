@@ -126,6 +126,7 @@ impl AristaEosDriver {
                 mac_address: e.mac_address,
                 entry_type: e.entry_type,
                 interface: e.interface,
+                ..Default::default()
             })
             .collect();
         entries.sort_by(|a, b| a.mac_address.cmp(&b.mac_address));

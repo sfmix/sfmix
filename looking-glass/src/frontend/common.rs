@@ -577,6 +577,7 @@ mod tests {
             mac_address: mac.to_string(),
             entry_type: "Dynamic".to_string(),
             interface: iface.to_string(),
+            ..Default::default()
         }
     }
 

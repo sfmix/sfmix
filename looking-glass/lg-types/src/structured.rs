@@ -63,12 +63,17 @@ pub struct InterfaceCounters {
 
 // ── MAC Address Table ───────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MacEntry {
     pub vlan: String,
     pub mac_address: String,
     pub entry_type: String,
     pub interface: String,
+    /// RFC3339 timestamp this (vlan, mac, interface) was first observed.
+    /// Filled by the MAC-table store; left empty by device drivers.
+    pub first_seen: String,
+    /// RFC3339 timestamp this entry was most recently observed.
+    pub last_seen: String,
 }
 
 // ── LLDP Neighbors ──────────────────────────────────────────────────

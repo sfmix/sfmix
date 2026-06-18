@@ -932,10 +932,10 @@ mod tests {
     fn mac_table_filtered_to_peering_vlans() {
         let pmap = test_pmap();
         let entries = vec![
-            MacEntry { vlan: "998".to_string(), mac_address: "aa:bb:cc:dd:ee:01".to_string(), entry_type: "dynamic".to_string(), interface: "Ethernet3/1".to_string() },
-            MacEntry { vlan: "999".to_string(), mac_address: "aa:bb:cc:dd:ee:02".to_string(), entry_type: "dynamic".to_string(), interface: "Ethernet3/2".to_string() },
-            MacEntry { vlan: "100".to_string(), mac_address: "aa:bb:cc:dd:ee:03".to_string(), entry_type: "dynamic".to_string(), interface: "Ethernet1".to_string() },
-            MacEntry { vlan: "998".to_string(), mac_address: "aa:bb:cc:dd:ee:04".to_string(), entry_type: "dynamic".to_string(), interface: "Vxlan1".to_string() },
+            MacEntry { vlan: "998".to_string(), mac_address: "aa:bb:cc:dd:ee:01".to_string(), entry_type: "dynamic".to_string(), interface: "Ethernet3/1".to_string(), ..Default::default() },
+            MacEntry { vlan: "999".to_string(), mac_address: "aa:bb:cc:dd:ee:02".to_string(), entry_type: "dynamic".to_string(), interface: "Ethernet3/2".to_string(), ..Default::default() },
+            MacEntry { vlan: "100".to_string(), mac_address: "aa:bb:cc:dd:ee:03".to_string(), entry_type: "dynamic".to_string(), interface: "Ethernet1".to_string(), ..Default::default() },
+            MacEntry { vlan: "998".to_string(), mac_address: "aa:bb:cc:dd:ee:04".to_string(), entry_type: "dynamic".to_string(), interface: "Vxlan1".to_string(), ..Default::default() },
         ];
         let out = filter_output_with_lookup(
             CommandOutput::MacAddressTable(entries), DEVICE, &anonymous(), &pmap, ADMIN_GROUP, &public_vlans(),
