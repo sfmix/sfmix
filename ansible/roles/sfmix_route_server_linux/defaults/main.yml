@@ -27,3 +27,26 @@ sfmix_route_server_linux_bird_exporter_repo: https://github.com/czerwonk/bird_ex
 sfmix_route_server_linux_bird_exporter_directory: /opt/bird_exporter
 sfmix_route_server_linux_bird_exporter_version: b7ff18f9e130fef48ef8731b303867742fd17f22
 sfmix_route_server_linux_bird_exporter_port: 9324
+
+# lg-neighborhood-watch — passive ARP/NDP sensor (Docker, host network, NET_RAW).
+sfmix_route_server_linux_lg_neighborhood_watch_directory: /opt/lg-neighborhood-watch
+# Local checkout of the looking-glass workspace on the Ansible control node,
+# synchronized to the host and built there (matches the looking_glass role's
+# local-build model). The Dockerfile lives in the lg-neighborhood-watch subdir.
+sfmix_route_server_linux_lg_neighborhood_watch_src: "{{ playbook_dir }}/../looking-glass"
+sfmix_route_server_linux_lg_neighborhood_watch_version: local
+# HTTP query/metrics interface, bound to the management IP (never the peering IP).
+sfmix_route_server_linux_lg_neighborhood_watch_bind: "127.0.0.1:29185"
+sfmix_route_server_linux_lg_neighborhood_watch_port: 29185
+# Peering VLAN subinterface(s) to capture on (untagged frames).
+sfmix_route_server_linux_lg_neighborhood_watch_interfaces:
+  - vlan998
+# lg-server RPC endpoint the sensor fetches IX IP assignments from.
+sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://localhost:9090"
+# Shared RPC secret (override via vault/group_vars; must match lg-server's).
+sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: ""
+sfmix_route_server_linux_lg_neighborhood_watch_lg_poll_interval_secs: 300
+sfmix_route_server_linux_lg_neighborhood_watch_solicit_interval_secs: 60
+sfmix_route_server_linux_lg_neighborhood_watch_memory_limit: 128m
+# First OOM victim under host memory pressure, so bird is never the one killed.
+sfmix_route_server_linux_lg_neighborhood_watch_oom_score_adj: 1000
