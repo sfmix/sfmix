@@ -277,6 +277,16 @@ body {
 .nd-llp-arrow { font-size: .85rem; color: var(--color-text-light); }
 .nd-llp-down-label { font-size: .78rem; color: var(--color-text-light); font-style: italic; }
 
+/* Per-port learned MACs (L2) */
+.nd-llp-group { margin-bottom: .5rem; }
+.nd-llp-macs { margin: 0 0 .1rem .4rem; padding-left: .55rem; border-left: 2px solid #eee; }
+.nd-llp-macs-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-light); font-weight: 600; margin-bottom: .15rem; }
+.nd-mac-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; font-size: .75rem; padding: .05rem 0; }
+.nd-mac-addr { font-family: var(--font-mono); font-size: .76rem; color: var(--color-primary); }
+.nd-mac-vlan { color: var(--color-text-light); }
+.nd-mac-type { color: var(--color-text-light); text-transform: lowercase; }
+.nd-mac-seen { color: var(--color-text-light); font-size: .7rem; }
+
 /* Address blocks (L3) */
 .nd-addr-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
 .nd-addr { display: flex; gap: .4rem; align-items: center; }

@@ -171,6 +171,7 @@
       </div>
       <div class="nd-lband-body">
         {% for phy in lp.physical %}
+        <div class="nd-llp-group">
         {% if phy.lldp %}
         <div class="nd-lldp-pill{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-lldp-down{% endif %}">
           <div class="nd-llp-side nd-llp-local">
@@ -223,6 +224,21 @@
           </div>
         </div>
         {% endif %}
+        {% if phy.macs %}
+        <div class="nd-llp-macs">
+          <div class="nd-llp-macs-label">{% translate "MACs learned" %}</div>
+          {% for m in phy.macs %}
+          <div class="nd-mac-row">
+            <span class="nd-mac-addr">{{ m.mac_address }}</span>
+            <span class="nd-mac-vlan">{% blocktranslate with vlan=m.vlan %}VLAN {{ vlan }}{% endblocktranslate %}</span>
+            <span class="nd-mac-type">{{ m.entry_type }}</span>
+            {% if m.first_seen_display %}<span class="nd-mac-seen" title="{% translate 'First seen' %}">{% blocktranslate with d=m.first_seen_display %}first seen {{ d }}{% endblocktranslate %}</span>{% endif %}
+            {% if m.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=m.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        </div>
         {% endfor %}
       </div>
     </div>

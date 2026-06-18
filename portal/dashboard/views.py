@@ -1,11 +1,13 @@
 import ipaddress
 import logging
+from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
+from django.utils.timesince import timesince
 from django.utils.translation import gettext, ngettext
 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -247,7 +249,7 @@ def _dqt(device, port):
     return f"{short}:{port}"
 
 
-def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_key,
+def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
                          participant_ips, arp_by_ip, ndp_by_ip, rs_sessions, can_see_admin):
     """Build the logical port tree from NetBox + live data.
 
@@ -285,11 +287,11 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
             for mem_dev, mem_iface in members:
                 physical.append(_build_physical_port(
                     mem_dev, mem_iface, iface_by_key, optics_by_key, lldp_by_key,
-                    can_see_admin, netbox_speed_mbps=per_member_speed))
+                    macs_by_key, can_see_admin, netbox_speed_mbps=per_member_speed))
         else:
             physical.append(_build_physical_port(
                 dev, iface_name, iface_by_key, optics_by_key, lldp_by_key,
-                can_see_admin, netbox_speed_mbps=speed_mbps))
+                macs_by_key, can_see_admin, netbox_speed_mbps=speed_mbps))
 
         # Derive link state from physical members
         known = [p for p in physical if p["link_status"] != "unknown"]
@@ -395,7 +397,7 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
 
 
 def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_by_key,
-                         can_see_admin, netbox_speed_mbps=0):
+                         macs_by_key, can_see_admin, netbox_speed_mbps=0):
     """Build a single physical port dict from live data lookups."""
     iface = iface_by_key.get((device, iface_name), {})
     link_status = iface.get("link_status", "unknown")
@@ -464,6 +466,9 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
         }
     else:
         phy["lldp"] = None
+
+    # L2: MAC addresses learned on this port
+    phy["macs"] = macs_by_key.get((device, iface_name), [])
 
     return phy
 
@@ -568,6 +573,44 @@ def _fetch_lldp_by_key(lg, token):
     except Exception:
         logger.warning("Failed to fetch LLDP neighbors", exc_info=True)
     return lldp_by_key
+
+
+def _parse_rfc3339(ts):
+    """Parse an RFC3339 timestamp into a datetime, or None if blank/invalid."""
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts)
+    except (ValueError, TypeError):
+        return None
+
+
+def _seen_display(entry):
+    """Attach human-readable first/last-seen strings to a MAC entry dict."""
+    first = _parse_rfc3339(entry.get("first_seen"))
+    last = _parse_rfc3339(entry.get("last_seen"))
+    entry["first_seen_display"] = first.strftime("%Y-%m-%d") if first else ""
+    entry["last_seen_ago"] = timesince(last) if last else ""
+    return entry
+
+
+def _fetch_macs_by_key(lg, token):
+    """Fetch the MAC table and index by (device, interface) -> list of entries.
+
+    Many MACs can be learned on one port, so values are lists. Each entry is
+    enriched with display-ready first/last-seen strings.
+    """
+    macs_by_key = {}
+    try:
+        for device_result in lg.get_mac_address_table(token=token):
+            if device_result.get("success") and device_result.get("data"):
+                dev = device_result.get("device", "")
+                for entry in device_result["data"]:
+                    macs_by_key.setdefault((dev, entry.get("interface", "")), []).append(
+                        _seen_display(entry))
+    except Exception:
+        logger.warning("Failed to fetch MAC table", exc_info=True)
+    return macs_by_key
 
 
 def _fetch_arp_by_ip(lg, token):
@@ -675,8 +718,9 @@ def participant_detail(request, asn):
                 except Exception:
                     logger.warning("Failed to fetch optics", exc_info=True)
 
-            # 5. LLDP neighbors
+            # 5. LLDP neighbors + learned MACs (both public, per-port)
             lldp_by_key = _fetch_lldp_by_key(lg, token)
+            macs_by_key = _fetch_macs_by_key(lg, token)
 
             # 6. ARP + NDP
             arp_by_ip = _fetch_arp_by_ip(lg, token)
@@ -687,7 +731,7 @@ def participant_detail(request, asn):
 
             # 8. Build logical port tree
             logical_ports = _build_logical_ports(
-                enriched_ports, iface_by_key, optics_by_key, lldp_by_key,
+                enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
                 ip_addresses, arp_by_ip, ndp_by_ip, rs_sessions, can_see_admin,
             )
 

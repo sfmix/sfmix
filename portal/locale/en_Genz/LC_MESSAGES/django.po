@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-16 23:37-0500\n"
+"POT-Creation-Date: 2026-06-18 02:14-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: Gen Z\n"
@@ -17,37 +17,37 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: dashboard/views.py:75
+#: dashboard/views.py:77
 msgid "You do not have access to this network."
 msgstr "nah fam, this network ain't for you, access denied no cap"
 
-#: dashboard/views.py:116 dashboard/views.py:853 dashboard/views.py:872
-#: dashboard/views.py:917
+#: dashboard/views.py:118 dashboard/views.py:897 dashboard/views.py:916
+#: dashboard/views.py:961
 msgid "IX Administrators only."
 msgstr "IX admins only, you not on the list bestie"
 
-#: dashboard/views.py:123 dashboard/views.py:879
+#: dashboard/views.py:125 dashboard/views.py:923
 msgid "Looking Glass not configured"
 msgstr "Looking Glass ain't set up, it's giving unfinished"
 
-#: dashboard/views.py:220
+#: dashboard/views.py:222
 msgid "Nominal"
 msgstr "all good, vibes immaculate"
 
-#: dashboard/views.py:221
+#: dashboard/views.py:223
 msgid "Marginal"
 msgstr "kinda mid ngl"
 
-#: dashboard/views.py:222
+#: dashboard/views.py:224
 msgid "Out of range"
 msgstr "hella sus, port is cooked"
 
-#: dashboard/views.py:495
+#: dashboard/views.py:500
 #, python-format
 msgid "%(port)s is down"
 msgstr "%(port)s is down bad, it's giving offline"
 
-#: dashboard/views.py:496
+#: dashboard/views.py:501
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
@@ -55,12 +55,12 @@ msgstr ""
 "every member link is ghosted, route-server seshes just chillin idle and zero "
 "traffic moving on this logical port, it's giving dead"
 
-#: dashboard/views.py:503
+#: dashboard/views.py:508
 #, python-format
 msgid "%(port)s degraded — %(up)s/%(total)s members up"
 msgstr "%(port)s lowkey cooked — only %(up)s/%(total)s members up"
 
-#: dashboard/views.py:509
+#: dashboard/views.py:514
 #, python-format
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
@@ -69,12 +69,12 @@ msgstr ""
 "a member link dipped; bundle vibin at only %(effective)sG outta %(total)sG. "
 "no backup rizz till that link comes back, sus"
 
-#: dashboard/views.py:528
+#: dashboard/views.py:533
 #, python-format
 msgid "%(port)s optic %(band)s on %(lane)s"
 msgstr "%(port)s optic %(band)s on %(lane)s, peep it"
 
-#: dashboard/views.py:533
+#: dashboard/views.py:538
 #, python-format
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
@@ -83,14 +83,14 @@ msgstr ""
 "RX %(rx)s dBm is acting up outside the chill zone fr. check the fiber / "
 "patch or book an optic glow-up"
 
-#: dashboard/views.py:548
+#: dashboard/views.py:553
 #, python-format
 msgid "%(count)s route rejected on %(port)s"
 msgid_plural "%(count)s routes rejected on %(port)s"
 msgstr[0] "%(count)s route rejected on %(port)s, ratio'd"
 msgstr[1] "%(count)s routes rejected on %(port)s, ratio'd"
 
-#: dashboard/views.py:552
+#: dashboard/views.py:557
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
@@ -141,7 +141,7 @@ msgstr "Dip"
 msgid "Sign in"
 msgstr "Pull up"
 
-#: templates/base.html:53
+#: templates/base.html:52
 msgid "Change language"
 msgstr "Switch the lingo"
 
@@ -520,7 +520,7 @@ msgid "No optics data found."
 msgstr "no optics data fr, it's giving empty"
 
 #: templates/dashboard/participant_detail.html:3
-#: templates/dashboard/participant_detail.html:234
+#: templates/dashboard/participant_detail.html:250
 msgid "Network"
 msgstr "Network"
 
@@ -572,9 +572,9 @@ msgstr "lit"
 #: templates/dashboard/participant_detail.html:40
 #: templates/dashboard/participant_detail.html:103
 #: templates/dashboard/participant_detail.html:134
-#: templates/dashboard/participant_detail.html:308
-#: templates/dashboard/participant_detail.html:333
-#: templates/dashboard/participant_detail.html:356
+#: templates/dashboard/participant_detail.html:324
+#: templates/dashboard/participant_detail.html:349
+#: templates/dashboard/participant_detail.html:372
 msgid "Down"
 msgstr "down bad"
 
@@ -649,62 +649,89 @@ msgid "Link"
 msgstr "Link"
 
 #: templates/dashboard/participant_detail.html:170
-#: templates/dashboard/participant_detail.html:235
-#: templates/dashboard/participant_detail.html:282
+#: templates/dashboard/participant_detail.html:251
+#: templates/dashboard/participant_detail.html:298
 msgid "Public"
 msgstr "Public"
 
-#: templates/dashboard/participant_detail.html:177
-#: templates/dashboard/participant_detail.html:198
-#: templates/dashboard/participant_detail.html:213
+#: templates/dashboard/participant_detail.html:178
+#: templates/dashboard/participant_detail.html:199
+#: templates/dashboard/participant_detail.html:214
 msgid "Local"
 msgstr "Local"
 
-#: templates/dashboard/participant_detail.html:190
+#: templates/dashboard/participant_detail.html:191
 msgid "Remote"
 msgstr "Remote"
 
-#: templates/dashboard/participant_detail.html:207
+#: templates/dashboard/participant_detail.html:208
 msgid "Link down &mdash; no LLDP"
 msgstr "Link down bad &mdash; no LLDP"
 
-#: templates/dashboard/participant_detail.html:222
+#: templates/dashboard/participant_detail.html:223
 msgid "No LLDP data"
 msgstr "no LLDP data, empty fr"
 
-#: templates/dashboard/participant_detail.html:253
+#: templates/dashboard/participant_detail.html:229
+msgid "MACs learned"
+msgstr "MACs caught in 4k"
+
+#: templates/dashboard/participant_detail.html:233
+#, python-format
+msgid "VLAN %(vlan)s"
+msgstr "VLAN %(vlan)s"
+
+#: templates/dashboard/participant_detail.html:235
+msgid "First seen"
+msgstr "First spotted"
+
+#: templates/dashboard/participant_detail.html:235
+#, python-format
+msgid "first seen %(d)s"
+msgstr "first spotted %(d)s"
+
+#: templates/dashboard/participant_detail.html:236
+msgid "Last seen"
+msgstr "Last spotted"
+
+#: templates/dashboard/participant_detail.html:236
+#, python-format
+msgid "seen %(a)s ago"
+msgstr "spotted %(a)s ago"
+
+#: templates/dashboard/participant_detail.html:269
 msgid "No IPs assigned"
 msgstr "no IPs assigned, it's giving empty"
 
-#: templates/dashboard/participant_detail.html:281
+#: templates/dashboard/participant_detail.html:297
 msgid "Route Servers"
 msgstr "Route Servers"
 
-#: templates/dashboard/participant_detail.html:289
+#: templates/dashboard/participant_detail.html:305
 msgid "Route Server"
 msgstr "Route Server"
 
-#: templates/dashboard/participant_detail.html:290
+#: templates/dashboard/participant_detail.html:306
 msgid "State"
 msgstr "State"
 
-#: templates/dashboard/participant_detail.html:291
+#: templates/dashboard/participant_detail.html:307
 msgid "Uptime"
 msgstr "Uptime"
 
-#: templates/dashboard/participant_detail.html:293
+#: templates/dashboard/participant_detail.html:309
 msgid "Received"
 msgstr "Received"
 
-#: templates/dashboard/participant_detail.html:294
+#: templates/dashboard/participant_detail.html:310
 msgid "Accepted"
 msgstr "Accepted, W"
 
-#: templates/dashboard/participant_detail.html:295
+#: templates/dashboard/participant_detail.html:311
 msgid "Rejected"
 msgstr "Rejected, ratio'd"
 
-#: templates/dashboard/participant_detail.html:390
+#: templates/dashboard/participant_detail.html:406
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
 msgstr ""
