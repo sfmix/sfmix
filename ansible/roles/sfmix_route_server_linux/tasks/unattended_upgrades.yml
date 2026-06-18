@@ -1,0 +1,24 @@
+---
+# Prevent unattended-upgrades from automatically upgrading BIRD on the route
+# servers. A bird2 package upgrade restarts bird.service, which resets every
+# BGP session and is disruptive IX-wide. BIRD security updates must instead be
+# applied by hand during a maintenance window. See the upstream NEWS file and
+# the trixie-security changelog to assess each release.
+- name: "Blacklist BIRD from unattended-upgrades"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/52sfmix-bird-blacklist
+    owner: root
+    group: root
+    mode: u=rw,go=r
+    content: |
+      // Managed by Ansible (sfmix_route_server_linux role). Do not edit by hand.
+      //
+      // Keep unattended-upgrades from auto-upgrading BIRD: the bird2 postinst
+      // restarts bird.service, resetting all BGP sessions on the route server.
+      // Apply BIRD updates manually during a maintenance window instead.
+      // Anchored regexes so only the bird/bird2 packages are matched.
+      Unattended-Upgrade::Package-Blacklist {
+          "^bird$";
+          "^bird2$";
+      };
