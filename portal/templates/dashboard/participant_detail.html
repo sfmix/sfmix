@@ -284,6 +284,24 @@
           {% endif %}
         </div>
         {% endif %}
+        {% if lp.discovered %}
+        <div class="nd-disc">
+          <div class="nd-disc-label">{% translate "Heard on LAN (ARP/NDP)" %}</div>
+          {% for dn in lp.discovered %}
+          <div class="nd-disc-ip{% if dn.conflict %} nd-disc-conflict{% endif %}">
+            <span class="nd-disc-addr">{{ dn.ip }}</span>
+            {% if dn.conflict %}<span class="nd-disc-flag" title="{% translate 'More than one MAC has been heard claiming this IP' %}">⚠ {% translate "multiple MACs" %}</span>{% endif %}
+          </div>
+          {% for m in dn.macs %}
+          <div class="nd-mac-row">
+            <span class="nd-mac-addr">{{ m.mac }}</span>
+            {% if m.first_seen_display %}<span class="nd-mac-seen" title="{% translate 'First seen' %}">{% blocktranslate with d=m.first_seen_display %}first seen {{ d }}{% endblocktranslate %}</span>{% endif %}
+            {% if m.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=m.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
+          </div>
+          {% endfor %}
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
 

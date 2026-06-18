@@ -27,7 +27,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 # Endpoints whose real response is a JSON object rather than a list. Used only
 # to pick the right empty container when a fixture is missing, so a gap degrades
 # to an empty page instead of a 500.
-_DICT_ENDPOINTS = ("participants/", "netbox/status", "peeringdb-cache", "routeservers")
+_DICT_ENDPOINTS = ("participants/", "netbox/status", "peeringdb-cache", "discovered-neighbors", "routeservers")
 
 
 def _normalize(path):
