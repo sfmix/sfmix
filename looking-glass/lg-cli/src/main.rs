@@ -228,6 +228,7 @@ fn term_supports_rich(term: &str) -> bool {
         || t.contains("contour")
 }
 
+#[allow(clippy::too_many_arguments)] // server wiring: each parameter is a distinct dependency
 async fn run_ssh_server(
     bind_addr: &str,
     host_key_path: &str,
@@ -523,6 +524,10 @@ impl SshSessionHandler {
         }
     }
 
+    // `drop(writer)` ends writer's borrow of `session` before it is reused;
+    // clippy's drop_non_drop flags this as a no-op, but the borrow release is
+    // the point.
+    #[allow(clippy::drop_non_drop)]
     async fn process_line(&mut self, line: &str, session: &mut Session) -> CommandAction {
         let identity = self.identity.lock().unwrap().clone();
         let rate_key = if identity.authenticated {
@@ -1006,9 +1011,7 @@ async fn handle_telnet_session(
             break;
         }
 
-        for i in 0..n {
-            let byte = buf[i];
-
+        for &byte in &buf[..n] {
             // Simple telnet IAC state machine
             if in_iac {
                 match iac_state {

@@ -110,7 +110,7 @@ impl AristaEosDriver {
             },
             member_interfaces: {
                 let mut members: Vec<String> = iface.member_interfaces.into_keys().collect();
-                members.sort_by(|a, b| interface_sort_key(a).cmp(&interface_sort_key(b)));
+                members.sort_by_key(|a| interface_sort_key(a));
                 members
             },
         })
@@ -625,7 +625,7 @@ fn normalize_eos_json(raw: &str) -> String {
                     chars.next();
                     while let Some(&ch) = chars.peek() {
                         chars.next();
-                        if ch >= '@' && ch <= '~' {
+                        if ('@'..='~').contains(&ch) {
                             break;
                         }
                     }
@@ -664,9 +664,7 @@ fn non_zero_f64(v: Option<f64>) -> Option<f64> {
 
 /// Format bandwidth in bits/sec to a human-readable speed string.
 fn format_speed(bps: u64) -> String {
-    if bps >= 100_000_000_000 {
-        format!("{}Gbps", bps / 1_000_000_000)
-    } else if bps >= 1_000_000_000 {
+    if bps >= 1_000_000_000 {
         format!("{}Gbps", bps / 1_000_000_000)
     } else if bps >= 1_000_000 {
         format!("{}Mbps", bps / 1_000_000)
@@ -756,7 +754,7 @@ impl EosPortChannelSummary {
             .into_iter()
             .map(|(port_channel_name, entry)| {
                 let mut members: Vec<String> = entry.ports.into_keys().collect();
-                members.sort_by(|a, b| interface_sort_key(a).cmp(&interface_sort_key(b)));
+                members.sort_by_key(|a| interface_sort_key(a));
                 (port_channel_name, members)
             })
             .collect()

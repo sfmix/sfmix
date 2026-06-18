@@ -364,7 +364,7 @@ impl McpHandler {
                         .and_then(|m| m.as_array())
                         .map(|arr| arr.iter().filter_map(|entry| {
                             let (mdev, miface) = entry.as_array()
-                                .and_then(|a| Some((a.get(0)?.as_str()?, a.get(1)?.as_str()?)))?;
+                                .and_then(|a| Some((a.first()?.as_str()?, a.get(1)?.as_str()?)))?;
                             Some(serde_json::json!({
                                 "device": mdev,
                                 "interface": miface,

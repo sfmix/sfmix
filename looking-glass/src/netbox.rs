@@ -356,7 +356,7 @@ pub async fn fetch_port_map(
 
     // Assemble participants
     let mut participants: Vec<NetboxParticipant> = Vec::new();
-    for (_tid, (asn, name, ptype)) in &tenants_by_id {
+    for (asn, name, ptype) in tenants_by_id.values() {
         participants.push(NetboxParticipant {
             asn: *asn,
             name: name.clone(),

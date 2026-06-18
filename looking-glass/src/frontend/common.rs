@@ -110,6 +110,12 @@ pub struct LineEditor {
     history_scratch: String,
 }
 
+impl Default for LineEditor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LineEditor {
     pub fn new() -> Self {
         Self {
@@ -202,7 +208,7 @@ impl LineEditor {
                 return LineEvent::Continue;
             }
             EscState::EscapeBracket => {
-                if byte >= 0x40 && byte <= 0x7E {
+                if (0x40..=0x7E).contains(&byte) {
                     // Terminal byte — act only on bare (no-parameter) sequences
                     if self.csi_byte_count == 0 {
                         match byte {
@@ -346,7 +352,7 @@ impl LineEditor {
             }
 
             // --- Printable characters ---
-            c if c >= 0x20 && c < 0x7F => {
+            c if (0x20..0x7F).contains(&c) => {
                 self.buf.push(c as char);
                 output.push(c);
                 LineEvent::Continue

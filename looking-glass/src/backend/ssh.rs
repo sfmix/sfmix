@@ -23,11 +23,11 @@ const STREAM_LINE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Overall timeout for streaming commands.
 const STREAM_TOTAL_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// A thin wrapper around a russh SSH session that can execute a single
-/// CLI command and return the collected output.
-///
-/// Sessions are ephemeral: connect → exec → collect → disconnect.
-/// A future version may pool persistent sessions.
+// A thin wrapper around a russh SSH session that can execute a single
+// CLI command and return the collected output.
+//
+// Sessions are ephemeral: connect → exec → collect → disconnect.
+// A future version may pool persistent sessions.
 
 struct ClientHandler {
     /// If set, the server's host key SHA-256 fingerprint (as "SHA256:base64...")
@@ -242,7 +242,7 @@ pub async fn ssh_exec_direct(config: &DeviceConfig, cli_command: &str) -> Result
                     trace!(bytes = data.len(), "SSH channel data");
                     output.extend_from_slice(&data);
                 }
-                Some(ChannelMsg::ExtendedData { data, ext }) if ext == 1 => {
+                Some(ChannelMsg::ExtendedData { data, ext: 1 }) => {
                     trace!(bytes = data.len(), "SSH channel stderr");
                     output.extend_from_slice(&data);
                 }
@@ -462,7 +462,7 @@ pub async fn ssh_exec_stream(
                         }
                     }
                 }
-                Ok(Some(ChannelMsg::ExtendedData { data, ext })) if ext == 1 => {
+                Ok(Some(ChannelMsg::ExtendedData { data, ext: 1 })) => {
                     for &byte in data.iter() {
                         if byte == b'\n' {
                             let line = String::from_utf8_lossy(&line_buf).to_string();

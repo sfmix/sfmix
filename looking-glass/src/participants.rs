@@ -288,6 +288,11 @@ impl PortMap {
         self.ports.len()
     }
 
+    /// Whether any ports are classified.
+    pub fn is_empty(&self) -> bool {
+        self.ports.is_empty()
+    }
+
     /// Iterate over all (device, interface) → PortClass entries.
     pub fn iter(&self) -> impl Iterator<Item = (&(String, String), &PortClass)> {
         self.ports.iter()

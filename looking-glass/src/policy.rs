@@ -135,7 +135,7 @@ impl PolicyEngine {
 
         // OpticsInventory is admin-only
         if command.resource == Resource::OpticsInventory {
-            if !identity.is_admin(&self.admin_group()) {
+            if !identity.is_admin(self.admin_group()) {
                 return PolicyDecision::Deny {
                     reason: "optics inventory requires admin access".to_string(),
                 };
@@ -162,7 +162,7 @@ impl PolicyEngine {
                                 reason: "authentication required for participant port queries".to_string(),
                             };
                         }
-                        if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&asn) {
+                        if !identity.is_admin(self.admin_group()) && !identity.asns.contains(&asn) {
                             return PolicyDecision::Deny {
                                 reason: "you do not administer this ASN".to_string(),
                             };
@@ -177,7 +177,7 @@ impl PolicyEngine {
                                         reason: "authentication required for participant port queries".to_string(),
                                     };
                                 }
-                                if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&owner_asn) {
+                                if !identity.is_admin(self.admin_group()) && !identity.asns.contains(&owner_asn) {
                                     return PolicyDecision::Deny {
                                         reason: "you do not administer this port".to_string(),
                                     };
@@ -185,7 +185,7 @@ impl PolicyEngine {
                             }
                             None => {
                                 // Not a participant port (core/infrastructure) — admin only
-                                if !identity.authenticated || !identity.is_admin(&self.admin_group()) {
+                                if !identity.authenticated || !identity.is_admin(self.admin_group()) {
                                     return PolicyDecision::Deny {
                                         reason: "interface queries for non-participant ports require admin access".to_string(),
                                     };
@@ -210,7 +210,7 @@ impl PolicyEngine {
                     reason: "authentication required for participant port queries".to_string(),
                 };
             }
-            if !identity.is_admin(&self.admin_group()) && !identity.asns.contains(&asn) {
+            if !identity.is_admin(self.admin_group()) && !identity.asns.contains(&asn) {
                 return PolicyDecision::Deny {
                     reason: "you do not administer this ASN".to_string(),
                 };
@@ -253,10 +253,10 @@ impl PolicyEngine {
                     }
                 }
                 // Check group membership (if groups specified, user must have at least one)
-                if !criteria.groups.is_empty() {
-                    if !criteria.groups.iter().any(|g| identity.groups.contains(g)) {
-                        return false;
-                    }
+                if !criteria.groups.is_empty()
+                    && !criteria.groups.iter().any(|g| identity.groups.contains(g))
+                {
+                    return false;
                 }
                 true
             }
@@ -314,8 +314,7 @@ fn command_to_match_string(command: &Command) -> String {
 
 /// Simple glob-style pattern matching (only supports trailing `*`).
 fn pattern_matches(input: &str, pattern: &str) -> bool {
-    if pattern.ends_with('*') {
-        let prefix = &pattern[..pattern.len() - 1];
+    if let Some(prefix) = pattern.strip_suffix('*') {
         input.starts_with(prefix.trim_end())
     } else {
         input == pattern
