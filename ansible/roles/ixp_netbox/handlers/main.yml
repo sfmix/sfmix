@@ -1,0 +1,7 @@
+---
+- name: reload systemd and restart rqworker
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name: netbox-rqworker@1.service
+    state: restarted

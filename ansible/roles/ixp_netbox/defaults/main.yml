@@ -1,0 +1,3 @@
+---
+ixp_netbox_vm_swappiness: "10"
+ixp_netbox_rqworker_runtime_max_sec: 86400
