@@ -26,6 +26,8 @@ pub struct ServerConfig {
     pub listen: looking_glass::config::ListenConfig,
     #[serde(default)]
     pub device_cache: looking_glass::config::DeviceCacheConfig,
+    #[serde(default)]
+    pub discovered: Option<looking_glass::config::DiscoveredNeighborsConfig>,
 }
 
 #[derive(Debug, Deserialize)]

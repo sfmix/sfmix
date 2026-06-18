@@ -153,6 +153,7 @@ async fn main() -> Result<()> {
         device_state_cache: ArcSwap::from_pointee(std::collections::HashMap::new()),
         device_cache_cfg: server_cfg.device_cache.clone(),
         peeringdb_cache: ArcSwap::from_pointee(peeringdb::PeeringdbCache::empty()),
+        discovered: ArcSwap::from_pointee(looking_glass::discovered::DiscoveredCache::empty()),
     });
 
     // Device state cache: initial warm-up + background refresh
@@ -188,6 +189,11 @@ async fn main() -> Result<()> {
                 state.device_state_cache.store(Arc::new(fresh));
             }
         });
+    }
+
+    // Discovered ARP/NDP neighbors: poll the lg-neighborhood-watch sensor.
+    if let Some(ref disc) = server_cfg.discovered {
+        looking_glass::discovered::spawn_poll_loop(lg.clone(), disc);
     }
 
     // NetBox participant source: initial fetch + background refresh

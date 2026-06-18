@@ -391,6 +391,27 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_show_ix_ip_assignments() {
+        let command = parse_command("show ix-ip-assignments").unwrap();
+        assert_eq!(command.resource, Resource::IxIpAssignments);
+        assert_eq!(command.filter_asn, None);
+
+        let command = parse_command("show ix-ip-assignments 13335").unwrap();
+        assert_eq!(command.resource, Resource::IxIpAssignments);
+        assert_eq!(command.filter_asn, Some(13335));
+    }
+
+    #[test]
+    fn test_parse_show_discovered_neighbors() {
+        let command = parse_command("show discovered-neighbors").unwrap();
+        assert_eq!(command.resource, Resource::DiscoveredNeighbors);
+
+        let command = parse_command("show discovered-neighbors AS13335").unwrap();
+        assert_eq!(command.resource, Resource::DiscoveredNeighbors);
+        assert_eq!(command.filter_asn, Some(13335));
+    }
+
+    #[test]
     fn test_parse_show_optics() {
         let command = parse_command("show optics").unwrap();
         assert_eq!(command.resource, Resource::Optics);
