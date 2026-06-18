@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{
         sse::{Event, Sse},
@@ -36,6 +36,8 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/participants.json", get(ixf_member_export))
         .route("/rpc/v1/participants/{asn}", get(participant_detail))
         .route("/rpc/v1/participant-ports", get(participant_ports))
+        .route("/rpc/v1/ix-ip-assignments", get(ix_ip_assignments))
+        .route("/rpc/v1/discovered-neighbors", get(discovered_neighbors))
         .route("/rpc/v1/netbox/status", get(netbox_status))
         .route("/rpc/v1/device-cache/status", get(device_cache_status))
         .route("/rpc/v1/peeringdb-cache", get(peeringdb_cache))
@@ -263,6 +265,79 @@ async fn participant_ports(
             .then(a["interface"].as_str().cmp(&b["interface"].as_str()))
     });
     Json(entries).into_response()
+}
+
+/// Optional `?asn=` filter for assignment/neighbor listings.
+#[derive(serde::Deserialize)]
+struct AsnFilter {
+    asn: Option<u32>,
+}
+
+/// GET /rpc/v1/ix-ip-assignments — flat list of assigned IX IPs with tenant/ASN.
+///
+/// Sourced from the NetBox participant cache. Consumed internally by
+/// lg-neighborhood-watch (to know which IPs to solicit) and proxied publicly by
+/// lg-http. `?asn=` narrows to one participant.
+async fn ix_ip_assignments(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+    Query(filter): Query<AsnFilter>,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let nb_participants = state.lg.netbox_participants.load();
+    let mut entries: Vec<serde_json::Value> = nb_participants
+        .iter()
+        .filter(|p| filter.asn.is_none_or(|a| p.asn == a))
+        .flat_map(|p| {
+            p.ip_addresses.iter().map(move |ip| {
+                serde_json::json!({
+                    "ip": ip.address,
+                    "family": ip.family,
+                    "asn": p.asn,
+                    "tenant_name": p.name,
+                    "status": ip.status,
+                })
+            })
+        })
+        .collect();
+    entries.sort_by(|a, b| {
+        a["ip"].as_str().cmp(&b["ip"].as_str())
+    });
+    Json(entries).into_response()
+}
+
+/// GET /rpc/v1/discovered-neighbors — ARP/NDP neighbors heard on the IX fabric.
+///
+/// Accumulated from the lg-neighborhood-watch sensor. `?asn=` narrows to one
+/// participant's IPs.
+async fn discovered_neighbors(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+    Query(filter): Query<AsnFilter>,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let cache = state.lg.discovered.load();
+    match filter.asn {
+        Some(asn) => {
+            let filtered: Vec<_> = cache
+                .neighbors
+                .iter()
+                .filter(|n| n.asn == Some(asn))
+                .cloned()
+                .collect();
+            Json(serde_json::json!({
+                "neighbors": filtered,
+                "fetched_at": cache.fetched_at,
+                "last_error": cache.last_error,
+            }))
+            .into_response()
+        }
+        None => Json(serde_json::to_value(&**cache).unwrap_or_default()).into_response(),
+    }
 }
 
 /// GET /rpc/v1/device-cache/status — per-device background cache freshness

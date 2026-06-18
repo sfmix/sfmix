@@ -378,6 +378,36 @@ async fn get_device_cache_status(
     }
 }
 
+/// Proxy the flat IX IP assignment list from lg-server. Public; `?asn=` filters.
+async fn get_ix_ip_assignments(
+    State(state): State<HttpState>,
+    Query(query): Query<AsnFilterQuery>,
+) -> impl IntoResponse {
+    let path = match query.asn {
+        Some(asn) => format!("/rpc/v1/ix-ip-assignments?asn={asn}"),
+        None => "/rpc/v1/ix-ip-assignments".to_string(),
+    };
+    match state.rpc.get_json(&path).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
+/// Proxy discovered ARP/NDP neighbors from lg-server. Public; `?asn=` filters.
+async fn get_discovered_neighbors(
+    State(state): State<HttpState>,
+    Query(query): Query<AsnFilterQuery>,
+) -> impl IntoResponse {
+    let path = match query.asn {
+        Some(asn) => format!("/rpc/v1/discovered-neighbors?asn={asn}"),
+        None => "/rpc/v1/discovered-neighbors".to_string(),
+    };
+    match state.rpc.get_json(&path).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
 /// Proxy PeeringDB cache from lg-server.
 async fn get_peeringdb_cache(
     State(state): State<HttpState>,
@@ -533,6 +563,8 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/participants.json", get(get_ixf_member_export))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/participant-ports", get(get_participant_ports))
+        .route("/api/v1/ix-ip-assignments", get(get_ix_ip_assignments))
+        .route("/api/v1/discovered-neighbors", get(get_discovered_neighbors))
         .route("/api/v1/netbox/status", get(get_netbox_status))
         .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .route("/api/v1/peeringdb-cache", get(get_peeringdb_cache))

@@ -16,6 +16,7 @@ enum Resource {
     InterfacesStatus, InterfaceDetail,
     MacAddressTable, LldpNeighbors,
     Optics, OpticsDetail, OpticsInventory, Participants, ParticipantDetail,
+    IxIpAssignments, DiscoveredNeighbors,
     NetworkReachability, Help, Login, Whoami, Logout, NetboxCache, DeviceCache,
     Arp,
     #[serde(rename = "ipv6_neighbors")]

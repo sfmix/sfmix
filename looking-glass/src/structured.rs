@@ -1,7 +1,7 @@
 // Re-export all data structs from lg-types::structured.
 pub use lg_types::structured::{
-    ArpEntry, InterfaceCounters, InterfaceDetail, InterfaceOptics, InterfaceStatus,
-    LldpNeighbor, MacEntry, OpticalLane, OpticsInventoryEntry,
+    ArpEntry, DiscoveredMac, DiscoveredNeighbor, InterfaceCounters, InterfaceDetail,
+    InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry, OpticalLane, OpticsInventoryEntry,
 };
 
 /// Per-device snapshot of all cacheable state, populated by the background poller.
