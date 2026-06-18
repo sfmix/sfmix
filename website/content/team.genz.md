@@ -1,11 +1,11 @@
 ---
-title: "The Squad"
+title: "the squad 🫂"
 layout: "video-header"
 video: "video/team-bg.mp4"
 mobile_image: "img/mobile-golden-gate.jpg"
 ---
 
-## Board of Directors
+## board of directors 🫂
 
 <div class="bio">
 
@@ -69,7 +69,7 @@ Walt Wollny is the Director of Interconnection Strategy at Hurricane Electric, s
 With over 25 years of experience in the Internet industry, Walt previously worked as an IP Business Development Manager at Amazon. During his tenure, he supported the deployment of over 64 new CDN builds, including in markets such as Japan, Singapore, Hong Kong, India, Taiwan, the Philippines, and Australia.
 </div>
 
-## Technical Advisory / Operations
+## technical advisory / operations 🛠️
 
 <div class="bio">
 
@@ -109,7 +109,7 @@ based in San Francisco Bay Area with Matt Peterson.
 
 </div>
 
-## Alumni Board Members
+## alumni board members 🎓
 
 <div class="bio">
 
@@ -127,7 +127,7 @@ based in San Francisco Bay Area with Matt Peterson.
 
 </div>
 
-## Hackathon Contributors
+## hackathon contributors 💻
 
 <div class="bio">
 

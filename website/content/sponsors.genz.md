@@ -1,13 +1,13 @@
 ---
-title: "The Sponsors (real ones)"
+title: "the sponsors (real ones) 🙏"
 layout: "video-header"
 video: "video/sponsors-bg.mp4"
 mobile_image: "img/mobile-golden-gate.jpg"
 ---
 
-SFMIX exists thanks to the generosity of our sponsors and volunteers — from equipment donations and discounted services to hours spent in the data center. Real ones, no cap.
+SFMIX exists thanks to the hella generous support of our sponsors and volunteers — from equipment donations and discounted services to hours spent in the data center. real ones, no cap 🙏.
 
-Wanna help out? [Slide in](/contact/).
+wanna help out? [slide in](/contact/) 💬.
 
 <div class="sponsor-logos">
   <a href="https://www.he.net/"><img src="/img/sponsor_logos/hurricaneelectric.jpg" alt="Hurricane Electric" loading="lazy"></a>

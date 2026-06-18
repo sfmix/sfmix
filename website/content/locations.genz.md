@@ -1,17 +1,17 @@
 ---
-title: "Spots"
+title: "spots 📍"
 layout: "video-header"
 video: "video/locations-bg.mp4"
 mobile_image: "img/mobile-bay-bridge-night.jpg"
 ---
 
-## Where to Pull Up
+## where to pull up 📍
 
-To connect, drop a cross-connection order with the meet-me room (MMR) operator at your chosen facility. Cross-connect pricing is set by the MMR operator. *SFMIX does not pay for participant-facing cross-connects.* (That's on you, no shade.)
+to connect, drop a cross-connection order with the meet-me room (MMR) operator at your chosen facility. cross-connect pricing is set by the MMR operator. *SFMIX does not pay for participant-facing cross-connects.* (that's on you, no shade 🤷.)
 
-All locations offer **10, 100, or 400Gbps** fiber connectivity. Fast fr.
+all locations offer **10, 100, or 400Gbps** fiber connectivity. hella fast fr ⚡.
 
-*SMF only (10km 1310nm optics). No MMF or copper. Tunable or colored DWDM optics required in the Astound suite (passive MUX to SFMIX). BiDi available for 10G and 100G.*
+*SMF only (10km 1310nm optics). no MMF or copper. tunable or colored DWDM optics required in the Astound suite (passive MUX to SFMIX). BiDi available for 10G and 100G.*
 
 | SFMIX Site Code | Address | Facility Operator | MMR Operator / Portal |
 |-----------------|---------|-------------------|-----------------------|
