@@ -174,7 +174,8 @@
       </div>
       <div class="site-footer__legal">
         <span>&copy; {{ now.Year }} {{ .Site.Params.copyright_name }} · {{ partial "T.html" "IRS 501(c)(12) cooperative" }}</span>
-        <span><a href="{{ "/privacy/" | relLangURL }}">{{ partial "T.html" "Privacy Policy" }}</a></span>
+        {{/* Privacy policy is English-only; link to the canonical /privacy/ for every locale. */}}
+        <span><a href="{{ "/privacy/" | relURL }}">{{ partial "T.html" "Privacy Policy" }}</a></span>
       </div>
     </div>
   </footer>
