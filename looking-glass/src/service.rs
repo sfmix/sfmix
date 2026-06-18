@@ -125,9 +125,8 @@ impl LookingGlass {
             let asn: u32 = command
                 .target
                 .as_deref()
-                .unwrap_or("")
-                .parse()
-                .map_err(|_| Error::BadRequest("invalid ASN".to_string()))?;
+                .and_then(crate::command::parse_asn)
+                .ok_or_else(|| Error::BadRequest("invalid ASN".to_string()))?;
             let pmap = self.participants.load();
             let netbox_participants = self.netbox_participants.load();
             match pmap.get(asn) {

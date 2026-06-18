@@ -150,8 +150,8 @@ impl PolicyEngine {
         //   Interface-name target       — direct interface queries (MCP/admin); admin-only
         if command.resource.is_port_scoped() {
             if let Some(ref target) = command.target {
-                match target.parse::<u32>() {
-                    Ok(asn) => {
+                match crate::command::parse_asn(target) {
+                    Some(asn) => {
                         if participants.get(asn).is_none() {
                             return PolicyDecision::Deny {
                                 reason: format!("unknown participant AS{asn}"),
@@ -168,7 +168,7 @@ impl PolicyEngine {
                             };
                         }
                     }
-                    Err(_) => {
+                    None => {
                         // Interface-name target — resolve owning ASN via port map
                         match participants.port_owner_by_interface(target) {
                             Some(owner_asn) => {

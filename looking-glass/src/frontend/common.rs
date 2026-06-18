@@ -453,9 +453,9 @@ pub async fn dispatch_command<W: SessionWriter>(
 
     // Participant detail
     if command.resource == Resource::ParticipantDetail {
-        let asn: u32 = match command.target.as_deref().unwrap_or("").parse() {
-            Ok(n) => n,
-            Err(_) => {
+        let asn: u32 = match command.target.as_deref().and_then(crate::command::parse_asn) {
+            Some(n) => n,
+            None => {
                 writer.write_bytes(b"Invalid ASN\n").await?;
                 return Ok(CommandAction::Continue);
             }

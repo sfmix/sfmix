@@ -280,8 +280,7 @@ fn build_command(tpl: &CommandTemplate, captured_arg: Option<&str>) -> Result<Co
     };
 
     let filter_asn = match tpl.filter_asn.as_deref() {
-        Some("$arg") => captured_arg
-            .and_then(|s| s.parse::<u32>().ok()),
+        Some("$arg") => captured_arg.and_then(crate::command::parse_asn),
         _ => None,
     };
 
@@ -372,6 +371,23 @@ mod tests {
         assert_eq!(command.resource, Resource::InterfacesStatus);
         assert_eq!(command.filter_asn, Some(13335));
         assert!(command.target.is_none());
+    }
+
+    #[test]
+    fn test_parse_show_interfaces_filter_asn_prefixed() {
+        for input in ["show interfaces AS13335", "show interfaces asn13335"] {
+            let command = parse_command(input).unwrap();
+            assert_eq!(command.resource, Resource::InterfacesStatus);
+            assert_eq!(command.filter_asn, Some(13335), "input: {input}");
+        }
+    }
+
+    #[test]
+    fn test_parse_show_participant_detail_prefixed() {
+        for input in ["show participants 13335", "show participants AS13335", "show participants asn13335"] {
+            let command = parse_command(input).unwrap();
+            assert_eq!(command.resource, Resource::ParticipantDetail, "input: {input}");
+        }
     }
 
     #[test]

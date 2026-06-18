@@ -2,7 +2,7 @@
 // is defined locally to reference the crate-local CommandOutput that
 // includes the Stream variant).
 pub use lg_types::command::{
-    AddressFamily, Command, ParseError, Resource, Verb,
+    parse_asn, AddressFamily, Command, ParseError, Resource, Verb,
 };
 
 /// Result of executing a command against a device.
