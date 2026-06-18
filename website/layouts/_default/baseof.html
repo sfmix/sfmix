@@ -136,7 +136,46 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>&copy; {{ now.Year }} {{ .Site.Params.copyright_name }} · <a href="{{ "/privacy/" | relLangURL }}">{{ partial "T.html" "Privacy Policy" }}</a></p>
+      <div class="site-footer__grid">
+        <div>
+          <div class="footer-brand">
+            <img src="{{ "img/sfmix-logo-large.png" | relURL }}" alt="SFMIX" width="160" height="40">
+          </div>
+          <p class="site-footer__about">{{ partial "T.html" "Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont." }}</p>
+        </div>
+        <div>
+          <h4>{{ partial "T.html" "About" }}</h4>
+          <ul>
+            {{- range .Site.Menus.about }}
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
+            {{- end }}
+          </ul>
+        </div>
+        <div>
+          <h4>{{ partial "T.html" "Services" }}</h4>
+          <ul>
+            {{- range .Site.Menus.services }}
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}"{{ if hasPrefix .URL "http" }} target="_blank" rel="noopener"{{ end }}>{{ partial "T.html" .Name }}</a></li>
+            {{- end }}
+          </ul>
+        </div>
+        <div>
+          <h4>{{ partial "T.html" "Connect" }}</h4>
+          <ul>
+            {{- range .Site.Menus.connect }}
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
+            {{- end }}
+            {{- range .Site.Menus.main }}{{ if ne .URL "/connection-guide/" }}
+            <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
+            {{- end }}{{ end }}
+            <li><a href="https://www.peeringdb.com/ix/155" target="_blank" rel="noopener">PeeringDB ↗</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="site-footer__legal">
+        <span>&copy; {{ now.Year }} {{ .Site.Params.copyright_name }} · {{ partial "T.html" "IRS 501(c)(12) cooperative" }}</span>
+        <span><a href="{{ "/privacy/" | relLangURL }}">{{ partial "T.html" "Privacy Policy" }}</a></span>
+      </div>
     </div>
   </footer>
 </body>
