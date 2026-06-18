@@ -1,0 +1,8 @@
+{{- $url := .Destination -}}
+{{- if and (hasPrefix $url "/") (not (hasPrefix $url "//")) -}}
+  {{- $url = .Destination | relLangURL -}}
+{{- end -}}
+<a href="{{ $url }}"
+{{- with .Title }} title="{{ . }}"{{ end -}}
+>{{ .Text }}</a>
+{{- /* Automatically prefixes internal links with the active language path. */ -}}
