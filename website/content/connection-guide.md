@@ -44,7 +44,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 
 ## Technical Requirements
 
-- **SMF only** — no copper or MMF.
+- **Single-mode fiber only** — no copper or multi-mode fiber.
 - A public RIR-assigned ASN is required ([RFC 1930](https://datatracker.ietf.org/doc/html/rfc1930), [RFC 6996](https://datatracker.ietf.org/doc/html/rfc6996)). No private ASNs.
 - A maintained [PeeringDB](https://peeringdb.org/) entry is required.
 - **One MAC address per logical link.** Port security allows 2 MACs temporarily for router migrations, but only 1 long-term.

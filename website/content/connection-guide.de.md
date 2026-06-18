@@ -43,7 +43,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 
 ## Technische Anforderungen
 
-- **Nur SMF** — kein Kupfer oder MMF.
+- **Nur Singlemode-Faser** — kein Kupfer oder Multimode-Faser.
 - Eine öffentliche, von einer RIR zugewiesene ASN ist erforderlich ([RFC 1930](https://datatracker.ietf.org/doc/html/rfc1930), [RFC 6996](https://datatracker.ietf.org/doc/html/rfc6996)). Keine privaten ASNs.
 - Ein gepflegter [PeeringDB](https://peeringdb.org/)-Eintrag ist erforderlich.
 - **Eine MAC-Adresse pro logischer Verbindung.** Die Port-Sicherheit erlaubt vorübergehend 2 MACs für Router-Migrationen, langfristig jedoch nur 1.

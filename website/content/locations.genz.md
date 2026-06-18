@@ -11,7 +11,7 @@ to connect, drop a cross-connection order with the meet-me room (MMR) operator a
 
 all locations offer **10, 100, or 400Gbps** fiber connectivity. hella fast fr ⚡.
 
-*SMF only (10km 1310nm optics). no MMF or copper. tunable or colored DWDM optics required in the Astound suite (passive MUX to SFMIX). BiDi available for 10G and 100G.*
+*single-mode fiber only (10km 1310nm optics). no multi-mode fiber or copper. tunable or colored DWDM optics required in the Astound suite (passive MUX to SFMIX). BiDi available for 10G and 100G.*
 
 | SFMIX Site Code | Address | Facility Operator | MMR Operator / Portal |
 |-----------------|---------|-------------------|-----------------------|
