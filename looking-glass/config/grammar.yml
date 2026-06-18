@@ -29,7 +29,7 @@ commands:
             command: { verb: show, resource: interfaces_status }
           _arg:
             name: "<asn>"
-            help: Filter by participant ASN (e.g. 13335)
+            help: Filter by participant ASN (e.g. 13335, AS13335)
             command: { verb: show, resource: interfaces_status, filter_asn: "$arg" }
       optics:
         help: Transceiver/DOM information
@@ -40,7 +40,7 @@ commands:
             command: { verb: show, resource: optics_inventory }
           _arg:
             name: "<asn>"
-            help: Filter by participant ASN (e.g. 13335)
+            help: Filter by participant ASN (e.g. 13335, AS13335)
             command: { verb: show, resource: optics, filter_asn: "$arg" }
       mac:
         help: MAC address table
@@ -82,7 +82,7 @@ commands:
         children:
           _arg:
             name: "<asn>"
-            help: Show detail for a specific participant ASN (e.g. 13335)
+            help: Show detail for a specific participant ASN (e.g. 13335, AS13335)
             command: { verb: show, resource: participant_detail, target: "$arg" }
       netbox:
         help: NetBox cache status
