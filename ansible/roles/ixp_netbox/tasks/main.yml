@@ -1,4 +1,11 @@
 ---
+- name: "Netbox: Set vm.swappiness"
+  become: true
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ ixp_netbox_vm_swappiness }}"
+    state: present
+
 - name: "Update apt cache"
   become: true
   ansible.builtin.apt:
@@ -45,6 +52,28 @@
                 proxy_set_header X-Forwarded-Proto $scheme;
               }
 
+
+- name: "Netbox: Create systemd drop-in directory for rqworker"
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/netbox-rqworker@.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: "Netbox: Add RuntimeMaxSec drop-in for rqworker"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/netbox-rqworker@.service.d/restart-daily.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      RuntimeMaxSec={{ ixp_netbox_rqworker_runtime_max_sec }}
+  notify:
+    - reload systemd and restart rqworker
 
 - name: "Firewall: Allow HTTP(S)"
   become: true

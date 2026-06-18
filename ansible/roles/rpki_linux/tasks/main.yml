@@ -1,4 +1,11 @@
 ---
+- name: "RPKI Linux: Set vm.swappiness"
+  become: true
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ rpki_linux_vm_swappiness }}"
+    state: present
+
 - name: "Firewall: Allow from SFMIX: RPKI HTTP(8323)"
   become: true
   community.general.ufw:

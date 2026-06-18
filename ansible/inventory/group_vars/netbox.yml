@@ -36,6 +36,8 @@ redis_version: 6.0.9
 redis_checksum: sha256:dc2bdcf81c620e9f09cfd12e85d3bc631c897b2db7a55218fd8a65eaa37f86dd
 netbox_pip_packages:
   - sentry-sdk
+certbot_auto_renew_user: root
 netbox_uwsgi_options:
   buffer-size: 65535
   enable-threads: true
+  max-requests: 5000
