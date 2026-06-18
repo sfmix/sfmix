@@ -8,10 +8,14 @@ sfmix_route_server_linux_birdwatcher_version: "master"
 # live set (~1GiB) before collecting and hit the cgroup limit first -> memcg OOM-kill
 # (exit 137) every ~8 min. Fix is NOT a bigger host: cap stays a HARD ceiling that
 # contains birdwatcher so it can never trigger a global OOM and threaten bird. We
-# just lift it enough for the GC to breathe (1024m) and set GOMEMLIMIT below it so
-# the Go runtime self-throttles (trades CPU for memory) instead of being killed.
-# Worst case host use: bird (~407MiB) + birdwatcher (1024m) + OS << 3.8GiB.
-sfmix_route_server_linux_birdwatcher_memory_limit: "1024m"
+# just lift it enough for the GC to breathe and set GOMEMLIMIT below it so the Go
+# runtime self-throttles (trades CPU for memory) instead of being killed. GOMEMLIMIT
+# keeps *steady* usage modest (~565-690MiB sawtooth observed), but alice-lg poll
+# bursts parse the full master table as a live allocation that briefly blows past
+# the soft limit to ~1GiB (live, un-GC-able mid-request); a 1024m cap left zero
+# headroom at that peak, so the hard cap is 1280m to absorb the spike with margin.
+# Worst case host use: bird (~407MiB) + birdwatcher (1280m) + OS << 3.8GiB.
+sfmix_route_server_linux_birdwatcher_memory_limit: "1280m"
 sfmix_route_server_linux_birdwatcher_gomemlimit: "896MiB"
 sfmix_route_server_linux_birdwatcher_cpus_limit: 2
 # Make birdwatcher the first OOM victim if the host ever hits global memory
