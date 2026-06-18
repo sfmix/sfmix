@@ -250,7 +250,8 @@ def _dqt(device, port):
 
 
 def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
-                         participant_ips, arp_by_ip, ndp_by_ip, rs_sessions, can_see_admin):
+                         participant_ips, arp_by_ip, ndp_by_ip, discovered_by_ip,
+                         rs_sessions, can_see_admin):
     """Build the logical port tree from NetBox + live data.
 
     Returns a list of logical port dicts ready for the template.
@@ -322,16 +323,25 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
         bound_mac_v4 = None
         bound_mac_v6 = None
         port_ip_addrs: set[str] = set()
+        discovered_v4: list[dict] = []
+        discovered_v6: list[dict] = []
         for ip_entry in port_ips:
             addr = ip_entry.get("address", "").split("/")[0]
             family = ip_entry.get("family", "")
             port_ip_addrs.add(addr)
-            if family == "IPv4" and not port_v4:
-                port_v4 = ip_entry.get("address")
-                bound_mac_v4 = arp_by_ip.get(addr)
-            elif family == "IPv6" and not port_v6:
-                port_v6 = ip_entry.get("address")
-                bound_mac_v6 = ndp_by_ip.get(addr)
+            disc = discovered_by_ip.get(addr)
+            if family == "IPv4":
+                if not port_v4:
+                    port_v4 = ip_entry.get("address")
+                    bound_mac_v4 = arp_by_ip.get(addr)
+                if disc:
+                    discovered_v4.append({"ip": addr, **disc})
+            elif family == "IPv6":
+                if not port_v6:
+                    port_v6 = ip_entry.get("address")
+                    bound_mac_v6 = ndp_by_ip.get(addr)
+                if disc:
+                    discovered_v6.append({"ip": addr, **disc})
 
         # Record IP → port mapping for RS session matching
         for addr in port_ip_addrs:
@@ -398,6 +408,7 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
             "v6": port_v6 or "—",
             "bound_mac_v4": bound_mac_v4 or "—",
             "bound_mac_v6": bound_mac_v6 or "—",
+            "discovered": discovered_v4 + discovered_v6,
             "route_servers": port_rs,
         })
 
@@ -652,6 +663,31 @@ def _fetch_ndp_by_ip(lg, token):
     return ndp_by_ip
 
 
+def _fetch_discovered_by_ip(lg, token, asn):
+    """Fetch discovered ARP/NDP neighbors for an ASN, indexed by IP address.
+
+    Returns {ip_str: {"macs": [...], "conflict": bool}} where each MAC entry
+    carries display-ready first/last-seen strings. Distinct from ARP/NDP above:
+    this is what was passively *heard* on the fabric, so an IP may have several
+    MACs (a conflict) rather than the single one the kernel chose.
+    """
+    discovered_by_ip = {}
+    try:
+        result = lg.get_discovered_neighbors(token=token, asn=asn)
+        for neighbor in result.get("neighbors", []):
+            addr = neighbor.get("ip", "")
+            if not addr:
+                continue
+            macs = [_seen_display(dict(m)) for m in neighbor.get("macs", [])]
+            discovered_by_ip[addr] = {
+                "macs": macs,
+                "conflict": bool(neighbor.get("conflict")),
+            }
+    except Exception:
+        logger.warning("Failed to fetch discovered neighbors", exc_info=True)
+    return discovered_by_ip
+
+
 def _fetch_rs_sessions(asn):
     """Fetch route-server sessions for ASN from Alice-LG."""
     try:
@@ -727,9 +763,10 @@ def participant_detail(request, asn):
             lldp_by_key = _fetch_lldp_by_key(lg, token)
             macs_by_key = _fetch_macs_by_key(lg, token)
 
-            # 6. ARP + NDP
+            # 6. ARP + NDP (kernel-chosen MAC) and passively-heard neighbors
             arp_by_ip = _fetch_arp_by_ip(lg, token)
             ndp_by_ip = _fetch_ndp_by_ip(lg, token)
+            discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn)
 
             # 7. Route-server sessions from Alice-LG
             rs_sessions = _fetch_rs_sessions(asn)
@@ -737,7 +774,7 @@ def participant_detail(request, asn):
             # 8. Build logical port tree
             logical_ports = _build_logical_ports(
                 enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
-                ip_addresses, arp_by_ip, ndp_by_ip, rs_sessions, can_see_admin,
+                ip_addresses, arp_by_ip, ndp_by_ip, discovered_by_ip, rs_sessions, can_see_admin,
             )
 
             # 9. Compute alerts (admin only)

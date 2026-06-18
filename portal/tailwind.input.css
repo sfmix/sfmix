@@ -296,6 +296,15 @@ body {
 .nd-mac-box .nd-af { background: #fef3c7; color: #92400e; }
 .nd-mac-box .nd-val { font-size: .8rem; color: var(--color-text-light); }
 
+/* Discovered ARP/NDP — MACs heard on the fabric per assigned IP (L3) */
+.nd-disc { margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed #e5e7eb; }
+.nd-disc-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-light); font-weight: 600; margin-bottom: .2rem; }
+.nd-disc-ip { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; font-family: var(--font-mono); font-size: .78rem; margin-top: .25rem; }
+.nd-disc-addr { color: var(--color-primary); }
+.nd-disc-conflict .nd-disc-addr { color: #991b1b; }
+.nd-disc-flag { font-family: var(--font-sans); font-size: .68rem; font-weight: 600; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: .05rem .35rem; border-radius: 3px; }
+.nd-disc .nd-mac-row { margin-left: .55rem; padding-left: .55rem; border-left: 2px solid #eee; }
+
 /* Route-server table (L4) */
 .nd-rs-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .nd-rs-table th { text-align: left; font-weight: 600; padding: .35rem .5rem; border-bottom: 2px solid #e5e7eb; color: var(--color-text-light); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
