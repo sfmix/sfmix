@@ -240,6 +240,7 @@ impl NokiaSrosDriver {
             mac_address: json_str(e, "address"),
             entry_type: json_str(e, "type"),
             interface: json_str(e, "sap"),
+            ..Default::default()
         }).collect();
         result.sort_by(|a, b| a.mac_address.cmp(&b.mac_address));
         result

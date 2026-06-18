@@ -14,6 +14,7 @@ pub mod ratelimit;
 pub mod structured;
 pub mod format;
 pub mod ixf;
+pub mod mac_table;
 pub mod service;
 
 pub mod backend;
