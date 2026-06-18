@@ -24,6 +24,28 @@ pub struct Config {
     pub vlans: VlanVisibilityConfig,
     #[serde(default)]
     pub device_cache: DeviceCacheConfig,
+    /// Discovered ARP/NDP neighbor polling (lg-neighborhood-watch sensor).
+    #[serde(default)]
+    pub discovered: Option<DiscoveredNeighborsConfig>,
+}
+
+/// Polls the lg-neighborhood-watch sensor for passively-heard ARP/NDP neighbors
+/// and accumulates them into a durable, persisted store.
+#[derive(Debug, Clone, Deserialize)]
+pub struct DiscoveredNeighborsConfig {
+    /// Base URL of the sensor's HTTP interface
+    /// (e.g. "http://rs-linux.sfmix.org:29185").
+    pub sensor_url: String,
+    /// How often (in seconds) to poll the sensor. 0 = disabled.
+    #[serde(default = "default_discovered_poll_interval")]
+    pub poll_interval_secs: u64,
+    /// Where to persist the discovered-neighbor store. Unset = in-memory only.
+    #[serde(default)]
+    pub state_file: Option<String>,
+}
+
+fn default_discovered_poll_interval() -> u64 {
+    60
 }
 
 /// VLAN visibility configuration for MAC address table output.

@@ -79,6 +79,8 @@ pub struct LookingGlass {
     pub device_cache_cfg: DeviceCacheConfig,
     /// PeeringDB network cache (website URLs, IRR, policy, etc.).
     pub peeringdb_cache: ArcSwap<PeeringdbCache>,
+    /// Discovered ARP/NDP neighbors heard on the IX fabric (from lg-neighborhood-watch).
+    pub discovered: ArcSwap<crate::discovered::DiscoveredCache>,
 }
 
 impl LookingGlass {
@@ -114,6 +116,34 @@ impl LookingGlass {
         if command.resource == Resource::Participants {
             let pmap = self.participants.load();
             let text = crate::format::format_participants(&pmap, ColorMode::Plain);
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::Participants(text),
+            }]);
+        }
+
+        if command.resource == Resource::IxIpAssignments {
+            let netbox_participants = self.netbox_participants.load();
+            let text = crate::format::format_ix_ip_assignments(
+                &netbox_participants,
+                command.filter_asn,
+                ColorMode::Plain,
+            );
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::Participants(text),
+            }]);
+        }
+
+        if command.resource == Resource::DiscoveredNeighbors {
+            let cache = self.discovered.load();
+            let text = crate::format::format_discovered_neighbors(
+                &cache.neighbors,
+                command.filter_asn,
+                ColorMode::Plain,
+            );
             return Ok(vec![DeviceResult {
                 device: "local".to_string(),
                 success: true,

@@ -279,6 +279,97 @@ pub fn format_participants(participants: &crate::participants::ParticipantMap, m
     format!("{table}\n")
 }
 
+/// Render the flat list of assigned IX IPs with their tenant/ASN.
+pub fn format_ix_ip_assignments(
+    participants: &[crate::netbox::NetboxParticipant],
+    filter_asn: Option<u32>,
+    mode: ColorMode,
+) -> String {
+    let mut rows: Vec<(&str, &str, u32, &str, &str)> = participants
+        .iter()
+        .filter(|p| filter_asn.is_none_or(|a| p.asn == a))
+        .flat_map(|p| {
+            p.ip_addresses.iter().map(move |ip| {
+                (
+                    ip.address.as_str(),
+                    ip.family.as_str(),
+                    p.asn,
+                    p.name.as_str(),
+                    ip.status.as_str(),
+                )
+            })
+        })
+        .collect();
+    rows.sort_by(|a, b| a.0.cmp(b.0));
+
+    if rows.is_empty() {
+        return "No IX IP assignments.\n".to_string();
+    }
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("IP", mode),
+        bold_str("Family", mode),
+        bold_str("ASN", mode),
+        bold_str("Tenant", mode),
+        bold_str("Status", mode),
+    ]);
+    for (ip, family, asn, name, status) in &rows {
+        builder.push_record([
+            ip.to_string(),
+            family.to_string(),
+            format!("AS{asn}"),
+            name.to_string(),
+            status.to_string(),
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, mode);
+    format!("{table}\n")
+}
+
+/// Render discovered ARP/NDP neighbors — one row per heard MAC, conflicts flagged.
+pub fn format_discovered_neighbors(
+    neighbors: &[DiscoveredNeighbor],
+    filter_asn: Option<u32>,
+    mode: ColorMode,
+) -> String {
+    let mut entries: Vec<_> = neighbors
+        .iter()
+        .filter(|n| filter_asn.is_none_or(|a| n.asn == Some(a)))
+        .collect();
+    entries.sort_by(|a, b| a.ip.cmp(&b.ip));
+
+    if entries.is_empty() {
+        return "No discovered neighbors.\n".to_string();
+    }
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("IP", mode),
+        bold_str("MAC", mode),
+        bold_str("ASN", mode),
+        bold_str("Last seen", mode),
+        bold_str("", mode),
+    ]);
+    for n in &entries {
+        let asn = n.asn.map(|a| format!("AS{a}")).unwrap_or_default();
+        for m in &n.macs {
+            let flag = if n.conflict { "CONFLICT" } else { "" };
+            builder.push_record([
+                n.ip.clone(),
+                m.mac.clone(),
+                asn.clone(),
+                m.last_seen.clone(),
+                flag.to_string(),
+            ]);
+        }
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, mode);
+    format!("{table}\n")
+}
+
 /// Render detail for a single participant — ports (including LAG members) and BGP sessions.
 pub fn format_participant_detail(
     p: &crate::participants::Participant,

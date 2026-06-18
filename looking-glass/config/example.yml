@@ -181,6 +181,20 @@ device_cache:
   mac_table_retention_secs: 604800  # drop MACs unseen for 7 days; 0 = never
 
 # ---------------------------------------------------------------------------
+# Discovered ARP/NDP neighbors — polled from the lg-neighborhood-watch sensor
+# ---------------------------------------------------------------------------
+# The sensor (on the route server) passively hears ARP/NDP on the IX fabric and
+# reports the MAC(s) it currently knows per IP. lg-server accumulates this into
+# a durable store: first-seen/last-seen per (ip, mac), conflict detection when
+# more than one MAC answers for an IP, and tenant-change invalidation (an IP's
+# history clears when it is reassigned to a different participant). Omit this
+# block to disable. Omit state_file to keep the store in memory only.
+discovered:
+  sensor_url: http://rs-linux.sfmix.org:29185
+  poll_interval_secs: 60
+  state_file: /var/lib/looking-glass/discovered-neighbors.json
+
+# ---------------------------------------------------------------------------
 # Policies — command access rules (first-match evaluation)
 # ---------------------------------------------------------------------------
 # If omitted, a sensible default policy is used:

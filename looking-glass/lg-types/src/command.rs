@@ -59,6 +59,10 @@ pub enum Resource {
     /// Transceiver hardware inventory (vendor/model/serial) — admin only
     OpticsInventory,
     Participants,
+    /// Flat list of assigned IX IPs with their tenant/ASN
+    IxIpAssignments,
+    /// Discovered ARP/NDP neighbors heard on the IX fabric
+    DiscoveredNeighbors,
     /// Ping/traceroute destination (resource is the destination address)
     NetworkReachability,
     Help,
