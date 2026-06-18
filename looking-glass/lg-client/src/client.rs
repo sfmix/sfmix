@@ -9,6 +9,8 @@ use crate::sse::SseLineParser;
 
 /// Event emitted by the RPC client during command execution.
 #[derive(Debug)]
+// Short-lived channel event; boxing the larger Result variant isn't worth it.
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteEvent {
     /// A complete device result (non-streaming command output).
     Result(DeviceResultEvent),

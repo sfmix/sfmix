@@ -38,7 +38,9 @@ use serde::Serialize;
 /// produce output incrementally. This variant is not serializable and
 /// exists only in the in-process version (not in lg-types).
 #[derive(Debug)]
-#[allow(dead_code)]
+// Central output type matched/constructed across the workspace; boxing the
+// large variant to even out sizes isn't worth the churn for a transient value.
+#[allow(dead_code, clippy::large_enum_variant)]
 pub enum CommandOutput {
     InterfacesStatus(Vec<InterfaceStatus>),
     InterfaceDetail(InterfaceDetail),

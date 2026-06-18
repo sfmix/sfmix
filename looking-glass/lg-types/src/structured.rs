@@ -140,7 +140,9 @@ pub struct ArpEntry {
 /// `StreamLines` is used for completed streaming commands (ping, traceroute)
 /// whose output has been collected. Live streaming is handled via SSE events.
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(dead_code)]
+// Central output type matched/constructed across the workspace; boxing the
+// large variant to even out sizes isn't worth the churn for a transient value.
+#[allow(dead_code, clippy::large_enum_variant)]
 pub enum CommandOutput {
     InterfacesStatus(Vec<InterfaceStatus>),
     InterfaceDetail(InterfaceDetail),

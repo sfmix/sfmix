@@ -95,7 +95,7 @@ impl RateLimiter {
         let window = std::time::Duration::from_secs(60);
         let mut timestamps = self.global_window.lock().await;
 
-        while timestamps.front().map_or(false, |t| now.duration_since(*t) > window) {
+        while timestamps.front().is_some_and(|t| now.duration_since(*t) > window) {
             timestamps.pop_front();
         }
 
@@ -124,7 +124,7 @@ impl RateLimiter {
         // (the global semaphore still protects the devices).
         if let Ok(mut timestamps) = entry.value().try_lock() {
             // Evict timestamps older than the window
-            while timestamps.front().map_or(false, |t| now.duration_since(*t) > window) {
+            while timestamps.front().is_some_and(|t| now.duration_since(*t) > window) {
                 timestamps.pop_front();
             }
 
@@ -214,7 +214,7 @@ impl DeviceRateLimiter {
         let window = std::time::Duration::from_secs(60);
         let mut timestamps = entry.value().lock().await;
 
-        while timestamps.front().map_or(false, |t| now.duration_since(*t) > window) {
+        while timestamps.front().is_some_and(|t| now.duration_since(*t) > window) {
             timestamps.pop_front();
         }
 

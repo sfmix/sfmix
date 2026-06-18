@@ -1,8 +1,8 @@
-/// Minimal SSE (Server-Sent Events) line parser.
-///
-/// Parses a raw SSE byte stream into typed events. Handles the `event:` and
-/// `data:` fields per the SSE spec. Ignores comments (`:` prefix) and
-/// unknown fields.
+//! Minimal SSE (Server-Sent Events) line parser.
+//!
+//! Parses a raw SSE byte stream into typed events. Handles the `event:` and
+//! `data:` fields per the SSE spec. Ignores comments (`:` prefix) and
+//! unknown fields.
 
 /// A single parsed SSE event.
 #[derive(Debug, Clone)]
@@ -39,6 +39,12 @@ pub fn parse_sse_body(body: &str) -> Vec<SseEvent> {
 pub struct SseLineParser {
     event_type: Option<String>,
     data_buf: String,
+}
+
+impl Default for SseLineParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SseLineParser {

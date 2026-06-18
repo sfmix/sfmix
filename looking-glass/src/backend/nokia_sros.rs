@@ -694,7 +694,7 @@ fn extract_sros_json(raw: &str) -> String {
     // Fallback: look for `{` or `[` but skip `[/]` patterns
     let mut search_start = 0;
     loop {
-        let start = trimmed[search_start..].find(|c| c == '{' || c == '[');
+        let start = trimmed[search_start..].find(['{', '[']);
         match start {
             Some(s) => {
                 let abs_pos = search_start + s;
@@ -711,7 +711,7 @@ fn extract_sros_json(raw: &str) -> String {
                     }
                 }
                 // Found a real JSON start
-                let end = trimmed.rfind(|c| c == '}' || c == ']');
+                let end = trimmed.rfind(['}', ']']);
                 if let Some(e) = end {
                     if abs_pos <= e {
                         return trimmed[abs_pos..=e].to_string();

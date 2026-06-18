@@ -355,6 +355,10 @@ impl SshSessionHandler {
 
     /// Process a completed line using the shared dispatch_command.
     /// Returns the CommandAction so caller can decide whether to show prompt.
+    // `drop(writer)` ends writer's borrow of `session` before it is reused;
+    // clippy's drop_non_drop flags this as a no-op, but the borrow release is
+    // the point.
+    #[allow(clippy::drop_non_drop)]
     async fn process_line(&mut self, line: &str, session: &mut Session) -> CommandAction {
         let identity = self.identity.lock().unwrap().clone();
         let rate_key = if identity.authenticated {
