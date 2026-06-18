@@ -1,30 +1,30 @@
 ---
-title: "Route Servers"
+title: "route servers 🖥️"
 layout: "video-header"
 video: "video/route-servers-bg.mp4"
 mobile_image: "img/mobile-fiber-light.jpg"
 ---
 
-SFMIX route servers let you do multilateral peering through a single BGP session (ideally two for redundancy). The route server aggregates and redistributes participant routes, so you can start peering immediately without negotiating bilateral sessions. Say less, you're in.
+SFMIX route servers let you do multilateral peering through a single BGP session (ideally two for redundancy). the route server aggregates and redistributes participant routes, so you can start peering immediately without negotiating hella bilateral sessions. say less, you're in 🚀.
 
-Direct peering is still encouraged; route server use is optional. Config is generated with [arouteserver](https://github.com/pierky/arouteserver).
+direct peering is still encouraged; route server use is optional. config is generated with [arouteserver](https://github.com/pierky/arouteserver).
 
-For resilience, SFMIX runs two distinct stacks:
+for resilience, SFMIX runs two distinct stacks:
 
 - **BIRD** on Linux, with Routinator for RPKI
 - **OpenBGPD** on OpenBSD, with [rpki-client](https://www.rpki-client.org/) for RPKI
 
-Config summaries: [BIRD/Linux](https://lg.sfmix.org/rs-linux.sfmix.org.summary.html) · [OpenBGPD/OpenBSD](https://lg.sfmix.org/rs-openbsd.sfmix.org.summary.html)
+config summaries: [BIRD/Linux](https://lg.sfmix.org/rs-linux.sfmix.org.summary.html) · [OpenBGPD/OpenBSD](https://lg.sfmix.org/rs-openbsd.sfmix.org.summary.html)
 
-Use the [Route Browser](https://alice.sfmix.org/) ([Alice LG](https://github.com/alice-lg/alice-lg)) to debug route filtering. SFMIX implements [Euro-IX standardized Large BGP Communities](https://www.euro-ix.net/en/forixps/large-bgp-communities/) where possible.
+use the [route browser](https://alice.sfmix.org/) ([Alice LG](https://github.com/alice-lg/alice-lg)) to debug route filtering. SFMIX implements [Euro-IX standardized Large BGP Communities](https://www.euro-ix.net/en/forixps/large-bgp-communities/) where possible.
 
-## Routing Security
+## routing security 🔒
 
-Route servers filter announcements based on RPKI, IRR, and max-prefix limits (from PeeringDB). RPKI Invalid routes get rejected (L); RPKI Unknown routes are currently allowed.
+route servers filter announcements based on RPKI, IRR, and max-prefix limits (from PeeringDB). RPKI Invalid routes get rejected (that's an L 💀); RPKI Unknown routes are currently allowed.
 
 SFMIX publishes the IRR as-set ["AS-SFMIX-RS"](https://irrexplorer.nlnog.net/as-set/AS-SFMIX-RS) via ARIN to help participants build IRR-based filters.
 
-## Connection Information
+## connection info
 
 <div class="rs-cards">
   <div class="rs-card">
@@ -45,9 +45,9 @@ SFMIX publishes the IRR as-set ["AS-SFMIX-RS"](https://irrexplorer.nlnog.net/as-
   </div>
 </div>
 
-## BGP Communities for Propagation Control
+## BGP communities for propagation control 🎛️
 
-Control how your prefixes get propagated to other participants:
+control how your prefixes get propagated to other participants:
 
 | Community String | Function |
 |------------------|----------|
@@ -57,10 +57,10 @@ Control how your prefixes get propagated to other participants:
 | 0:63055 | Do not send prefix to any other route-server participants |
 | 63055:65281 | Send prefixes with NO_EXPORT attribute |
 
-## BGP Communities for Informational Metadata
+## BGP communities for informational metadata
 
-Metadata communities indicate where routes were learned and participant attributes. See [Locations](/locations/) for site codes.
+metadata communities indicate where routes were learned and participant attributes. see [locations](/locations/) for site codes.
 
-## BGP Communities to Explain Filtration
+## BGP communities to explain filtration
 
-Filtered routes don't get discarded — they're tagged internally and excluded from redistribution. This lets operators use the [Route Browser](https://alice.sfmix.org/) to diagnose why routes got filtered or accepted. Receipts included.
+filtered routes don't get discarded — they're tagged internally and excluded from redistribution. this lets operators use the [route browser](https://alice.sfmix.org/) to diagnose why routes got filtered or accepted. receipts included 🧾.
