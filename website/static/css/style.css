@@ -127,10 +127,11 @@ img { max-width: 100%; height: auto; }
   text-decoration: none;
   font-weight: 700;
   font-size: 1.25rem;
+  flex-shrink: 0;
 }
 .site-logo:hover { color: var(--color-white); text-decoration: none; }
 
-.logo-img { height: 40px; width: auto; }
+.logo-img { height: 40px; width: auto; flex-shrink: 0; }
 .logo-text { letter-spacing: 0.05em; }
 
 .nav-toggle {
@@ -715,7 +716,12 @@ img { max-width: 100%; height: auto; }
 }
 
 /* ===== Responsive ===== */
-@media (max-width: 768px) {
+/*
+ * Nav collapses to the hamburger earlier than the content breakpoint: the
+ * horizontal desktop nav (three dropdowns + top-level items + language picker)
+ * stops fitting next to the logo around ~990px, so switch before it overflows.
+ */
+@media (max-width: 992px) {
   .nav-toggle { display: flex; }
   .site-nav {
     display: none;
@@ -737,7 +743,9 @@ img { max-width: 100%; height: auto; }
   }
   .dropdown-link { color: rgba(255,255,255,0.85); padding-left: 2rem; }
   .dropdown-link:hover { background: rgba(255,255,255,0.1); color: var(--color-white); }
+}
 
+@media (max-width: 768px) {
   /*
    * Mobile hero: hide video, show Flickr image as background
    * "Sutro Tower" by Marc Liyanage — CC BY-SA 2.0
