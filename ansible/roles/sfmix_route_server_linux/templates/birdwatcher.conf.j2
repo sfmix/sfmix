@@ -93,7 +93,9 @@ max_keys = 60
 
 # Housekeeping expires old cache entries (memory cache backend) and performs a GC/SCVG run if configured.
 [housekeeping]
-# Interval for the housekeeping routine in minutes
-interval = 5
+# Interval for the housekeeping routine in minutes. Kept short so the forced
+# GC/SCVG run below returns transient parse garbage to the OS between alice-lg
+# polls rather than letting RSS ratchet up toward the memcg limit.
+interval = 2
 # Try to release memory via a forced GC/SCVG run on every housekeeping run
 force_release_memory = true

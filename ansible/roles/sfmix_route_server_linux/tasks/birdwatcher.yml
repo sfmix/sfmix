@@ -50,6 +50,13 @@
     command: /usr/bin/birdwatcher -config /etc/birdwatcher/birdwatcher.conf
     memory: "{{ sfmix_route_server_linux_birdwatcher_memory_limit | default('768m') }}"
     cpus: "{{ sfmix_route_server_linux_birdwatcher_cpus_limit | default(2) }}"
+    # Hard cgroup cap above contains birdwatcher to its own memcg; this biases the
+    # kernel to kill birdwatcher first, never bird, under any global memory pressure.
+    oom_score_adj: "{{ sfmix_route_server_linux_birdwatcher_oom_score_adj | default(1000) }}"
+    env:
+      # Soft memory ceiling kept below the hard `memory` cap so the Go runtime GCs
+      # aggressively before the kernel memcg OOM-killer fires. See defaults/main.yml.
+      GOMEMLIMIT: "{{ sfmix_route_server_linux_birdwatcher_gomemlimit | default('896MiB') }}"
     volumes:
       - /run/bird/bird.ctl:/run/bird/bird.ctl
       - /etc/bird/bird.conf:/etc/bird.conf:ro
