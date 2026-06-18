@@ -35,6 +35,9 @@ struct GrammarFile {
 }
 
 #[derive(Deserialize)]
+// `optional`/`name` are part of the grammar schema (consumed by the runtime
+// parser in src/grammar.rs) but not read by this build-time validator.
+#[allow(dead_code)]
 struct GrammarNode {
     #[serde(default)]
     help: Option<String>,

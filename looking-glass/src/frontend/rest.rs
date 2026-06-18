@@ -74,6 +74,7 @@ impl ApiError {
         Self { error: error.into(), detail: None }
     }
 
+    #[allow(dead_code)] // builder counterpart to `new`; kept for error detail responses
     fn with_detail(mut self, detail: impl Into<String>) -> Self {
         self.detail = Some(detail.into());
         self

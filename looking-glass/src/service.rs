@@ -260,6 +260,9 @@ impl LookingGlass {
         self.policy.admin_group()
     }
 
+    // Retained for when cache serving is gated on per-resource TTL freshness;
+    // current logic (see `execute`) serves any non-empty cache unconditionally.
+    #[allow(dead_code)]
     fn ttl_for_resource(&self, resource: Resource) -> u64 {
         let cfg = &self.device_cache_cfg.ttl;
         match resource {
@@ -342,6 +345,9 @@ impl LookingGlass {
 
 /// Returns true if all devices have data for `resource` within `ttl_secs`.
 /// ttl_secs == 0 means always serve from cache regardless of age.
+// Retained alongside `ttl_for_resource` for TTL-gated cache serving (not
+// currently wired — cache is served unconditionally when populated).
+#[allow(dead_code)]
 fn cache_is_fresh(
     cache: &HashMap<String, DeviceStateCache>,
     resource: Resource,

@@ -610,6 +610,9 @@ impl DeviceDriver for AristaEosDriver {
 
 /// Strip ANSI escapes and leading/trailing whitespace from SSH output
 /// to get clean JSON.
+// Unused in the live path now that EOS uses SSH exec mode (not PTY+shell),
+// but retained and tested for the PTY fallback.
+#[allow(dead_code)]
 fn normalize_eos_json(raw: &str) -> String {
     let no_cr = raw.replace('\r', "");
     let mut out = String::with_capacity(no_cr.len());
