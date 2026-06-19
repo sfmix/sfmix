@@ -23,11 +23,12 @@ use tracing::{info, warn};
 use crate::structured::{DiscoveredMac, DiscoveredNeighbor};
 
 /// Maximum distinct MACs retained per IP. A legitimate IP has one (a real
-/// conflict two or three); the cap bounds memory and response size against an
-/// attacker flooding spoofed MACs for an assigned IP. The conflict flag still
-/// fires (it only needs >1), so the spoofing signal is preserved; we keep the
-/// most-recently-heard MACs and evict the oldest.
-const MAX_MACS_PER_IP: usize = 8;
+/// conflict a handful); this is generous headroom for flapping/history while
+/// still bounding memory and response size against an attacker flooding spoofed
+/// MACs for an assigned IP. The conflict flag still fires (it only needs >1), so
+/// the spoofing signal is preserved; we keep the most-recently-heard and evict
+/// the oldest. lg-server is bounded to assigned IPs, so worst case ~= 214 * this.
+const MAX_MACS_PER_IP: usize = 100;
 
 /// One row as reported by the sensor's `GET /neighbors`.
 #[derive(Debug, Clone, Deserialize)]
@@ -486,24 +487,26 @@ mod tests {
     #[test]
     fn macs_per_ip_are_capped_keeping_newest() {
         let mut store = DiscoveredNeighborStore::load(None);
-        // Flood many MACs for one assigned IP, each newer than the last.
-        let obs: Vec<SensorObservation> = (0..20)
+        // Flood more than the cap for one assigned IP, each newer than the last.
+        let n_flood = MAX_MACS_PER_IP + 12;
+        let mac = |i: usize| format!("aa:bb:cc:dd:{:02x}:{:02x}", (i >> 8) & 0xff, i & 0xff);
+        let obs: Vec<SensorObservation> = (0..n_flood)
             .map(|i| obs(
                 "10.0.0.1",
-                &format!("aa:00:00:00:00:{:02x}", i),
-                &format!("2026-06-18T00:{:02}:00Z", i),
-                &format!("2026-06-18T00:{:02}:00Z", i),
+                &mac(i),
+                &format!("2026-06-18T{:02}:{:02}:00Z", i / 60, i % 60),
+                &format!("2026-06-18T{:02}:{:02}:00Z", i / 60, i % 60),
             ))
             .collect();
-        store.update_at(&obs, &[assign("10.0.0.1", 64500, "Acme")], at("2026-06-18T01:00:00Z"));
+        store.update_at(&obs, &[assign("10.0.0.1", 64500, "Acme")], at("2026-06-18T05:00:00Z"));
         let snap = store.snapshot();
         let n = neighbor(&snap, "10.0.0.1");
         assert_eq!(n.macs.len(), MAX_MACS_PER_IP, "must cap MACs per IP");
         assert!(n.conflict, "conflict signal preserved despite cap");
-        // The newest MAC (sequence 19) must survive; the oldest (00) must be evicted.
+        // The newest MAC must survive; the oldest must be evicted.
         let kept: Vec<&str> = n.macs.iter().map(|m| m.mac.as_str()).collect();
-        assert!(kept.contains(&"aa:00:00:00:00:13"), "newest kept");
-        assert!(!kept.contains(&"aa:00:00:00:00:00"), "oldest evicted");
+        assert!(kept.contains(&mac(n_flood - 1).as_str()), "newest kept");
+        assert!(!kept.contains(&mac(0).as_str()), "oldest evicted");
     }
 
     #[tokio::test]
