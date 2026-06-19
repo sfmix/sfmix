@@ -52,7 +52,7 @@ msgstr "IPv4"
 
 #: dashboard/views.py:612
 msgid "Not peered with any SFMIX route server."
-msgstr "Not parleyin' with any SFMIX route cap'n."
+msgstr "Not parlayin' with any SFMIX route server."
 
 #: dashboard/views.py:622
 #, python-format
@@ -72,7 +72,7 @@ msgstr "scuttled"
 #, python-format
 msgid ""
 "%(af)s received-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
-msgstr "%(af)s received-prefix tallies differ 'twixt route cap'ns (%(lo)s vs %(hi)s)."
+msgstr "%(af)s received-prefix tallies differ 'twixt route servers (%(lo)s vs %(hi)s)."
 
 #: dashboard/views.py:676
 #, python-format
@@ -102,7 +102,7 @@ msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
 msgstr ""
-"All the crew's links be offline. Route-server parleys lie idle an' nary a "
+"All the crew's links be offline. Route-server parlays lie idle an' nary a "
 "soul sails through this logical port."
 
 #: dashboard/views.py:700
@@ -667,7 +667,7 @@ msgstr "Port o' call"
 
 #: templates/dashboard/participant_detail.html:65
 msgid "Not peered with the SFMIX route servers"
-msgstr "Not parleyin' with the SFMIX route cap'ns"
+msgstr "Not parlayin' with the SFMIX route servers"
 
 #: templates/dashboard/participant_detail.html:66
 msgid "Route-server redundancy at risk"
@@ -681,25 +681,25 @@ msgstr "Route-server prefix tallies don't agree"
 msgid ""
 "Peering with both SFMIX route servers is required. This network currently "
 "has no route-server sessions."
-msgstr "Ye must parley with both SFMIX route cap'ns. This here network has nary a route-server session at present."
+msgstr "Ye must parlay with both SFMIX route servers. This here network has nary a route-server session at present."
 
 #: templates/dashboard/participant_detail.html:70
 msgid ""
 "This network is not established on both route servers. If the remaining "
 "route server fails, it will lose route-server connectivity entirely."
-msgstr "This here network bain't established on both route cap'ns. Should the last route cap'n founder, it'll lose all route-server passage."
+msgstr "This here network ain't 'stablished on both route servers. Should one of the servers capsize, all 'yer packet-vessels will lose passage."
 
 #: templates/dashboard/participant_detail.html:71
 msgid ""
 "This network's sessions are established on both route servers but receive a "
 "different number of prefixes — a sign of asymmetric filtering or "
 "misconfiguration."
-msgstr "This network's sessions be established on both route cap'ns, yet they take a different count o' prefixes — a sign o' lopsided filterin' or a botched riggin'."
+msgstr "This network's sessions be established on both route servers, yet they take a different count o' prefixes — a sign o' lopsided filterin' or a botched riggin'."
 
 #: templates/dashboard/participant_detail.html:77
 #: templates/dashboard/participant_detail.html:88
 msgid "route servers"
-msgstr "route cap'ns"
+msgstr "route servers"
 
 #: templates/dashboard/participant_detail.html:85
 msgid "Reading this page"
@@ -969,7 +969,7 @@ msgid ""
 "with both is required so that a single route-server failure never cuts a "
 "network off. Networks that are not established on both servers — or whose "
 "received-prefix counts disagree — are listed first."
-msgstr "SFMIX sails two route cap'ns (BIRD an' OpenBGPD) for backup, an' ye must parley with both so a single route cap'n goin' under never maroons a network. Networks not established on both — or whose received-prefix tallies disagree — be listed first."
+msgstr "SFMIX sails two route servers (BIRD an' OpenBGPD) for backup, an' ye must parlay with both, so a single route server goin' under never maroons 'yer network. Networks not established on both — or whose received-prefix tallies disagree — be listed first."
 
 #: templates/dashboard/route_server_parity.html:21
 msgid "Unable to fetch parity data:"
