@@ -22,6 +22,11 @@ pub struct PeeringdbNetwork {
     pub policy_general: String,
     pub info_prefixes4: u32,
     pub info_prefixes6: u32,
+    /// True if the network declares it never peers via route servers.
+    /// `serde(default)` keeps older on-disk caches (written before this field
+    /// existed) loadable; they read back as `false` until the next refresh.
+    #[serde(default)]
+    pub info_never_via_route_servers: bool,
     /// When this entry was fetched (RFC 3339).
     pub fetched_at: String,
 }
@@ -171,6 +176,7 @@ pub async fn refresh_cache(
                         policy_general: net.policy_general,
                         info_prefixes4: net.info_prefixes4,
                         info_prefixes6: net.info_prefixes6,
+                        info_never_via_route_servers: net.info_never_via_route_servers,
                         fetched_at: now_str.clone(),
                     });
                 }
@@ -195,6 +201,7 @@ pub async fn refresh_cache(
                 policy_general: String::new(),
                 info_prefixes4: 0,
                 info_prefixes6: 0,
+                info_never_via_route_servers: false,
                 fetched_at: now_str.clone(),
             });
         }
@@ -241,6 +248,8 @@ struct PeeringdbApiNetwork {
     info_prefixes4: u32,
     #[serde(default, deserialize_with = "null_as_zero")]
     info_prefixes6: u32,
+    #[serde(default)]
+    info_never_via_route_servers: bool,
 }
 
 fn null_as_zero<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
@@ -291,6 +300,7 @@ mod tests {
             policy_general: "Open".to_string(),
             info_prefixes4: 200000,
             info_prefixes6: 100000,
+            info_never_via_route_servers: true,
             fetched_at: "2026-06-08T00:00:00+00:00".to_string(),
         });
         cache.last_refresh = Some("2026-06-08T00:00:00+00:00".to_string());
@@ -299,6 +309,26 @@ mod tests {
         let parsed: PeeringdbCache = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.networks.len(), 1);
         assert_eq!(parsed.networks[&6939].website, "https://he.net");
+        assert!(parsed.networks[&6939].info_never_via_route_servers);
+    }
+
+    #[test]
+    fn legacy_cache_without_flag_loads_as_false() {
+        // An on-disk entry written before info_never_via_route_servers existed
+        // must still deserialize, defaulting the missing flag to false.
+        let json = r#"{
+            "last_refresh": null,
+            "networks": {
+                "6939": {
+                    "asn": 6939, "name": "HE", "website": "", "irr_as_set": "",
+                    "info_type": "", "policy_general": "",
+                    "info_prefixes4": 0, "info_prefixes6": 0,
+                    "fetched_at": "2026-06-08T00:00:00+00:00"
+                }
+            }
+        }"#;
+        let parsed: PeeringdbCache = serde_json::from_str(json).unwrap();
+        assert!(!parsed.networks[&6939].info_never_via_route_servers);
     }
 
     #[test]
@@ -322,6 +352,7 @@ mod tests {
             policy_general: "Open".to_string(),
             info_prefixes4: 3000,
             info_prefixes6: 1000,
+            info_never_via_route_servers: false,
             fetched_at: "2026-06-08T12:00:00+00:00".to_string(),
         });
         cache.last_refresh = Some("2026-06-08T12:00:00+00:00".to_string());
@@ -345,6 +376,7 @@ mod tests {
             policy_general: String::new(),
             info_prefixes4: 0,
             info_prefixes6: 0,
+            info_never_via_route_servers: false,
             fetched_at: Utc::now().to_rfc3339(),
         });
         // Fresh entry for current participant
@@ -357,6 +389,7 @@ mod tests {
             policy_general: String::new(),
             info_prefixes4: 0,
             info_prefixes6: 0,
+            info_never_via_route_servers: false,
             fetched_at: Utc::now().to_rfc3339(),
         });
 
