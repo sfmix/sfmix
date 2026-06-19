@@ -10,9 +10,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tokio::sync::mpsc;
+
+/// Maximum distinct MACs retained per IP, bounding memory against an attacker
+/// flooding spoofed MACs on the segment. Keeps the most-recently-heard, evicts
+/// the oldest. (lg-server applies the same cap downstream.)
+const MAX_MACS_PER_IP: usize = 8;
 
 /// One frame parsed off the wire: a MAC heard claiming an IP.
 #[derive(Debug, Clone)]
@@ -84,6 +89,7 @@ pub async fn run_writer(mut rx: mpsc::Receiver<Observation>, table: Arc<ArcSwap<
                         iface: obs.iface,
                         count: 1,
                     });
+                cap_macs(macs);
                 dirty = true;
             }
             _ = tick.tick() => {
@@ -93,6 +99,30 @@ pub async fn run_writer(mut rx: mpsc::Receiver<Observation>, table: Arc<ArcSwap<
                 }
             }
         }
+    }
+}
+
+/// Evict oldest-by-last_heard MACs until the per-IP cap is satisfied.
+fn cap_macs(macs: &mut HashMap<String, Entry>) {
+    while macs.len() > MAX_MACS_PER_IP {
+        let oldest = macs
+            .iter()
+            .min_by(|a, b| ts_cmp(&a.1.last_heard, &b.1.last_heard))
+            .map(|(k, _)| k.clone());
+        match oldest {
+            Some(k) => {
+                macs.remove(&k);
+            }
+            None => break,
+        }
+    }
+}
+
+/// Order two RFC3339 timestamps (lexical fallback for unparseable input).
+fn ts_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    match (DateTime::parse_from_rfc3339(a), DateTime::parse_from_rfc3339(b)) {
+        (Ok(ta), Ok(tb)) => ta.cmp(&tb),
+        _ => a.cmp(b),
     }
 }
 

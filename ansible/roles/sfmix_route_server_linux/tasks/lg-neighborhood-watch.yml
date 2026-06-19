@@ -91,6 +91,11 @@
       PrivateTmp=true
       ReadOnlyPaths=/etc/lg-neighborhood-watch
 
+      # Bound memory and make this the first OOM victim, so bird (critical) is
+      # never the one killed under host memory pressure.
+      MemoryMax=128M
+      OOMScoreAdjust=1000
+
       [Install]
       WantedBy=multi-user.target
     dest: /etc/systemd/system/lg-neighborhood-watch.service
