@@ -507,9 +507,8 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
     lldp = lldp_by_key.get((device, iface_name))
     if lldp:
         phy["lldp"] = {
-            "sys_name": lldp.get("system_name", ""),
-            "port_id": lldp.get("neighbor_interface", ""),
-            "chassis_id": lldp.get("chassis_id", ""),
+            "sys_name": lldp.get("neighbor_device", ""),
+            "port_id": lldp.get("neighbor_port", ""),
         }
     else:
         phy["lldp"] = None
