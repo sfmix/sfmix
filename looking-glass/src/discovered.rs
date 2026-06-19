@@ -451,6 +451,43 @@ mod tests {
         assert!(store.snapshot().neighbors.is_empty());
     }
 
+    #[tokio::test]
+    async fn fetch_sensor_parses_real_shaped_output_into_a_conflict() {
+        use axum::{routing::get, Json, Router};
+
+        // Exactly the shape lg-neighborhood-watch's GET /neighbors emits
+        // (extra fields iface/count are ignored by SensorObservation).
+        let payload = serde_json::json!([
+            {"ip": "206.197.187.62", "family": "IPv4", "mac": "aa:bb:cc:00:00:01",
+             "first_heard": "2026-06-19T03:00:00+00:00", "last_heard": "2026-06-19T03:05:00+00:00",
+             "iface": "vlan998", "count": 7},
+            {"ip": "206.197.187.62", "family": "IPv4", "mac": "aa:bb:cc:99:99:99",
+             "first_heard": "2026-06-19T03:02:00+00:00", "last_heard": "2026-06-19T03:04:00+00:00",
+             "iface": "vlan998", "count": 2}
+        ]);
+        let app = Router::new().route(
+            "/neighbors",
+            get(move || {
+                let p = payload.clone();
+                async move { Json(p) }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        let obs = fetch_sensor(&format!("http://{addr}")).await.unwrap();
+        assert_eq!(obs.len(), 2);
+
+        let mut store = DiscoveredNeighborStore::load(None);
+        store.update(&obs, &[assign("206.197.187.62", 64500, "Acme")]);
+        let snap = store.snapshot();
+        let n = neighbor(&snap, "206.197.187.62");
+        assert_eq!(n.asn, Some(64500));
+        assert_eq!(n.macs.len(), 2);
+        assert!(n.conflict, "two MACs for one IP must flag a conflict");
+    }
+
     #[test]
     fn fetch_failure_retains_data() {
         let mut store = DiscoveredNeighborStore::load(None);
