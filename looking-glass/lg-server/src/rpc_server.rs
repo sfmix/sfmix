@@ -267,10 +267,13 @@ async fn participant_ports(
     Json(entries).into_response()
 }
 
-/// Optional `?asn=` filter for assignment/neighbor listings.
+/// Optional `?asn=` filter for assignment/neighbor listings. `?unassigned=true`
+/// (discovered-neighbors only) narrows to IPs not in the NetBox assignment set.
 #[derive(serde::Deserialize)]
 struct AsnFilter {
     asn: Option<u32>,
+    #[serde(default)]
+    unassigned: Option<bool>,
 }
 
 /// GET /rpc/v1/ix-ip-assignments — flat list of assigned IX IPs with tenant/ASN.
@@ -321,6 +324,18 @@ async fn discovered_neighbors(
         return e.into_response();
     }
     let cache = state.lg.discovered.load();
+    // `unassigned=true` takes precedence: return only IPs not in the assignment
+    // set (a participant mis-bound to an invalid/disallowed address). These have
+    // no ASN, so the `?asn=` filter alone could never surface them.
+    if filter.unassigned == Some(true) {
+        let filtered: Vec<_> = cache.neighbors.iter().filter(|n| !n.assigned).cloned().collect();
+        return Json(serde_json::json!({
+            "neighbors": filtered,
+            "fetched_at": cache.fetched_at,
+            "last_error": cache.last_error,
+        }))
+        .into_response();
+    }
     match filter.asn {
         Some(asn) => {
             let filtered: Vec<_> = cache

@@ -153,6 +153,8 @@ where
 #[derive(Debug, Deserialize)]
 struct AsnFilterQuery {
     asn: Option<u32>,
+    #[serde(default)]
+    unassigned: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -398,9 +400,13 @@ async fn get_discovered_neighbors(
     State(state): State<HttpState>,
     Query(query): Query<AsnFilterQuery>,
 ) -> impl IntoResponse {
-    let path = match query.asn {
-        Some(asn) => format!("/rpc/v1/discovered-neighbors?asn={asn}"),
-        None => "/rpc/v1/discovered-neighbors".to_string(),
+    let path = if query.unassigned == Some(true) {
+        "/rpc/v1/discovered-neighbors?unassigned=true".to_string()
+    } else {
+        match query.asn {
+            Some(asn) => format!("/rpc/v1/discovered-neighbors?asn={asn}"),
+            None => "/rpc/v1/discovered-neighbors".to_string(),
+        }
     };
     match state.rpc.get_json(&path).await {
         Ok(v) => Json(v).into_response(),
