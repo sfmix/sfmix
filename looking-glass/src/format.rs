@@ -328,7 +328,9 @@ pub fn format_ix_ip_assignments(
     format!("{table}\n")
 }
 
-/// Render discovered ARP/NDP neighbors — one row per heard MAC, conflicts flagged.
+/// Render discovered ARP/NDP neighbors — one row per heard MAC. Conflicts and
+/// IPs not assigned on the IX (the claimant is mis-bound to an invalid address)
+/// are flagged.
 pub fn format_discovered_neighbors(
     neighbors: &[DiscoveredNeighbor],
     filter_asn: Option<u32>,
@@ -350,18 +352,37 @@ pub fn format_discovered_neighbors(
         bold_str("MAC", mode),
         bold_str("ASN", mode),
         bold_str("Last seen", mode),
-        bold_str("", mode),
+        bold_str("Flags", mode),
     ]);
     for n in &entries {
-        let asn = n.asn.map(|a| format!("AS{a}")).unwrap_or_default();
+        // Unassigned IPs carry no ASN; show a dash so the empty cell reads as
+        // intentional rather than missing data.
+        let asn = if n.assigned {
+            n.asn.map(|a| format!("AS{a}")).unwrap_or_default()
+        } else {
+            "—".to_string()
+        };
+        let mut flags: Vec<&str> = Vec::new();
+        if !n.assigned {
+            flags.push("UNASSIGNED");
+        }
+        if n.conflict {
+            flags.push("CONFLICT");
+        }
+        let flag = if flags.is_empty() {
+            String::new()
+        } else if mode == ColorMode::Plain {
+            flags.join(" ")
+        } else {
+            format!("{}", flags.join(" ").red())
+        };
         for m in &n.macs {
-            let flag = if n.conflict { "CONFLICT" } else { "" };
             builder.push_record([
                 n.ip.clone(),
                 m.mac.clone(),
                 asn.clone(),
                 m.last_seen.clone(),
-                flag.to_string(),
+                flag.clone(),
             ]);
         }
     }
@@ -946,4 +967,64 @@ pub async fn drain_stream(rx: &mut mpsc::Receiver<String>) -> String {
         lines.push(line);
     }
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mac(mac: &str) -> DiscoveredMac {
+        DiscoveredMac {
+            mac: mac.to_string(),
+            first_seen: "2026-06-18T00:00:00Z".to_string(),
+            last_seen: "2026-06-18T00:05:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn discovered_neighbors_flag_unassigned_and_conflict() {
+        let neighbors = vec![
+            DiscoveredNeighbor {
+                ip: "192.0.2.10".to_string(),
+                family: "IPv4".to_string(),
+                asn: Some(64500),
+                tenant: Some("Acme".to_string()),
+                macs: vec![mac("aa:aa:aa:aa:aa:aa")],
+                conflict: false,
+                assigned: true,
+            },
+            DiscoveredNeighbor {
+                ip: "192.0.2.250".to_string(),
+                family: "IPv4".to_string(),
+                asn: None,
+                tenant: None,
+                macs: vec![mac("bb:bb:bb:bb:bb:bb"), mac("cc:cc:cc:cc:cc:cc")],
+                conflict: true,
+                assigned: false,
+            },
+        ];
+        let out = format_discovered_neighbors(&neighbors, None, ColorMode::Plain);
+        // The unassigned IP is flagged (and as a conflict), with a dash for ASN.
+        assert!(out.contains("UNASSIGNED"), "unassigned IP must be flagged:\n{out}");
+        assert!(out.contains("CONFLICT"), "conflict still flagged:\n{out}");
+        assert!(out.contains("—"), "unassigned ASN cell shows a dash:\n{out}");
+        // The assigned IP keeps its ASN and is not flagged unassigned.
+        assert!(out.contains("AS64500"));
+    }
+
+    #[test]
+    fn discovered_neighbors_asn_filter_excludes_unassigned() {
+        let neighbors = vec![DiscoveredNeighbor {
+            ip: "192.0.2.250".to_string(),
+            family: "IPv4".to_string(),
+            asn: None,
+            tenant: None,
+            macs: vec![mac("bb:bb:bb:bb:bb:bb")],
+            conflict: false,
+            assigned: false,
+        }];
+        // Filtering by an ASN drops IPs that carry no ASN (unassigned).
+        let out = format_discovered_neighbors(&neighbors, Some(64500), ColorMode::Plain);
+        assert_eq!(out, "No discovered neighbors.\n");
+    }
 }
