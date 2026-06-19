@@ -56,6 +56,29 @@
   </div>
 </div>
 
+{# ── Route-server parity callout (public) ────────────────────── #}
+{% if rs_parity and rs_parity.severity != "ok" %}
+<div class="nd-alert {{ rs_parity.severity }} mb-6">
+  <span class="nd-alert-icon">{% if rs_parity.severity == "crit" %}&#9940;{% else %}&#9888;{% endif %}</span>
+  <div class="nd-alert-body">
+    <b>
+      {% if rs_parity.status == "not_peered" %}{% translate "Not peered with the SFMIX route servers" %}
+      {% elif rs_parity.status == "redundancy_broken" %}{% translate "Route-server redundancy at risk" %}
+      {% else %}{% translate "Route-server prefix counts disagree" %}{% endif %}
+    </b>
+    {% if rs_parity.status == "not_peered" %}{% translate "Peering with both SFMIX route servers is required. This network currently has no route-server sessions." %}
+    {% elif rs_parity.status == "redundancy_broken" %}{% translate "This network is not established on both route servers. If the remaining route server fails, it will lose route-server connectivity entirely." %}
+    {% else %}{% translate "This network's sessions are established on both route servers but accept a different number of prefixes — a sign of asymmetric filtering or misconfiguration." %}{% endif %}
+    {% if rs_parity.issues %}
+    <ul style="margin:.4rem 0 0; padding-left:1.15rem; list-style:disc; font-size:.86rem;">
+      {% for issue in rs_parity.issues %}<li>{{ issue }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <span class="nd-alert-where">L4+ · {% translate "route servers" %}</span>
+  </div>
+</div>
+{% endif %}
+
 {# ── Scope Legend ────────────────────────────────────────────── #}
 {% if can_see_admin %}
 <div class="nd-scope-legend">

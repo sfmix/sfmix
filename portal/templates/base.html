@@ -23,6 +23,7 @@
     </a>
     <div class="flex items-center gap-4 text-sm">
       <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">{% translate "Participants" %}</a>
+      <a href="{% url 'route_server_parity' %}" class="text-white/70 hover:text-white transition">{% translate "Route Servers" %}</a>
       {% if user.is_authenticated %}
         <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
         {% if is_ix_admin %}

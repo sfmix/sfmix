@@ -44,18 +44,23 @@ class AliceLGClient:
         data = self._get(f"/api/v1/routeservers/{rs_id}/neighbors")
         return data.get("neighbors", [])
 
-    def get_neighbors_for_asn(self, asn: int) -> list[dict[str, Any]]:
-        """Aggregate RS neighbors across all route servers, filtered to ASN.
+    def get_all_neighbors(
+        self, routeservers: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        """Aggregate BGP neighbors across all route servers.
 
-        Returns a list of dicts, each augmented with 'rs_name' and 'rs_id'.
+        Each returned dict is augmented with 'rs_id' and 'rs_name'. Pass
+        ``routeservers`` to avoid re-fetching the route-server list when the
+        caller already has it.
         """
-        results = []
-        try:
-            routeservers = self.get_routeservers()
-        except Exception:
-            logger.warning("Failed to fetch Alice route server list", exc_info=True)
-            return []
+        if routeservers is None:
+            try:
+                routeservers = self.get_routeservers()
+            except Exception:
+                logger.warning("Failed to fetch Alice route server list", exc_info=True)
+                return []
 
+        results = []
         for rs in routeservers:
             rs_id = rs.get("id", "")
             rs_name = rs.get("name", rs_id)
@@ -65,11 +70,17 @@ class AliceLGClient:
                 logger.warning("Failed to fetch neighbors from RS %s", rs_id, exc_info=True)
                 continue
             for neighbor in neighbors:
-                if neighbor.get("asn") == asn:
-                    neighbor["rs_name"] = rs_name
-                    neighbor["rs_id"] = rs_id
-                    results.append(neighbor)
+                neighbor["rs_name"] = rs_name
+                neighbor["rs_id"] = rs_id
+                results.append(neighbor)
         return results
+
+    def get_neighbors_for_asn(self, asn: int) -> list[dict[str, Any]]:
+        """Aggregate RS neighbors across all route servers, filtered to ASN.
+
+        Returns a list of dicts, each augmented with 'rs_name' and 'rs_id'.
+        """
+        return [n for n in self.get_all_neighbors() if n.get("asn") == asn]
 
 
 def get_alice_client() -> AliceLGClient:
