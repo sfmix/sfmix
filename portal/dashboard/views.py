@@ -250,6 +250,22 @@ def _dqt(device, port):
     return f"{short}:{port}"
 
 
+def _rs_session_sort_key(session):
+    """Deterministic, human-friendly ordering for route-server sessions.
+
+    Orders by route-server name, then IPv4 before IPv6, then numerically by
+    neighbor IP. Alice-LG returns neighbors in non-deterministic order, so
+    without this the session list would shuffle between page loads.
+    Unparseable addresses sort last but stably.
+    """
+    try:
+        ip = ipaddress.ip_address(session.get("address", ""))
+        addr_key = (ip.version, int(ip))
+    except ValueError:
+        addr_key = (9, 0)
+    return (session.get("name", ""), addr_key, session.get("address", ""))
+
+
 def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
                          participant_ips, arp_by_ip, ndp_by_ip, discovered_by_ip,
                          rs_sessions, can_see_admin, peering_vlans):
@@ -387,6 +403,9 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
                 ),
                 "routes_url": routes_url,
             })
+
+        # Stable, human-friendly order: RS name, then IPv4 before IPv6, then IP.
+        port_rs.sort(key=_rs_session_sort_key)
 
         # L2: MACs learned on this logical port. The fabric reports learned
         # MACs on the bundle (Port-Channel) for LAGs and on the interface

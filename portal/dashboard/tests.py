@@ -2,7 +2,12 @@
 
 from django.test import SimpleTestCase
 
-from dashboard.views import _compute_rs_parity, _parity_applicable, _real_routeservers
+from dashboard.views import (
+    _compute_rs_parity,
+    _parity_applicable,
+    _real_routeservers,
+    _rs_session_sort_key,
+)
 
 # Two configured route servers, mirroring production (BIRD + OpenBGPD).
 ROUTESERVERS = [
@@ -156,3 +161,64 @@ class ParityApplicableTests(SimpleTestCase):
         # Without the PeeringDB flag, the same participant is applicable.
         self.assertTrue(_parity_applicable(participant))
         self.assertTrue(_parity_applicable(participant, {"64498": {}}))
+
+
+class RsSessionSortKeyTests(SimpleTestCase):
+    """The route-server session list must render in a stable, human order."""
+
+    def _entry(self, name, address):
+        # Mirrors the display dict built in _build_logical_ports.
+        return {"name": name, "address": address}
+
+    def test_orders_by_name_then_v4_before_v6_then_numeric_ip(self):
+        # Deliberately scrambled input, as Alice-LG may return it.
+        entries = [
+            self._entry("RS2 (OpenBGPD)", "2001:db8::10"),
+            self._entry("RS1 (BIRD)", "2001:db8::10"),
+            self._entry("RS2 (OpenBGPD)", "192.0.2.10"),
+            self._entry("RS1 (BIRD)", "192.0.2.10"),
+        ]
+        ordered = sorted(entries, key=_rs_session_sort_key)
+        self.assertEqual(
+            [(e["name"], e["address"]) for e in ordered],
+            [
+                ("RS1 (BIRD)", "192.0.2.10"),
+                ("RS1 (BIRD)", "2001:db8::10"),
+                ("RS2 (OpenBGPD)", "192.0.2.10"),
+                ("RS2 (OpenBGPD)", "2001:db8::10"),
+            ],
+        )
+
+    def test_ipv4_sorts_numerically_not_lexically(self):
+        entries = [
+            self._entry("RS1", "192.0.2.100"),
+            self._entry("RS1", "192.0.2.9"),
+            self._entry("RS1", "192.0.2.20"),
+        ]
+        ordered = sorted(entries, key=_rs_session_sort_key)
+        self.assertEqual(
+            [e["address"] for e in ordered],
+            ["192.0.2.9", "192.0.2.20", "192.0.2.100"],
+        )
+
+    def test_unparseable_address_sorts_last_without_error(self):
+        entries = [
+            self._entry("RS1", ""),
+            self._entry("RS1", "192.0.2.10"),
+            self._entry("RS1", "2001:db8::10"),
+        ]
+        ordered = sorted(entries, key=_rs_session_sort_key)
+        self.assertEqual(
+            [e["address"] for e in ordered],
+            ["192.0.2.10", "2001:db8::10", ""],
+        )
+
+    def test_sort_is_idempotent_and_deterministic(self):
+        entries = [
+            self._entry("RS2", "192.0.2.10"),
+            self._entry("RS1", "2001:db8::10"),
+            self._entry("RS1", "192.0.2.10"),
+        ]
+        once = sorted(entries, key=_rs_session_sort_key)
+        twice = sorted(reversed(once), key=_rs_session_sort_key)
+        self.assertEqual(once, twice)
