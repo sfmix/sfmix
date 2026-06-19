@@ -110,13 +110,21 @@ class LookingGlassClient:
         """Get PeeringDB network cache (website URLs, IRR, policy, etc.)."""
         return self._get("/api/v1/peeringdb-cache")
 
-    def get_discovered_neighbors(self, token: str | None = None, asn: int | None = None) -> dict[str, Any]:
+    def get_discovered_neighbors(
+        self, token: str | None = None, asn: int | None = None, unassigned: bool = False
+    ) -> dict[str, Any]:
         """Get ARP/NDP neighbors heard on the IX fabric (with conflicts).
+
+        ``unassigned=True`` narrows to IPs not in the NetBox assignment set
+        (hosts mis-bound to an invalid/disallowed address); it takes precedence
+        over ``asn`` since unassigned neighbors carry no ASN.
 
         Returns {"neighbors": [...], "fetched_at": ..., "last_error": ...}.
         """
         params = {}
-        if asn is not None:
+        if unassigned:
+            params["unassigned"] = "true"
+        elif asn is not None:
             params["asn"] = str(asn)
         return self._get("/api/v1/discovered-neighbors", token, params or None)
 

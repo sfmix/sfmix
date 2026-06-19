@@ -143,6 +143,7 @@ body {
 .nd-net-meta b { color: var(--color-text); font-weight: 600; }
 .nd-net-overview { display: flex; gap: .5rem; align-items: center; }
 .nd-ov-chip { font-size: .82rem; font-weight: 600; display: inline-flex; align-items: center; gap: .35rem; }
+.nd-ov-bad { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: .05rem .45rem; border-radius: 4px; }
 .nd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .nd-dot-up { background: #1d7a3e; }
 .nd-dot-warn { background: #d97706; }
@@ -304,6 +305,8 @@ body {
 .nd-disc-conflict .nd-disc-addr { color: #991b1b; }
 .nd-disc-flag { font-family: var(--font-sans); font-size: .68rem; font-weight: 600; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: .05rem .35rem; border-radius: 3px; }
 .nd-disc .nd-mac-row { margin-left: .55rem; padding-left: .55rem; border-left: 2px solid #eee; }
+.nd-disc-invalid { border-top-color: #fecaca; }
+.nd-disc-invalid .nd-disc-label { color: #991b1b; }
 
 /* Route-server table (L4) */
 .nd-rs-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
