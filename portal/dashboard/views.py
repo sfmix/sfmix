@@ -606,16 +606,21 @@ def _compute_rs_parity(rs_sessions, routeservers):
 
     rs_meta = [(rs.get("id", ""), rs.get("name") or rs.get("id", "")) for rs in routeservers]
     rs_names = {rid: name for rid, name in rs_meta}
+    real_ids = {rid for rid, _ in rs_meta}
 
-    # by_rs[rs_id][af] = session; afs_used = families seen on any RS.
+    # by_rs[rs_id][af] = session; afs_used = families seen on any real RS.
+    # ``rs_sessions`` may include looking-glass / quarantine collector sessions
+    # (they are shown in the participant listing); those are not real route
+    # servers, so exclude them here — they must not factor into parity.
     by_rs = {rid: {} for rid, _ in rs_meta}
     afs_used = set()
     for s in rs_sessions:
         rid = s.get("rs_id", "")
+        if rid not in real_ids:
+            continue
         af = _rs_af(s.get("address", ""))
         afs_used.add(af)
         by_rs.setdefault(rid, {})[af] = s
-        rs_names.setdefault(rid, s.get("rs_name", rid))
 
     afs = sorted(afs_used)
 
@@ -1009,12 +1014,15 @@ def _fetch_rs_data(asn):
     try:
         alice = AliceLGClient()
         if alice.base_url:
-            routeservers = _real_routeservers(alice.get_routeservers())
+            all_sources = alice.get_routeservers()
+            # Sessions for display include looking-glass / quarantine collectors
+            # so they still appear in the participant listing; parity, however,
+            # compares only the real route servers.
             sessions = [
-                n for n in alice.get_all_neighbors(routeservers)
+                n for n in alice.get_all_neighbors(all_sources)
                 if n.get("asn") == asn
             ]
-            return sessions, routeservers
+            return sessions, _real_routeservers(all_sources)
     except Exception:
         logger.warning("Failed to fetch Alice RS data for AS%s", asn, exc_info=True)
     return [], []
