@@ -642,16 +642,28 @@ def _compute_rs_parity(rs_sessions, routeservers):
             [gettext("Not peered with any SFMIX route server.")], afs,
         )
 
-    # Redundancy: every used AF must be present + established on every RS.
+    # Redundancy: an AF is only a parity defect when it is established on at
+    # least one route server but missing/down on another (true asymmetry). An
+    # AF that is missing or down on *every* route server is symmetric absence —
+    # e.g. a participant who configures v6 sessions but never brings them up —
+    # which is an outage, not a loss of redundancy, so it is not flagged here.
     issues = []
-    for rid, _ in rs_meta:
-        name = rs_names.get(rid, rid)
-        for af in afs:
+    for af in afs:
+        up_rs = {
+            rid for rid, _ in rs_meta
+            if _rs_established((by_rs.get(rid, {}).get(af) or {}).get("state"))
+        }
+        if not up_rs:
+            continue  # symmetric absence/down across all RS — not a parity defect
+        for rid, _ in rs_meta:
+            if rid in up_rs:
+                continue
+            name = rs_names.get(rid, rid)
             entry = by_rs.get(rid, {}).get(af)
             if entry is None:
                 issues.append(gettext("No %(af)s session with %(rs)s.") % {
                     "af": _af_label(af), "rs": name})
-            elif not _rs_established(entry.get("state")):
+            else:
                 issues.append(gettext("%(af)s session with %(rs)s is %(state)s.") % {
                     "af": _af_label(af), "rs": name,
                     "state": entry.get("state") or gettext("down")})

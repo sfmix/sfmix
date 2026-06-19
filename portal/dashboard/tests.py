@@ -113,6 +113,32 @@ class ComputeRsParityTests(SimpleTestCase):
         self.assertEqual(p["status"], "ok")
         self.assertEqual(p["afs"], ["v4"])
 
+    def test_v6_idle_on_both_rs_is_ok(self):
+        # Participant has v6 sessions configured on both route servers but
+        # never brings them up (idle on both). v4 is established on both. The
+        # v6 down state is symmetric → not a parity defect → OK.
+        p = _compute_rs_parity(
+            _both_rs(v6_s1="idle", v6_s2="idle"), ROUTESERVERS)
+        self.assertEqual(p["status"], "ok")
+        self.assertEqual(p["issues"], [])
+
+    def test_v6_up_on_one_rs_only_is_redundancy_broken(self):
+        # v6 established on rs1 but idle on rs2 → genuine asymmetry → flagged.
+        p = _compute_rs_parity(_both_rs(v6_s2="idle"), ROUTESERVERS)
+        self.assertEqual(p["status"], "redundancy_broken")
+        self.assertEqual(p["sort_rank"], 0)
+        self.assertTrue(p["issues"])
+
+    def test_all_sessions_down_on_both_rs_is_ok(self):
+        # Configured but down on every route server across all address families
+        # → symmetric total outage, no asymmetry → OK on the parity page.
+        p = _compute_rs_parity(
+            _both_rs(v4_s1="idle", v4_s2="idle", v6_s1="idle", v6_s2="idle"),
+            ROUTESERVERS,
+        )
+        self.assertEqual(p["status"], "ok")
+        self.assertEqual(p["issues"], [])
+
 
 class RealRouteserversTests(SimpleTestCase):
     def test_drops_looking_glass_and_quarantine_sources(self):
