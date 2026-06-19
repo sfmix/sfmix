@@ -1,5 +1,5 @@
 [workspace]
-members = ["lg-types", "lg-client", "lg-server", "lg-cli", "lg-http", "."]
+members = ["lg-types", "lg-client", "lg-server", "lg-cli", "lg-http", "lg-neighborhood-watch", "."]
 resolver = "2"
 
 [workspace.dependencies]

@@ -84,6 +84,22 @@ commands:
             name: "<asn>"
             help: Show detail for a specific participant ASN (e.g. 13335, AS13335)
             command: { verb: show, resource: participant_detail, target: "$arg" }
+      ix-ip-assignments:
+        help: Assigned IX IPs with their tenant/ASN
+        command: { verb: show, resource: ix_ip_assignments }
+        children:
+          _arg:
+            name: "<asn>"
+            help: Filter to a specific participant ASN (e.g. 13335, AS13335)
+            command: { verb: show, resource: ix_ip_assignments, filter_asn: "$arg" }
+      discovered-neighbors:
+        help: ARP/NDP neighbors heard on the IX fabric (with conflicts)
+        command: { verb: show, resource: discovered_neighbors }
+        children:
+          _arg:
+            name: "<asn>"
+            help: Filter to a specific participant ASN (e.g. 13335, AS13335)
+            command: { verb: show, resource: discovered_neighbors, filter_asn: "$arg" }
       netbox:
         help: NetBox cache status
         command: { verb: show, resource: netbox_cache }

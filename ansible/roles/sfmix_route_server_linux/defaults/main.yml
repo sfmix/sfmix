@@ -27,3 +27,23 @@ sfmix_route_server_linux_bird_exporter_repo: https://github.com/czerwonk/bird_ex
 sfmix_route_server_linux_bird_exporter_directory: /opt/bird_exporter
 sfmix_route_server_linux_bird_exporter_version: b7ff18f9e130fef48ef8731b303867742fd17f22
 sfmix_route_server_linux_bird_exporter_port: 9324
+
+# lg-neighborhood-watch — passive ARP/NDP sensor. Built locally as a static
+# musl binary and copied to the host (NEVER built on rs-linux), run under systemd
+# with only CAP_NET_RAW. Mirrors the looking_glass role's local-build model.
+sfmix_route_server_linux_lg_neighborhood_watch_local_build: true
+sfmix_route_server_linux_lg_neighborhood_watch_src: "{{ playbook_dir }}/../looking-glass"
+sfmix_route_server_linux_lg_neighborhood_watch_bin_dir: "{{ sfmix_route_server_linux_lg_neighborhood_watch_src }}/target/x86_64-unknown-linux-musl/release"
+sfmix_route_server_linux_lg_neighborhood_watch_user: neighwatch
+# HTTP query/metrics interface. Bound to the mgmt IP so lg-server can poll it.
+sfmix_route_server_linux_lg_neighborhood_watch_bind: "127.0.0.1:29185"
+# Peering-LAN interface(s) to capture on. On rs-linux the IX fabric is untagged
+# directly on ens19 (206.197.187.0/24 + 2001:504:30::/64).
+sfmix_route_server_linux_lg_neighborhood_watch_interfaces:
+  - ens19
+# lg-server RPC endpoint the sensor fetches IX IP assignments from.
+sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://localhost:9090"
+# Shared RPC secret (override via vault/group_vars; must match lg-server's).
+sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: ""
+sfmix_route_server_linux_lg_neighborhood_watch_lg_poll_interval_secs: 300
+sfmix_route_server_linux_lg_neighborhood_watch_solicit_interval_secs: 60

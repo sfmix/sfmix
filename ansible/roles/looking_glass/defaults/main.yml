@@ -37,6 +37,13 @@ looking_glass_device_cache_ttl_mac: 30
 looking_glass_mac_table_state_file: /var/lib/looking-glass/mac-table.json
 looking_glass_mac_table_retention_secs: 604800
 
+# Discovered ARP/NDP neighbors (polled from the lg-neighborhood-watch sensor).
+# Leave looking_glass_discovered_sensor_url unset to disable the discovered block
+# entirely. Set it to the sensor's HTTP base URL on the route server, e.g.
+#   looking_glass_discovered_sensor_url: "http://rs-linux.sfmix.org:29185"
+looking_glass_discovered_poll_interval_secs: 60
+looking_glass_discovered_state_file: /var/lib/looking-glass/discovered-neighbors.json
+
 # RPC settings
 looking_glass_rpc_bind: "127.0.0.1:9090"
 

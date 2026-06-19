@@ -55,3 +55,10 @@
     name: bird_exporter
     restart: true
     state: started
+
+- name: Restart lg-neighborhood-watch
+  become: true
+  ansible.builtin.systemd_service:
+    name: lg-neighborhood-watch
+    state: restarted
+    daemon_reload: true

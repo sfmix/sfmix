@@ -15,3 +15,20 @@ arouteserver_perform_graceful_shutdown: false
 arouteserver_local_files_dir: "/opt/arouteserver/local_files"
 arouteserver_use_local_files:
   - footer
+
+# lg-neighborhood-watch — passive ARP/NDP sensor. Captures on ens19 (the IX
+# fabric, untagged here); HTTP/query bound to the mgmt IP so lg-server on alice
+# can poll /neighbors. Fetches the IX IP list from lg-server's RPC over mgmt.
+sfmix_route_server_linux_lg_neighborhood_watch_bind: "10.1.1.18:29185"
+sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://10.2.1.26:9090"
+# Same shared RPC secret as alice's lg-server (decrypts with the same vault key).
+sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          35336630636330646333623363326335653462376638353963373636623439666166343265613731
+          6261663436386139383334303535623038383935326662650a613732303838383063333361653632
+          63353534666237333737386165313236373038613635633666333637343338663364346465643730
+          3133316232313063330a623365636135623364653166623437303865663337636165323262656537
+          36383431383165373937633762656136626337353065636336306435616365623635613835663065
+          32653565636561656562393437346138316461633735386364353266643237663666306165663831
+          35343037353732613131333333393331323438326461643465376535623736336135656634626463
+          30666666643731343533

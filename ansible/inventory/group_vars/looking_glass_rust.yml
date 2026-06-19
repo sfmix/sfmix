@@ -60,6 +60,13 @@ looking_glass_rpc_secret: !vault |
 looking_glass_http_enabled: true
 looking_glass_http_bind: "127.0.0.1"
 looking_glass_http_port: 8080
+# Bind RPC to the mgmt IP so internal peers (the lg-neighborhood-watch sensor on
+# rs-linux) can reach it; lg-http/lg-cli derive their rpc_url from this var too.
+looking_glass_rpc_bind: "10.2.1.26:9090"
+# Poll the ARP/NDP sensor on rs-linux (its mgmt IP) for discovered neighbors.
+looking_glass_discovered_sensor_url: "http://10.1.1.18:29185"
+# Allow the sensor (rs-linux mgmt IP) through UFW to reach lg-server RPC.
+looking_glass_rpc_allow_from: "10.1.1.18"
 looking_glass_public_vlans:
   - "998"
   - "999"
