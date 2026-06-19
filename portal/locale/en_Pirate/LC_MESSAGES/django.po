@@ -100,10 +100,16 @@ msgstr ""
 
 #: dashboard/views.py:591
 #, python-format
-msgid "%(count)s route rejected on %(port)s"
-msgid_plural "%(count)s routes rejected on %(port)s"
-msgstr[0] "%(count)s route tossed overboard on %(port)s"
-msgstr[1] "%(count)s routes tossed overboard on %(port)s"
+msgid "%(count)s route rejected on %(port)s across %(rs_session_count)s %(sessions)s"
+msgid_plural "%(count)s routes rejected on %(port)s across %(rs_session_count)s %(sessions)s"
+msgstr[0] "%(count)s route tossed overboard on %(port)s across %(rs_session_count)s %(sessions)s"
+msgstr[1] "%(count)s routes tossed overboard on %(port)s across %(rs_session_count)s %(sessions)s"
+
+#: dashboard/views.py:599
+msgid "session"
+msgid_plural "sessions"
+msgstr[0] "voyage"
+msgstr[1] "voyages"
 
 #: dashboard/views.py:595
 msgid ""
