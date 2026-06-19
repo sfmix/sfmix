@@ -263,15 +263,15 @@ body {
 .nd-lane-bad .nd-qual { color: #dc2626; }
 
 /* LLDP pills (L2) */
-.nd-lldp-pill { display: inline-flex; align-items: center; gap: 0; border: 1px solid #ddd; border-radius: 6px; font-size: .82rem; margin-bottom: .35rem; background: #fff; overflow: hidden; }
+.nd-lldp-pill { display: flex; width: 100%; align-items: stretch; gap: 0; border: 1px solid #ddd; border-radius: 6px; font-size: .82rem; margin-bottom: .35rem; background: #fff; overflow: hidden; }
 .nd-lldp-down { opacity: .55; }
-.nd-llp-side { padding: .35rem .6rem; }
+.nd-llp-side { flex: 1 1 0; min-width: 0; padding: .35rem .6rem; display: flex; flex-direction: column; justify-content: center; }
 .nd-llp-local { background: #f7f9fb; }
 .nd-llp-remote { }
 .nd-llp-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-light); font-weight: 600; }
 .nd-llp-host { font-weight: 600; font-size: .8rem; color: var(--color-primary); }
 .nd-llp-if { font-family: var(--font-mono); font-size: .75rem; color: var(--color-text-light); }
-.nd-llp-conn { display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .2rem .4rem; }
+.nd-llp-conn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; padding: .2rem .4rem; flex: 0 0 auto; }
 .nd-llp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .nd-llp-dot-up { background: #22c55e; }
 .nd-llp-dot-down { background: #ef4444; }
