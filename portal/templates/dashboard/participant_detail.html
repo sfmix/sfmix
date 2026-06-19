@@ -41,6 +41,9 @@
         {% else %}<span class="nd-dot nd-dot-unk"></span> {% translate "Unknown" %}
         {% endif %}
       </span>
+      {% if has_invalid_ip %}
+      <span class="nd-ov-chip nd-ov-bad" title="{% translate 'A MAC on this network is sourcing an IP that is not assigned on the IX' %}">&#9940; {% translate "Invalid IP" %}</span>
+      {% endif %}
     </div>
   </div>
   <div class="nd-net-actions">
@@ -299,6 +302,21 @@
             {% if m.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=m.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
           </div>
           {% endfor %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if lp.invalid_ip_bindings %}
+        <div class="nd-disc nd-disc-invalid">
+          <div class="nd-disc-label">&#9940; {% translate "Bound to unassigned IP" %}</div>
+          {% for b in lp.invalid_ip_bindings %}
+          <div class="nd-disc-ip nd-disc-conflict">
+            <span class="nd-disc-addr">{{ b.mac }} &rarr; {{ b.ip }}</span>
+            <span class="nd-disc-flag" title="{% translate 'This IP is not assigned to any participant on the IX' %}">{% translate "not assigned on the IX" %}</span>
+          </div>
+          <div class="nd-mac-row">
+            {% if b.first_seen_display %}<span class="nd-mac-seen" title="{% translate 'First seen' %}">{% blocktranslate with d=b.first_seen_display %}first seen {{ d }}{% endblocktranslate %}</span>{% endif %}
+            {% if b.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=b.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
+          </div>
           {% endfor %}
         </div>
         {% endif %}

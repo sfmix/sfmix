@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-18 03:30-0500\n"
+"POT-Creation-Date: 2026-06-19 00:09-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: Pirate\n"
@@ -21,12 +21,12 @@ msgstr ""
 msgid "You do not have access to this network."
 msgstr "Avast! Ye be barred from boardin' this here network."
 
-#: dashboard/views.py:118 dashboard/views.py:939 dashboard/views.py:958
-#: dashboard/views.py:1003
+#: dashboard/views.py:118 dashboard/views.py:1022 dashboard/views.py:1041
+#: dashboard/views.py:1086
 msgid "IX Administrators only."
 msgstr "IX Cap'ns only, ye scallywag."
 
-#: dashboard/views.py:125 dashboard/views.py:965
+#: dashboard/views.py:125 dashboard/views.py:1048
 msgid "Looking Glass not configured"
 msgstr "The spyglass be not yet rigged"
 
@@ -42,12 +42,27 @@ msgstr "Listin' a bit"
 msgid "Out of range"
 msgstr "Lost at sea"
 
-#: dashboard/views.py:516
+#: dashboard/views.py:522
+#, python-format
+msgid "%(port)s is bound to an unassigned IP"
+msgid_plural "%(port)s is bound to unassigned IPs"
+msgstr[0] ""
+msgstr[1] ""
+
+#: dashboard/views.py:527
+#, python-format
+msgid ""
+"A MAC learned on this port is sourcing an address that is not assigned on "
+"the IX (%(pairs)s). Using an unallocated peering-LAN IP is disallowed and "
+"can disrupt other participants — correct the interface configuration."
+msgstr ""
+
+#: dashboard/views.py:538
 #, python-format
 msgid "%(port)s is down"
 msgstr "%(port)s has gone to Davy Jones' locker"
 
-#: dashboard/views.py:517
+#: dashboard/views.py:539
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
@@ -55,12 +70,12 @@ msgstr ""
 "All the crew's links be offline. Route-server parleys lie idle an' nary a "
 "soul sails through this logical port."
 
-#: dashboard/views.py:524
+#: dashboard/views.py:546
 #, python-format
 msgid "%(port)s degraded — %(up)s/%(total)s members up"
 msgstr "%(port)s be takin' on water — %(up)s/%(total)s crew still afloat"
 
-#: dashboard/views.py:530
+#: dashboard/views.py:552
 #, python-format
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
@@ -69,12 +84,12 @@ msgstr ""
 "A crew link be sunk; the bundle sails at %(effective)sG o' %(total)sG. Yer "
 "spare riggin' be lost 'til the link be mended."
 
-#: dashboard/views.py:549
+#: dashboard/views.py:571
 #, python-format
 msgid "%(port)s optic %(band)s on %(lane)s"
 msgstr "%(port)s spyglass %(band)s on %(lane)s"
 
-#: dashboard/views.py:554
+#: dashboard/views.py:576
 #, python-format
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
@@ -83,14 +98,14 @@ msgstr ""
 "RX %(rx)s dBm be outside the shipshape range. Inspect the fiber / patch or "
 "order a fresh spyglass, matey."
 
-#: dashboard/views.py:569
+#: dashboard/views.py:591
 #, python-format
 msgid "%(count)s route rejected on %(port)s"
 msgid_plural "%(count)s routes rejected on %(port)s"
 msgstr[0] "%(count)s route tossed overboard on %(port)s"
 msgstr[1] "%(count)s routes tossed overboard on %(port)s"
 
-#: dashboard/views.py:573
+#: dashboard/views.py:595
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
@@ -108,7 +123,7 @@ msgstr "Crew Member Portal"
 msgid "Participants"
 msgstr "Crew Mates"
 
-#: templates/base.html:29 templates/dashboard/participant_detail.html:118
+#: templates/base.html:29 templates/dashboard/participant_detail.html:121
 msgid "Admin"
 msgstr "Cap'n"
 
@@ -218,7 +233,7 @@ msgstr "LLDP Shipmates"
 
 #: templates/dashboard/device_cache_status.html:68
 #: templates/dashboard/network_mac_table.html:3
-#: templates/dashboard/participant_detail.html:51
+#: templates/dashboard/participant_detail.html:54
 msgid "MAC Table"
 msgstr "MAC Chart"
 
@@ -354,7 +369,7 @@ msgstr "Hale an' hearty"
 
 #: templates/dashboard/netbox_status.html:29
 #: templates/dashboard/participant_detail.html:39
-#: templates/dashboard/participant_detail.html:101
+#: templates/dashboard/participant_detail.html:104
 msgid "Degraded"
 msgstr "Takin' on water"
 
@@ -520,7 +535,7 @@ msgid "No optics data found."
 msgstr "No spyglass booty be found in these waters."
 
 #: templates/dashboard/participant_detail.html:3
-#: templates/dashboard/participant_detail.html:248
+#: templates/dashboard/participant_detail.html:251
 msgid "Network"
 msgstr "Fleet"
 
@@ -570,11 +585,11 @@ msgid "Active"
 msgstr "Sailin'"
 
 #: templates/dashboard/participant_detail.html:40
-#: templates/dashboard/participant_detail.html:103
-#: templates/dashboard/participant_detail.html:134
-#: templates/dashboard/participant_detail.html:340
-#: templates/dashboard/participant_detail.html:365
-#: templates/dashboard/participant_detail.html:388
+#: templates/dashboard/participant_detail.html:106
+#: templates/dashboard/participant_detail.html:137
+#: templates/dashboard/participant_detail.html:358
+#: templates/dashboard/participant_detail.html:383
+#: templates/dashboard/participant_detail.html:406
 msgid "Down"
 msgstr "Sunk"
 
@@ -582,172 +597,196 @@ msgstr "Sunk"
 msgid "Unknown"
 msgstr "A mystery"
 
-#: templates/dashboard/participant_detail.html:48
+#: templates/dashboard/participant_detail.html:45
+msgid "A MAC on this network is sourcing an IP that is not assigned on the IX"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:45
+msgid "Invalid IP"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:51
 msgid "Website"
 msgstr "Port o' call"
 
-#: templates/dashboard/participant_detail.html:59
+#: templates/dashboard/participant_detail.html:62
 msgid "Reading this page"
 msgstr "Readin' this here scroll"
 
-#: templates/dashboard/participant_detail.html:60
+#: templates/dashboard/participant_detail.html:63
 msgid "Public &mdash; visible to anyone"
 msgstr "Public &mdash; seen by any soul"
 
-#: templates/dashboard/participant_detail.html:61
+#: templates/dashboard/participant_detail.html:64
 msgid "Admin &mdash; network &amp; IX admins only"
 msgstr "Cap'n &mdash; fleet &amp; IX cap'ns only"
 
-#: templates/dashboard/participant_detail.html:62
+#: templates/dashboard/participant_detail.html:65
 msgid "Stack:"
 msgstr "Stack:"
 
-#: templates/dashboard/participant_detail.html:62
+#: templates/dashboard/participant_detail.html:65
 msgid "physical"
 msgstr "physical"
 
-#: templates/dashboard/participant_detail.html:62
+#: templates/dashboard/participant_detail.html:65
 msgid "link/LLDP"
 msgstr "link/LLDP"
 
-#: templates/dashboard/participant_detail.html:62
+#: templates/dashboard/participant_detail.html:65
 msgid "ARP/NDP"
 msgstr "ARP/NDP"
 
-#: templates/dashboard/participant_detail.html:62
+#: templates/dashboard/participant_detail.html:65
 msgid "route servers"
 msgstr "route servers"
 
-#: templates/dashboard/participant_detail.html:94
+#: templates/dashboard/participant_detail.html:97
 msgid "Single"
 msgstr "Lone"
 
-#: templates/dashboard/participant_detail.html:99
-#: templates/dashboard/participant_detail.html:132
+#: templates/dashboard/participant_detail.html:102
+#: templates/dashboard/participant_detail.html:135
 msgid "Up"
 msgstr "Afloat"
 
-#: templates/dashboard/participant_detail.html:106
+#: templates/dashboard/participant_detail.html:109
 #, python-format
 msgid "%(speed)sG effective"
 msgstr "%(speed)sG in truth"
 
-#: templates/dashboard/participant_detail.html:117
+#: templates/dashboard/participant_detail.html:120
 msgid "Physical"
 msgstr "Physical"
 
-#: templates/dashboard/participant_detail.html:139
+#: templates/dashboard/participant_detail.html:142
 msgid "Temp:"
 msgstr "Temp:"
 
-#: templates/dashboard/participant_detail.html:140
+#: templates/dashboard/participant_detail.html:143
 msgid "Serial:"
 msgstr "Serial:"
 
-#: templates/dashboard/participant_detail.html:169
+#: templates/dashboard/participant_detail.html:172
 msgid "Link"
 msgstr "Link"
 
-#: templates/dashboard/participant_detail.html:170
-#: templates/dashboard/participant_detail.html:249
-#: templates/dashboard/participant_detail.html:314
+#: templates/dashboard/participant_detail.html:173
+#: templates/dashboard/participant_detail.html:252
+#: templates/dashboard/participant_detail.html:332
 msgid "Public"
 msgstr "Public"
 
-#: templates/dashboard/participant_detail.html:177
-#: templates/dashboard/participant_detail.html:198
-#: templates/dashboard/participant_detail.html:213
+#: templates/dashboard/participant_detail.html:180
+#: templates/dashboard/participant_detail.html:201
+#: templates/dashboard/participant_detail.html:216
 msgid "Local"
 msgstr "Home"
 
-#: templates/dashboard/participant_detail.html:190
+#: templates/dashboard/participant_detail.html:193
 msgid "Remote"
 msgstr "Yonder"
 
-#: templates/dashboard/participant_detail.html:207
+#: templates/dashboard/participant_detail.html:210
 msgid "Link down &mdash; no LLDP"
 msgstr "Link sunk &mdash; no LLDP"
 
-#: templates/dashboard/participant_detail.html:222
+#: templates/dashboard/participant_detail.html:225
 msgid "No LLDP data"
 msgstr "No LLDP booty"
 
-#: templates/dashboard/participant_detail.html:229
+#: templates/dashboard/participant_detail.html:232
 msgid "MACs learned"
 msgstr "MACs spied"
 
-#: templates/dashboard/participant_detail.html:233
+#: templates/dashboard/participant_detail.html:236
 #, python-format
 msgid "VLAN %(vlan)s"
 msgstr "VLAN %(vlan)s"
 
-#: templates/dashboard/participant_detail.html:235
-#: templates/dashboard/participant_detail.html:298
+#: templates/dashboard/participant_detail.html:238
+#: templates/dashboard/participant_detail.html:301
+#: templates/dashboard/participant_detail.html:317
 msgid "First seen"
 msgstr "First spied"
 
-#: templates/dashboard/participant_detail.html:235
-#: templates/dashboard/participant_detail.html:298
+#: templates/dashboard/participant_detail.html:238
+#: templates/dashboard/participant_detail.html:301
+#: templates/dashboard/participant_detail.html:317
 #, python-format
 msgid "first seen %(d)s"
 msgstr "first spied %(d)s"
 
-#: templates/dashboard/participant_detail.html:236
-#: templates/dashboard/participant_detail.html:299
+#: templates/dashboard/participant_detail.html:239
+#: templates/dashboard/participant_detail.html:302
+#: templates/dashboard/participant_detail.html:318
 msgid "Last seen"
 msgstr "Last spied"
 
-#: templates/dashboard/participant_detail.html:236
-#: templates/dashboard/participant_detail.html:299
+#: templates/dashboard/participant_detail.html:239
+#: templates/dashboard/participant_detail.html:302
+#: templates/dashboard/participant_detail.html:318
 #, python-format
 msgid "seen %(a)s ago"
 msgstr "spied %(a)s ago, arr"
 
-#: templates/dashboard/participant_detail.html:267
+#: templates/dashboard/participant_detail.html:270
 msgid "No IPs assigned"
 msgstr "No IPs handed out"
 
-#: templates/dashboard/participant_detail.html:289
+#: templates/dashboard/participant_detail.html:292
 msgid "Heard on LAN (ARP/NDP)"
 msgstr "Heard 'cross the LAN (ARP/NDP)"
 
-#: templates/dashboard/participant_detail.html:293
+#: templates/dashboard/participant_detail.html:296
 msgid "More than one MAC has been heard claiming this IP"
 msgstr "More than one MAC be claimin' this here IP, arr"
 
-#: templates/dashboard/participant_detail.html:293
+#: templates/dashboard/participant_detail.html:296
 msgid "multiple MACs"
 msgstr "a mess o' MACs"
 
-#: templates/dashboard/participant_detail.html:313
+#: templates/dashboard/participant_detail.html:310
+msgid "Bound to unassigned IP"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:314
+msgid "This IP is not assigned to any participant on the IX"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:314
+msgid "not assigned on the IX"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:331
 msgid "Route Servers"
 msgstr "Route Servers"
 
-#: templates/dashboard/participant_detail.html:321
+#: templates/dashboard/participant_detail.html:339
 msgid "Route Server"
 msgstr "Route Server"
 
-#: templates/dashboard/participant_detail.html:322
+#: templates/dashboard/participant_detail.html:340
 msgid "State"
 msgstr "State"
 
-#: templates/dashboard/participant_detail.html:323
+#: templates/dashboard/participant_detail.html:341
 msgid "Uptime"
 msgstr "Time afloat"
 
-#: templates/dashboard/participant_detail.html:325
+#: templates/dashboard/participant_detail.html:343
 msgid "Received"
 msgstr "Hauled in"
 
-#: templates/dashboard/participant_detail.html:326
+#: templates/dashboard/participant_detail.html:344
 msgid "Accepted"
 msgstr "Welcomed aboard"
 
-#: templates/dashboard/participant_detail.html:327
+#: templates/dashboard/participant_detail.html:345
 msgid "Rejected"
 msgstr "Tossed overboard"
 
-#: templates/dashboard/participant_detail.html:422
+#: templates/dashboard/participant_detail.html:440
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
 msgstr ""

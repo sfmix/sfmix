@@ -1,0 +1,17 @@
+{
+  "neighbors": [
+    {
+      "ip": "192.0.2.250",
+      "family": "IPv4",
+      "asn": null,
+      "tenant": null,
+      "conflict": false,
+      "assigned": false,
+      "macs": [
+        {"mac": "0200.5e20.0b01", "first_seen": "2026-06-17T20:11:00+00:00", "last_seen": "2026-06-18T00:02:00+00:00"}
+      ]
+    }
+  ],
+  "fetched_at": "2026-06-18T00:03:05+00:00",
+  "last_error": null
+}

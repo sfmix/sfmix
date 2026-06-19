@@ -509,6 +509,28 @@ def _compute_alerts(logical_ports):
     alerts = []
     for lp in logical_ports:
         port_label = _dqt(lp["device"], lp["name"])
+        # Invalid-IP binding: a MAC on this port is sourcing an IP that is not
+        # assigned on the IX. The peering LAN is a shared L2 segment, so a
+        # mis-configured address can disrupt other participants.
+        invalid = lp.get("invalid_ip_bindings") or []
+        if invalid:
+            pairs = ", ".join(f"{b['mac']} → {b['ip']}" for b in invalid)
+            alerts.append({
+                "severity": "crit",
+                "icon": "⛔",
+                "title": ngettext(
+                    "%(port)s is bound to an unassigned IP",
+                    "%(port)s is bound to unassigned IPs",
+                    len(invalid),
+                ) % {"port": port_label},
+                "body": gettext(
+                    "A MAC learned on this port is sourcing an address that is not "
+                    "assigned on the IX (%(pairs)s). Using an unallocated peering-LAN "
+                    "IP is disallowed and can disrupt other participants — correct the "
+                    "interface configuration."
+                ) % {"pairs": pairs},
+                "where": f"{port_label} · L3",
+            })
         if lp["link_state"] == "down":
             alerts.append({
                 "severity": "crit",
@@ -688,6 +710,46 @@ def _fetch_discovered_by_ip(lg, token, asn):
     return discovered_by_ip
 
 
+def _norm_mac(s):
+    """Normalize a MAC to bare lowercase hex for cross-source matching.
+
+    Switch MAC-table formats vary by vendor (colon-separated vs Cisco-style
+    ``aabb.ccdd.eeff``); the fabric sensor emits lowercase-colon. Strip all
+    separators and lowercase so both sides compare equal.
+    """
+    if not s:
+        return ""
+    return s.replace(":", "").replace(".", "").replace("-", "").replace(" ", "").lower()
+
+
+def _fetch_unassigned_by_mac(lg, token):
+    """Fetch fabric-heard neighbors on *unassigned* IPs, indexed by MAC.
+
+    These are IPs not in the NetBox assignment set — a host claiming one is
+    mis-bound to an invalid/disallowed address on the IX. Returns
+    ``{normalized_mac: [{ip, family, first_seen_display, last_seen_ago}, ...]}``
+    so a participant's learned port MACs can be matched against them.
+    """
+    by_mac = {}
+    try:
+        result = lg.get_discovered_neighbors(token=token, unassigned=True)
+        for neighbor in result.get("neighbors", []):
+            addr = neighbor.get("ip", "")
+            if not addr:
+                continue
+            for m in neighbor.get("macs", []):
+                seen = _seen_display(dict(m))
+                by_mac.setdefault(_norm_mac(m.get("mac", "")), []).append({
+                    "ip": addr,
+                    "family": neighbor.get("family", ""),
+                    "first_seen_display": seen.get("first_seen_display", ""),
+                    "last_seen_ago": seen.get("last_seen_ago", ""),
+                })
+    except Exception:
+        logger.warning("Failed to fetch unassigned discovered neighbors", exc_info=True)
+    return by_mac
+
+
 def _fetch_rs_sessions(asn):
     """Fetch route-server sessions for ASN from Alice-LG."""
     try:
@@ -712,6 +774,7 @@ def participant_detail(request, asn):
     pdb_entry = {}
     logical_ports = []
     alerts = []
+    has_invalid_ip = False
     lg_error = None
 
     try:
@@ -777,6 +840,25 @@ def participant_detail(request, asn):
                 ip_addresses, arp_by_ip, ndp_by_ip, discovered_by_ip, rs_sessions, can_see_admin,
             )
 
+            # 8b. Flag ports whose learned L2 MACs are heard on unassigned IPs:
+            #     the participant is mis-bound to an invalid/disallowed address.
+            unassigned_by_mac = _fetch_unassigned_by_mac(lg, token)
+            if unassigned_by_mac:
+                for lp in logical_ports:
+                    bindings = []
+                    seen = set()
+                    for m in lp["macs"]:
+                        mac = m.get("mac_address", "")
+                        for hit in unassigned_by_mac.get(_norm_mac(mac), []):
+                            key = (mac, hit["ip"])
+                            if key in seen:
+                                continue
+                            seen.add(key)
+                            bindings.append({"mac": mac, **hit})
+                    lp["invalid_ip_bindings"] = bindings
+                    if bindings:
+                        has_invalid_ip = True
+
             # 9. Compute alerts (admin only)
             if can_see_admin:
                 alerts = _compute_alerts(logical_ports)
@@ -811,6 +893,7 @@ def participant_detail(request, asn):
         "total_active_gbps": total_active_gbps,
         "total_provisioned_gbps": total_provisioned_gbps,
         "alerts": alerts,
+        "has_invalid_ip": has_invalid_ip,
         "lg_error": lg_error,
         "can_see_admin": can_see_admin,
         "is_own_network": asn in user_asns,
