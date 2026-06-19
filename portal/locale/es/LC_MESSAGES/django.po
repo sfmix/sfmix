@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-19 00:09-0500\n"
+"POT-Creation-Date: 2026-06-19 01:48-0500\n"
 "PO-Revision-Date: 2026-06-16\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: Spanish\n"
@@ -18,32 +18,64 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? "
 "1 : 2;\n"
 
-#: dashboard/views.py:77
+#: dashboard/views.py:78
 msgid "You do not have access to this network."
 msgstr "No tiene acceso a esta red."
 
-#: dashboard/views.py:118 dashboard/views.py:1022 dashboard/views.py:1041
-#: dashboard/views.py:1086
+#: dashboard/views.py:119 dashboard/views.py:1244 dashboard/views.py:1263
+#: dashboard/views.py:1308
 msgid "IX Administrators only."
 msgstr "Solo para administradores del IX."
 
-#: dashboard/views.py:125 dashboard/views.py:1048
+#: dashboard/views.py:126 dashboard/views.py:1270
 msgid "Looking Glass not configured"
 msgstr "Looking Glass no configurado"
 
-#: dashboard/views.py:222
+#: dashboard/views.py:223
 msgid "Nominal"
 msgstr "Nominal"
 
-#: dashboard/views.py:223
+#: dashboard/views.py:224
 msgid "Marginal"
 msgstr "Marginal"
 
-#: dashboard/views.py:224
+#: dashboard/views.py:225
 msgid "Out of range"
 msgstr "Fuera de rango"
 
-#: dashboard/views.py:522
+#: dashboard/views.py:546
+msgid "IPv6"
+msgstr "IPv6"
+
+#: dashboard/views.py:546
+msgid "IPv4"
+msgstr "IPv4"
+
+#: dashboard/views.py:612
+msgid "Not peered with any SFMIX route server."
+msgstr "Sin peering con ningún servidor de rutas de SFMIX."
+
+#: dashboard/views.py:622
+#, python-format
+msgid "No %(af)s session with %(rs)s."
+msgstr "Sin sesión %(af)s con %(rs)s."
+
+#: dashboard/views.py:625
+#, python-format
+msgid "%(af)s session with %(rs)s is %(state)s."
+msgstr "La sesión %(af)s con %(rs)s está %(state)s."
+
+#: dashboard/views.py:627
+msgid "down"
+msgstr "caída"
+
+#: dashboard/views.py:643
+#, python-format
+msgid ""
+"%(af)s accepted-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
+msgstr "Los recuentos de prefijos aceptados %(af)s difieren entre los servidores de rutas (%(lo)s vs %(hi)s)."
+
+#: dashboard/views.py:676
 #, python-format
 msgid "%(port)s is bound to an unassigned IP"
 msgid_plural "%(port)s is bound to unassigned IPs"
@@ -51,7 +83,7 @@ msgstr[0] "%(port)s está vinculado a una IP no asignada"
 msgstr[1] "%(port)s está vinculado a IPs no asignadas"
 msgstr[2] "%(port)s está vinculado a IPs no asignadas"
 
-#: dashboard/views.py:527
+#: dashboard/views.py:681
 #, python-format
 msgid ""
 "A MAC learned on this port is sourcing an address that is not assigned on "
@@ -63,12 +95,12 @@ msgstr ""
 "está prohibido y puede afectar a otros participantes — corrija la "
 "configuración de la interfaz."
 
-#: dashboard/views.py:538
+#: dashboard/views.py:692
 #, python-format
 msgid "%(port)s is down"
 msgstr "%(port)s está caído"
 
-#: dashboard/views.py:539
+#: dashboard/views.py:693
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
@@ -76,12 +108,12 @@ msgstr ""
 "Todos los enlaces miembro están desconectados. Las sesiones del servidor de "
 "rutas están inactivas y no pasa tráfico por este puerto lógico."
 
-#: dashboard/views.py:546
+#: dashboard/views.py:700
 #, python-format
 msgid "%(port)s degraded — %(up)s/%(total)s members up"
 msgstr "%(port)s degradado — %(up)s/%(total)s miembros activos"
 
-#: dashboard/views.py:552
+#: dashboard/views.py:706
 #, python-format
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
@@ -90,12 +122,12 @@ msgstr ""
 "Un enlace miembro está caído; el grupo funciona a %(effective)sG de "
 "%(total)sG. Se pierde la redundancia hasta que se restablezca el enlace."
 
-#: dashboard/views.py:571
+#: dashboard/views.py:725
 #, python-format
 msgid "%(port)s optic %(band)s on %(lane)s"
 msgstr "Óptica de %(port)s %(band)s en %(lane)s"
 
-#: dashboard/views.py:576
+#: dashboard/views.py:730
 #, python-format
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
@@ -104,22 +136,28 @@ msgstr ""
 "RX %(rx)s dBm está fuera del rango nominal. Inspeccione la fibra / el "
 "latiguillo o programe el reemplazo de la óptica."
 
-#: dashboard/views.py:591
+#: dashboard/views.py:749
 #, python-format
-msgid "%(count)s route rejected on %(port)s across %(rs_session_count)s %(sessions)s"
-msgid_plural "%(count)s routes rejected on %(port)s across %(rs_session_count)s %(sessions)s"
-msgstr[0] "%(count)s ruta rechazada en %(port)s en %(rs_session_count)s %(sessions)s"
-msgstr[1] "%(count)s rutas rechazadas en %(port)s en %(rs_session_count)s %(sessions)s"
-msgstr[2] "%(count)s rutas rechazadas en %(port)s en %(rs_session_count)s %(sessions)s"
+msgid ""
+"%(count)s route rejected on %(port)s across %(rs_session_count)s %(sessions)s"
+msgid_plural ""
+"%(count)s routes rejected on %(port)s across %(rs_session_count)s "
+"%(sessions)s"
+msgstr[0] ""
+"%(count)s ruta rechazada en %(port)s en %(rs_session_count)s %(sessions)s"
+msgstr[1] ""
+"%(count)s rutas rechazadas en %(port)s en %(rs_session_count)s %(sessions)s"
+msgstr[2] ""
+"%(count)s rutas rechazadas en %(port)s en %(rs_session_count)s %(sessions)s"
 
-#: dashboard/views.py:599
+#: dashboard/views.py:756
 msgid "session"
 msgid_plural "sessions"
 msgstr[0] "sesión"
 msgstr[1] "sesiones"
 msgstr[2] "sesiones"
 
-#: dashboard/views.py:595
+#: dashboard/views.py:758
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
@@ -137,40 +175,44 @@ msgstr "Portal del participante"
 msgid "Participants"
 msgstr "Participantes"
 
-#: templates/base.html:29 templates/dashboard/participant_detail.html:121
+#: templates/base.html:26 templates/dashboard/participant_detail.html:340
+msgid "Route Servers"
+msgstr "Servidores de rutas"
+
+#: templates/base.html:30 templates/dashboard/participant_detail.html:144
 msgid "Admin"
 msgstr "Administrador"
 
-#: templates/base.html:30
+#: templates/base.html:31
 msgid "LLDP"
 msgstr "LLDP"
 
-#: templates/base.html:31 templates/dashboard/device_cache_status.html:78
+#: templates/base.html:32 templates/dashboard/device_cache_status.html:78
 #: templates/dashboard/optics.html:3 templates/dashboard/optics.html:11
 msgid "Optics"
 msgstr "Ópticas"
 
-#: templates/base.html:34 templates/dashboard/netbox_status.html:45
+#: templates/base.html:35 templates/dashboard/netbox_status.html:45
 msgid "Cache"
 msgstr "Caché"
 
-#: templates/base.html:38
+#: templates/base.html:39
 msgid "Devices"
 msgstr "Dispositivos"
 
-#: templates/base.html:39
+#: templates/base.html:40
 msgid "NetBox"
 msgstr "NetBox"
 
-#: templates/base.html:43
+#: templates/base.html:44
 msgid "Sign out"
 msgstr "Cerrar sesión"
 
-#: templates/base.html:45
+#: templates/base.html:46
 msgid "Sign in"
 msgstr "Iniciar sesión"
 
-#: templates/base.html:52
+#: templates/base.html:53
 msgid "Change language"
 msgstr "Cambiar idioma"
 
@@ -331,6 +373,7 @@ msgstr "Puerto vecino"
 
 #: templates/dashboard/lldp_neighbors.html:65
 #: templates/dashboard/participants_list.html:82
+#: templates/dashboard/route_server_parity.html:36
 msgid "Participant"
 msgstr "Participante"
 
@@ -384,7 +427,7 @@ msgstr "Correcto"
 
 #: templates/dashboard/netbox_status.html:29
 #: templates/dashboard/participant_detail.html:39
-#: templates/dashboard/participant_detail.html:104
+#: templates/dashboard/participant_detail.html:127
 msgid "Degraded"
 msgstr "Degradado"
 
@@ -479,6 +522,7 @@ msgid "MAC Address"
 msgstr "Dirección MAC"
 
 #: templates/dashboard/network_mac_table.html:57
+#: templates/dashboard/participant_detail.html:260
 msgid "Type"
 msgstr "Tipo"
 
@@ -550,11 +594,12 @@ msgid "No optics data found."
 msgstr "No se encontraron datos de ópticas."
 
 #: templates/dashboard/participant_detail.html:3
-#: templates/dashboard/participant_detail.html:251
+#: templates/dashboard/participant_detail.html:285
 msgid "Network"
 msgstr "Red"
 
 #: templates/dashboard/participant_detail.html:8
+#: templates/dashboard/route_server_parity.html:8
 msgid "Back to participants"
 msgstr "Volver a participantes"
 
@@ -600,11 +645,11 @@ msgid "Active"
 msgstr "Activo"
 
 #: templates/dashboard/participant_detail.html:40
-#: templates/dashboard/participant_detail.html:106
-#: templates/dashboard/participant_detail.html:137
-#: templates/dashboard/participant_detail.html:358
-#: templates/dashboard/participant_detail.html:383
-#: templates/dashboard/participant_detail.html:406
+#: templates/dashboard/participant_detail.html:129
+#: templates/dashboard/participant_detail.html:160
+#: templates/dashboard/participant_detail.html:367
+#: templates/dashboard/participant_detail.html:392
+#: templates/dashboard/participant_detail.html:415
 msgid "Down"
 msgstr "Caído"
 
@@ -625,184 +670,220 @@ msgstr "IP no válida"
 msgid "Website"
 msgstr "Sitio web"
 
-#: templates/dashboard/participant_detail.html:62
-msgid "Reading this page"
-msgstr "Cómo leer esta página"
-
-#: templates/dashboard/participant_detail.html:63
-msgid "Public &mdash; visible to anyone"
-msgstr "Público &mdash; visible para cualquiera"
-
-#: templates/dashboard/participant_detail.html:64
-msgid "Admin &mdash; network &amp; IX admins only"
-msgstr "Administración &mdash; solo administradores de red &amp; IX"
-
 #: templates/dashboard/participant_detail.html:65
-msgid "Stack:"
-msgstr "Pila:"
+msgid "Not peered with the SFMIX route servers"
+msgstr "Sin peering con los servidores de rutas de SFMIX"
 
-#: templates/dashboard/participant_detail.html:65
-msgid "physical"
-msgstr "físico"
+#: templates/dashboard/participant_detail.html:66
+msgid "Route-server redundancy at risk"
+msgstr "Redundancia de servidores de rutas en riesgo"
 
-#: templates/dashboard/participant_detail.html:65
-msgid "link/LLDP"
-msgstr "enlace/LLDP"
+#: templates/dashboard/participant_detail.html:67
+msgid "Route-server prefix counts disagree"
+msgstr "Los recuentos de prefijos de los servidores de rutas no coinciden"
 
-#: templates/dashboard/participant_detail.html:65
-msgid "ARP/NDP"
-msgstr "ARP/NDP"
+#: templates/dashboard/participant_detail.html:69
+msgid ""
+"Peering with both SFMIX route servers is required. This network currently "
+"has no route-server sessions."
+msgstr "Es obligatorio el peering con ambos servidores de rutas de SFMIX. Esta red no tiene actualmente ninguna sesión con los servidores de rutas."
 
-#: templates/dashboard/participant_detail.html:65
+#: templates/dashboard/participant_detail.html:70
+msgid ""
+"This network is not established on both route servers. If the remaining "
+"route server fails, it will lose route-server connectivity entirely."
+msgstr "Esta red no está establecida en ambos servidores de rutas. Si falla el servidor de rutas restante, perderá por completo la conectividad con los servidores de rutas."
+
+#: templates/dashboard/participant_detail.html:71
+msgid ""
+"This network's sessions are established on both route servers but accept a "
+"different number of prefixes — a sign of asymmetric filtering or "
+"misconfiguration."
+msgstr "Las sesiones de esta red están establecidas en ambos servidores de rutas, pero aceptan un número diferente de prefijos: una señal de filtrado asimétrico o de una configuración incorrecta."
+
+#: templates/dashboard/participant_detail.html:77
+#: templates/dashboard/participant_detail.html:88
 msgid "route servers"
 msgstr "servidores de rutas"
 
-#: templates/dashboard/participant_detail.html:97
+#: templates/dashboard/participant_detail.html:85
+msgid "Reading this page"
+msgstr "Cómo leer esta página"
+
+#: templates/dashboard/participant_detail.html:86
+msgid "Public &mdash; visible to anyone"
+msgstr "Público &mdash; visible para cualquiera"
+
+#: templates/dashboard/participant_detail.html:87
+msgid "Admin &mdash; network &amp; IX admins only"
+msgstr "Administración &mdash; solo administradores de red &amp; IX"
+
+#: templates/dashboard/participant_detail.html:88
+msgid "Stack:"
+msgstr "Pila:"
+
+#: templates/dashboard/participant_detail.html:88
+msgid "physical"
+msgstr "físico"
+
+#: templates/dashboard/participant_detail.html:88
+msgid "link/LLDP"
+msgstr "enlace/LLDP"
+
+#: templates/dashboard/participant_detail.html:88
+msgid "ARP/NDP"
+msgstr "ARP/NDP"
+
+#: templates/dashboard/participant_detail.html:120
 msgid "Single"
 msgstr "Único"
 
-#: templates/dashboard/participant_detail.html:102
-#: templates/dashboard/participant_detail.html:135
+#: templates/dashboard/participant_detail.html:125
+#: templates/dashboard/participant_detail.html:158
 msgid "Up"
 msgstr "Activo"
 
-#: templates/dashboard/participant_detail.html:109
+#: templates/dashboard/participant_detail.html:132
 #, python-format
 msgid "%(speed)sG effective"
 msgstr "%(speed)sG efectivos"
 
-#: templates/dashboard/participant_detail.html:120
+#: templates/dashboard/participant_detail.html:143
 msgid "Physical"
 msgstr "Físico"
 
-#: templates/dashboard/participant_detail.html:142
+#: templates/dashboard/participant_detail.html:165
 msgid "Temp:"
 msgstr "Temp.:"
 
-#: templates/dashboard/participant_detail.html:143
+#: templates/dashboard/participant_detail.html:166
 msgid "Serial:"
 msgstr "N.º de serie:"
 
-#: templates/dashboard/participant_detail.html:172
+#: templates/dashboard/participant_detail.html:195
 msgid "Link"
 msgstr "Enlace"
 
-#: templates/dashboard/participant_detail.html:173
-#: templates/dashboard/participant_detail.html:252
-#: templates/dashboard/participant_detail.html:332
+#: templates/dashboard/participant_detail.html:196
+#: templates/dashboard/participant_detail.html:286
+#: templates/dashboard/participant_detail.html:341
 msgid "Public"
 msgstr "Público"
 
-#: templates/dashboard/participant_detail.html:180
-#: templates/dashboard/participant_detail.html:201
-#: templates/dashboard/participant_detail.html:216
+#: templates/dashboard/participant_detail.html:203
+#: templates/dashboard/participant_detail.html:224
+#: templates/dashboard/participant_detail.html:239
 msgid "Local"
 msgstr "Local"
 
-#: templates/dashboard/participant_detail.html:193
+#: templates/dashboard/participant_detail.html:216
 msgid "Remote"
 msgstr "Remoto"
 
-#: templates/dashboard/participant_detail.html:210
+#: templates/dashboard/participant_detail.html:233
 msgid "Link down &mdash; no LLDP"
 msgstr "Enlace caído &mdash; sin LLDP"
 
-#: templates/dashboard/participant_detail.html:225
+#: templates/dashboard/participant_detail.html:248
 msgid "No LLDP data"
 msgstr "Sin datos LLDP"
 
-#: templates/dashboard/participant_detail.html:232
-msgid "MACs learned"
-msgstr "MAC aprendidas"
+#: templates/dashboard/participant_detail.html:254
+#, fuzzy
+#| msgid "No MAC address entries found."
+msgid "MAC addresses learned on port"
+msgstr "No se encontraron entradas de direcciones MAC."
 
-#: templates/dashboard/participant_detail.html:236
+#: templates/dashboard/participant_detail.html:254
+msgid "A member port should normally present a single MAC"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:254
 #, python-format
-msgid "VLAN %(vlan)s"
-msgstr "VLAN %(vlan)s"
+msgid "%(n)s learned &middot; expected 1"
+msgid_plural "%(n)s learned &middot; expected 1"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
-#: templates/dashboard/participant_detail.html:238
-#: templates/dashboard/participant_detail.html:301
-#: templates/dashboard/participant_detail.html:317
+#: templates/dashboard/participant_detail.html:258
+#: templates/dashboard/participant_detail.html:295
+msgid "MAC"
+msgstr ""
+
+#: templates/dashboard/participant_detail.html:261
+#: templates/dashboard/participant_detail.html:296
 msgid "First seen"
 msgstr "Vista por primera vez"
 
-#: templates/dashboard/participant_detail.html:238
-#: templates/dashboard/participant_detail.html:301
-#: templates/dashboard/participant_detail.html:317
-#, python-format
-msgid "first seen %(d)s"
-msgstr "vista por primera vez %(d)s"
-
-#: templates/dashboard/participant_detail.html:239
-#: templates/dashboard/participant_detail.html:302
-#: templates/dashboard/participant_detail.html:318
+#: templates/dashboard/participant_detail.html:262
+#: templates/dashboard/participant_detail.html:297
 msgid "Last seen"
 msgstr "Vista por última vez"
 
-#: templates/dashboard/participant_detail.html:239
-#: templates/dashboard/participant_detail.html:302
-#: templates/dashboard/participant_detail.html:318
-#, python-format
-msgid "seen %(a)s ago"
+#: templates/dashboard/participant_detail.html:272
+#: templates/dashboard/participant_detail.html:312
+#: templates/dashboard/participant_detail.html:324
+#, fuzzy, python-format
+#| msgid "seen %(a)s ago"
+msgid "%(a)s ago"
 msgstr "vista hace %(a)s"
 
-#: templates/dashboard/participant_detail.html:270
-msgid "No IPs assigned"
-msgstr "Sin IP asignadas"
+#: templates/dashboard/participant_detail.html:290
+msgid "Heard on the fabric &middot; ARP/NDP"
+msgstr ""
 
-#: templates/dashboard/participant_detail.html:292
-msgid "Heard on LAN (ARP/NDP)"
-msgstr "Escuchado en la LAN (ARP/NDP)"
+#: templates/dashboard/participant_detail.html:294
+#, fuzzy
+#| msgid "MAC Address"
+msgid "IP address"
+msgstr "Dirección MAC"
 
-#: templates/dashboard/participant_detail.html:296
+#: templates/dashboard/participant_detail.html:307
 msgid "More than one MAC has been heard claiming this IP"
 msgstr "Se ha escuchado más de una MAC reclamando esta IP"
 
-#: templates/dashboard/participant_detail.html:296
+#: templates/dashboard/participant_detail.html:307
 msgid "multiple MACs"
 msgstr "múltiples MAC"
 
-#: templates/dashboard/participant_detail.html:310
-msgid "Bound to unassigned IP"
-msgstr "Vinculado a IP no asignada"
-
-#: templates/dashboard/participant_detail.html:314
+#: templates/dashboard/participant_detail.html:320
 msgid "This IP is not assigned to any participant on the IX"
 msgstr "Esta IP no está asignada a ningún participante en el IX"
 
-#: templates/dashboard/participant_detail.html:314
+#: templates/dashboard/participant_detail.html:320
 msgid "not assigned on the IX"
 msgstr "no asignada en el IX"
 
-#: templates/dashboard/participant_detail.html:331
-msgid "Route Servers"
-msgstr "Servidores de rutas"
+#: templates/dashboard/participant_detail.html:330
+msgid "No neighbors heard on the fabric (ARP/NDP) for this port."
+msgstr ""
 
-#: templates/dashboard/participant_detail.html:339
+#: templates/dashboard/participant_detail.html:348
 msgid "Route Server"
 msgstr "Servidor de rutas"
 
-#: templates/dashboard/participant_detail.html:340
+#: templates/dashboard/participant_detail.html:349
 msgid "State"
 msgstr "Estado"
 
-#: templates/dashboard/participant_detail.html:341
+#: templates/dashboard/participant_detail.html:350
 msgid "Uptime"
 msgstr "Tiempo activo"
 
-#: templates/dashboard/participant_detail.html:343
+#: templates/dashboard/participant_detail.html:352
 msgid "Received"
 msgstr "Recibidas"
 
-#: templates/dashboard/participant_detail.html:344
+#: templates/dashboard/participant_detail.html:353
 msgid "Accepted"
 msgstr "Aceptadas"
 
-#: templates/dashboard/participant_detail.html:345
+#: templates/dashboard/participant_detail.html:354
 msgid "Rejected"
 msgstr "Rechazadas"
 
-#: templates/dashboard/participant_detail.html:440
+#: templates/dashboard/participant_detail.html:449
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
 msgstr ""
@@ -880,5 +961,72 @@ msgid "Inactive"
 msgstr "Inactivo"
 
 #: templates/dashboard/participants_list.html:213
+#: templates/dashboard/route_server_parity.html:86
 msgid "No participants found."
 msgstr "No se encontraron participantes."
+
+#: templates/dashboard/route_server_parity.html:3
+#: templates/dashboard/route_server_parity.html:12
+msgid "Route-Server Parity"
+msgstr "Paridad de servidores de rutas"
+
+#: templates/dashboard/route_server_parity.html:14
+msgid ""
+"SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering "
+"with both is required so that a single route-server failure never cuts a "
+"network off. Networks that are not established on both servers — or whose "
+"accepted-prefix counts disagree — are listed first."
+msgstr "SFMIX opera dos servidores de rutas (BIRD y OpenBGPD) para redundancia, y el peering con ambos es obligatorio para que el fallo de un solo servidor de rutas nunca deje aislada a una red. Las redes que no están establecidas en ambos servidores —o cuyos recuentos de prefijos aceptados no coinciden— se enumeran primero."
+
+#: templates/dashboard/route_server_parity.html:21
+msgid "Unable to fetch parity data:"
+msgstr "No se pudieron obtener los datos de paridad:"
+
+#: templates/dashboard/route_server_parity.html:27
+msgid "critical"
+msgstr "crítico"
+
+#: templates/dashboard/route_server_parity.html:28
+msgid "at risk"
+msgstr "en riesgo"
+
+#: templates/dashboard/route_server_parity.html:29
+#: templates/dashboard/route_server_parity.html:73
+msgid "OK"
+msgstr "OK"
+
+#: templates/dashboard/route_server_parity.html:40
+msgid "Parity"
+msgstr "Paridad"
+
+#: templates/dashboard/route_server_parity.html:60
+msgid "no session"
+msgstr "sin sesión"
+
+#: templates/dashboard/route_server_parity.html:69
+msgid "Critical"
+msgstr "Crítico"
+
+#: templates/dashboard/route_server_parity.html:71
+msgid "At risk"
+msgstr "En riesgo"
+
+#~ msgid "MACs learned"
+#~ msgstr "MAC aprendidas"
+
+#, python-format
+#~ msgid "VLAN %(vlan)s"
+#~ msgstr "VLAN %(vlan)s"
+
+#, python-format
+#~ msgid "first seen %(d)s"
+#~ msgstr "vista por primera vez %(d)s"
+
+#~ msgid "No IPs assigned"
+#~ msgstr "Sin IP asignadas"
+
+#~ msgid "Heard on LAN (ARP/NDP)"
+#~ msgstr "Escuchado en la LAN (ARP/NDP)"
+
+#~ msgid "Bound to unassigned IP"
+#~ msgstr "Vinculado a IP no asignada"
