@@ -3,6 +3,7 @@
 from django.test import SimpleTestCase
 
 from dashboard.views import (
+    _build_physical_port,
     _compute_rs_parity,
     _parity_applicable,
     _real_routeservers,
@@ -165,6 +166,48 @@ class ComputeRsParityTests(SimpleTestCase):
         p = _compute_rs_parity(sessions, ROUTESERVERS)
         self.assertEqual(p["status"], "ok")
         self.assertEqual(p["afs"], ["v4"])
+
+
+class PhysicalPortLldpTests(SimpleTestCase):
+    """The LLDP neighbor pill must read the field names the looking-glass
+    actually serializes. The lg-types LldpNeighbor struct emits
+    local_interface / neighbor_device / neighbor_port / ttl — there is no
+    system_name, neighbor_interface, or chassis_id. Reading the wrong names
+    silently dropped every neighbor to an empty "—" in the participant view.
+    """
+
+    DEVICE = "switch03.sjc01.sfmix.org"
+    IFACE = "Ethernet22/1"
+
+    def _lldp_by_key(self):
+        # Shape exactly as lg_client.get_lldp_neighbors() returns it: the
+        # JSON serialization of lg-types::structured::LldpNeighbor.
+        entry = {
+            "local_interface": self.IFACE,
+            "neighbor_device": "unwired-broadband-rtr01",
+            "neighbor_port": "xe-0/0/3",
+            "ttl": "120",
+        }
+        return {(self.DEVICE, self.IFACE): entry}
+
+    def _iface_by_key(self):
+        return {(self.DEVICE, self.IFACE): {"link_status": "up", "speed": 10000}}
+
+    def test_lldp_neighbor_populates_display_fields(self):
+        phy = _build_physical_port(
+            self.DEVICE, self.IFACE, self._iface_by_key(), {},
+            self._lldp_by_key(), can_see_admin=False,
+        )
+        self.assertIsNotNone(phy["lldp"])
+        self.assertEqual(phy["lldp"]["sys_name"], "unwired-broadband-rtr01")
+        self.assertEqual(phy["lldp"]["port_id"], "xe-0/0/3")
+
+    def test_no_lldp_entry_yields_none(self):
+        phy = _build_physical_port(
+            self.DEVICE, self.IFACE, self._iface_by_key(), {}, {},
+            can_see_admin=False,
+        )
+        self.assertIsNone(phy["lldp"])
 
 
 class RealRouteserversTests(SimpleTestCase):
