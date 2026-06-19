@@ -72,8 +72,8 @@ msgstr "caída"
 #: dashboard/views.py:643
 #, python-format
 msgid ""
-"%(af)s accepted-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
-msgstr "Los recuentos de prefijos aceptados %(af)s difieren entre los servidores de rutas (%(lo)s vs %(hi)s)."
+"%(af)s received-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
+msgstr "Los recuentos de prefijos recibidos %(af)s difieren entre los servidores de rutas (%(lo)s vs %(hi)s)."
 
 #: dashboard/views.py:676
 #, python-format
@@ -696,10 +696,10 @@ msgstr "Esta red no está establecida en ambos servidores de rutas. Si falla el 
 
 #: templates/dashboard/participant_detail.html:71
 msgid ""
-"This network's sessions are established on both route servers but accept a "
+"This network's sessions are established on both route servers but receive a "
 "different number of prefixes — a sign of asymmetric filtering or "
 "misconfiguration."
-msgstr "Las sesiones de esta red están establecidas en ambos servidores de rutas, pero aceptan un número diferente de prefijos: una señal de filtrado asimétrico o de una configuración incorrecta."
+msgstr "Las sesiones de esta red están establecidas en ambos servidores de rutas, pero reciben un número diferente de prefijos: una señal de filtrado asimétrico o de una configuración incorrecta."
 
 #: templates/dashboard/participant_detail.html:77
 #: templates/dashboard/participant_detail.html:88
@@ -975,8 +975,8 @@ msgid ""
 "SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering "
 "with both is required so that a single route-server failure never cuts a "
 "network off. Networks that are not established on both servers — or whose "
-"accepted-prefix counts disagree — are listed first."
-msgstr "SFMIX opera dos servidores de rutas (BIRD y OpenBGPD) para redundancia, y el peering con ambos es obligatorio para que el fallo de un solo servidor de rutas nunca deje aislada a una red. Las redes que no están establecidas en ambos servidores —o cuyos recuentos de prefijos aceptados no coinciden— se enumeran primero."
+"received-prefix counts disagree — are listed first."
+msgstr "SFMIX opera dos servidores de rutas (BIRD y OpenBGPD) para redundancia, y el peering con ambos es obligatorio para que el fallo de un solo servidor de rutas nunca deje aislada a una red. Las redes que no están establecidas en ambos servidores —o cuyos recuentos de prefijos recibidos no coinciden— se enumeran primero."
 
 #: templates/dashboard/route_server_parity.html:21
 msgid "Unable to fetch parity data:"

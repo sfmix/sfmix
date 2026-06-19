@@ -518,10 +518,13 @@ def _format_uptime(seconds):
 # SFMIX requires every participant to peer with BOTH route servers so that a
 # single RS failure does not cut them off. We compare a participant's BGP
 # sessions across all configured route servers on session state and on
-# accepted-prefix counts, and surface any loss of redundancy (down/missing on
-# one RS) or asymmetric filtering (counts disagree).
+# received-prefix counts, and surface any loss of redundancy (down/missing on
+# one RS) or asymmetric filtering (counts disagree). We compare received (not
+# accepted) prefixes because OpenBGPD does not report accepted-prefix counts
+# through Alice — its accepted count comes back as 0, which would falsely flag
+# every participant as mismatched.
 
-_PREFIX_PARITY_MIN_DELTA = 2     # ignore accepted-count deltas this small …
+_PREFIX_PARITY_MIN_DELTA = 2     # ignore received-count deltas this small …
 _PREFIX_PARITY_PCT = 0.10        # … or within this fraction of the larger count
 
 # sort_rank: lower = scarier (sorted to the top of the public parity page).
@@ -570,7 +573,7 @@ def _compute_rs_parity(rs_sessions, routeservers):
     """Compare a participant's BGP sessions across all route servers.
 
     ``rs_sessions`` is the list of Alice neighbor dicts for one ASN (each with
-    ``rs_id`` / ``rs_name`` / ``address`` / ``state`` / ``routes_accepted``).
+    ``rs_id`` / ``rs_name`` / ``address`` / ``state`` / ``routes_received``).
     ``routeservers`` is the expected RS set (dicts with ``id`` / ``name``).
 
     Returns a dict {rs, status, severity, sort_rank, issues, afs}, or ``None``
@@ -608,7 +611,7 @@ def _compute_rs_parity(rs_sessions, routeservers):
                 "present": s is not None,
                 "established": _rs_established(s.get("state")) if s else False,
                 "state": s.get("state") if s else None,
-                "accepted": s.get("routes_accepted") if s else None,
+                "received": s.get("routes_received") if s else None,
                 "address": s.get("address") if s else None,
             })
         rs_summary.append({"rs_id": rid, "name": name, "afs": af_cells})
@@ -636,10 +639,11 @@ def _compute_rs_parity(rs_sessions, routeservers):
     if issues:
         return _rs_result(rs_summary, "redundancy_broken", issues, afs)
 
-    # Prefix parity: accepted counts should agree across route servers per AF.
+    # Prefix parity: received counts should agree across route servers per AF.
+    # (Received, not accepted — OpenBGPD does not report accepted counts.)
     for af in afs:
         counts = [
-            by_rs[rid][af].get("routes_accepted") or 0
+            by_rs[rid][af].get("routes_received") or 0
             for rid, _ in rs_meta
             if by_rs.get(rid, {}).get(af)
         ]
@@ -648,7 +652,7 @@ def _compute_rs_parity(rs_sessions, routeservers):
             delta = hi - lo
             if delta > _PREFIX_PARITY_MIN_DELTA and delta > _PREFIX_PARITY_PCT * hi:
                 issues.append(gettext(
-                    "%(af)s accepted-prefix counts differ across route servers "
+                    "%(af)s received-prefix counts differ across route servers "
                     "(%(lo)s vs %(hi)s)."
                 ) % {"af": _af_label(af), "lo": lo, "hi": hi})
 
@@ -1243,7 +1247,7 @@ def route_server_parity(request):
     """Public route-server parity overview across all participants.
 
     Lists every active peer with a per-route-server status indicator (state +
-    accepted-prefix count) and an overall parity verdict, sorted so the most
+    received-prefix count) and an overall parity verdict, sorted so the most
     dangerous configs (lost redundancy, then unpeered, then count mismatch)
     appear first.
     """

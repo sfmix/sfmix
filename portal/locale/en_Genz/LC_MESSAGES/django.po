@@ -71,8 +71,8 @@ msgstr "down bad"
 #: dashboard/views.py:643
 #, python-format
 msgid ""
-"%(af)s accepted-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
-msgstr "%(af)s accepted-prefix counts are different across route servers (%(lo)s vs %(hi)s)"
+"%(af)s received-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
+msgstr "%(af)s received-prefix counts are different across route servers (%(lo)s vs %(hi)s)"
 
 #: dashboard/views.py:676
 #, python-format
@@ -691,10 +691,10 @@ msgstr "this network isn't established on both route servers. if the other route
 
 #: templates/dashboard/participant_detail.html:71
 msgid ""
-"This network's sessions are established on both route servers but accept a "
+"This network's sessions are established on both route servers but receive a "
 "different number of prefixes — a sign of asymmetric filtering or "
 "misconfiguration."
-msgstr "this network's sessions are established on both route servers but accept a different number of prefixes — that's giving asymmetric filtering or misconfig 🤔"
+msgstr "this network's sessions are established on both route servers but receive a different number of prefixes — that's giving asymmetric filtering or misconfig 🤔"
 
 #: templates/dashboard/participant_detail.html:77
 #: templates/dashboard/participant_detail.html:88
@@ -970,8 +970,8 @@ msgid ""
 "SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering "
 "with both is required so that a single route-server failure never cuts a "
 "network off. Networks that are not established on both servers — or whose "
-"accepted-prefix counts disagree — are listed first."
-msgstr "SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering with both is required so a single route-server failure never leaves a network on read. networks that aren't established on both servers — or whose accepted-prefix counts don't match — are listed first 🛜"
+"received-prefix counts disagree — are listed first."
+msgstr "SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering with both is required so a single route-server failure never leaves a network on read. networks that aren't established on both servers — or whose received-prefix counts don't match — are listed first 🛜"
 
 #: templates/dashboard/route_server_parity.html:21
 msgid "Unable to fetch parity data:"
