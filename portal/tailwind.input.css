@@ -350,3 +350,106 @@ body {
   .nd-rs-compact { display: flex; flex-direction: column; gap: .35rem; }
   .nd-scope-legend { flex-direction: column; gap: .25rem; }
 }
+
+/* ── Page Chrome (navbar, footer, dropdowns) ──────────────────────── */
+
+.site-nav { background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.site-nav-logo { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+.nav-admin-badge { background: var(--color-portal-100); color: var(--color-portal-700); }
+.nav-dropdown { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.rainbow-bar { height: 3px; background: linear-gradient(90deg, #8B2FC9, #3B7DD8, #A0C814, #E8B000, #D42020); }
+.site-footer { background: var(--color-brand-hero-dark, #071f26); color: #9fb2bb; font-size: .85rem; }
+
+/* ── Page Structure ───────────────────────────────────────────────── */
+
+.page-title { color: var(--color-primary); }
+.page-title-lg { font-size: 2rem; color: var(--color-primary); margin: 0 0 0.4rem; }
+.page-subtitle { font-size: 1.05rem; color: var(--color-text-light); line-height: 1.55; margin: 0; }
+
+.back-link { color: var(--color-primary-light); text-decoration: none; }
+.back-link:hover { color: var(--color-accent); }
+
+/* ── Shared Interactive Elements ──────────────────────────────────── */
+
+.btn-primary-light { background: var(--color-primary-light); color: #fff; transition: background .15s; }
+.btn-primary-light:hover { background: var(--color-primary); }
+
+.ring-primary { --tw-ring-color: rgba(26,96,112,0.3); }
+
+.sort-indicator { color: var(--color-primary-light); }
+
+.color-primary { color: var(--color-primary); }
+.color-primary-light { color: var(--color-primary-light); }
+.color-text-light { color: var(--color-text-light); }
+
+/* ── My-network chip (participants_list) ──────────────────────────── */
+
+.my-net-chip { background: rgba(26,96,112,0.06); border: 1px solid rgba(26,96,112,0.18); }
+.my-net-chip:hover { background: rgba(26,96,112,0.12); border-color: rgba(26,96,112,0.35); }
+
+/* ── JSON export link ─────────────────────────────────────────────── */
+
+.json-link { font-size: .78rem; color: var(--color-primary-light); border: 1px dashed #b9c2cc; border-radius: 5px; padding: .3rem .55rem; text-decoration: none; white-space: nowrap; }
+.json-link:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+/* ── Participant Table ────────────────────────────────────────────── */
+
+.pt-table-wrap { border-color: var(--color-border); }
+.pt-table { font-size: .92rem; }
+.pt-thead { background: var(--color-primary); }
+.pt-th { font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8); }
+.pt-th:hover { background: var(--color-primary-light); }
+.pt-th-indicator { opacity: .45; }
+.pt-row { border-top: 1px solid var(--color-border); }
+.pt-td { padding: .6rem .85rem; vertical-align: middle; }
+.pt-td-ip { padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text); white-space: nowrap; }
+.pt-td-ipv6 { padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text-light); white-space: nowrap; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+.pt-td-bold { padding: .6rem .85rem; vertical-align: middle; font-weight: 600; }
+.pt-td-text { padding: .6rem .85rem; vertical-align: middle; color: var(--color-text); }
+.pt-search { font-size: .92rem; padding: .55rem .8rem .55rem 2rem; border-color: var(--color-border); --tw-ring-color: rgba(26,96,112,0.12); }
+.pt-toolbar-meta { font-size: .85rem; color: var(--color-text-light); }
+
+/* Mobile participant card */
+.pt-card-name { font-weight: 700; font-size: 1rem; }
+.pt-card-asn { display: inline-block; margin: .3rem 0 .7rem; }
+
+/* ── Parity Table ─────────────────────────────────────────────────── */
+
+.par-summary { font-size: .88rem; color: var(--color-text-light); }
+.par-th { font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.85); }
+.par-td { padding: .55rem .85rem; vertical-align: top; }
+.par-cell { padding: .55rem .85rem; vertical-align: top; font-size: .84rem; }
+.par-af-line { white-space: nowrap; line-height: 1.7; }
+.par-af-label { font-family: var(--font-mono); font-weight: 600; }
+.par-received { color: var(--color-text-light); font-family: var(--font-mono); }
+.par-state-warn { color: #b45309; }
+.par-no-session { color: #b91c1c; }
+.par-dash { color: var(--color-text-light); }
+.par-issue { font-size: .78rem; color: var(--color-text-light); margin-top: .3rem; max-width: 30ch; }
+.par-row-crit { background: #fef2f2; }
+.par-row-warn { background: #fffbeb; }
+
+/* Severity count highlights */
+.sev-crit { color: #991b1b; }
+.sev-warn { color: #92400e; }
+.sev-ok { color: #166534; }
+
+/* Parity severity badges (extend st-badge) */
+.st-crit { background: #fee2e2; color: #991b1b; }
+.st-warn { background: #fef3c7; color: #92400e; }
+.st-ok { background: #dcfce7; color: #166534; }
+
+/* ── Participant Detail extras ────────────────────────────────────── */
+
+.nd-alert-list { margin: .4rem 0 0; padding-left: 1.15rem; list-style: disc; font-size: .86rem; }
+.nd-layer-l1-label { color: #c2701f; }
+.nd-layer-l2-label { color: #1a6070; }
+.nd-layer-l3-label { color: #2a5a8c; }
+.nd-layer-l4-label { color: #1d7a3e; }
+.nd-rs-addr { font-size: .72rem; color: var(--color-text-light); font-weight: 400; }
+.nd-rs-uptime { font-family: var(--font-mono); font-size: .82rem; }
+
+/* ── Dashboard card ───────────────────────────────────────────────── */
+
+.dash-card { border-radius: var(--radius-card); transition: border-color .15s; }
+.dash-card:hover { border-color: var(--color-primary-light); }

@@ -5,10 +5,10 @@
 
 {% block content %}
 <div class="mb-4">
-  <a href="/" class="text-sm" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; {% translate "Back to dashboard" %}</a>
+  <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
 </div>
 
-<h1 class="text-2xl font-bold mb-6" style="color: var(--color-primary);">{% translate "Optics" %}</h1>
+<h1 class="page-title text-2xl font-bold mb-6">{% translate "Optics" %}</h1>
 
 {% if lg_error %}
 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
@@ -20,7 +20,7 @@
 <div x-data="sortableTable()">
   <div class="flex items-center justify-between mb-2">
     <input type="search" x-model="search" placeholder="{% translate 'Filter by interface, vendor, model…' %}"
-           class="border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2" style="--tw-ring-color: rgba(26,96,112,0.3);">
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2">
     <span class="text-xs text-gray-500">
       <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
       <span x-show="!search">{{ entries|length }} {% translate "transceivers" %}</span>
@@ -33,62 +33,62 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'device' ? 'text-gray-900' : ''"
               @click="sortBy('device')">
-            {% translate "Device" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('device')"></span>
+            {% translate "Device" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('device')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'interface' ? 'text-gray-900' : ''"
               @click="sortBy('interface')">
-            {% translate "Interface" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('interface')"></span>
+            {% translate "Interface" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('interface')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'status' ? 'text-gray-900' : ''"
               @click="sortBy('status')">
-            {% translate "Status" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('status')"></span>
+            {% translate "Status" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('status')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'mediatype' ? 'text-gray-900' : ''"
               @click="sortBy('mediatype')">
-            {% translate "Media Type" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('mediatype')"></span>
+            {% translate "Media Type" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('mediatype')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'vendor' ? 'text-gray-900' : ''"
               @click="sortBy('vendor')">
-            {% translate "Vendor" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('vendor')"></span>
+            {% translate "Vendor" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('vendor')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'model' ? 'text-gray-900' : ''"
               @click="sortBy('model')">
-            {% translate "Model" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('model')"></span>
+            {% translate "Model" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('model')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'serial' ? 'text-gray-900' : ''"
               @click="sortBy('serial')">
-            {% translate "Serial" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('serial')"></span>
+            {% translate "Serial" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('serial')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'temp' ? 'text-gray-900' : ''"
               @click="sortBy('temp')">
-            {% translate "Temp (°C)" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('temp')"></span>
+            {% translate "Temp (°C)" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('temp')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'voltage' ? 'text-gray-900' : ''"
               @click="sortBy('voltage')">
-            {% translate "Voltage (V)" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('voltage')"></span>
+            {% translate "Voltage (V)" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('voltage')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'tx' ? 'text-gray-900' : ''"
               @click="sortBy('tx')">
-            TX (dBm)<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('tx')"></span>
+            TX (dBm)<span class="sort-indicator text-xs ml-1" x-text="indicator('tx')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'rx' ? 'text-gray-900' : ''"
               @click="sortBy('rx')">
-            RX (dBm)<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('rx')"></span>
+            RX (dBm)<span class="sort-indicator text-xs ml-1" x-text="indicator('rx')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none hover:bg-gray-100"
               :class="sortCol === 'bias' ? 'text-gray-900' : ''"
               @click="sortBy('bias')">
-            {% translate "Bias (mA)" %}<span class="text-xs ml-1" style="color: var(--color-primary-light);" x-text="indicator('bias')"></span>
+            {% translate "Bias (mA)" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('bias')"></span>
           </th>
         </tr>
       </thead>

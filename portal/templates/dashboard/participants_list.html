@@ -5,8 +5,8 @@
 
 {% block content %}
 <div class="mb-6">
-  <h1 class="font-semibold" style="font-size: 2rem; color: var(--color-primary); margin: 0 0 0.4rem;">{% translate "Participants" %}</h1>
-  <p style="font-size: 1.05rem; color: var(--color-text-light); line-height: 1.55; margin: 0;">{% translate "Networks peering at the San Francisco Metropolitan Internet eXchange" %}</p>
+  <h1 class="page-title-lg font-semibold">{% translate "Participants" %}</h1>
+  <p class="page-subtitle">{% translate "Networks peering at the San Francisco Metropolitan Internet eXchange" %}</p>
 </div>
 
 {% if my_participants %}
@@ -15,11 +15,8 @@
   <div class="flex flex-wrap gap-2">
     {% for member in my_participants %}
     <a href="{% url 'participant_detail' member.asn %}"
-       class="inline-flex items-baseline gap-2 rounded-lg px-4 py-2 text-sm transition"
-       style="background: rgba(26,96,112,0.06); border: 1px solid rgba(26,96,112,0.18);"
-       onmouseover="this.style.background='rgba(26,96,112,0.12)'; this.style.borderColor='rgba(26,96,112,0.35)'"
-       onmouseout="this.style.background='rgba(26,96,112,0.06)'; this.style.borderColor='rgba(26,96,112,0.18)'">
-      <span class="font-mono font-semibold" style="color: var(--color-primary-light);">AS{{ member.asn }}</span>
+       class="my-net-chip inline-flex items-baseline gap-2 rounded-lg px-4 py-2 text-sm transition">
+      <span class="font-mono font-semibold color-primary-light">AS{{ member.asn }}</span>
       <span class="text-gray-700">{{ member.name }}</span>
     </a>
     {% endfor %}
@@ -40,17 +37,14 @@
     <div class="relative">
       <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       <input type="search" x-model="search" placeholder="{% translate 'Search name, ASN, or IP…' %}"
-             class="border rounded-md pl-8 pr-3 w-72 focus:outline-none focus:ring-2 focus:border-transparent"
-             style="font-size: .92rem; padding: .55rem .8rem .55rem 2rem; border-color: var(--color-border); --tw-ring-color: rgba(26,96,112,0.12);">
+             class="pt-search border rounded-md pl-8 pr-3 w-72 focus:outline-none focus:ring-2 focus:border-transparent">
     </div>
-    <div class="flex items-center gap-4" style="font-size: .85rem; color: var(--color-text-light);">
+    <div class="pt-toolbar-meta flex items-center gap-4">
       <span>
         <span x-show="search" x-cloak x-text="visibleCount + ' of {{ entries|length }}'"></span>
-        <span x-show="!search"><strong style="color: var(--color-primary);">{{ entries|length }}</strong> {% translate "participants" %}</span>
+        <span x-show="!search"><strong class="color-primary">{{ entries|length }}</strong> {% translate "participants" %}</span>
       </span>
-      <a href="/api/v1/participants.json" class="font-mono transition"
-         style="font-size: .78rem; color: var(--color-primary-light); border: 1px dashed #b9c2cc; border-radius: 5px; padding: .3rem .55rem; text-decoration: none; white-space: nowrap;"
-         onmouseover="this.style.borderColor='var(--color-accent)'; this.style.color='var(--color-accent)'" onmouseout="this.style.borderColor='#b9c2cc'; this.style.color='var(--color-primary-light)'"
+      <a href="/api/v1/participants.json" class="json-link font-mono transition"
          title="{% translate 'IX-F Member Export (JSON)' %}">
         {&nbsp;}&nbsp;JSON
       </a>
@@ -71,58 +65,51 @@
   </div>
 
   {# ── Desktop table ──────────────────────────────────────────── #}
-  <div class="hidden lg:block bg-white border rounded-lg overflow-x-auto" style="border-color: var(--color-border);">
-    <table class="w-full" style="font-size: .92rem;">
-      <thead class="text-left sticky top-0 z-10" style="background: var(--color-primary);">
+  <div class="pt-table-wrap hidden lg:block bg-white border rounded-lg overflow-x-auto">
+    <table class="pt-table w-full">
+      <thead class="pt-thead text-left sticky top-0 z-10">
         <tr>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'name' ? 'text-white!' : ''"
-              @click="sortBy('name')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            {% translate "Participant" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'name' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('name')"></span>
+              @click="sortBy('name')">
+            {% translate "Participant" %}<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'name' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('name')"></span>
           </th>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'asn' ? 'text-white!' : ''"
-              @click="sortBy('asn')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            ASN<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'asn' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('asn')"></span>
+              @click="sortBy('asn')">
+            ASN<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'asn' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('asn')"></span>
           </th>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'v4' ? 'text-white!' : ''"
-              @click="sortBy('v4')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            IPv4<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'v4' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('v4')"></span>
+              @click="sortBy('v4')">
+            IPv4<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'v4' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('v4')"></span>
           </th>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'v6' ? 'text-white!' : ''"
-              @click="sortBy('v6')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            IPv6<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'v6' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('v6')"></span>
+              @click="sortBy('v6')">
+            IPv6<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'v6' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('v6')"></span>
           </th>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'speed' ? 'text-white!' : ''"
-              @click="sortBy('speed')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            {% translate "Speed" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'speed' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('speed')"></span>
+              @click="sortBy('speed')">
+            {% translate "Speed" %}<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'speed' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('speed')"></span>
           </th>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'site' ? 'text-white!' : ''"
-              @click="sortBy('site')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            {% translate "Site" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'site' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('site')"></span>
+              @click="sortBy('site')">
+            {% translate "Site" %}<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'site' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('site')"></span>
           </th>
-          <th class="cursor-pointer select-none whitespace-nowrap transition" style="font-weight: 600; padding: .7rem .85rem; color: rgba(255,255,255,0.8);"
+          <th class="pt-th cursor-pointer select-none whitespace-nowrap transition"
               :class="sortCol === 'status' ? 'text-white!' : ''"
-              @click="sortBy('status')"
-              onmouseover="this.style.background='var(--color-primary-light)'" onmouseout="this.style.background=''">
-            {% translate "Status" %}<span class="text-[10px] ml-0.5" style="opacity:.45" :style="sortCol === 'status' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('status')"></span>
+              @click="sortBy('status')">
+            {% translate "Status" %}<span class="text-[10px] ml-0.5 pt-th-indicator" :style="sortCol === 'status' ? 'opacity:1; color: var(--color-accent)' : ''" x-text="indicator('status')"></span>
           </th>
         </tr>
       </thead>
       <tbody class="wf-tbody">
         {% for p in entries %}
         <tr x-show="rowVisible($el)"
-            class="transition-colors" style="border-top: 1px solid var(--color-border);"
+            class="pt-row transition-colors"
             data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}"
             data-sort-name="{{ p.name|lower }}"
             data-sort-asn="{{ p.asn }}"
@@ -131,21 +118,21 @@
             data-sort-speed="{{ p.speed_mbps }}"
             data-sort-site="{{ p.site|lower }}"
             data-sort-status="{{ p.status }}">
-          <td style="padding: .6rem .85rem; vertical-align: middle;">
+          <td class="pt-td">
             {% if p.website %}
             <a href="{{ p.website }}" target="_blank" rel="noopener" class="lnk-name">{{ p.name }}</a><span class="lnk-ext">↗</span>
             {% else %}
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
             {% endif %}
           </td>
-          <td style="padding: .6rem .85rem; vertical-align: middle;">
+          <td class="pt-td">
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-asn">AS{{ p.asn }}</a>
           </td>
-          <td class="font-mono tabular-nums" style="padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text); white-space: nowrap;">{{ p.v4 }}</td>
-          <td class="font-mono tabular-nums" style="padding: .6rem .85rem; vertical-align: middle; font-size: .86em; color: var(--color-text-light); white-space: nowrap; max-width: 14rem; overflow: hidden; text-overflow: ellipsis;" title="{{ p.v6 }}">{{ p.v6 }}</td>
-          <td style="padding: .6rem .85rem; vertical-align: middle; font-weight: 600;">{{ p.speed|default:"—" }}</td>
-          <td style="padding: .6rem .85rem; vertical-align: middle; color: var(--color-text);">{{ p.site|default:"—" }}</td>
-          <td style="padding: .6rem .85rem; vertical-align: middle;">
+          <td class="pt-td-ip font-mono tabular-nums">{{ p.v4 }}</td>
+          <td class="pt-td-ipv6 font-mono tabular-nums" title="{{ p.v6 }}">{{ p.v6 }}</td>
+          <td class="pt-td-bold">{{ p.speed|default:"—" }}</td>
+          <td class="pt-td-text">{{ p.site|default:"—" }}</td>
+          <td class="pt-td">
             {% if p.status == "active" %}
             <span class="st-badge st-active">{% translate "Active" %}</span>
             {% elif p.status == "provisioning" %}
@@ -177,14 +164,14 @@
          data-sort-status="{{ p.status }}">
       <div class="flex items-start justify-between mb-2">
         <div>
-          <div style="font-weight: 700; font-size: 1rem;">
+          <div class="pt-card-name">
             {% if p.website %}
             <a href="{{ p.website }}" target="_blank" rel="noopener" class="lnk-name">{{ p.name }} <span class="lnk-ext">↗</span></a>
             {% else %}
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
             {% endif %}
           </div>
-          <a href="{% url 'participant_detail' p.asn %}" class="lnk-asn" style="display: inline-block; margin: .3rem 0 .7rem;">AS{{ p.asn }}</a>
+          <a href="{% url 'participant_detail' p.asn %}" class="pt-card-asn lnk-asn">AS{{ p.asn }}</a>
         </div>
         <div>
           {% if p.status == "active" %}

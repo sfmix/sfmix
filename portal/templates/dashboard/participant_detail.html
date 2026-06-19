@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="mb-4">
-  <a href="{% url 'participants_list' %}" class="text-sm" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; {% translate "Back to participants" %}</a>
+  <a href="{% url 'participants_list' %}" class="back-link text-sm">&larr; {% translate "Back to participants" %}</a>
 </div>
 
 {% if lg_error %}
@@ -70,7 +70,7 @@
     {% elif rs_parity.status == "redundancy_broken" %}{% translate "This network is not established on both route servers. If the remaining route server fails, it will lose route-server connectivity entirely." %}
     {% else %}{% translate "This network's sessions are established on both route servers but receive a different number of prefixes — a sign of asymmetric filtering or misconfiguration." %}{% endif %}
     {% if rs_parity.issues %}
-    <ul style="margin:.4rem 0 0; padding-left:1.15rem; list-style:disc; font-size:.86rem;">
+    <ul class="nd-alert-list">
       {% for issue in rs_parity.issues %}<li>{{ issue }}</li>{% endfor %}
     </ul>
     {% endif %}
@@ -85,7 +85,7 @@
   <span class="nd-sl-title">{% translate "Reading this page" %}</span>
   <span class="nd-sl-item"><span class="nd-scope-key nd-scope-pub"></span> {% translate "Public &mdash; visible to anyone" %}</span>
   <span class="nd-sl-item"><span class="nd-scope-key nd-scope-admin"></span> {% translate "Admin &mdash; network &amp; IX admins only" %}</span>
-  <span class="nd-sl-item">{% translate "Stack:" %} <b style="color:#c2701f">L1</b> {% translate "physical" %} &middot; <b style="color:#1a6070">L2</b> {% translate "link/LLDP" %} &middot; <b style="color:#2a5a8c">L3</b> {% translate "ARP/NDP" %} &middot; <b style="color:#1d7a3e">L4+</b> {% translate "route servers" %}</span>
+  <span class="nd-sl-item">{% translate "Stack:" %} <b class="nd-layer-l1-label">L1</b> {% translate "physical" %} &middot; <b class="nd-layer-l2-label">L2</b> {% translate "link/LLDP" %} &middot; <b class="nd-layer-l3-label">L3</b> {% translate "ARP/NDP" %} &middot; <b class="nd-layer-l4-label">L4+</b> {% translate "route servers" %}</span>
 </div>
 {% endif %}
 
@@ -129,7 +129,7 @@
     <span class="nd-ls-badge nd-ls-down"><i></i> {% translate "Down" %}</span>
     {% endif %}
     {% if lp.link_state != "down" and lp.kind == "lag" %}
-    <span class="nd-lp-speed" style="color:var(--color-text-light)">{% blocktranslate with speed=lp.effective_speed_gbps|floatformat:0 %}{{ speed }}G effective{% endblocktranslate %}</span>
+    <span class="nd-lp-speed color-text-light">{% blocktranslate with speed=lp.effective_speed_gbps|floatformat:0 %}{{ speed }}G effective{% endblocktranslate %}</span>
     {% endif %}
   </div>
 
@@ -360,7 +360,7 @@
             <tr>
               <td class="nd-rs-name" rowspan="2">
                 {% if rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.name }} <span class="nd-ext">&#8599;</span></a>{% else %}{{ rs.name }}{% endif %}
-                <div style="font-size:.72rem; color:var(--color-text-light); font-weight:400">{{ rs.address }}</div>
+                <div class="nd-rs-addr">{{ rs.address }}</div>
               </td>
               <td rowspan="2">
                 {% if rs.is_down %}
@@ -369,7 +369,7 @@
                 <span class="nd-rs-state nd-rs-up"><i></i> {{ rs.state }}</span>
                 {% endif %}
               </td>
-              <td rowspan="2" style="font-family:var(--font-mono);font-size:.82rem">{{ rs.uptime }}</td>
+              <td class="nd-rs-uptime" rowspan="2">{{ rs.uptime }}</td>
               <td class="nd-af-label">IPv4</td>
               <td>{{ rs.v4_received|default:"—" }}</td>
               <td>{{ rs.v4_accepted|default:"—" }}</td>
@@ -385,7 +385,7 @@
             <tr>
               <td class="nd-rs-name">
                 {% if rs.routes_url %}<a href="{{ rs.routes_url }}" target="_blank" rel="noopener">{{ rs.name }} <span class="nd-ext">&#8599;</span></a>{% else %}{{ rs.name }}{% endif %}
-                <div style="font-size:.72rem; color:var(--color-text-light); font-weight:400">{{ rs.address }}</div>
+                <div class="nd-rs-addr">{{ rs.address }}</div>
               </td>
               <td>
                 {% if rs.is_down %}
@@ -394,7 +394,7 @@
                 <span class="nd-rs-state nd-rs-up"><i></i> {{ rs.state }}</span>
                 {% endif %}
               </td>
-              <td style="font-family:var(--font-mono);font-size:.82rem">{{ rs.uptime }}</td>
+              <td class="nd-rs-uptime">{{ rs.uptime }}</td>
               <td class="nd-af-label">IPv6</td>
               <td>{{ rs.v6_received|default:"—" }}</td>
               <td>{{ rs.v6_accepted|default:"—" }}</td>
