@@ -1,67 +1,108 @@
 ---
-- name: Ensure lg-neighborhood-watch directory
+# lg-neighborhood-watch is built locally as a static musl binary (the same
+# artifact GitHub CI will produce) and copied to the host — NEVER built on
+# rs-linux, which is a sensitive route server. Runs under systemd with only
+# CAP_NET_RAW. Mirrors the looking_glass role's local-build-and-copy model.
+
+- name: Build lg-neighborhood-watch locally (static musl)
+  ansible.builtin.command:
+    cmd: cargo build --release -p lg-neighborhood-watch --target x86_64-unknown-linux-musl
+    chdir: "{{ sfmix_route_server_linux_lg_neighborhood_watch_src }}"
+  delegate_to: localhost
+  run_once: true
+  become: false
+  changed_when: true
+  when: sfmix_route_server_linux_lg_neighborhood_watch_local_build | bool
+
+- name: Create lg-neighborhood-watch system user
+  become: true
+  ansible.builtin.user:
+    name: "{{ sfmix_route_server_linux_lg_neighborhood_watch_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Install lg-neighborhood-watch binary
+  become: true
+  ansible.builtin.copy:
+    src: "{{ sfmix_route_server_linux_lg_neighborhood_watch_bin_dir }}/lg-neighborhood-watch"
+    dest: /usr/local/bin/lg-neighborhood-watch
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart lg-neighborhood-watch
+
+- name: Ensure lg-neighborhood-watch config directory
   become: true
   ansible.builtin.file:
-    path: "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}"
+    path: /etc/lg-neighborhood-watch
     state: directory
-    mode: ug=rwx,o=rx
+    owner: root
+    group: "{{ sfmix_route_server_linux_lg_neighborhood_watch_user }}"
+    mode: "0750"
 
-# Push the local looking-glass workspace (control node) to the host and build
-# the image there, matching the looking_glass role's local-build model. The
-# build context is the workspace root so all member crates are visible to cargo.
-- name: Synchronize lg-neighborhood-watch source
-  become: true
-  ansible.posix.synchronize:
-    src: "{{ sfmix_route_server_linux_lg_neighborhood_watch_src }}/"
-    dest: "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}/repo/"
-    delete: true
-    rsync_opts:
-      - "--exclude=target"
-      - "--exclude=.git"
-  notify: Rebuild lg-neighborhood-watch docker container
-
-- name: Check if lg-neighborhood-watch image exists
-  become: true
-  community.docker.docker_image_info:
-    name: "lg-neighborhood-watch:{{ sfmix_route_server_linux_lg_neighborhood_watch_version | replace('/', '_') }}"
-  register: lg_neighborhood_watch_image_info
-
-- name: Trigger lg-neighborhood-watch build if image missing
-  ansible.builtin.command: /bin/true
-  changed_when: true
-  when: lg_neighborhood_watch_image_info.images | length == 0
-  notify: Rebuild lg-neighborhood-watch docker container
-
-- name: Build lg-neighborhood-watch and remove old container
-  ansible.builtin.meta: flush_handlers
-
-- name: Place lg-neighborhood-watch config
+- name: Template lg-neighborhood-watch config
   become: true
   ansible.builtin.template:
     src: lg-neighborhood-watch.yml.j2
-    dest: "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}/config.yml"
-    mode: ug=rw,o=r
+    dest: /etc/lg-neighborhood-watch/config.yml
+    owner: root
+    group: "{{ sfmix_route_server_linux_lg_neighborhood_watch_user }}"
+    mode: "0640"
   notify: Restart lg-neighborhood-watch
 
-- name: Run lg-neighborhood-watch
+- name: Write lg-neighborhood-watch environment file (RPC secret)
   become: true
-  community.docker.docker_container:
+  ansible.builtin.copy:
+    content: |
+      LG_RPC_SECRET={{ sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret }}
+      RUST_LOG=info
+    dest: /etc/lg-neighborhood-watch/lg-neighborhood-watch.env
+    owner: root
+    group: "{{ sfmix_route_server_linux_lg_neighborhood_watch_user }}"
+    mode: "0640"
+  notify: Restart lg-neighborhood-watch
+
+- name: Create lg-neighborhood-watch systemd service
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=SFMIX lg-neighborhood-watch (passive ARP/NDP sensor)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/lg-neighborhood-watch --config /etc/lg-neighborhood-watch/config.yml
+      Restart=always
+      RestartSec=5
+      User={{ sfmix_route_server_linux_lg_neighborhood_watch_user }}
+      Group={{ sfmix_route_server_linux_lg_neighborhood_watch_user }}
+      EnvironmentFile=/etc/lg-neighborhood-watch/lg-neighborhood-watch.env
+
+      # Raw sockets for AF_PACKET capture + ICMP solicit, granted to the
+      # otherwise-unprivileged user. No other capabilities.
+      AmbientCapabilities=CAP_NET_RAW
+      CapabilityBoundingSet=CAP_NET_RAW
+      NoNewPrivileges=true
+      ProtectSystem=strict
+      ProtectHome=true
+      PrivateTmp=true
+      ReadOnlyPaths=/etc/lg-neighborhood-watch
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/lg-neighborhood-watch.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart lg-neighborhood-watch
+
+- name: Enable + start lg-neighborhood-watch
+  become: true
+  ansible.builtin.systemd_service:
     name: lg-neighborhood-watch
-    image: "lg-neighborhood-watch:{{ sfmix_route_server_linux_lg_neighborhood_watch_version | replace('/', '_') }}"
-    restart_policy: unless-stopped
+    enabled: true
     state: started
-    # Host networking is required: AF_PACKET capture and on-link ICMP solicit
-    # must see/use the host's peering VLAN interfaces directly.
-    network_mode: host
-    log_driver: local
-    # Only the raw-socket capability; everything else dropped. The binary carries
-    # a cap_net_raw file capability so it runs as an unprivileged user.
-    capabilities:
-      - NET_RAW
-    memory: "{{ sfmix_route_server_linux_lg_neighborhood_watch_memory_limit }}"
-    # Bias the kernel to kill this sensor first, never bird, under memory pressure.
-    oom_score_adj: "{{ sfmix_route_server_linux_lg_neighborhood_watch_oom_score_adj }}"
-    env:
-      LG_RPC_SECRET: "{{ sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret }}"
-    volumes:
-      - "{{ sfmix_route_server_linux_lg_neighborhood_watch_directory }}/config.yml:/etc/lg-neighborhood-watch/config.yml:ro"
+    daemon_reload: true
