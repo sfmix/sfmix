@@ -38,9 +38,10 @@ sfmix_route_server_linux_lg_neighborhood_watch_version: local
 # HTTP query/metrics interface, bound to the management IP (never the peering IP).
 sfmix_route_server_linux_lg_neighborhood_watch_bind: "127.0.0.1:29185"
 sfmix_route_server_linux_lg_neighborhood_watch_port: 29185
-# Peering VLAN subinterface(s) to capture on (untagged frames).
+# Peering-LAN interface(s) to capture on. On rs-linux the IX fabric is untagged
+# directly on ens19 (206.197.187.0/24 + 2001:504:30::/64).
 sfmix_route_server_linux_lg_neighborhood_watch_interfaces:
-  - vlan998
+  - ens19
 # lg-server RPC endpoint the sensor fetches IX IP assignments from.
 sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://localhost:9090"
 # Shared RPC secret (override via vault/group_vars; must match lg-server's).
