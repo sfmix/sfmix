@@ -101,10 +101,16 @@ msgstr ""
 
 #: dashboard/views.py:591
 #, python-format
-msgid "%(count)s route rejected on %(port)s"
-msgid_plural "%(count)s routes rejected on %(port)s"
-msgstr[0] "%(count)s Route auf %(port)s abgelehnt"
-msgstr[1] "%(count)s Routen auf %(port)s abgelehnt"
+msgid "%(count)s route rejected on %(port)s across %(rs_session_count)s %(sessions)s"
+msgid_plural "%(count)s routes rejected on %(port)s across %(rs_session_count)s %(sessions)s"
+msgstr[0] "%(count)s Route auf %(port)s über %(rs_session_count)s %(sessions)s abgelehnt"
+msgstr[1] "%(count)s Routen auf %(port)s über %(rs_session_count)s %(sessions)s abgelehnt"
+
+#: dashboard/views.py:599
+msgid "session"
+msgid_plural "sessions"
+msgstr[0] "Sitzung"
+msgstr[1] "Sitzungen"
 
 #: dashboard/views.py:595
 msgid ""
