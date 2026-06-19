@@ -119,11 +119,7 @@
             data-sort-site="{{ p.site|lower }}"
             data-sort-status="{{ p.status }}">
           <td class="pt-td">
-            {% if p.website %}
-            <a href="{{ p.website }}" target="_blank" rel="noopener" class="lnk-name">{{ p.name }}</a><span class="lnk-ext">↗</span>
-            {% else %}
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
-            {% endif %}
           </td>
           <td class="pt-td">
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-asn">AS{{ p.asn }}</a>
@@ -165,11 +161,7 @@
       <div class="flex items-start justify-between mb-2">
         <div>
           <div class="pt-card-name">
-            {% if p.website %}
-            <a href="{{ p.website }}" target="_blank" rel="noopener" class="lnk-name">{{ p.name }} <span class="lnk-ext">↗</span></a>
-            {% else %}
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
-            {% endif %}
           </div>
           <a href="{% url 'participant_detail' p.asn %}" class="pt-card-asn lnk-asn">AS{{ p.asn }}</a>
         </div>
