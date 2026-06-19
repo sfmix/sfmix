@@ -137,6 +137,20 @@
   tags:
     - binaries
 
+# ── Firewall ───────────────────────────────────────────────────────────
+
+- name: Allow lg-server RPC from internal peers (e.g. the ARP/NDP sensor)
+  become: true
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ looking_glass_rpc_allow_from }}"
+    port: "{{ looking_glass_rpc_bind.split(':')[-1] }}"
+    proto: tcp
+    comment: "lg-server RPC from internal peer ({{ looking_glass_rpc_allow_from }})"
+  when:
+    - looking_glass_rpc_allow_from | default('') | length > 0
+    - sfmix_server_ufw_enabled | default(false) | bool
+
 # ── Config templates ──────────────────────────────────────────────────
 
 - name: Template lg-server config
