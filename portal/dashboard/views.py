@@ -658,6 +658,23 @@ def _parity_applicable(participant):
     )
 
 
+# Alice exposes non-RS collectors (looking-glass / quarantine-VLAN) alongside the
+# real route servers in its routeservers list. Parity only concerns the two
+# production route servers (BIRD + OpenBGPD), so drop the looking-glass sources.
+_NON_RS_HINTS = ("looking_glass", "looking glass", "quarantine")
+
+
+def _real_routeservers(routeservers):
+    """Keep only the actual route servers, dropping looking-glass collectors."""
+    out = []
+    for rs in routeservers:
+        ident = f"{rs.get('id', '')} {rs.get('name', '')}".lower()
+        if any(hint in ident for hint in _NON_RS_HINTS):
+            continue
+        out.append(rs)
+    return out
+
+
 def _compute_alerts(logical_ports):
     """Compute health alerts from logical port data (admin only)."""
     alerts = []
@@ -922,7 +939,7 @@ def _fetch_rs_data(asn):
     try:
         alice = AliceLGClient()
         if alice.base_url:
-            routeservers = alice.get_routeservers()
+            routeservers = _real_routeservers(alice.get_routeservers())
             sessions = [
                 n for n in alice.get_all_neighbors(routeservers)
                 if n.get("asn") == asn
@@ -1200,7 +1217,7 @@ def route_server_parity(request):
         alice = AliceLGClient()
         if lg.base_url and alice.base_url:
             participants = lg.get_participants()
-            routeservers = alice.get_routeservers()
+            routeservers = _real_routeservers(alice.get_routeservers())
             by_asn = defaultdict(list)
             for n in alice.get_all_neighbors(routeservers):
                 by_asn[n.get("asn")].append(n)
