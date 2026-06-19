@@ -22,6 +22,13 @@ use tracing::{info, warn};
 
 use crate::structured::{DiscoveredMac, DiscoveredNeighbor};
 
+/// Maximum distinct MACs retained per IP. A legitimate IP has one (a real
+/// conflict two or three); the cap bounds memory and response size against an
+/// attacker flooding spoofed MACs for an assigned IP. The conflict flag still
+/// fires (it only needs >1), so the spoofing signal is preserved; we keep the
+/// most-recently-heard MACs and evict the oldest.
+const MAX_MACS_PER_IP: usize = 8;
+
 /// One row as reported by the sensor's `GET /neighbors`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SensorObservation {
@@ -181,6 +188,7 @@ impl DiscoveredNeighborStore {
                     t.last_seen = max_ts(&t.last_seen, &last);
                 })
                 .or_insert(MacTimes { first_seen: first, last_seen: last });
+            cap_macs(&mut rec.macs);
         }
 
         self.fetched_at = Some(now_str);
@@ -325,6 +333,30 @@ pub async fn fetch_sensor(base_url: &str) -> Result<Vec<SensorObservation>> {
     Ok(observations)
 }
 
+/// Evict oldest-by-last_seen MACs until the per-IP cap is satisfied.
+fn cap_macs(macs: &mut HashMap<String, MacTimes>) {
+    while macs.len() > MAX_MACS_PER_IP {
+        let oldest = macs
+            .iter()
+            .min_by(|a, b| ts_cmp(&a.1.last_seen, &b.1.last_seen))
+            .map(|(k, _)| k.clone());
+        match oldest {
+            Some(k) => {
+                macs.remove(&k);
+            }
+            None => break,
+        }
+    }
+}
+
+/// Order two RFC3339 timestamps (lexical fallback for unparseable input).
+fn ts_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    match (DateTime::parse_from_rfc3339(a), DateTime::parse_from_rfc3339(b)) {
+        (Ok(ta), Ok(tb)) => ta.cmp(&tb),
+        _ => a.cmp(b),
+    }
+}
+
 /// Compare two RFC3339 timestamps, returning the earlier (string preserved).
 fn min_ts(a: &str, b: &str) -> String {
     match (DateTime::parse_from_rfc3339(a), DateTime::parse_from_rfc3339(b)) {
@@ -449,6 +481,29 @@ mod tests {
         // Next poll: IP no longer assigned.
         store.update_at(&[], &[], at("2026-06-18T00:05:00Z"));
         assert!(store.snapshot().neighbors.is_empty());
+    }
+
+    #[test]
+    fn macs_per_ip_are_capped_keeping_newest() {
+        let mut store = DiscoveredNeighborStore::load(None);
+        // Flood many MACs for one assigned IP, each newer than the last.
+        let obs: Vec<SensorObservation> = (0..20)
+            .map(|i| obs(
+                "10.0.0.1",
+                &format!("aa:00:00:00:00:{:02x}", i),
+                &format!("2026-06-18T00:{:02}:00Z", i),
+                &format!("2026-06-18T00:{:02}:00Z", i),
+            ))
+            .collect();
+        store.update_at(&obs, &[assign("10.0.0.1", 64500, "Acme")], at("2026-06-18T01:00:00Z"));
+        let snap = store.snapshot();
+        let n = neighbor(&snap, "10.0.0.1");
+        assert_eq!(n.macs.len(), MAX_MACS_PER_IP, "must cap MACs per IP");
+        assert!(n.conflict, "conflict signal preserved despite cap");
+        // The newest MAC (sequence 19) must survive; the oldest (00) must be evicted.
+        let kept: Vec<&str> = n.macs.iter().map(|m| m.mac.as_str()).collect();
+        assert!(kept.contains(&"aa:00:00:00:00:13"), "newest kept");
+        assert!(!kept.contains(&"aa:00:00:00:00:00"), "oldest evicted");
     }
 
     #[tokio::test]
