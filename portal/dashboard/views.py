@@ -584,14 +584,23 @@ def _compute_alerts(logical_ports):
             for rs in lp["route_servers"]
         )
         if total_rejected > 0:
+            rs_session_count = sum(
+                1 for rs in lp["route_servers"]
+                if rs.get("v4_rejected", 0) or rs.get("v6_rejected", 0)
+            )
             alerts.append({
                 "severity": "warn",
                 "icon": "⚠",
                 "title": ngettext(
-                    "%(count)s route rejected on %(port)s",
-                    "%(count)s routes rejected on %(port)s",
+                    "%(count)s route rejected on %(port)s across %(rs_session_count)s %(sessions)s",
+                    "%(count)s routes rejected on %(port)s across %(rs_session_count)s %(sessions)s",
                     total_rejected,
-                ) % {"count": total_rejected, "port": port_label},
+                ) % {
+                    "count": total_rejected,
+                    "port": port_label,
+                    "rs_session_count": rs_session_count,
+                    "sessions": ngettext("session", "sessions", rs_session_count),
+                },
                 "body": gettext("Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). Advertised routes may not be reaching peers as expected."),
                 "where": f"{port_label} · L4",
             })
