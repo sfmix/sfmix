@@ -14,10 +14,11 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tokio::sync::mpsc;
 
-/// Maximum distinct MACs retained per IP, bounding memory against an attacker
-/// flooding spoofed MACs on the segment. Keeps the most-recently-heard, evicts
-/// the oldest. (lg-server applies the same cap downstream.)
-const MAX_MACS_PER_IP: usize = 8;
+/// Maximum distinct MACs retained per IP, bounding per-IP memory against an
+/// attacker flooding spoofed MACs on the segment. Keeps the most-recently-heard,
+/// evicts the oldest. (lg-server applies the same cap downstream. The sensor's
+/// total-IP dimension is bounded by the unit's MemoryMax, not this.)
+const MAX_MACS_PER_IP: usize = 100;
 
 /// One frame parsed off the wire: a MAC heard claiming an IP.
 #[derive(Debug, Clone)]
