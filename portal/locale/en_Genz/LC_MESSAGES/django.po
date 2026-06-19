@@ -46,8 +46,8 @@ msgstr "hella sus, port is cooked"
 #, python-format
 msgid "%(port)s is bound to an unassigned IP"
 msgid_plural "%(port)s is bound to unassigned IPs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(port)s is bound to a rando unassigned IP, sus"
+msgstr[1] "%(port)s is bound to rando unassigned IPs, sus"
 
 #: dashboard/views.py:527
 #, python-format
@@ -56,6 +56,9 @@ msgid ""
 "the IX (%(pairs)s). Using an unallocated peering-LAN IP is disallowed and "
 "can disrupt other participants — correct the interface configuration."
 msgstr ""
+"a MAC on this port is out here flexin an address that's not assigned on the "
+"IX (%(pairs)s). rockin an unallocated peering-LAN IP is straight up not "
+"allowed and can mess up other participants — fix ur interface config fr."
 
 #: dashboard/views.py:538
 #, python-format
@@ -606,10 +609,11 @@ msgstr "who knows fr"
 #: templates/dashboard/participant_detail.html:45
 msgid "A MAC on this network is sourcing an IP that is not assigned on the IX"
 msgstr ""
+"a MAC on this network is flexin an IP that's not assigned on the IX, sus"
 
 #: templates/dashboard/participant_detail.html:45
 msgid "Invalid IP"
-msgstr ""
+msgstr "Invalid IP, sus"
 
 #: templates/dashboard/participant_detail.html:51
 msgid "Website"
@@ -754,15 +758,15 @@ msgstr "multiple MACs fr"
 
 #: templates/dashboard/participant_detail.html:310
 msgid "Bound to unassigned IP"
-msgstr ""
+msgstr "Bound to a rando unassigned IP"
 
 #: templates/dashboard/participant_detail.html:314
 msgid "This IP is not assigned to any participant on the IX"
-msgstr ""
+msgstr "this IP isn't assigned to any participant on the IX, no cap"
 
 #: templates/dashboard/participant_detail.html:314
 msgid "not assigned on the IX"
-msgstr ""
+msgstr "not assigned on the IX"
 
 #: templates/dashboard/participant_detail.html:331
 msgid "Route Servers"
