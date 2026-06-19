@@ -139,6 +139,33 @@ class ComputeRsParityTests(SimpleTestCase):
         self.assertEqual(p["status"], "ok")
         self.assertEqual(p["issues"], [])
 
+    def test_looking_glass_session_does_not_affect_parity(self):
+        # The session list passed to parity may contain looking-glass / quarantine
+        # collector sessions (they belong in the participant listing). Those are
+        # not real route servers, so they must not influence the parity verdict,
+        # the compared address families, or the per-RS summary.
+        sessions = _both_rs() + [
+            _sess("looking_glass", "192.0.2.10"),
+            _sess("looking_glass", "2001:db8::10"),
+        ]
+        p = _compute_rs_parity(sessions, ROUTESERVERS)
+        self.assertEqual(p["status"], "ok")
+        self.assertEqual(p["issues"], [])
+        self.assertEqual({r["rs_id"] for r in p["rs"]}, {"rs1", "rs2"})
+
+    def test_looking_glass_only_af_is_not_compared(self):
+        # A participant peered v4 on both real RS, but whose only v6 session is on
+        # the looking glass, must not be faulted for "missing" v6 on the real RS:
+        # the LG-only family is invisible to parity.
+        sessions = [
+            _sess("rs1", "192.0.2.10"),
+            _sess("rs2", "192.0.2.10"),
+            _sess("looking_glass", "2001:db8::10"),
+        ]
+        p = _compute_rs_parity(sessions, ROUTESERVERS)
+        self.assertEqual(p["status"], "ok")
+        self.assertEqual(p["afs"], ["v4"])
+
 
 class RealRouteserversTests(SimpleTestCase):
     def test_drops_looking_glass_and_quarantine_sources(self):
