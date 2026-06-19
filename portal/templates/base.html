@@ -16,9 +16,9 @@
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
-  <nav class="h-16 px-6 flex items-center justify-between" style="background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+  <nav class="site-nav h-16 px-6 flex items-center justify-between">
     <a href="/" class="flex items-center gap-3 no-underline">
-      <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="h-8" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));">
+      <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="site-nav-logo h-8">
       <span class="text-white/70 text-sm font-medium hidden sm:inline">{% translate "Participant Portal" %}</span>
     </a>
     <div class="flex items-center gap-4 text-sm">
@@ -27,7 +27,7 @@
       {% if user.is_authenticated %}
         <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
         {% if is_ix_admin %}
-          <span class="px-2 py-0.5 rounded text-xs font-medium" style="background: var(--color-portal-100); color: var(--color-portal-700);">{% translate "Admin" %}</span>
+          <span class="nav-admin-badge px-2 py-0.5 rounded text-xs font-medium">{% translate "Admin" %}</span>
           <a href="{% url 'lldp_neighbors' %}" class="text-white/70 hover:text-white transition">{% translate "LLDP" %}</a>
           <a href="{% url 'optics' %}" class="text-white/70 hover:text-white transition">{% translate "Optics" %}</a>
           <div class="relative" x-data="{ open: false }" @click.away="open = false">
@@ -35,7 +35,7 @@
               {% translate "Cache" %}
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div x-show="open" x-cloak class="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-b-md shadow-lg z-10" style="box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+            <div x-show="open" x-cloak class="nav-dropdown absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-b-md shadow-lg z-10">
               <a href="{% url 'device_cache_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "Devices" %}</a>
               <a href="{% url 'netbox_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "NetBox" %}</a>
             </div>
@@ -54,7 +54,7 @@
           {% for lang in languages %}{% if lang.code == LANGUAGE_CODE %}{{ lang.name_local|capfirst }}{% endif %}{% endfor %}
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
         </button>
-        <div x-show="open" x-cloak class="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-b-md shadow-lg z-10" style="box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+        <div x-show="open" x-cloak class="nav-dropdown absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-b-md shadow-lg z-10">
           <form action="{% url 'set_language' %}" method="post">
             {% csrf_token %}
             <input name="next" type="hidden" value="{{ request.get_full_path }}">
@@ -74,8 +74,8 @@
     {% block content %}{% endblock %}
   </main>
 
-  <div style="height: 3px; background: linear-gradient(90deg, #8B2FC9, #3B7DD8, #A0C814, #E8B000, #D42020);"></div>
-  <footer class="px-6 py-6 text-center" style="background: var(--color-brand-hero-dark, #071f26); color: #9fb2bb; font-size: .85rem;">
+  <div class="rainbow-bar"></div>
+  <footer class="site-footer px-6 py-6 text-center">
     &copy; San Francisco Metropolitan Internet eXchange
   </footer>
   <script>

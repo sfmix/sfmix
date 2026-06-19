@@ -5,12 +5,12 @@
 
 {% block content %}
 <div class="mb-4">
-  <a href="{% url 'participants_list' %}" class="text-sm" style="color: var(--color-primary-light);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary-light)'">&larr; {% translate "Back to participants" %}</a>
+  <a href="{% url 'participants_list' %}" class="back-link text-sm">&larr; {% translate "Back to participants" %}</a>
 </div>
 
 <div class="mb-5">
-  <h1 class="font-semibold" style="font-size: 2rem; color: var(--color-primary); margin: 0 0 0.4rem;">{% translate "Route-Server Parity" %}</h1>
-  <p style="font-size: 1.02rem; color: var(--color-text-light); line-height: 1.55; margin: 0;">
+  <h1 class="page-title-lg font-semibold">{% translate "Route-Server Parity" %}</h1>
+  <p class="page-subtitle">
     {% translate "SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering with both is required so that a single route-server failure never cuts a network off. Networks that are not established on both servers — or whose received-prefix counts disagree — are listed first." %}
   </p>
 </div>
@@ -23,57 +23,57 @@
 {% endif %}
 
 {% if entries %}
-<div class="flex flex-wrap gap-4 mb-4" style="font-size:.88rem; color: var(--color-text-light);">
-  <span><span class="nd-dot nd-dot-down"></span> <b style="color:#991b1b;">{{ counts.crit }}</b> {% translate "critical" %}</span>
-  <span><span class="nd-dot nd-dot-warn"></span> <b style="color:#92400e;">{{ counts.warn }}</b> {% translate "at risk" %}</span>
-  <span><span class="nd-dot nd-dot-up"></span> <b style="color:#166534;">{{ counts.ok }}</b> {% translate "OK" %}</span>
+<div class="par-summary flex flex-wrap gap-4 mb-4">
+  <span><span class="nd-dot nd-dot-down"></span> <b class="sev-crit">{{ counts.crit }}</b> {% translate "critical" %}</span>
+  <span><span class="nd-dot nd-dot-warn"></span> <b class="sev-warn">{{ counts.warn }}</b> {% translate "at risk" %}</span>
+  <span><span class="nd-dot nd-dot-up"></span> <b class="sev-ok">{{ counts.ok }}</b> {% translate "OK" %}</span>
 </div>
 
-<div class="bg-white border rounded-lg overflow-x-auto" style="border-color: var(--color-border);">
-  <table class="w-full" style="font-size:.92rem;">
-    <thead class="text-left" style="background: var(--color-primary);">
+<div class="pt-table-wrap bg-white border rounded-lg overflow-x-auto">
+  <table class="pt-table w-full">
+    <thead class="pt-thead text-left">
       <tr>
-        <th style="font-weight:600; padding:.7rem .85rem; color: rgba(255,255,255,0.85);">{% translate "Participant" %}</th>
+        <th class="par-th">{% translate "Participant" %}</th>
         {% for rs in routeservers %}
-        <th style="font-weight:600; padding:.7rem .85rem; color: rgba(255,255,255,0.85); white-space:nowrap;">{{ rs.name }}</th>
+        <th class="par-th whitespace-nowrap">{{ rs.name }}</th>
         {% endfor %}
-        <th style="font-weight:600; padding:.7rem .85rem; color: rgba(255,255,255,0.85);">{% translate "Parity" %}</th>
+        <th class="par-th">{% translate "Parity" %}</th>
       </tr>
     </thead>
     <tbody>
       {% for e in entries %}
-      <tr style="border-top:1px solid var(--color-border);{% if e.parity.severity == 'crit' %} background:#fef2f2;{% elif e.parity.severity == 'warn' %} background:#fffbeb;{% endif %}">
-        <td style="padding:.55rem .85rem; vertical-align:top;">
+      <tr class="pt-row{% if e.parity.severity == 'crit' %} par-row-crit{% elif e.parity.severity == 'warn' %} par-row-warn{% endif %}">
+        <td class="par-td">
           <a href="{% url 'participant_detail' e.asn %}" class="lnk-name">{{ e.name }}</a>
           <div><a href="{% url 'participant_detail' e.asn %}" class="lnk-asn">AS{{ e.asn }}</a></div>
         </td>
         {% for rs in e.parity.rs %}
-        <td style="padding:.55rem .85rem; vertical-align:top; font-size:.84rem;">
+        <td class="par-cell">
           {% for cell in rs.afs %}
-          <div style="white-space:nowrap; line-height:1.7;">
+          <div class="par-af-line">
             {% if cell.established %}<span class="nd-dot nd-dot-up"></span>
             {% elif cell.present %}<span class="nd-dot nd-dot-warn"></span>
             {% else %}<span class="nd-dot nd-dot-down"></span>{% endif %}
-            <span style="font-family:var(--font-mono); font-weight:600;">{{ cell.label }}</span>
-            {% if cell.established %}<span style="color:var(--color-text-light); font-family:var(--font-mono);">{{ cell.received|default:"0" }}</span>
-            {% elif cell.present %}<span style="color:#b45309;">{{ cell.state }}</span>
-            {% else %}<span style="color:#b91c1c;">{% translate "no session" %}</span>{% endif %}
+            <span class="par-af-label">{{ cell.label }}</span>
+            {% if cell.established %}<span class="par-received">{{ cell.received|default:"0" }}</span>
+            {% elif cell.present %}<span class="par-state-warn">{{ cell.state }}</span>
+            {% else %}<span class="par-no-session">{% translate "no session" %}</span>{% endif %}
           </div>
           {% empty %}
-          <span style="color:var(--color-text-light);">—</span>
+          <span class="par-dash">—</span>
           {% endfor %}
         </td>
         {% endfor %}
-        <td style="padding:.55rem .85rem; vertical-align:top;">
+        <td class="par-td">
           {% if e.parity.severity == "crit" %}
-          <span class="st-badge" style="background:#fee2e2; color:#991b1b;">{% translate "Critical" %}</span>
+          <span class="st-badge st-crit">{% translate "Critical" %}</span>
           {% elif e.parity.severity == "warn" %}
-          <span class="st-badge" style="background:#fef3c7; color:#92400e;">{% translate "At risk" %}</span>
+          <span class="st-badge st-warn">{% translate "At risk" %}</span>
           {% else %}
-          <span class="st-badge" style="background:#dcfce7; color:#166534;">{% translate "OK" %}</span>
+          <span class="st-badge st-ok">{% translate "OK" %}</span>
           {% endif %}
           {% if e.parity.issues %}
-          <div style="font-size:.78rem; color:var(--color-text-light); margin-top:.3rem; max-width:30ch;">{{ e.parity.issues.0 }}</div>
+          <div class="par-issue">{{ e.parity.issues.0 }}</div>
           {% endif %}
         </td>
       </tr>
