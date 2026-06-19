@@ -34,6 +34,7 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/service-info", get(service_info))
         .route("/rpc/v1/participants", get(participants_list))
         .route("/rpc/v1/participants.json", get(ixf_member_export))
+        .route("/rpc/v1/peering-vlans", get(peering_vlans))
         .route("/rpc/v1/participants/{asn}", get(participant_detail))
         .route("/rpc/v1/participant-ports", get(participant_ports))
         .route("/rpc/v1/ix-ip-assignments", get(ix_ip_assignments))
@@ -212,6 +213,18 @@ async fn ixf_member_export(
     let ixp_data = state.lg.ixp_data.load();
     let nb_participants = state.lg.netbox_participants.load();
     Json(looking_glass::ixf::build_ixf_export(&ixp_data, &nb_participants)).into_response()
+}
+
+/// GET /rpc/v1/peering-vlans — IXP peering-LAN VLANs (with dot1q VIDs)
+async fn peering_vlans(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let ixp_data = state.lg.ixp_data.load();
+    Json(serde_json::json!({ "vlans": ixp_data.vlans })).into_response()
 }
 
 /// GET /rpc/v1/participants/{asn} — participant detail
