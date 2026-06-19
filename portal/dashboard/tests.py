@@ -11,24 +11,24 @@ ROUTESERVERS = [
 ]
 
 
-def _sess(rs_id, addr, state="established", accepted=100):
+def _sess(rs_id, addr, state="established", received=100):
     return {
         "rs_id": rs_id,
         "rs_name": rs_id,
         "address": addr,
         "state": state,
-        "routes_accepted": accepted,
+        "routes_received": received,
     }
 
 
-def _both_rs(v4_a1=100, v4_a2=100, v6_a1=50, v6_a2=50,
+def _both_rs(v4_r1=100, v4_r2=100, v6_r1=50, v6_r2=50,
              v4_s1="established", v4_s2="established",
              v6_s1="established", v6_s2="established"):
     return [
-        _sess("rs1", "192.0.2.10", v4_s1, v4_a1),
-        _sess("rs1", "2001:db8::10", v6_s1, v6_a1),
-        _sess("rs2", "192.0.2.10", v4_s2, v4_a2),
-        _sess("rs2", "2001:db8::10", v6_s2, v6_a2),
+        _sess("rs1", "192.0.2.10", v4_s1, v4_r1),
+        _sess("rs1", "2001:db8::10", v6_s1, v6_r1),
+        _sess("rs2", "192.0.2.10", v4_s2, v4_r2),
+        _sess("rs2", "2001:db8::10", v6_s2, v6_r2),
     ]
 
 
@@ -44,7 +44,7 @@ class ComputeRsParityTests(SimpleTestCase):
 
     def test_small_delta_within_tolerance_is_ok(self):
         # 118 vs 117 — the fixture case; delta 1 ≤ 2 → OK.
-        p = _compute_rs_parity(_both_rs(v4_a1=118, v4_a2=117), ROUTESERVERS)
+        p = _compute_rs_parity(_both_rs(v4_r1=118, v4_r2=117), ROUTESERVERS)
         self.assertEqual(p["status"], "ok")
 
     def test_not_peered_when_no_sessions(self):
@@ -72,15 +72,31 @@ class ComputeRsParityTests(SimpleTestCase):
 
     def test_prefix_mismatch_over_threshold(self):
         # 338 vs 200 → delta 138, >2 and >10% → mismatch.
-        p = _compute_rs_parity(_both_rs(v4_a1=338, v4_a2=200), ROUTESERVERS)
+        p = _compute_rs_parity(_both_rs(v4_r1=338, v4_r2=200), ROUTESERVERS)
         self.assertEqual(p["status"], "prefix_mismatch")
         self.assertEqual(p["severity"], "warn")
         self.assertEqual(p["sort_rank"], 2)
 
     def test_prefix_delta_under_pct_is_ok(self):
         # 1000 vs 996 → delta 4 (>2) but <10% → OK.
-        p = _compute_rs_parity(_both_rs(v4_a1=1000, v4_a2=996), ROUTESERVERS)
+        p = _compute_rs_parity(_both_rs(v4_r1=1000, v4_r2=996), ROUTESERVERS)
         self.assertEqual(p["status"], "ok")
+
+    def test_parity_uses_received_not_accepted(self):
+        # OpenBGPD (rs2) reports no accepted count, only received. Parity must
+        # compare received prefixes so the missing accepted field never falsely
+        # flags a mismatch. Equal received counts → OK despite rs2 lacking
+        # routes_accepted entirely.
+        sessions = _both_rs()
+        for s in sessions:
+            if s["rs_id"] == "rs2":
+                s.pop("routes_accepted", None)  # mirror OpenBGPD via Alice
+                s["routes_accepted"] = 0
+        p = _compute_rs_parity(sessions, ROUTESERVERS)
+        self.assertEqual(p["status"], "ok")
+        # The displayed per-RS cell carries the received count, not accepted.
+        rs2 = next(r for r in p["rs"] if r["rs_id"] == "rs2")
+        self.assertEqual(rs2["afs"][0]["received"], 100)
 
     def test_v4_only_participant_not_faulted_for_missing_v6(self):
         # Established v4 on both RS, no v6 anywhere → symmetric absence is OK.

@@ -71,8 +71,8 @@ msgstr "scuttled"
 #: dashboard/views.py:643
 #, python-format
 msgid ""
-"%(af)s accepted-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
-msgstr "%(af)s accepted-prefix tallies differ 'twixt route cap'ns (%(lo)s vs %(hi)s)."
+"%(af)s received-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
+msgstr "%(af)s received-prefix tallies differ 'twixt route cap'ns (%(lo)s vs %(hi)s)."
 
 #: dashboard/views.py:676
 #, python-format
@@ -691,7 +691,7 @@ msgstr "This here network bain't established on both route cap'ns. Should the la
 
 #: templates/dashboard/participant_detail.html:71
 msgid ""
-"This network's sessions are established on both route servers but accept a "
+"This network's sessions are established on both route servers but receive a "
 "different number of prefixes — a sign of asymmetric filtering or "
 "misconfiguration."
 msgstr "This network's sessions be established on both route cap'ns, yet they take a different count o' prefixes — a sign o' lopsided filterin' or a botched riggin'."
@@ -968,8 +968,8 @@ msgid ""
 "SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering "
 "with both is required so that a single route-server failure never cuts a "
 "network off. Networks that are not established on both servers — or whose "
-"accepted-prefix counts disagree — are listed first."
-msgstr "SFMIX sails two route cap'ns (BIRD an' OpenBGPD) for backup, an' ye must parley with both so a single route cap'n goin' under never maroons a network. Networks not established on both — or whose accepted-prefix tallies disagree — be listed first."
+"received-prefix counts disagree — are listed first."
+msgstr "SFMIX sails two route cap'ns (BIRD an' OpenBGPD) for backup, an' ye must parley with both so a single route cap'n goin' under never maroons a network. Networks not established on both — or whose received-prefix tallies disagree — be listed first."
 
 #: templates/dashboard/route_server_parity.html:21
 msgid "Unable to fetch parity data:"
