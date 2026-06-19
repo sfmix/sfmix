@@ -228,18 +228,29 @@
         {% endif %}
         {% endfor %}
         {% if lp.macs %}
-        <div class="nd-llp-macs">
-          <div class="nd-llp-macs-label">{% translate "MACs learned" %}</div>
-          {% for m in lp.macs %}
-          <div class="nd-mac-row">
-            <span class="nd-mac-addr">{{ m.mac_address }}</span>
-            <span class="nd-mac-vlan">{% blocktranslate with vlan=m.vlan %}VLAN {{ vlan }}{% endblocktranslate %}</span>
-            <span class="nd-mac-type">{{ m.entry_type }}</span>
-            {% if m.first_seen_display %}<span class="nd-mac-seen" title="{% translate 'First seen' %}">{% blocktranslate with d=m.first_seen_display %}first seen {{ d }}{% endblocktranslate %}</span>{% endif %}
-            {% if m.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=m.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
-          </div>
-          {% endfor %}
-        </div>
+        <div class="nd-band-title">{% translate "MAC addresses learned on port" %}{% if lp.macs|length > 1 %}<span class="nd-warn-flag" title="{% translate 'A member port should normally present a single MAC' %}">&#9888; {% blocktranslate count n=lp.macs|length %}{{ n }} learned &middot; expected 1{% plural %}{{ n }} learned &middot; expected 1{% endblocktranslate %}</span>{% endif %}</div>
+        <table class="nd-mac-table">
+          <thead>
+            <tr>
+              <th>{% translate "MAC" %}</th>
+              <th>VLAN</th>
+              <th>{% translate "Type" %}</th>
+              <th>{% translate "First seen" %}</th>
+              <th>{% translate "Last seen" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in lp.macs %}
+            <tr>
+              <td class="nd-mac-addr">{{ m.mac_address }}</td>
+              <td>{{ m.vlan }}</td>
+              <td class="nd-mac-type">{{ m.entry_type }}</td>
+              <td class="nd-mac-seen">{{ m.first_seen_display|default:"—" }}</td>
+              <td class="nd-mac-seen">{% if m.last_seen_ago %}{% blocktranslate with a=m.last_seen_ago %}{{ a }} ago{% endblocktranslate %}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
         {% endif %}
       </div>
     </div>
@@ -252,73 +263,48 @@
         <span class="nd-lt-scope">{% translate "Public" %}</span>
       </div>
       <div class="nd-lband-body">
-        <div class="nd-addr-grid">
-          {% if lp.v4 != "—" %}
-          <div class="nd-addr">
-            <span class="nd-af">IX-Assigned IPv4</span>
-            <span class="nd-val">{{ lp.v4 }}</span>
-          </div>
-          {% endif %}
-          {% if lp.v6 != "—" %}
-          <div class="nd-addr">
-            <span class="nd-af">IX-Assigned IPv6</span>
-            <span class="nd-val">{{ lp.v6 }}</span>
-          </div>
-          {% endif %}
-          {% if lp.v4 == "—" and lp.v6 == "—" %}
-          <div class="nd-addr">
-            <span class="nd-val" style="color:var(--color-text-light); font-style:italic">{% translate "No IPs assigned" %}</span>
-          </div>
-          {% endif %}
-        </div>
-        {% if lp.bound_mac_v4 != "—" or lp.bound_mac_v6 != "—" %}
-        <div class="nd-mac-pair">
-          {% if lp.bound_mac_v4 != "—" %}
-          <div class="nd-mac-box">
-            <div class="nd-af">ARP (IPv4)</div>
-            <div class="nd-val">{{ lp.bound_mac_v4 }}</div>
-          </div>
-          {% endif %}
-          {% if lp.bound_mac_v6 != "—" %}
-          <div class="nd-mac-box">
-            <div class="nd-af">NDP (IPv6)</div>
-            <div class="nd-val">{{ lp.bound_mac_v6 }}</div>
-          </div>
-          {% endif %}
-        </div>
-        {% endif %}
-        {% if lp.discovered %}
-        <div class="nd-disc">
-          <div class="nd-disc-label">{% translate "Heard on LAN (ARP/NDP)" %}</div>
-          {% for dn in lp.discovered %}
-          <div class="nd-disc-ip{% if dn.conflict %} nd-disc-conflict{% endif %}">
-            <span class="nd-disc-addr">{{ dn.ip }}</span>
-            {% if dn.conflict %}<span class="nd-disc-flag" title="{% translate 'More than one MAC has been heard claiming this IP' %}">⚠ {% translate "multiple MACs" %}</span>{% endif %}
-          </div>
-          {% for m in dn.macs %}
-          <div class="nd-mac-row">
-            <span class="nd-mac-addr">{{ m.mac }}</span>
-            {% if m.first_seen_display %}<span class="nd-mac-seen" title="{% translate 'First seen' %}">{% blocktranslate with d=m.first_seen_display %}first seen {{ d }}{% endblocktranslate %}</span>{% endif %}
-            {% if m.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=m.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
-          </div>
-          {% endfor %}
-          {% endfor %}
-        </div>
-        {% endif %}
-        {% if lp.invalid_ip_bindings %}
-        <div class="nd-disc nd-disc-invalid">
-          <div class="nd-disc-label">&#9940; {% translate "Bound to unassigned IP" %}</div>
-          {% for b in lp.invalid_ip_bindings %}
-          <div class="nd-disc-ip nd-disc-conflict">
-            <span class="nd-disc-addr">{{ b.mac }} &rarr; {{ b.ip }}</span>
-            <span class="nd-disc-flag" title="{% translate 'This IP is not assigned to any participant on the IX' %}">{% translate "not assigned on the IX" %}</span>
-          </div>
-          <div class="nd-mac-row">
-            {% if b.first_seen_display %}<span class="nd-mac-seen" title="{% translate 'First seen' %}">{% blocktranslate with d=b.first_seen_display %}first seen {{ d }}{% endblocktranslate %}</span>{% endif %}
-            {% if b.last_seen_ago %}<span class="nd-mac-seen" title="{% translate 'Last seen' %}">{% blocktranslate with a=b.last_seen_ago %}seen {{ a }} ago{% endblocktranslate %}</span>{% endif %}
-          </div>
-          {% endfor %}
-        </div>
+        {% if lp.discovered or lp.invalid_ip_bindings %}
+        <div class="nd-band-title">{% translate "Heard on the fabric &middot; ARP/NDP" %}</div>
+        <table class="nd-mac-table">
+            <thead>
+              <tr>
+                <th>{% translate "IP address" %}</th>
+                <th>{% translate "MAC" %}</th>
+                <th>{% translate "First seen" %}</th>
+                <th>{% translate "Last seen" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dn in lp.discovered %}
+              {% for m in dn.macs %}
+              <tr{% if dn.conflict %} class="nd-disc-conflict"{% endif %}>
+                {% if forloop.first %}
+                <td class="nd-mac-ip"{% if dn.macs|length > 1 %} rowspan="{{ dn.macs|length }}"{% endif %}>
+                  {{ dn.ip }}
+                  {% if dn.conflict %}<span class="nd-warn-flag nd-warn-flag-crit" title="{% translate 'More than one MAC has been heard claiming this IP' %}">&#9888; {% translate "multiple MACs" %}</span>{% endif %}
+                </td>
+                {% endif %}
+                <td class="nd-mac-addr">{{ m.mac }}</td>
+                <td class="nd-mac-seen">{{ m.first_seen_display|default:"—" }}</td>
+                <td class="nd-mac-seen">{% if m.last_seen_ago %}{% blocktranslate with a=m.last_seen_ago %}{{ a }} ago{% endblocktranslate %}{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+              {% endfor %}
+              {% for b in lp.invalid_ip_bindings %}
+              <tr class="nd-disc-conflict nd-disc-invalid-row">
+                <td class="nd-mac-ip">
+                  {{ b.ip }}
+                  <span class="nd-warn-flag nd-warn-flag-crit" title="{% translate 'This IP is not assigned to any participant on the IX' %}">&#9940; {% translate "not assigned on the IX" %}</span>
+                </td>
+                <td class="nd-mac-addr">{{ b.mac }}</td>
+                <td class="nd-mac-seen">{{ b.first_seen_display|default:"—" }}</td>
+                <td class="nd-mac-seen">{% if b.last_seen_ago %}{% blocktranslate with a=b.last_seen_ago %}{{ a }} ago{% endblocktranslate %}{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+        <div class="nd-disc-empty">{% translate "No neighbors heard on the fabric (ARP/NDP) for this port." %}</div>
         {% endif %}
       </div>
     </div>
