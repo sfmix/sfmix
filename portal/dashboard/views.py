@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+from collections import defaultdict
 from datetime import datetime
 
 from django.conf import settings
@@ -504,6 +505,159 @@ def _format_uptime(seconds):
     return f"{minutes}m"
 
 
+# ── Route-server parity ─────────────────────────────────────────────
+#
+# SFMIX requires every participant to peer with BOTH route servers so that a
+# single RS failure does not cut them off. We compare a participant's BGP
+# sessions across all configured route servers on session state and on
+# accepted-prefix counts, and surface any loss of redundancy (down/missing on
+# one RS) or asymmetric filtering (counts disagree).
+
+_PREFIX_PARITY_MIN_DELTA = 2     # ignore accepted-count deltas this small …
+_PREFIX_PARITY_PCT = 0.10        # … or within this fraction of the larger count
+
+# sort_rank: lower = scarier (sorted to the top of the public parity page).
+_RS_PARITY_RANK = {
+    "redundancy_broken": 0,   # peered to >=1 RS but down/missing on another
+    "not_peered": 1,          # no RS sessions at all (peering is required)
+    "prefix_mismatch": 2,     # established everywhere, counts diverge
+    "ok": 3,
+}
+_RS_PARITY_SEVERITY = {
+    "redundancy_broken": "crit",
+    "not_peered": "crit",
+    "prefix_mismatch": "warn",
+    "ok": "ok",
+}
+
+
+def _rs_af(addr):
+    """Address-family label ('v4'/'v6') for a neighbor address."""
+    return "v6" if ":" in (addr or "") else "v4"
+
+
+def _rs_established(state):
+    """True if a BGP session state counts as up."""
+    return (state or "").lower() in ("established", "up")
+
+
+def _af_label(af):
+    """Translatable address-family label."""
+    return gettext("IPv6") if af == "v6" else gettext("IPv4")
+
+
+def _rs_result(rs_summary, status, issues, afs):
+    """Assemble the parity result dict from a classified status."""
+    return {
+        "rs": rs_summary,
+        "status": status,
+        "severity": _RS_PARITY_SEVERITY[status],
+        "sort_rank": _RS_PARITY_RANK[status],
+        "issues": issues,
+        "afs": afs,
+    }
+
+
+def _compute_rs_parity(rs_sessions, routeservers):
+    """Compare a participant's BGP sessions across all route servers.
+
+    ``rs_sessions`` is the list of Alice neighbor dicts for one ASN (each with
+    ``rs_id`` / ``rs_name`` / ``address`` / ``state`` / ``routes_accepted``).
+    ``routeservers`` is the expected RS set (dicts with ``id`` / ``name``).
+
+    Returns a dict {rs, status, severity, sort_rank, issues, afs}, or ``None``
+    when there are no configured route servers to compare against. Only the
+    address families the participant actually peers in are compared, so a
+    v4-only participant is not faulted for "missing" v6 (symmetric absence is
+    not a parity defect).
+    """
+    if not routeservers:
+        return None
+
+    rs_meta = [(rs.get("id", ""), rs.get("name") or rs.get("id", "")) for rs in routeservers]
+    rs_names = {rid: name for rid, name in rs_meta}
+
+    # by_rs[rs_id][af] = session; afs_used = families seen on any RS.
+    by_rs = {rid: {} for rid, _ in rs_meta}
+    afs_used = set()
+    for s in rs_sessions:
+        rid = s.get("rs_id", "")
+        af = _rs_af(s.get("address", ""))
+        afs_used.add(af)
+        by_rs.setdefault(rid, {})[af] = s
+        rs_names.setdefault(rid, s.get("rs_name", rid))
+
+    afs = sorted(afs_used)
+
+    rs_summary = []
+    for rid, name in rs_meta:
+        af_cells = []
+        for af in afs:
+            s = by_rs.get(rid, {}).get(af)
+            af_cells.append({
+                "af": af,
+                "label": _af_label(af),
+                "present": s is not None,
+                "established": _rs_established(s.get("state")) if s else False,
+                "state": s.get("state") if s else None,
+                "accepted": s.get("routes_accepted") if s else None,
+                "address": s.get("address") if s else None,
+            })
+        rs_summary.append({"rs_id": rid, "name": name, "afs": af_cells})
+
+    # No sessions on any route server at all.
+    if not afs:
+        return _rs_result(
+            rs_summary, "not_peered",
+            [gettext("Not peered with any SFMIX route server.")], afs,
+        )
+
+    # Redundancy: every used AF must be present + established on every RS.
+    issues = []
+    for rid, _ in rs_meta:
+        name = rs_names.get(rid, rid)
+        for af in afs:
+            entry = by_rs.get(rid, {}).get(af)
+            if entry is None:
+                issues.append(gettext("No %(af)s session with %(rs)s.") % {
+                    "af": _af_label(af), "rs": name})
+            elif not _rs_established(entry.get("state")):
+                issues.append(gettext("%(af)s session with %(rs)s is %(state)s.") % {
+                    "af": _af_label(af), "rs": name,
+                    "state": entry.get("state") or gettext("down")})
+    if issues:
+        return _rs_result(rs_summary, "redundancy_broken", issues, afs)
+
+    # Prefix parity: accepted counts should agree across route servers per AF.
+    for af in afs:
+        counts = [
+            by_rs[rid][af].get("routes_accepted") or 0
+            for rid, _ in rs_meta
+            if by_rs.get(rid, {}).get(af)
+        ]
+        if len(counts) >= 2:
+            lo, hi = min(counts), max(counts)
+            delta = hi - lo
+            if delta > _PREFIX_PARITY_MIN_DELTA and delta > _PREFIX_PARITY_PCT * hi:
+                issues.append(gettext(
+                    "%(af)s accepted-prefix counts differ across route servers "
+                    "(%(lo)s vs %(hi)s)."
+                ) % {"af": _af_label(af), "lo": lo, "hi": hi})
+
+    return _rs_result(rs_summary, "prefix_mismatch" if issues else "ok", issues, afs)
+
+
+def _parity_applicable(participant):
+    """True if the participant is an active peer expected to peer with the RS."""
+    ptype = (participant.get("participant_type") or "").lower()
+    if ptype in ("ixp", "routeserver"):
+        return False
+    return any(
+        ip.get("status", "").lower() == "active"
+        for ip in participant.get("ip_addresses", [])
+    )
+
+
 def _compute_alerts(logical_ports):
     """Compute health alerts from logical port data (admin only)."""
     alerts = []
@@ -759,15 +913,24 @@ def _fetch_unassigned_by_mac(lg, token):
     return by_mac
 
 
-def _fetch_rs_sessions(asn):
-    """Fetch route-server sessions for ASN from Alice-LG."""
+def _fetch_rs_data(asn):
+    """Fetch (sessions, routeservers) for ASN from Alice-LG.
+
+    Returns the participant's RS sessions plus the configured route-server list
+    (needed to compute parity against the expected RS set).
+    """
     try:
         alice = AliceLGClient()
         if alice.base_url:
-            return alice.get_neighbors_for_asn(asn)
+            routeservers = alice.get_routeservers()
+            sessions = [
+                n for n in alice.get_all_neighbors(routeservers)
+                if n.get("asn") == asn
+            ]
+            return sessions, routeservers
     except Exception:
-        logger.warning("Failed to fetch Alice RS sessions for AS%s", asn, exc_info=True)
-    return []
+        logger.warning("Failed to fetch Alice RS data for AS%s", asn, exc_info=True)
+    return [], []
 
 
 def participant_detail(request, asn):
@@ -784,6 +947,7 @@ def participant_detail(request, asn):
     logical_ports = []
     alerts = []
     has_invalid_ip = False
+    rs_parity = None
     lg_error = None
 
     try:
@@ -840,8 +1004,8 @@ def participant_detail(request, asn):
             ndp_by_ip = _fetch_ndp_by_ip(lg, token)
             discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn)
 
-            # 7. Route-server sessions from Alice-LG
-            rs_sessions = _fetch_rs_sessions(asn)
+            # 7. Route-server sessions + configured RS list from Alice-LG
+            rs_sessions, routeservers = _fetch_rs_data(asn)
 
             # 8. Build logical port tree
             logical_ports = _build_logical_ports(
@@ -871,6 +1035,11 @@ def participant_detail(request, asn):
             # 9. Compute alerts (admin only)
             if can_see_admin:
                 alerts = _compute_alerts(logical_ports)
+
+            # 10. Route-server parity (public): warn when not redundantly
+            #     peered with both route servers, or counts disagree.
+            if _parity_applicable(detail):
+                rs_parity = _compute_rs_parity(rs_sessions, routeservers)
 
     except Exception as e:
         lg_error = str(e)
@@ -903,6 +1072,7 @@ def participant_detail(request, asn):
         "total_provisioned_gbps": total_provisioned_gbps,
         "alerts": alerts,
         "has_invalid_ip": has_invalid_ip,
+        "rs_parity": rs_parity,
         "lg_error": lg_error,
         "can_see_admin": can_see_admin,
         "is_own_network": asn in user_asns,
@@ -1008,6 +1178,49 @@ def participants_list(request):
     return render(request, "dashboard/participants_list.html", {
         "entries": entries,
         "my_participants": my_participants,
+        "lg_error": lg_error,
+        "is_ix_admin": _is_ix_admin(request) if request.user.is_authenticated else False,
+    })
+
+
+def route_server_parity(request):
+    """Public route-server parity overview across all participants.
+
+    Lists every active peer with a per-route-server status indicator (state +
+    accepted-prefix count) and an overall parity verdict, sorted so the most
+    dangerous configs (lost redundancy, then unpeered, then count mismatch)
+    appear first.
+    """
+    entries = []
+    routeservers = []
+    counts = {"crit": 0, "warn": 0, "ok": 0}
+    lg_error = None
+    try:
+        lg = LookingGlassClient()
+        alice = AliceLGClient()
+        if lg.base_url and alice.base_url:
+            participants = lg.get_participants()
+            routeservers = alice.get_routeservers()
+            by_asn = defaultdict(list)
+            for n in alice.get_all_neighbors(routeservers):
+                by_asn[n.get("asn")].append(n)
+            for p in participants:
+                if not _parity_applicable(p):
+                    continue
+                asn = p.get("asn", 0)
+                parity = _compute_rs_parity(by_asn.get(asn, []), routeservers)
+                if not parity:
+                    continue
+                counts[parity["severity"]] = counts.get(parity["severity"], 0) + 1
+                entries.append({"asn": asn, "name": p.get("name", ""), "parity": parity})
+            entries.sort(key=lambda e: (e["parity"]["sort_rank"], e["name"].lower()))
+    except Exception as e:
+        lg_error = str(e)
+        logger.exception("Error loading route-server parity overview")
+    return render(request, "dashboard/route_server_parity.html", {
+        "entries": entries,
+        "routeservers": routeservers,
+        "counts": counts,
         "lg_error": lg_error,
         "is_ix_admin": _is_ix_admin(request) if request.user.is_authenticated else False,
     })
