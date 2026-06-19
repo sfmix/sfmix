@@ -153,6 +153,10 @@ pub struct DiscoveredMac {
     pub last_seen: String,
 }
 
+fn default_assigned() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredNeighbor {
     pub ip: String,
@@ -163,6 +167,11 @@ pub struct DiscoveredNeighbor {
     pub macs: Vec<DiscoveredMac>,
     /// True when more than one MAC has been heard for this IP.
     pub conflict: bool,
+    /// False when this IP is not an active NetBox assignment: the claimant is
+    /// mis-bound to an invalid/disallowed address on the IX. Defaults to true so
+    /// pre-existing on-disk store files (all assigned) still deserialize.
+    #[serde(default = "default_assigned")]
+    pub assigned: bool,
 }
 
 // ── CommandOutput enum ──────────────────────────────────────────────

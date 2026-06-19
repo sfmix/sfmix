@@ -27,8 +27,21 @@ use crate::structured::{DiscoveredMac, DiscoveredNeighbor};
 /// still bounding memory and response size against an attacker flooding spoofed
 /// MACs for an assigned IP. The conflict flag still fires (it only needs >1), so
 /// the spoofing signal is preserved; we keep the most-recently-heard and evict
-/// the oldest. lg-server is bounded to assigned IPs, so worst case ~= 214 * this.
+/// the oldest. Assigned IPs are bounded by the assignment set (~214 * this);
+/// the unassigned bucket is bounded by [`MAX_UNASSIGNED_IPS`] (also * this).
 const MAX_MACS_PER_IP: usize = 100;
+
+/// Maximum number of *unassigned* IPs retained. Unlike assigned IPs (bounded by
+/// NetBox), an unassigned IP is anything a host claims via ARP/NDP, so a
+/// misbehaving/spoofing host could otherwise grow this set without limit. We keep
+/// the most-recently-heard and evict the oldest by `last_seen`.
+const MAX_UNASSIGNED_IPS: usize = 256;
+
+/// How long an unassigned IP record is kept after it was last heard. Assigned
+/// IPs never age out (tenant change is their only eviction); unassigned ones are
+/// transient mis-configurations, so they expire once the host stops claiming the
+/// address.
+const UNASSIGNED_TTL_SECS: i64 = 24 * 60 * 60;
 
 /// One row as reported by the sensor's `GET /neighbors`.
 #[derive(Debug, Clone, Deserialize)]
@@ -147,8 +160,12 @@ impl DiscoveredNeighborStore {
             assigned.insert(a.ip.as_str(), a);
         }
 
-        // Drop records for IPs no longer assigned to anyone.
-        self.records.retain(|ip, _| assigned.contains_key(ip.as_str()));
+        // Keep assigned IPs and any unassigned records (asn == None). An IP that
+        // was assigned but has left the assignment set is dropped here (dealloc /
+        // tenant-change wipe); if it is still being heard it re-enters below as a
+        // fresh unassigned record.
+        self.records
+            .retain(|ip, rec| assigned.contains_key(ip.as_str()) || rec.asn.is_none());
 
         // Apply tenant changes (clear history) and refresh tenant/family metadata.
         for (ip, a) in &assigned {
@@ -176,10 +193,18 @@ impl DiscoveredNeighborStore {
             }
         }
 
-        // Fold in observations for assigned IPs, preserving the earliest first_seen
-        // and advancing last_seen.
+        // Fold in observations, preserving the earliest first_seen and advancing
+        // last_seen. Assigned IPs already have a record; an IP not in the
+        // assignment set is recorded as unassigned (asn/tenant None) so a host
+        // mis-bound to an invalid/disallowed address is surfaced rather than
+        // silently dropped.
         for obs in sensor {
-            let Some(rec) = self.records.get_mut(&obs.ip) else { continue };
+            let rec = self.records.entry(obs.ip.clone()).or_insert_with(|| IpRecord {
+                family: obs.family.clone(),
+                asn: None,
+                tenant: None,
+                macs: HashMap::new(),
+            });
             let first = if obs.first_heard.is_empty() { now_str.clone() } else { obs.first_heard.clone() };
             let last = if obs.last_heard.is_empty() { now_str.clone() } else { obs.last_heard.clone() };
             rec.macs
@@ -192,8 +217,54 @@ impl DiscoveredNeighborStore {
             cap_macs(&mut rec.macs);
         }
 
+        // Bound the unassigned bucket: expire stale records, then cap the count.
+        self.prune_unassigned(now);
+
         self.fetched_at = Some(now_str);
         self.last_error = None;
+    }
+
+    /// Age out unassigned records last heard more than [`UNASSIGNED_TTL_SECS`]
+    /// ago, then evict the oldest-by-`last_seen` until at most
+    /// [`MAX_UNASSIGNED_IPS`] remain. Assigned records (asn present) are never
+    /// touched here.
+    fn prune_unassigned(&mut self, now: DateTime<Utc>) {
+        let cutoff = now - chrono::Duration::seconds(UNASSIGNED_TTL_SECS);
+        self.records.retain(|_, rec| {
+            if rec.asn.is_some() {
+                return true;
+            }
+            // Newest MAC sighting on this IP; keep while still within the TTL.
+            rec.macs
+                .values()
+                .filter_map(|t| DateTime::parse_from_rfc3339(&t.last_seen).ok())
+                .map(|t| t.with_timezone(&Utc))
+                .max()
+                .is_some_and(|last| last >= cutoff)
+        });
+
+        let unassigned = self.records.values().filter(|r| r.asn.is_none()).count();
+        if unassigned <= MAX_UNASSIGNED_IPS {
+            return;
+        }
+        // Sort unassigned IPs by most-recent sighting and drop the oldest excess.
+        let mut by_recency: Vec<(String, String)> = self
+            .records
+            .iter()
+            .filter(|(_, r)| r.asn.is_none())
+            .map(|(ip, r)| {
+                let newest = r.macs.values().map(|t| t.last_seen.clone()).max().unwrap_or_default();
+                (ip.clone(), newest)
+            })
+            .collect();
+        by_recency.sort_by(|a, b| ts_cmp(&a.1, &b.1));
+        let drop_n = unassigned - MAX_UNASSIGNED_IPS;
+        for (ip, _) in by_recency.into_iter().take(drop_n) {
+            self.records.remove(&ip);
+        }
+        warn!(
+            "Unassigned discovered-neighbor bucket exceeded {MAX_UNASSIGNED_IPS}; evicted {drop_n} oldest IP(s)"
+        );
     }
 
     /// Record a failed sensor poll without disturbing the retained data.
@@ -223,6 +294,8 @@ impl DiscoveredNeighborStore {
                     asn: rec.asn,
                     tenant: rec.tenant.clone(),
                     conflict: macs.len() > 1,
+                    // asn is None exactly for IPs not in the NetBox assignment set.
+                    assigned: rec.asn.is_some(),
                     macs,
                 }
             })
@@ -472,16 +545,80 @@ mod tests {
     }
 
     #[test]
-    fn unassigned_ip_is_dropped() {
+    fn unassigned_ip_is_retained_and_flagged() {
+        let mut store = DiscoveredNeighborStore::load(None);
+        // An IP heard on the fabric that is not in the assignment set.
+        store.update_at(
+            &[obs("10.9.9.9", "aa:aa", "2026-06-18T00:00:00Z", "2026-06-18T00:00:00Z")],
+            &[assign("10.0.0.1", 64500, "Acme")],
+            at("2026-06-18T00:00:00Z"),
+        );
+        let snap = store.snapshot();
+        let n = neighbor(&snap, "10.9.9.9");
+        assert!(!n.assigned, "unassigned IP must be flagged");
+        assert_eq!(n.asn, None);
+        assert_eq!(n.macs.len(), 1);
+        // The assigned IP is still assigned.
+        assert!(neighbor(&snap, "10.0.0.1").assigned);
+    }
+
+    #[test]
+    fn unassigned_ip_ages_out() {
+        let mut store = DiscoveredNeighborStore::load(None);
+        store.update_at(
+            &[obs("10.9.9.9", "aa:aa", "2026-06-18T00:00:00Z", "2026-06-18T00:00:00Z")],
+            &[assign("10.0.0.1", 64500, "Acme")],
+            at("2026-06-18T00:00:00Z"),
+        );
+        // A later poll, past the TTL, with the IP no longer heard: it expires.
+        // The assigned IP (never heard either) stays.
+        store.update_at(&[], &[assign("10.0.0.1", 64500, "Acme")], at("2026-06-19T01:00:00Z"));
+        let snap = store.snapshot();
+        assert!(snap.neighbors.iter().all(|n| n.ip != "10.9.9.9"), "stale unassigned IP must age out");
+        assert!(neighbor(&snap, "10.0.0.1").assigned, "assigned IP never ages out");
+    }
+
+    #[test]
+    fn assigned_ip_deallocated_then_reheard_becomes_unassigned() {
         let mut store = DiscoveredNeighborStore::load(None);
         store.update_at(
             &[obs("10.0.0.1", "aa:aa", "2026-06-18T00:00:00Z", "2026-06-18T00:00:00Z")],
             &[assign("10.0.0.1", 64500, "Acme")],
             at("2026-06-18T00:00:00Z"),
         );
-        // Next poll: IP no longer assigned.
-        store.update_at(&[], &[], at("2026-06-18T00:05:00Z"));
-        assert!(store.snapshot().neighbors.is_empty());
+        // IP deallocated (gone from assignments) but still heard from a new MAC.
+        store.update_at(
+            &[obs("10.0.0.1", "bb:bb", "2026-06-18T00:05:00Z", "2026-06-18T00:05:00Z")],
+            &[],
+            at("2026-06-18T00:05:00Z"),
+        );
+        let snap = store.snapshot();
+        let n = neighbor(&snap, "10.0.0.1");
+        assert!(!n.assigned, "deallocated IP becomes unassigned");
+        // Old-tenant history was wiped; only the freshly-heard MAC remains.
+        assert_eq!(n.macs.len(), 1);
+        assert_eq!(n.macs[0].mac, "bb:bb");
+    }
+
+    #[test]
+    fn unassigned_bucket_count_is_capped_keeping_newest() {
+        let mut store = DiscoveredNeighborStore::load(None);
+        let n_flood = MAX_UNASSIGNED_IPS + 10;
+        let obs: Vec<SensorObservation> = (0..n_flood)
+            .map(|i| obs(
+                &format!("10.{}.{}.{}", i / 65536, (i / 256) % 256, i % 256),
+                "aa:aa",
+                &format!("2026-06-18T{:02}:{:02}:00Z", i / 60, i % 60),
+                &format!("2026-06-18T{:02}:{:02}:00Z", i / 60, i % 60),
+            ))
+            .collect();
+        store.update_at(&obs, &[], at("2026-06-18T12:00:00Z"));
+        let snap = store.snapshot();
+        let kept = snap.neighbors.len();
+        assert_eq!(kept, MAX_UNASSIGNED_IPS, "unassigned bucket must be capped");
+        // The newest IP survives; the oldest is evicted.
+        assert!(snap.neighbors.iter().any(|n| n.ip == format!("10.{}.{}.{}", (n_flood - 1) / 65536, ((n_flood - 1) / 256) % 256, (n_flood - 1) % 256)));
+        assert!(snap.neighbors.iter().all(|n| n.ip != "10.0.0.0"), "oldest evicted");
     }
 
     #[test]
