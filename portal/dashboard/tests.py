@@ -2,7 +2,7 @@
 
 from django.test import SimpleTestCase
 
-from dashboard.views import _compute_rs_parity, _parity_applicable
+from dashboard.views import _compute_rs_parity, _parity_applicable, _real_routeservers
 
 # Two configured route servers, mirroring production (BIRD + OpenBGPD).
 ROUTESERVERS = [
@@ -91,6 +91,23 @@ class ComputeRsParityTests(SimpleTestCase):
         p = _compute_rs_parity(sessions, ROUTESERVERS)
         self.assertEqual(p["status"], "ok")
         self.assertEqual(p["afs"], ["v4"])
+
+
+class RealRouteserversTests(SimpleTestCase):
+    def test_drops_looking_glass_and_quarantine_sources(self):
+        # Mirrors the production Alice routeservers list.
+        rs = [
+            {"id": "rs-linux", "name": "BIRD/Linux Route Server"},
+            {"id": "rs-openbsd", "name": "OpenBGPD/OpenBSD Route Server"},
+            {"id": "looking_glass", "name": "Looking Glass Service"},
+            {"id": "quarantine_looking_glass", "name": "Quarantine VLAN Looking Glass"},
+        ]
+        kept = [r["id"] for r in _real_routeservers(rs)]
+        self.assertEqual(kept, ["rs-linux", "rs-openbsd"])
+
+    def test_keeps_dev_fixture_route_servers(self):
+        rs = [{"id": "rs1", "name": "RS1 (BIRD)"}, {"id": "rs2", "name": "RS2 (OpenBGPD)"}]
+        self.assertEqual(len(_real_routeservers(rs)), 2)
 
 
 class ParityApplicableTests(SimpleTestCase):
