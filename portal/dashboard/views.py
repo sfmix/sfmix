@@ -647,11 +647,21 @@ def _compute_rs_parity(rs_sessions, routeservers):
     return _rs_result(rs_summary, "prefix_mismatch" if issues else "ok", issues, afs)
 
 
-def _parity_applicable(participant):
-    """True if the participant is an active peer expected to peer with the RS."""
+def _parity_applicable(participant, pdb_networks=None):
+    """True if the participant is an active peer expected to peer with the RS.
+
+    Networks that declare ``info_never_via_route_servers`` on PeeringDB are
+    excluded: they intentionally never use the route servers, so parity findings
+    would be noise. ``pdb_networks`` is the PeeringDB cache's ``networks`` map
+    (ASN-string keyed); when omitted, the flag is not consulted.
+    """
     ptype = (participant.get("participant_type") or "").lower()
     if ptype in ("ixp", "routeserver"):
         return False
+    if pdb_networks:
+        pdb = pdb_networks.get(str(participant.get("asn"))) or {}
+        if pdb.get("info_never_via_route_servers"):
+            return False
     return any(
         ip.get("status", "").lower() == "active"
         for ip in participant.get("ip_addresses", [])
@@ -1055,7 +1065,7 @@ def participant_detail(request, asn):
 
             # 10. Route-server parity (public): warn when not redundantly
             #     peered with both route servers, or counts disagree.
-            if _parity_applicable(detail):
+            if _parity_applicable(detail, {str(asn): pdb_entry}):
                 rs_parity = _compute_rs_parity(rs_sessions, routeservers)
 
     except Exception as e:
@@ -1217,12 +1227,16 @@ def route_server_parity(request):
         alice = AliceLGClient()
         if lg.base_url and alice.base_url:
             participants = lg.get_participants()
+            try:
+                pdb_networks = lg.get_peeringdb_cache().get("networks", {})
+            except Exception:
+                pdb_networks = {}
             routeservers = _real_routeservers(alice.get_routeservers())
             by_asn = defaultdict(list)
             for n in alice.get_all_neighbors(routeservers):
                 by_asn[n.get("asn")].append(n)
             for p in participants:
-                if not _parity_applicable(p):
+                if not _parity_applicable(p, pdb_networks):
                     continue
                 asn = p.get("asn", 0)
                 parity = _compute_rs_parity(by_asn.get(asn, []), routeservers)

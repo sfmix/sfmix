@@ -128,3 +128,15 @@ class ParityApplicableTests(SimpleTestCase):
             "participant_type": "peer",
             "ip_addresses": [{"status": "reserved"}],
         }))
+
+    def test_never_via_route_servers_excluded(self):
+        participant = {
+            "asn": 64498,
+            "participant_type": "peer",
+            "ip_addresses": [{"status": "active"}],
+        }
+        pdb = {"64498": {"info_never_via_route_servers": True}}
+        self.assertFalse(_parity_applicable(participant, pdb))
+        # Without the PeeringDB flag, the same participant is applicable.
+        self.assertTrue(_parity_applicable(participant))
+        self.assertTrue(_parity_applicable(participant, {"64498": {}}))
