@@ -339,6 +339,16 @@ async fn get_ixf_member_export(
     }
 }
 
+/// Proxy IXP peering-LAN VLANs (with dot1q VIDs) from lg-server.
+async fn get_peering_vlans(
+    State(state): State<HttpState>,
+) -> impl IntoResponse {
+    match state.rpc.get_json("/rpc/v1/peering-vlans").await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
 /// Proxy participant port map from lg-server.
 async fn get_participant_ports(
     State(state): State<HttpState>,
@@ -567,6 +577,7 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/ipv6/neighbors", get(get_ipv6_neighbors))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
+        .route("/api/v1/peering-vlans", get(get_peering_vlans))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/participant-ports", get(get_participant_ports))
         .route("/api/v1/ix-ip-assignments", get(get_ix_ip_assignments))
