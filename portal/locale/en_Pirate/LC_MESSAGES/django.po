@@ -46,8 +46,8 @@ msgstr "Lost at sea"
 #, python-format
 msgid "%(port)s is bound to an unassigned IP"
 msgid_plural "%(port)s is bound to unassigned IPs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(port)s be lashed to an unchartered IP"
+msgstr[1] "%(port)s be lashed to unchartered IPs"
 
 #: dashboard/views.py:527
 #, python-format
@@ -56,6 +56,9 @@ msgid ""
 "the IX (%(pairs)s). Using an unallocated peering-LAN IP is disallowed and "
 "can disrupt other participants — correct the interface configuration."
 msgstr ""
+"A MAC spied on this port be flyin' an address that ain't charted on the IX "
+"(%(pairs)s). Sailin' under an unclaimed peerin'-LAN IP be forbidden an' can "
+"run other mates aground — set yer interface riggin' to rights."
 
 #: dashboard/views.py:538
 #, python-format
@@ -606,10 +609,11 @@ msgstr "A mystery"
 #: templates/dashboard/participant_detail.html:45
 msgid "A MAC on this network is sourcing an IP that is not assigned on the IX"
 msgstr ""
+"A MAC on this here network be flyin' an IP that ain't charted on the IX"
 
 #: templates/dashboard/participant_detail.html:45
 msgid "Invalid IP"
-msgstr ""
+msgstr "Cursed IP"
 
 #: templates/dashboard/participant_detail.html:51
 msgid "Website"
@@ -754,15 +758,15 @@ msgstr "a mess o' MACs"
 
 #: templates/dashboard/participant_detail.html:310
 msgid "Bound to unassigned IP"
-msgstr ""
+msgstr "Lashed to an unchartered IP"
 
 #: templates/dashboard/participant_detail.html:314
 msgid "This IP is not assigned to any participant on the IX"
-msgstr ""
+msgstr "This IP ain't charted to any mate on the IX"
 
 #: templates/dashboard/participant_detail.html:314
 msgid "not assigned on the IX"
-msgstr ""
+msgstr "ain't charted on the IX"
 
 #: templates/dashboard/participant_detail.html:331
 msgid "Route Servers"

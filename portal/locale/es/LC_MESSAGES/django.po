@@ -47,9 +47,9 @@ msgstr "Fuera de rango"
 #, python-format
 msgid "%(port)s is bound to an unassigned IP"
 msgid_plural "%(port)s is bound to unassigned IPs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "%(port)s está vinculado a una IP no asignada"
+msgstr[1] "%(port)s está vinculado a IPs no asignadas"
+msgstr[2] "%(port)s está vinculado a IPs no asignadas"
 
 #: dashboard/views.py:527
 #, python-format
@@ -58,6 +58,10 @@ msgid ""
 "the IX (%(pairs)s). Using an unallocated peering-LAN IP is disallowed and "
 "can disrupt other participants — correct the interface configuration."
 msgstr ""
+"Una MAC aprendida en este puerto está originando una dirección que no está "
+"asignada en el IX (%(pairs)s). Usar una IP de la LAN de peering no asignada "
+"está prohibido y puede afectar a otros participantes — corrija la "
+"configuración de la interfaz."
 
 #: dashboard/views.py:538
 #, python-format
@@ -611,10 +615,11 @@ msgstr "Desconocido"
 #: templates/dashboard/participant_detail.html:45
 msgid "A MAC on this network is sourcing an IP that is not assigned on the IX"
 msgstr ""
+"Una MAC en esta red está originando una IP que no está asignada en el IX"
 
 #: templates/dashboard/participant_detail.html:45
 msgid "Invalid IP"
-msgstr ""
+msgstr "IP no válida"
 
 #: templates/dashboard/participant_detail.html:51
 msgid "Website"
@@ -759,15 +764,15 @@ msgstr "múltiples MAC"
 
 #: templates/dashboard/participant_detail.html:310
 msgid "Bound to unassigned IP"
-msgstr ""
+msgstr "Vinculado a IP no asignada"
 
 #: templates/dashboard/participant_detail.html:314
 msgid "This IP is not assigned to any participant on the IX"
-msgstr ""
+msgstr "Esta IP no está asignada a ningún participante en el IX"
 
 #: templates/dashboard/participant_detail.html:314
 msgid "not assigned on the IX"
-msgstr ""
+msgstr "no asignada en el IX"
 
 #: templates/dashboard/participant_detail.html:331
 msgid "Route Servers"
