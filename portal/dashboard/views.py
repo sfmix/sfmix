@@ -252,8 +252,12 @@ def _dqt(device, port):
 
 def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
                          participant_ips, arp_by_ip, ndp_by_ip, discovered_by_ip,
-                         rs_sessions, can_see_admin):
+                         rs_sessions, can_see_admin, peering_vlans):
     """Build the logical port tree from NetBox + live data.
+
+    ``peering_vlans`` is the set of IXP peering-LAN dot1q VIDs (strings); learned
+    MACs on other VLANs are excluded from the L2 band. An empty set means the
+    peering-LAN list was unavailable, in which case MACs are not filtered.
 
     Returns a list of logical port dicts ready for the template.
     """
@@ -387,9 +391,13 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
         # L2: MACs learned on this logical port. The fabric reports learned
         # MACs on the bundle (Port-Channel) for LAGs and on the interface
         # itself for single ports, so gather from the port's own interface
-        # and every member (deduped) to cover both.
+        # and every member (deduped) to cover both. Restrict to the IXP peering
+        # LAN (VID 998 at SFMIX today) — other service VLANs are not relevant
+        # here and would otherwise trip the "expected 1" warning. Skip filtering
+        # if the peering-LAN list is unavailable.
         mac_keys = {(dev, iface_name)} | {(p["device"], p["name"]) for p in physical}
-        port_macs = [m for key in mac_keys for m in macs_by_key.get(key, [])]
+        port_macs = [m for key in mac_keys for m in macs_by_key.get(key, [])
+                     if not peering_vlans or str(m.get("vlan", "")) in peering_vlans]
 
         logical_ports.append({
             "id": iface_name,
@@ -841,6 +849,23 @@ def _fetch_macs_by_key(lg, token):
     return macs_by_key
 
 
+def _fetch_peering_vlan_ids(lg):
+    """Fetch the IXP peering-LAN dot1q VIDs as a set of strings (e.g. {"998"}).
+
+    The looking-glass derives these from the NetBox ``peering_lan`` tag, so the
+    set is portable across IXPs (today SFMIX has a single peering LAN, VID 998).
+    Returns an empty set on any failure — callers treat that as "don't filter"
+    so an older LG without this endpoint degrades to showing all VLANs rather
+    than blanking the L2 band.
+    """
+    try:
+        result = lg.get_peering_vlans()
+        return {str(v["vid"]) for v in result.get("vlans", []) if v.get("vid") is not None}
+    except Exception:
+        logger.warning("Failed to fetch peering VLANs", exc_info=True)
+        return set()
+
+
 def _fetch_arp_by_ip(lg, token):
     """Fetch ARP table and index by IP address string."""
     arp_by_ip = {}
@@ -1022,9 +1047,12 @@ def participant_detail(request, asn):
                 except Exception:
                     logger.warning("Failed to fetch optics", exc_info=True)
 
-            # 5. LLDP neighbors + learned MACs (both public, per-port)
+            # 5. LLDP neighbors + learned MACs (both public, per-port).
+            #    Learned MACs are filtered to the IXP peering LAN only; other
+            #    service VLANs on participant ports are not yet relevant here.
             lldp_by_key = _fetch_lldp_by_key(lg, token)
             macs_by_key = _fetch_macs_by_key(lg, token)
+            peering_vlans = _fetch_peering_vlan_ids(lg)
 
             # 6. ARP + NDP (kernel-chosen MAC) and passively-heard neighbors
             arp_by_ip = _fetch_arp_by_ip(lg, token)
@@ -1038,6 +1066,7 @@ def participant_detail(request, asn):
             logical_ports = _build_logical_ports(
                 enriched_ports, iface_by_key, optics_by_key, lldp_by_key, macs_by_key,
                 ip_addresses, arp_by_ip, ndp_by_ip, discovered_by_ip, rs_sessions, can_see_admin,
+                peering_vlans,
             )
 
             # 8b. Flag ports whose learned L2 MACs are heard on unassigned IPs:

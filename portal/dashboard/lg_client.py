@@ -106,6 +106,10 @@ class LookingGlassClient:
         """Get IX-F Member Export (participants.json)."""
         return self._get("/api/v1/participants.json")
 
+    def get_peering_vlans(self) -> dict[str, Any]:
+        """Get the IXP peering-LAN VLANs (public; derived from NetBox peering_lan tag)."""
+        return self._get("/api/v1/peering-vlans")
+
     def get_peeringdb_cache(self) -> dict[str, Any]:
         """Get PeeringDB network cache (website URLs, IRR, policy, etc.)."""
         return self._get("/api/v1/peeringdb-cache")

@@ -1,0 +1,13 @@
+{
+  "vlans": [
+    {
+      "id": 10,
+      "vid": 100,
+      "name": "Peering LAN",
+      "ipv4_prefix": "198.51.100.0",
+      "ipv4_mask_length": 24,
+      "ipv6_prefix": "2001:db8:ffff::",
+      "ipv6_mask_length": 64
+    }
+  ]
+}

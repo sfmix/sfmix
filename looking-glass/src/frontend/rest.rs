@@ -606,6 +606,18 @@ async fn get_ixf_member_export(
     Json(crate::ixf::build_ixf_export(&ixp_data, &nb_participants))
 }
 
+/// Peering-LAN VLANs (NetBox `peering_lan`-tagged), as dot1q VIDs plus prefixes.
+///
+/// Public/anonymous, like `participants.json`: peering-LAN VIDs are public info.
+/// Consumers (e.g. the portal) use `vid` to filter learned MAC entries down to
+/// the peering LAN only.
+async fn get_peering_vlans(
+    State(state): State<RestState>,
+) -> Json<serde_json::Value> {
+    let ixp_data = state.lg.ixp_data.load();
+    Json(serde_json::json!({ "vlans": ixp_data.vlans }))
+}
+
 /// Build the REST API router.
 pub fn router(state: RestState) -> Router {
     Router::new()
@@ -620,6 +632,7 @@ pub fn router(state: RestState) -> Router {
         .route("/api/v1/ipv6/neighbors", get(get_ipv6_neighbors))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
+        .route("/api/v1/peering-vlans", get(get_peering_vlans))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/participant-ports", get(get_participant_ports))
         .route("/api/v1/netbox/status", get(get_netbox_status))

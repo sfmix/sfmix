@@ -117,6 +117,8 @@ pub struct IxpSwitch {
 #[derive(Debug, Clone, Serialize)]
 pub struct IxpVlan {
     pub id: u64,
+    /// 802.1Q VLAN ID (dot1q tag), used to match learned MAC entries.
+    pub vid: u32,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ipv4_prefix: Option<String>,
@@ -203,6 +205,7 @@ pub async fn fetch_port_map(
         }
         peering_vlans: vlan_list(filters: { group: { slug: { exact: "exchange_fabric_vlans" } } }) {
             id
+            vid
             name
             tags { slug }
         }
@@ -398,7 +401,7 @@ pub async fn fetch_port_map(
 
     // Build IXP VLAN list (only peering_lan tagged VLANs)
     let peering_vlan_ids: Vec<u64> = data.peering_vlans.iter()
-        .filter(|v| v.tags.iter().any(|t| t.slug == "peering_lan"))
+        .filter(|v| v.is_peering_lan())
         .map(|v| v.id)
         .collect();
 
@@ -423,6 +426,7 @@ pub async fn fetch_port_map(
             }
             IxpVlan {
                 id: v.id,
+                vid: v.vid,
                 name: v.name.clone(),
                 ipv4_prefix,
                 ipv4_mask_length: ipv4_mask,
@@ -654,8 +658,17 @@ struct ManufacturerEntry {
 struct VlanEntry {
     #[serde(deserialize_with = "deserialize_string_id")]
     id: u64,
+    vid: u32,
     name: String,
     tags: Vec<TagEntry>,
+}
+
+impl VlanEntry {
+    /// True if this VLAN carries the NetBox `peering_lan` tag (the IXP
+    /// peering LAN, as opposed to other exchange-fabric service VLANs).
+    fn is_peering_lan(&self) -> bool {
+        self.tags.iter().any(|t| t.slug == "peering_lan")
+    }
 }
 
 #[derive(Deserialize)]
@@ -727,5 +740,30 @@ where
         }
         Some(Value::String(s)) => s.parse::<u64>().map(Some).map_err(de::Error::custom),
         _ => Err(de::Error::custom("expected object with id, number, or null")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn peering_lan_vids_parsed_and_filtered() {
+        // Mirrors the `peering_vlans` GraphQL selection: dot1q `vid` is a
+        // number, and only `peering_lan`-tagged VLANs are the peering LAN.
+        let json = r#"[
+            {"id": "10", "vid": 998, "name": "Peering LAN", "tags": [{"slug": "peering_lan"}]},
+            {"id": "11", "vid": 100, "name": "Service VLAN", "tags": [{"slug": "management"}]},
+            {"id": "12", "vid": 200, "name": "Untagged", "tags": []}
+        ]"#;
+        let vlans: Vec<VlanEntry> = serde_json::from_str(json).unwrap();
+
+        let peering_vids: Vec<u32> = vlans
+            .iter()
+            .filter(|v| v.is_peering_lan())
+            .map(|v| v.vid)
+            .collect();
+
+        assert_eq!(peering_vids, vec![998]);
     }
 }
