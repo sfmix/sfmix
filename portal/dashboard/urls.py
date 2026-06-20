@@ -11,6 +11,7 @@ urlpatterns = [
     path("participants/", views.participants_list, name="participants_list"),
     path("route-servers/", views.route_server_parity, name="route_server_parity"),
     path("participants/<int:asn>/", views.participant_detail, name="participant_detail"),
+    path("participants/<int:asn>/metrics/", views.participant_metrics, name="participant_metrics"),
     path("admin/lldp/", views.lldp_neighbors, name="lldp_neighbors"),
     path("metrics/", views.metrics_view, name="metrics"),
     path("admin/netbox-status/", views.netbox_status_view, name="netbox_status"),
