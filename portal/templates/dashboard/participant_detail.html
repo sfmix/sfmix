@@ -272,21 +272,6 @@ below carries the title.
             <div class="nd-llp-if">{{ phy.lldp.port_id|default:"—" }}</div>
           </div>
         </div>
-        {% elif phy.link_status != "up" and phy.link_status != "connected" %}
-        <div class="nd-lldp-pill nd-lldp-down">
-          <div class="nd-llp-side nd-llp-local">
-            <div class="nd-llp-label">{% translate "Local" %}</div>
-            <div class="nd-llp-host">{{ phy.device|cut:".sfmix.org" }}</div>
-            <div class="nd-llp-if">{{ phy.name }}</div>
-          </div>
-          <div class="nd-llp-conn">
-            <span class="nd-llp-dot nd-llp-dot-down"></span>
-            <span class="nd-llp-arrow">&times;</span>
-          </div>
-          <div class="nd-llp-side nd-llp-remote">
-            <div class="nd-llp-down-label">{% translate "Link down &mdash; no LLDP" %}</div>
-          </div>
-        </div>
         {% else %}
         <div class="nd-lldp-pill">
           <div class="nd-llp-side nd-llp-local">
@@ -295,11 +280,11 @@ below carries the title.
             <div class="nd-llp-if">{{ phy.name }}</div>
           </div>
           <div class="nd-llp-conn">
-            <span class="nd-llp-dot nd-llp-dot-up"></span>
+            <span class="nd-llp-dot nd-llp-dot-na"></span>
             <span class="nd-llp-arrow">&harr;</span>
           </div>
           <div class="nd-llp-side nd-llp-remote">
-            <div class="nd-llp-down-label">{% translate "No LLDP data" %}</div>
+            <div class="nd-llp-down-label">{% translate "No LLDP received" %}</div>
           </div>
         </div>
         {% endif %}

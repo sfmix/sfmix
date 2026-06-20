@@ -775,13 +775,9 @@ msgstr "Local"
 msgid "Remote"
 msgstr "Remote"
 
-#: templates/dashboard/participant_detail.html:233
-msgid "Link down &mdash; no LLDP"
-msgstr "Link down bad &mdash; no LLDP"
-
-#: templates/dashboard/participant_detail.html:248
-msgid "No LLDP data"
-msgstr "no LLDP data, empty fr"
+#: templates/dashboard/participant_detail.html:287
+msgid "No LLDP received"
+msgstr "no LLDP recvd, ghosted fr"
 
 #: templates/dashboard/participant_detail.html:254
 #, fuzzy

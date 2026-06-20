@@ -286,6 +286,7 @@ body {
 .nd-llp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .nd-llp-dot-up { background: #22c55e; }
 .nd-llp-dot-down { background: #ef4444; }
+.nd-llp-dot-na { background: #9ca3af; }
 .nd-llp-arrow { font-size: .85rem; color: var(--color-text-light); }
 .nd-llp-down-label { font-size: .78rem; color: var(--color-text-light); font-style: italic; }
 

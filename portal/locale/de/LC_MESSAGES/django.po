@@ -778,13 +778,9 @@ msgstr "Lokal"
 msgid "Remote"
 msgstr "Remote"
 
-#: templates/dashboard/participant_detail.html:233
-msgid "Link down &mdash; no LLDP"
-msgstr "Link ausgefallen &mdash; kein LLDP"
-
-#: templates/dashboard/participant_detail.html:248
-msgid "No LLDP data"
-msgstr "Keine LLDP-Daten"
+#: templates/dashboard/participant_detail.html:287
+msgid "No LLDP received"
+msgstr "Kein LLDP empfangen"
 
 #: templates/dashboard/participant_detail.html:254
 #, fuzzy
