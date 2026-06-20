@@ -1281,6 +1281,96 @@ def participant_metrics(request, asn):
     })
 
 
+def ix_statistics(request):
+    """Public, exchange-wide traffic dashboard (mirrors the Grafana overview)."""
+    return render(request, "dashboard/ix_statistics.html", {
+        "is_ix_admin": _is_ix_admin(request) if request.user.is_authenticated else False,
+    })
+
+
+def ix_metrics(request):
+    """JSON traffic series for the exchange-wide statistics charts.
+
+    Public — these are fabric-wide aggregates not attributable to any single
+    member, so no authorization is required. As with the per-participant
+    endpoint the browser only picks a *named panel* with a bounded range key;
+    the PromQL is built server-side (see :mod:`dashboard.prom_client`).
+    """
+    panel = request.GET.get("panel", "")
+    range_key = request.GET.get("range", prom_client.DEFAULT_RANGE)
+    if range_key not in prom_client.RANGES:
+        return JsonResponse({"error": "invalid range"}, status=400)
+    window, step = prom_client.RANGES[range_key]
+    end = int(time.time())
+    start = end - window
+    xs = prom_client.build_grid(start, end, step)
+
+    prom = prom_client.PrometheusClient()
+    unit = "bps"
+
+    try:
+        if panel == "ix_total":
+            in_r = prom.query_range(prom_client.ix_total_query("in", step), start, end, step)
+            out_r = prom.query_range(prom_client.ix_total_query("out", step), start, end, step)
+            series = [
+                {"name": "Ingress", "values": prom_client.align_single(in_r, xs, start, step)},
+                {"name": "Egress", "values": prom_client.align_single(out_r, xs, start, step)},
+            ]
+
+        elif panel == "protocols":
+            result = prom.query_range(prom_client.protocols_query(step), start, end, step)
+            series = prom_client.labeled_series(
+                result, xs, start, step, lambda m: m.get("ethtype", "?")
+            )
+
+        elif panel == "pktdist":
+            unit = "percent"
+            result = prom.query_range(prom_client.pktdist_query(step), start, end, step)
+            series = prom_client.labeled_series(
+                result, xs, start, step,
+                lambda m: f'{m.get("size", "?")} B', sort_by_mean=False,
+            )
+            # Stack smallest packet sizes at the bottom for a stable, readable order.
+            series.sort(key=lambda s: _bin_sort_key(s["name"]))
+
+        elif panel == "bgp":
+            unit = "count"
+            result = prom.query_range(prom_client.bgp_connections_query(step), start, end, step)
+            series = [
+                {"name": "BGP connections",
+                 "values": prom_client.align_single(result, xs, start, step)},
+            ]
+
+        else:
+            return JsonResponse({"error": "unknown panel"}, status=400)
+
+    except Exception:
+        logger.warning("Prometheus query failed for IX panel=%s", panel, exc_info=True)
+        return JsonResponse({"error": "query failed"}, status=502)
+
+    return JsonResponse({
+        "panel": panel,
+        "range": range_key,
+        "unit": unit,
+        "start": start,
+        "end": end,
+        "step": step,
+        "timestamps": xs,
+        "series": series,
+    })
+
+
+def _bin_sort_key(name):
+    """Order packet-size bands by their lower bound ("0-63 B" < "64 B" < …)."""
+    digits = ""
+    for ch in name:
+        if ch.isdigit():
+            digits += ch
+        elif digits:
+            break
+    return int(digits) if digits else 0
+
+
 def _format_speed(speed_mbps):
     """Format port speed in Mbps to human-readable string."""
     if not speed_mbps:

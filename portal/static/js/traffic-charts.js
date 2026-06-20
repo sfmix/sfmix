@@ -44,6 +44,18 @@
     return "" + v;
   }
 
+  // Unit-aware value/axis formatters. Panels carry a "unit" (bps | percent |
+  // count); bps is the default and keeps the original behaviour.
+  function fmtVal(v, unit) {
+    if (v == null || isNaN(v)) return "—";
+    if (unit === "percent") return (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)) + "%";
+    if (unit === "count") return Math.round(v).toLocaleString();
+    return fmtBps(v);
+  }
+  function fmtAxisFor(unit) {
+    return function (v) { return unit === "percent" ? v + "%" : fmtAxis(v); };
+  }
+
   function cumulative(seriesValues) {
     // seriesValues: array of value-arrays (per peer). Returns cumulative arrays,
     // smallest-on-top painter order handled by caller.
@@ -85,6 +97,7 @@
 
   function drawStacked(host, data) {
     var xs = data.timestamps;
+    var unit = data.unit;
     var peers = data.series; // already sorted, top peers + Other
     if (!peers.length) return null;
     var vals = peers.map(function (p) { return p.values; });
@@ -110,7 +123,7 @@
       scales: { x: { time: true } },
       axes: [
         { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER } },
-        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, values: function (u, sp) { return sp.map(fmtAxis); } },
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, values: function (u, sp) { return sp.map(fmtAxisFor(unit)); } },
       ],
       series: series,
     };
@@ -128,7 +141,7 @@
       item.innerHTML =
         '<span class="nd-tf-sw" style="background:' + PALETTE[i % PALETTE.length] + '"></span>' +
         '<span class="nd-tf-leg-name">' + escapeHtml(p.name) + asnTag + "</span>" +
-        '<span class="nd-tf-leg-val">' + fmtBps(last) + "</span>";
+        '<span class="nd-tf-leg-val">' + fmtVal(last, unit) + "</span>";
       legend.appendChild(item);
     });
     host.appendChild(legend);
@@ -141,7 +154,58 @@
     });
   }
 
-  var DRAW = { mirror: drawMirror, stacked: drawStacked };
+  function drawAggregate(host, data) {
+    // Exchange-wide ingress above the axis, egress mirrored below.
+    var xs = data.timestamps;
+    var s0 = data.series[0] || { values: [] };
+    var s1 = data.series[1] || { values: [] };
+    var neg = (s1.values || []).map(function (v) { return v == null ? null : -v; });
+    var opts = {
+      width: host.clientWidth || 720,
+      height: 240,
+      cursor: { y: false },
+      scales: { x: { time: true } },
+      legend: { live: true },
+      axes: [
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER } },
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, values: function (u, sp) { return sp.map(fmtAxis); } },
+      ],
+      series: [
+        { value: function (u, v) { return v == null ? "" : new Date(v * 1000).toLocaleString(); } },
+        { label: s0.name || "Ingress", stroke: TEAL, width: 2, fill: TEAL + "26", value: function (u, v) { return fmtBps(v); } },
+        { label: s1.name || "Egress", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
+      ],
+    };
+    return new uPlot(opts, [xs, s0.values || [], neg], host);
+  }
+
+  function drawLine(host, data) {
+    // One or more plain lines; unit-aware axis/legend (bps, percent, count).
+    var xs = data.timestamps;
+    var unit = data.unit;
+    var series = [{ value: function (u, v) { return v == null ? "" : new Date(v * 1000).toLocaleString(); } }];
+    var seriesData = [xs];
+    data.series.forEach(function (s, i) {
+      var color = PALETTE[i % PALETTE.length];
+      series.push({ label: s.name, stroke: color, width: 2, value: function (u, v) { return fmtVal(v, unit); } });
+      seriesData.push(s.values);
+    });
+    var opts = {
+      width: host.clientWidth || 720,
+      height: 240,
+      cursor: { y: false },
+      scales: { x: { time: true } },
+      legend: { live: true },
+      axes: [
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER } },
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, values: function (u, sp) { return sp.map(fmtAxisFor(unit)); } },
+      ],
+      series: series,
+    };
+    return new uPlot(opts, seriesData, host);
+  }
+
+  var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine };
 
   class SfmixChart extends HTMLElement {
     connectedCallback() {
@@ -149,6 +213,9 @@
       this.kind = this.getAttribute("kind") || "mirror";
       this.asn = this.getAttribute("asn");
       this.port = this.getAttribute("port");
+      // Optional explicit metrics endpoint (e.g. the exchange-wide stats page);
+      // defaults to the per-participant endpoint built from `asn`.
+      this.endpoint = this.getAttribute("endpoint");
       this.range = this.getAttribute("range") || "24h";
       this._ro = new ResizeObserver(this._onResize.bind(this));
       this._ro.observe(this);
@@ -179,8 +246,9 @@
     }
     load() {
       this._skeleton("querying…");
-      var url = "/participants/" + encodeURIComponent(this.asn) + "/metrics/?panel=" +
-        encodeURIComponent(this.panel) + "&range=" + encodeURIComponent(this.range);
+      var base = this.endpoint || ("/participants/" + encodeURIComponent(this.asn) + "/metrics/");
+      var url = base + "?panel=" + encodeURIComponent(this.panel) +
+        "&range=" + encodeURIComponent(this.range);
       if (this.port != null && this.port !== "") url += "&port=" + encodeURIComponent(this.port);
       var token = (this._tok = Symbol());
       fetch(url, { headers: { Accept: "application/json" } })
