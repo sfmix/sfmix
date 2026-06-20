@@ -1,5 +1,6 @@
 ---
 sfmix_server_ufw_enabled: true
+sfmix_server_ufw_logging: "off"   # off|low|medium|high|full — block spam is useless to us
 sfmix_server_dns_recursors:
   - 8.8.8.8
 sfmix_server_snmp_community: public

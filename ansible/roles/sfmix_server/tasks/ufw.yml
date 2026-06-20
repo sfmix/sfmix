@@ -10,6 +10,9 @@
   community.general.ufw:
     state: "{{ sfmix_server_ufw_enabled | bool | ternary('enabled', 'disabled') }}"
     policy: reject
+    logging: "{{ sfmix_server_ufw_logging }}"
+  tags:
+    - firewall
 
 - name: "Firewall: Build desired admin subnets list (normalized)"
   ansible.builtin.set_fact:
