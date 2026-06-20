@@ -4,7 +4,7 @@ Django-based participant dashboard for SFMIX IX users. Authenticates via Authent
 
 ## Architecture
 
-- **Host:** `web.sfmix.org` (Ansible group `sfmix_website`), DNS CNAME `portal.sfmix.org` → `web`
+- **Host:** `portal.sfmix.org` (Ansible group `ixp_portal`)
 - **Runtime:** Django + Gunicorn in Docker, port 8000, behind Nginx with Let's Encrypt TLS
 - **Auth:** `mozilla-django-oidc` → Authentik OIDC at `login.sfmix.org`
 - **Data:** NetBox API with proactive in-process cache (background thread per Gunicorn worker, 4-hour refresh cycle with exponential backoff on failure)
@@ -171,7 +171,7 @@ The `ixp_portal` role (`ansible/roles/ixp_portal/`) performs these steps:
 
 ### Secrets
 
-Stored vault-encrypted in `ansible/inventory/host_vars/web.sfmix.org.yml`:
+Stored vault-encrypted in `ansible/inventory/host_vars/portal.sfmix.org.yml`:
 
 | Variable                        | Description                  |
 |---------------------------------|------------------------------|
@@ -184,7 +184,7 @@ Stored vault-encrypted in `ansible/inventory/host_vars/web.sfmix.org.yml`:
 After deploying, check the container logs for a successful NetBox cache refresh:
 
 ```bash
-ssh web.sfmix.org "sudo docker-compose -f /opt/ixp_portal/docker-compose.yml logs --tail 20 2>&1 | grep -iE 'netbox|error'"
+ssh portal.sfmix.org "sudo docker-compose -f /opt/ixp_portal/docker-compose.yml logs --tail 20 2>&1 | grep -iE 'netbox|error'"
 ```
 
 Expected output: `NetBox cache refreshed in N.Ns: NN tenants, NN IPs, NN ports` from each Gunicorn worker.
@@ -193,14 +193,14 @@ IX Administrators can also check health in the browser at `https://portal.sfmix.
 
 Smoke test:
 ```bash
-ssh web.sfmix.org "curl -s -o /dev/null -w '%{http_code}' -H 'Host: portal.sfmix.org' http://localhost:8000/login/"
+ssh portal.sfmix.org "curl -s -o /dev/null -w '%{http_code}' -H 'Host: portal.sfmix.org' http://localhost:8000/login/"
 # Expected: 200
 ```
 
 ### Troubleshooting
 
 **SSH rate limiting / connection resets during deploy:**
-`web.sfmix.org` has `PerSourceMaxStartups 10` in sshd. Ansible rsync opens extra SSH connections which can trip this. Admin IPs should be in `PerSourcePenaltyExemptList` (managed by `ansible/roles/sfmix_server/tasks/sshd.yml`).
+`portal.sfmix.org` has `PerSourceMaxStartups 10` in sshd. Ansible rsync opens extra SSH connections which can trip this. Admin IPs should be in `PerSourcePenaltyExemptList` (managed by `ansible/roles/sfmix_server/tasks/sshd.yml`).
 
 **NetBox cache empty (0 tenants, 0 IPs):**
 Check that `IXP_NETBOX_TOKEN` in `/opt/ixp_portal/.env` is a valid NetBox API token. Look for HTTP 403 errors in the container logs. The background cache thread starts when the first HTTP request hits each Gunicorn worker (via `dashboard.middleware.NetBoxCacheMiddleware`). On failure, the refresh loop retries with exponential backoff (30s → 60s → ... → 1h cap). IX Administrators can view the current error and clear/force-refresh from `/admin/netbox-status/`.
@@ -220,7 +220,7 @@ The docker-compose health check hits `localhost:8000` which isn't in `ALLOWED_HO
 | `ansible/roles/ixp_portal/defaults/main.yml`              | Default variables (domain, ports, OIDC, NetBox URL)                        |
 | `ansible/roles/ixp_portal/templates/dotenv.j2`            | Environment variable template                                              |
 | `ansible/roles/ixp_portal/templates/nginx-portal.conf.j2` | Nginx vhost template                                                       |
-| `ansible/inventory/host_vars/web.sfmix.org.yml`           | Host secrets (vault-encrypted)                                             |
+| `ansible/inventory/host_vars/portal.sfmix.org.yml`        | Host secrets (vault-encrypted)                                             |
 | `portal/dashboard/services.py`                            | NetBox data fetching, proactive cache, health tracking, Prometheus metrics |
 | `portal/dashboard/middleware.py`                          | Starts background refresh thread per Gunicorn worker                       |
 | `portal/ixp_portal/settings.py`                           | Django settings (OIDC, logging, middleware)                                |
