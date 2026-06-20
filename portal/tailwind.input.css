@@ -355,6 +355,9 @@ body {
 
 .site-nav { background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 .site-nav-logo { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+/* Collapsed mobile nav panel; reverts to a bare inline row at md+. */
+.nav-menu { background: var(--color-primary); box-shadow: 0 8px 16px rgba(0,0,0,0.18); }
+@media (min-width: 768px) { .nav-menu { background: transparent; box-shadow: none; } }
 .nav-admin-badge { background: var(--color-portal-100); color: var(--color-portal-700); }
 .nav-dropdown { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
 .rainbow-bar { height: 3px; background: linear-gradient(90deg, #8B2FC9, #3B7DD8, #A0C814, #E8B000, #D42020); }

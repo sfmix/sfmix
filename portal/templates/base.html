@@ -17,12 +17,25 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
-  <nav class="site-nav h-16 px-6 flex items-center justify-between">
+  <nav class="site-nav h-16 px-6 flex items-center justify-between relative"
+       x-data="{ mobileOpen: false, desktop: window.matchMedia('(min-width: 768px)').matches }"
+       x-init="window.matchMedia('(min-width: 768px)').addEventListener('change', e => { desktop = e.matches; if (e.matches) mobileOpen = false })">
     <a href="/" class="flex items-center gap-3 no-underline">
       <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="site-nav-logo h-8">
       <span class="text-white/70 text-sm font-medium hidden sm:inline">{% translate "Participant Portal" %}</span>
     </a>
-    <div class="flex items-center gap-4 text-sm">
+
+    {# Hamburger toggle — shown only below the md breakpoint (768px), where the inline nav would overflow. #}
+    <button @click.stop="mobileOpen = !mobileOpen" :aria-expanded="mobileOpen"
+            class="md:hidden text-white/80 hover:text-white p-1 -mr-1 transition"
+            aria-label="{% translate 'Toggle navigation' %}">
+      <svg x-show="!mobileOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <svg x-show="mobileOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+
+    {# Link cluster: an inline row at md+, a drop-down panel below the nav on mobile. #}
+    <div x-show="desktop || mobileOpen" @click.away="mobileOpen = false"
+         class="nav-menu text-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 absolute md:static left-0 right-0 top-16 md:top-auto px-6 md:px-0 py-4 md:py-0 z-20">
       <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">{% translate "Participants" %}</a>
       <a href="{% url 'ix_statistics' %}" class="text-white/70 hover:text-white transition">{% translate "Statistics" %}</a>
       <a href="{% url 'route_server_parity' %}" class="text-white/70 hover:text-white transition">{% translate "Route Servers" %}</a>
