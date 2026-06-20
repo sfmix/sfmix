@@ -182,6 +182,11 @@ IXP_LOOKING_GLASS_URL = os.environ.get("IXP_LOOKING_GLASS_URL", "https://lg.sfmi
 # --- Alice Looking Glass (route-server session data) ---
 ALICE_LG_URL = os.environ.get("ALICE_LG_URL", "https://alice.sfmix.org")
 
+# --- Prometheus (time-series backend for participant traffic charts) ---
+# The portal builds read-only PromQL server-side and proxies the result as
+# JSON; Prometheus is never exposed to the browser. See dashboard/prom_client.py.
+PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://metrics.sfo02.sfmix.org:9090")
+
 # --- Prometheus metrics ---
 # Networks allowed to scrape /metrics/.  Accepts CIDR notation.
 _trusted_nets = os.environ.get("PROMETHEUS_TRUSTED_NETWORKS", "127.0.0.0/8,::1/128")

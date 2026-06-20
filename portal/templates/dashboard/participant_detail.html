@@ -104,6 +104,42 @@
 </div>
 {% endif %}
 
+{# ── Peer-to-peer traffic (admin only, network-wide) ─────────── #}
+{% if can_see_admin %}
+<div class="nd-tf-section nd-tf-band">
+  <div class="nd-tf-section-head">
+    <h2 class="nd-tf-section-title">
+      {% translate "Peer-to-peer traffic" %}
+      <span class="nd-tf-scope-tag">{% translate "Admin" %}</span>
+    </h2>
+    <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
+      <button data-range="1h">1h</button>
+      <button data-range="24h" class="on">24h</button>
+      <button data-range="7d">7d</button>
+      <button data-range="30d">30d</button>
+    </div>
+  </div>
+  <span class="nd-tf-sub">{% translate "Network-wide &middot; live from sFlow &middot; drawn in-page, not embedded" %}</span>
+  <div class="nd-tf-mobile-note">{% translate "Traffic graphs are available on a larger screen." %}</div>
+  <div class="nd-tf-grid">
+    <div class="nd-tf-panel">
+      <div class="nd-tf-panel-head">
+        <h4 class="nd-tf-title">{% translate "Top peers &mdash; ingress" %}</h4>
+        <span class="nd-tf-sub">{% translate "from peer &middot; stacked" %}</span>
+      </div>
+      <sfmix-chart panel="peers_from" kind="stacked" asn="{{ asn }}" range="24h"></sfmix-chart>
+    </div>
+    <div class="nd-tf-panel">
+      <div class="nd-tf-panel-head">
+        <h4 class="nd-tf-title">{% translate "Top peers &mdash; egress" %}</h4>
+        <span class="nd-tf-sub">{% translate "to peer &middot; stacked" %}</span>
+      </div>
+      <sfmix-chart panel="peers_to" kind="stacked" asn="{{ asn }}" range="24h"></sfmix-chart>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {# ── Logical Ports ───────────────────────────────────────────── #}
 {% for lp in logical_ports %}
 <div class="nd-lport{% if lp.link_state == 'down' %} nd-lport-down{% endif %}">
@@ -183,6 +219,34 @@
             {% endif %}
           </div>
           {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── OPS: Interface throughput (admin only) ──────────── #}
+    {% if can_see_admin %}
+    <div class="nd-lband nd-l1 nd-admin-band nd-tf-band">
+      <div class="nd-lband-tag">
+        <span class="nd-lt-l">OPS</span>
+        <span class="nd-lt-name">{% translate "Throughput" %}</span>
+        <span class="nd-lt-scope">{% translate "Admin" %}</span>
+      </div>
+      <div class="nd-lband-body">
+        <div class="nd-tf-head">
+          <span class="nd-tf-sub">{% translate "physical &middot; out &uarr; / in &darr; &middot; live from sFlow" %}</span>
+          <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
+            <button data-range="1h">1h</button>
+            <button data-range="24h" class="on">24h</button>
+            <button data-range="7d">7d</button>
+            <button data-range="30d">30d</button>
+          </div>
+        </div>
+        <div class="nd-tf-mobile-note">{% translate "Traffic graphs are available on a larger screen." %}</div>
+        <div class="nd-tf-grid">
+          <div class="nd-tf-panel">
+            <sfmix-chart panel="if_counters" kind="mirror" asn="{{ asn }}" port="{{ forloop.counter0 }}" range="24h"></sfmix-chart>
+          </div>
         </div>
       </div>
     </div>
@@ -450,4 +514,20 @@
 </div>
 {% endfor %}
 
+{% endblock %}
+
+{% block extra_head %}
+{% if can_see_admin %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/vendor/uPlot.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/traffic.css' %}">
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if can_see_admin %}
+{% load static %}
+<script src="{% static 'js/vendor/uPlot.iife.min.js' %}"></script>
+<script src="{% static 'js/traffic-charts.js' %}"></script>
+{% endif %}
 {% endblock %}

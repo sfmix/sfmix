@@ -1,12 +1,13 @@
 import ipaddress
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.timesince import timesince
 from django.utils.translation import gettext, ngettext
@@ -15,6 +16,7 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from .alice_client import AliceLGClient
 from .lg_client import LookingGlassClient, get_lg_client
+from . import prom_client
 
 logger = logging.getLogger(__name__)
 
@@ -1175,6 +1177,107 @@ def participant_detail(request, asn):
         "can_see_admin": can_see_admin,
         "is_own_network": asn in user_asns,
         "is_ix_admin": is_admin,
+    })
+
+
+def _metric_port_members(asn, token, port_index):
+    """Resolve a logical-port index to its validated (device, ifname) members.
+
+    The traffic charts must never let the browser name an arbitrary interface,
+    so the member set is recomputed server-side from the member's own NetBox
+    ports. ``logical_ports`` is built 1:1 (and in order) from ``enriched_ports``
+    in :func:`_build_logical_ports`, so the template's loop index addresses the
+    same port here. Returns ``None`` for an out-of-range / malformed index.
+    """
+    try:
+        idx = int(port_index)
+    except (TypeError, ValueError):
+        return None
+
+    lg = LookingGlassClient()
+    if not lg.base_url:
+        return None
+    detail = lg.get_participant_detail(asn, token=token)
+    ports = detail.get("enriched_ports", [])
+    if not (0 <= idx < len(ports)):
+        return None
+
+    port = ports[idx]
+    members = port.get("member_interfaces") or []
+    pairs = [(d, i) for d, i in members if d and i]
+    if not pairs:  # single (non-LAG) port: the interface is its own member
+        dev, ifn = port.get("device"), port.get("interface")
+        if dev and ifn:
+            pairs = [(dev, ifn)]
+    return pairs or None
+
+
+def participant_metrics(request, asn):
+    """JSON traffic series for the participant detail charts.
+
+    Security model: the browser asks for a *named panel* with bounded params;
+    the portal builds the PromQL (see :mod:`dashboard.prom_client`) and proxies
+    the result. Authorization mirrors the admin-only traffic band on the detail
+    page exactly — only the network's own admins and IX admins may read it, and
+    the ASN comes from the authorized URL, never from a client-supplied query.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "authentication required"}, status=403)
+    user_asns = request.session.get("oidc_asns", [])
+    if not (_is_ix_admin(request) or asn in user_asns):
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    panel = request.GET.get("panel", "")
+    range_key = request.GET.get("range", prom_client.DEFAULT_RANGE)
+    if range_key not in prom_client.RANGES:
+        return JsonResponse({"error": "invalid range"}, status=400)
+    window, step = prom_client.RANGES[range_key]
+    end = int(time.time())
+    start = end - window
+    xs = prom_client.build_grid(start, end, step)
+
+    token = request.session.get("oidc_id_token")
+    prom = prom_client.PrometheusClient()
+
+    try:
+        if panel in ("peers_from", "peers_to"):
+            direction = "from" if panel == "peers_from" else "to"
+            result = prom.query_range(
+                prom_client.peer_query(asn, direction, step), start, end, step
+            )
+            series = prom_client.top_peers(result, xs, start, step, direction)
+
+        elif panel == "if_counters":
+            members = _metric_port_members(asn, token, request.GET.get("port", ""))
+            if members is None:
+                return JsonResponse({"error": "invalid port"}, status=400)
+            out_r = prom.query_range(
+                prom_client.ifcounters_query(members, "out", step), start, end, step
+            )
+            in_r = prom.query_range(
+                prom_client.ifcounters_query(members, "in", step), start, end, step
+            )
+            series = [
+                {"name": "out", "values": prom_client.align_single(out_r, xs, start, step)},
+                {"name": "in", "values": prom_client.align_single(in_r, xs, start, step)},
+            ]
+
+        else:
+            return JsonResponse({"error": "unknown panel"}, status=400)
+
+    except Exception:
+        logger.warning("Prometheus query failed for AS%s panel=%s", asn, panel, exc_info=True)
+        return JsonResponse({"error": "query failed"}, status=502)
+
+    return JsonResponse({
+        "panel": panel,
+        "range": range_key,
+        "unit": "bps",
+        "start": start,
+        "end": end,
+        "step": step,
+        "timestamps": xs,
+        "series": series,
     })
 
 

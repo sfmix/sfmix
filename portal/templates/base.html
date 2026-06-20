@@ -14,6 +14,7 @@
   <style>
     [x-cloak] { display: none !important; }
   </style>
+  {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
   <nav class="site-nav h-16 px-6 flex items-center justify-between">
@@ -144,5 +145,6 @@
     };
   }
   </script>
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>
