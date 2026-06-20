@@ -73,6 +73,27 @@ def peer_query(asn: int, direction: str, step: int) -> str:
     return f'avg_over_time(sflow_ixp_peering_bps{{{label}="{int(asn)}"}}[{step}s])'
 
 
+def ix_total_query(direction: str, step: int) -> str:
+    """Exchange-wide aggregate bps in one direction ("in" or "out")."""
+    d = "in" if direction == "in" else "out"
+    return f'avg_over_time(sflow_ixp_bps_total{{direction="{d}"}}[{step}s])'
+
+
+def protocols_query(step: int) -> str:
+    """Exchange-wide bps broken out by ethertype (IPv4/IPv6/ARP/…)."""
+    return f"avg_over_time(sflow_ixp_bps[{step}s])"
+
+
+def pktdist_query(step: int) -> str:
+    """Exchange-wide packet-size distribution (percent per size bin)."""
+    return f"avg_over_time(sflow_ixp_pktdist[{step}s])"
+
+
+def bgp_connections_query(step: int) -> str:
+    """Count of observed peering BGP connections across the fabric."""
+    return f"avg_over_time(sflow_ixp_bgp_connections[{step}s])"
+
+
 def ifcounters_query(members: list[tuple[str, str]], direction: str, step: int) -> str:
     """Summed interface throughput (bps) across a port's physical members.
 
@@ -158,3 +179,33 @@ def top_peers(result: list[dict], xs: list[int], start: int, step: int, directio
     for s in top:
         s.pop("_mean", None)
     return top
+
+
+def labeled_series(
+    result: list[dict],
+    xs: list[int],
+    start: int,
+    step: int,
+    label: callable,
+    *,
+    sort_by_mean: bool = True,
+) -> list[dict]:
+    """Reshape a multi-series result into ``[{"name", "values"}]`` for charts.
+
+    ``label`` maps a series' ``metric`` dict to its display name. When
+    ``sort_by_mean`` is set the bands are ordered largest-first (a sensible
+    stacking order for the protocol breakdown); callers that need a fixed order
+    (e.g. packet-size bins) sort the result themselves.
+    """
+    series = []
+    for s in result:
+        vals = _to_grid(s.get("values", []), xs, start, step)
+        present = [v for v in vals if v is not None]
+        mean = sum(present) / len(present) if present else 0.0
+        series.append({"name": label(s.get("metric", {})), "values": vals, "_mean": mean})
+
+    if sort_by_mean:
+        series.sort(key=lambda x: x["_mean"], reverse=True)
+    for s in series:
+        s.pop("_mean", None)
+    return series

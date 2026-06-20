@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% translate "Exchange Statistics" %} – SFMIX Portal{% endblock %}
+{% block container_class %}max-w-6xl{% endblock %}
+
+{% block content %}
+<h1 class="page-title text-2xl font-bold mb-6">{% translate "Exchange Statistics" %}</h1>
+
+{% comment %}
+One range picker drives every chart on the page: the picker is not wrapped in
+its own .nd-tf-band, so the click handler falls back to document scope and
+re-ranges every chart element at once.
+{% endcomment %}
+<div class="nd-tf-section nd-tf-public">
+  <div class="nd-tf-section-head">
+    <h2 class="nd-tf-section-title">{% translate "Aggregate fabric traffic" %}</h2>
+    <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
+      <button data-range="1h">1h</button>
+      <button data-range="24h" class="on">24h</button>
+      <button data-range="7d">7d</button>
+      <button data-range="30d">30d</button>
+    </div>
+  </div>
+  <span class="nd-tf-sub">{% translate "Exchange-wide &middot; live from sFlow &middot; drawn in-page, not embedded" %}</span>
+  <div class="nd-tf-mobile-note">{% translate "Traffic graphs are available on a larger screen." %}</div>
+
+  <div class="nd-tf-grid">
+    <div class="nd-tf-panel">
+      <div class="nd-tf-panel-head">
+        <h4 class="nd-tf-title">{% translate "Aggregate traffic" %}</h4>
+        <span class="nd-tf-sub">{% translate "ingress &uarr; / egress &darr;" %}</span>
+      </div>
+      <sfmix-chart panel="ix_total" kind="aggregate" endpoint="/statistics/metrics/" range="24h"></sfmix-chart>
+    </div>
+
+    <div class="nd-tf-panel">
+      <div class="nd-tf-panel-head">
+        <h4 class="nd-tf-title">{% translate "Traffic by protocol" %}</h4>
+        <span class="nd-tf-sub">{% translate "by ethertype &middot; stacked" %}</span>
+      </div>
+      <sfmix-chart panel="protocols" kind="stacked" endpoint="/statistics/metrics/" range="24h"></sfmix-chart>
+    </div>
+
+    <div class="nd-tf-panel">
+      <div class="nd-tf-panel-head">
+        <h4 class="nd-tf-title">{% translate "Packet size distribution" %}</h4>
+        <span class="nd-tf-sub">{% translate "percent of packets &middot; stacked" %}</span>
+      </div>
+      <sfmix-chart panel="pktdist" kind="stacked" endpoint="/statistics/metrics/" range="24h"></sfmix-chart>
+    </div>
+
+    <div class="nd-tf-panel">
+      <div class="nd-tf-panel-head">
+        <h4 class="nd-tf-title">{% translate "Observed BGP connections" %}</h4>
+        <span class="nd-tf-sub">{% translate "peering sessions seen on the fabric" %}</span>
+      </div>
+      <sfmix-chart panel="bgp" kind="line" endpoint="/statistics/metrics/" range="24h"></sfmix-chart>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/vendor/uPlot.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/traffic.css' %}">
+{% endblock %}
+
+{% block extra_scripts %}
+{% load static %}
+<script src="{% static 'js/vendor/uPlot.iife.min.js' %}"></script>
+<script src="{% static 'js/traffic-charts.js' %}"></script>
+{% endblock %}
