@@ -775,13 +775,9 @@ msgstr "Home"
 msgid "Remote"
 msgstr "Yonder"
 
-#: templates/dashboard/participant_detail.html:233
-msgid "Link down &mdash; no LLDP"
-msgstr "Link sunk &mdash; no LLDP"
-
-#: templates/dashboard/participant_detail.html:248
-msgid "No LLDP data"
-msgstr "No LLDP booty"
+#: templates/dashboard/participant_detail.html:287
+msgid "No LLDP received"
+msgstr "No LLDP hailed, matey"
 
 #: templates/dashboard/participant_detail.html:254
 #, fuzzy
