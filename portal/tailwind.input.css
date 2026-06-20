@@ -134,6 +134,13 @@ body {
 
 /* ── Network Detail ────────────────────────────────────────────── */
 
+/* Condensed identity bar — hidden on desktop; on mobile it pins to the top of
+   the viewport (see the mobile media query) so the network name/ASN stays in
+   view while scrolling. Styled like a logical-port header bar. */
+.nd-sticky-id { display: none; align-items: center; gap: .5rem; padding: .5rem 1rem; background: #f7f8fa; border: 1px solid var(--color-border); border-radius: var(--radius-card); margin-bottom: 1rem; }
+.nd-sid-name { font-weight: 700; font-size: .95rem; color: var(--color-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.nd-sid-asn { font-family: var(--font-mono); font-size: .78rem; font-weight: 500; color: var(--color-primary-light); border: 1px solid var(--color-border); border-radius: 4px; padding: .05rem .4rem; flex: 0 0 auto; }
+
 /* Header */
 .nd-net-head { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; margin-bottom: 1.5rem; }
 .nd-net-id { flex: 1 1 auto; }
@@ -464,8 +471,23 @@ body {
 @media (max-width: 768px) {
   .nd-net-head { flex-direction: column; }
   .nd-net-actions { width: 100%; }
+
+  /* Sticky header stack. Each level pins beneath the one above it; the per-level
+     offsets (--nd-id-h, --nd-lph) are the measured heights set by the
+     measureStickyOffsets() script. Same-level headers share a `top`, so the next
+     one scrolls up and pushes the previous out of view. Ontology, top to bottom:
+     identity (name/ASN) → logical-port header → layer-band tag (L1/L2/L3/L4). */
+  .nd-sticky-id { display: flex; position: sticky; top: 0; z-index: 30; }
+  /* The full header carries name/ASN, status, meta and actions on desktop; on
+     mobile the condensed sticky bar above owns the title, so drop the duplicate. */
+  .nd-net-head .nd-net-title { display: none; }
+  /* overflow:hidden (used to clip the card's rounded corners) would trap the
+     sticky header inside the card's scroll box; allow it to pin to the viewport. */
+  .nd-lport { overflow: visible; }
+  .nd-lport-head { position: sticky; top: var(--nd-id-h, 0px); z-index: 20; }
+
   .nd-lband { flex-direction: column; }
-  .nd-lband-tag { flex: none; flex-direction: row; gap: .5rem; padding: .3rem .65rem; align-items: center; border-bottom: 1px solid #f3f4f6; }
+  .nd-lband-tag { flex: none; flex-direction: row; gap: .5rem; padding: .3rem .65rem; align-items: center; border-bottom: 1px solid #f3f4f6; position: sticky; top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px)); z-index: 10; background: #fff; }
   .nd-lanes { flex-direction: column; }
   .nd-lldp-pill { flex-direction: column; }
   .nd-llp-conn { flex-direction: row; padding: .1rem .5rem; }
@@ -476,7 +498,11 @@ body {
 
 /* ── Page Chrome (navbar, footer, dropdowns) ──────────────────────── */
 
-.site-nav { background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+/* z-index establishes a stacking context for the whole nav so its hamburger
+   menu and dropdowns always layer above page content — including the sticky
+   participant-detail headers (z-index 30). The template's `relative` class
+   gives it the needed positioning; pinned here too so the CSS is self-contained. */
+.site-nav { background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 50; }
 .site-nav-logo { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
 /* Nav links never wrap or shrink — keeps "Sign out", "Gen Z" etc. on one line,
    and lets the nav measure their true intrinsic width to decide when to collapse. */

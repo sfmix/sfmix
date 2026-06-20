@@ -15,6 +15,25 @@
 </div>
 {% endif %}
 
+{# ── Sticky condensed identity bar (mobile only) ─────────────── #}
+{% comment %}
+Pinned to the top of the viewport on narrow screens so the network's name/ASN
+stays in view while scrolling. On desktop this is hidden and the full header
+below carries the title.
+{% endcomment %}
+<div class="nd-sticky-id">
+  <span class="nd-sid-name">{{ member.name|default:_("Unknown Network") }}</span>
+  <span class="nd-sid-asn">AS{{ asn }}</span>
+  <span class="nd-spacer"></span>
+  <span class="nd-ov-chip">
+    {% if net_status == "active" %}<span class="nd-dot nd-dot-up"></span> {% translate "Active" %}
+    {% elif net_status == "degraded" %}<span class="nd-dot nd-dot-warn"></span> {% translate "Degraded" %}
+    {% elif net_status == "down" %}<span class="nd-dot nd-dot-down"></span> {% translate "Down" %}
+    {% else %}<span class="nd-dot nd-dot-unk"></span> {% translate "Unknown" %}
+    {% endif %}
+  </span>
+</div>
+
 {# ── Network Header ─────────────────────────────────────────── #}
 <div class="nd-net-head">
   <div class="nd-net-id">
@@ -223,33 +242,6 @@
     </div>
     {% endif %}
 
-    {# ── OPS: Interface throughput (admin only) ──────────── #}
-    {% if can_see_admin %}
-    <div class="nd-lband nd-l1 nd-admin-band nd-tf-band">
-      <div class="nd-lband-tag">
-        <span class="nd-lt-l">OPS</span>
-        <span class="nd-lt-name">{% translate "Throughput" %}</span>
-        <span class="nd-lt-scope">{% translate "Admin" %}</span>
-      </div>
-      <div class="nd-lband-body">
-        <div class="nd-tf-head">
-          <span class="nd-tf-sub">{% translate "physical &middot; out &uarr; / in &darr; &middot; live from sFlow" %}</span>
-          <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
-            <button data-range="1h">1h</button>
-            <button data-range="24h" class="on">24h</button>
-            <button data-range="7d">7d</button>
-            <button data-range="30d">30d</button>
-          </div>
-        </div>
-        <div class="nd-tf-grid">
-          <div class="nd-tf-panel">
-            <sfmix-chart panel="if_counters" kind="mirror" asn="{{ asn }}" port="{{ forloop.counter0 }}" range="24h"></sfmix-chart>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
     {# ── L2: Link · LLDP ────────────────────────────────── #}
     <div class="nd-lband nd-l2">
       <div class="nd-lband-tag">
@@ -356,6 +348,31 @@
             </div>
           </div>
           {% endfor %}
+        </div>
+        {% endif %}
+
+        {% comment %}
+        Interface throughput — admin-only, nested inside L2 (the link layer)
+        rather than carrying its own layer header. nd-tf-band keeps the range
+        picker scoped to this panel (see traffic-charts.js).
+        {% endcomment %}
+        {% if can_see_admin %}
+        <div class="nd-ops-panel nd-tf-band">
+          <div class="nd-tf-head">
+            <h4 class="nd-tf-section-title">{% translate "Throughput" %} <span class="nd-tf-scope-tag">{% translate "Admin" %}</span></h4>
+            <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
+              <button data-range="1h">1h</button>
+              <button data-range="24h" class="on">24h</button>
+              <button data-range="7d">7d</button>
+              <button data-range="30d">30d</button>
+            </div>
+          </div>
+          <span class="nd-tf-sub">{% translate "physical &middot; out &uarr; / in &darr; &middot; live from sFlow" %}</span>
+          <div class="nd-tf-grid">
+            <div class="nd-tf-panel">
+              <sfmix-chart panel="if_counters" kind="mirror" asn="{{ asn }}" port="{{ forloop.counter0 }}" range="24h"></sfmix-chart>
+            </div>
+          </div>
         </div>
         {% endif %}
       </div>
@@ -592,4 +609,31 @@
 <script src="{% static 'js/vendor/uPlot.iife.min.js' %}"></script>
 <script src="{% static 'js/traffic-charts.js' %}"></script>
 {% endif %}
+
+{% comment %}
+Sticky-header offsets: the condensed identity bar, each logical-port header and
+each layer-band tag pin beneath the one above it on mobile. Their heights vary
+(long names, wrapped badges), so measure real rendered heights and feed them to
+CSS as custom properties rather than hard-coding pixel offsets — matching the
+measurement-based responsive approach used by the nav.
+{% endcomment %}
+<script>
+(function () {
+  function measureStickyOffsets() {
+    var idBar = document.querySelector('.nd-sticky-id');
+    var idH = idBar ? idBar.offsetHeight : 0;
+    document.documentElement.style.setProperty('--nd-id-h', idH + 'px');
+    document.querySelectorAll('.nd-lport').forEach(function (lp) {
+      var head = lp.querySelector('.nd-lport-head');
+      lp.style.setProperty('--nd-lph', (head ? head.offsetHeight : 0) + 'px');
+    });
+  }
+  measureStickyOffsets();
+  if (window.ResizeObserver) {
+    new ResizeObserver(measureStickyOffsets).observe(document.body);
+  } else {
+    window.addEventListener('resize', measureStickyOffsets);
+  }
+})();
+</script>
 {% endblock %}
