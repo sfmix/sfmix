@@ -172,6 +172,10 @@ body {
 .nd-alert.crit { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
 .nd-alert.warn { background: #fffbeb; border: 1px solid #fed7aa; color: #92400e; }
 .nd-alert-icon { font-size: 1rem; flex-shrink: 0; }
+/* min-width:0 lets the body shrink in the flex row; overflow-wrap:anywhere lets
+   long unbreakable tokens (e.g. switch01.pop1.example.net:Ethernet1, which has no
+   spaces or hyphens to break on) wrap at narrow widths instead of overflowing. */
+.nd-alert-body { min-width: 0; overflow-wrap: anywhere; }
 .nd-alert-body b { font-weight: 600; }
 .nd-alert-where { display: block; font-size: .72rem; margin-top: .2rem; opacity: .65; }
 
