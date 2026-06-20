@@ -26,7 +26,7 @@
       <span x-show="!search">{{ entries|length }} {% translate "transceivers" %}</span>
     </span>
   </div>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  <div class="hidden md:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm whitespace-nowrap">
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
@@ -177,7 +177,79 @@
       </tbody>
     </table>
   </div>
-  <p class="mt-2 text-xs text-gray-500">{% translate "Lane values shown for lane 1; ×N indicates multi-lane optic" %}</p>
+  <p class="hidden md:block mt-2 text-xs text-gray-500">{% translate "Lane values shown for lane 1; ×N indicates multi-lane optic" %}</p>
+
+  {# Mobile: triage cards (Reflow A). Anomalies always on top, then ordered #}
+  {# by average RX across lanes — the weakest light floats up. Light levels #}
+  {# render as a value plus a bar across the normal/marginal/alarm range. #}
+  <div class="md:hidden mc-stack">
+    {% for entry in optics_triage %}
+    <div class="mc-card{% if entry.health == 'warn' %} is-warn{% elif entry.health == 'down' %} is-down{% endif %}"
+         x-show="rowVisible($el)"
+         data-search="{{ entry.name|lower }} {{ entry.description|default:''|lower }} {{ entry.link_status|default:''|lower }} {{ entry.media_type|default:''|lower }} {{ entry.vendor|default:''|lower }} {{ entry.model|default:''|lower }} {{ entry.serial_number|default:''|lower }} {{ entry.device|default:''|lower }}{% if entry.temperature_c != None %} {{ entry.temperature_c|floatformat:1 }}{% endif %}">
+      {% if entry.health == 'warn' %}
+      <div class="mc-flag warn"><span class="mc-flag-ic">&#9888;</span> {{ entry.triage_note }}</div>
+      {% elif entry.health == 'down' %}
+      <div class="mc-flag down"><span class="mc-flag-ic">&#9210;</span> {{ entry.triage_note }}</div>
+      {% endif %}
+      <div class="mc-head">
+        <div style="min-width:0">
+          <div class="mc-id">{{ entry.name }}</div>
+          <div class="mc-sub">{{ entry.device|default:"—" }}</div>
+        </div>
+        <span class="mc-spacer"></span>
+        {% if entry.link_status == "up" or entry.link_status == "connected" %}
+        <span class="mc-status up">{{ entry.link_status }}</span>
+        {% elif entry.link_status %}
+        <span class="mc-status down">{{ entry.link_status }}</span>
+        {% endif %}
+      </div>
+      {% if entry.description %}<div class="mc-sub" style="margin-top:.35rem">{{ entry.description }}</div>{% endif %}
+
+      <div class="mc-light">
+        <div class="mc-light-head">
+          <span class="mc-light-lab">{% translate "RX power" %}</span>
+          {% if entry.dom and entry.rx_dbm != None %}
+          <span class="mc-mv {% if entry.rx_zone == 'warn' %}z-warn{% elif entry.rx_zone == 'crit' %}z-crit{% endif %}">{{ entry.rx_dbm|floatformat:2 }}<span class="u"> dBm</span></span>
+          {% else %}<span class="mc-mv z-na">—</span>{% endif %}
+        </div>
+        {% if entry.dom and entry.rx_dbm != None %}
+        <div class="mc-bar"><i style="left: {{ entry.rx_pos|floatformat:0 }}%"></i></div>
+        {% else %}<div class="mc-bar na"></div>{% endif %}
+      </div>
+      <div class="mc-light">
+        <div class="mc-light-head">
+          <span class="mc-light-lab">{% translate "TX power" %}</span>
+          {% if entry.dom and entry.tx_dbm != None %}
+          <span class="mc-mv">{{ entry.tx_dbm|floatformat:2 }}<span class="u"> dBm</span></span>
+          {% else %}<span class="mc-mv z-na">—</span>{% endif %}
+        </div>
+        {% if entry.dom and entry.tx_dbm != None %}
+        <div class="mc-bar"><i style="left: {{ entry.tx_pos|floatformat:0 }}%"></i></div>
+        {% else %}<div class="mc-bar na"></div>{% endif %}
+      </div>
+
+      <div class="mc-metrics">
+        <div class="mc-metric">
+          <div class="mc-k">{% translate "Temp" %}</div>
+          <div class="mc-mv {% if entry.temp_zone == 'crit' %}z-crit{% elif entry.temp_zone == 'warn' %}z-warn{% endif %}">{% if entry.temperature_c != None %}{{ entry.temperature_c|floatformat:1 }}<span class="u">°</span>{% else %}—{% endif %}</div>
+        </div>
+        <div class="mc-metric">
+          <div class="mc-k">{% translate "Voltage" %}</div>
+          <div class="mc-mv">{% if entry.voltage_v != None %}{{ entry.voltage_v|floatformat:2 }}<span class="u">V</span>{% else %}—{% endif %}</div>
+        </div>
+        <div class="mc-metric">
+          <div class="mc-k">{% translate "Bias" %}</div>
+          <div class="mc-mv {% if not entry.dom %}z-na{% endif %}">{% if entry.dom and entry.bias_ma != None %}{{ entry.bias_ma|floatformat:2 }}<span class="u">mA</span>{% else %}—{% endif %}</div>
+        </div>
+      </div>
+
+      <div class="mc-sub" style="margin-top:.6rem">
+        {% if entry.media_type %}<b>{{ entry.media_type }}</b>{% endif %}{% if entry.model %} &middot; {{ entry.model }}{% endif %}{% if entry.serial_number %} &middot; <span style="font-family:var(--font-mono)">{{ entry.serial_number }}</span>{% endif %}{% if entry.multi_lane %} &middot; <span class="mc-mv z-na" style="font-size:.72rem">×{{ entry.lanes|length }} lanes</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">

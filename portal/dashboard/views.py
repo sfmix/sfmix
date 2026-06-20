@@ -153,6 +153,11 @@ def lldp_neighbors(request):
                 entry["participant_asn"] = participant["asn"] if participant else None
                 entry["participant_name"] = participant["name"] if participant else ""
                 entry["description"] = iface_description.get(key, "")
+                # Triage flag for the mobile compact view: an unmatched neighbour
+                # or a TTL about to expire floats to the top and carries a banner.
+                ttl = entry.get("ttl")
+                entry["ttl_expiring"] = ttl is not None and ttl < 30
+                entry["warn"] = entry["ttl_expiring"] or not entry["participant_asn"]
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/lldp_neighbors.html", {
@@ -236,6 +241,67 @@ def _optic_meter_pos(rx_dbm, media_type=""):
     if span <= 0:
         return 50
     return max(2, min(98, ((rx_dbm - rx_min_bad) / span) * 100))
+
+
+# Maps an RX band (good/warn/bad/unknown) to the light-bar zone class used by
+# the mobile triage card. Drives both the metric colour and the card ordering.
+_OPTIC_ZONE = {"good": "", "warn": "warn", "bad": "crit", "unknown": "na"}
+
+
+def _tx_meter_pos(tx_dbm):
+    """Meter position (0-100%) for TX power over a nominal -6..+2 dBm window."""
+    if tx_dbm is None:
+        return 50
+    return max(2, min(98, ((tx_dbm - (-6.0)) / 8.0) * 100))
+
+
+def _optic_triage(entry):
+    """Attach mobile-triage fields to an optics entry: per-optic health zone,
+    light-bar positions and the average RX power used to order the narrow-
+    viewport card view (anomalies first, then weakest light on top).
+    Reuses the same per-media-type RX thresholds as the L1 lane meters."""
+    status = (entry.get("link_status") or "").lower()
+    up = status in ("up", "connected")
+    media = entry.get("media_type") or ""
+    lanes = entry.get("lanes") or []
+    lane0 = lanes[0] if lanes else {}
+    rx = lane0.get("rx_power_dbm") if up else None
+    tx = lane0.get("tx_power_dbm") if up else None
+    bias = lane0.get("tx_bias_ma") if up else None
+    temp = entry.get("temperature_c")
+
+    rx_band = _optic_band(rx, media) if rx is not None else "unknown"
+    temp_zone = "crit" if (temp is not None and temp > 70) else "warn" if (temp is not None and temp > 60) else ""
+
+    if not up:
+        health, note = "down", gettext("Link down — no light")
+    elif rx_band == "bad" or rx_band == "warn" or temp_zone:
+        health = "warn"
+        if rx_band in ("bad", "warn"):
+            note = gettext("RX power marginal for %(media)s") % {"media": media or gettext("this optic")}
+        else:
+            note = gettext("Module temperature elevated")
+    else:
+        health, note = "ok", ""
+
+    # Average RX across every lane that reports light — the key the mobile
+    # cards sort by. A dark/down optic (no light) has no average and sorts to
+    # the very top as the weakest.
+    rx_vals = [l.get("rx_power_dbm") for l in lanes if l.get("rx_power_dbm") is not None] if up else []
+    rx_avg = sum(rx_vals) / len(rx_vals) if rx_vals else None
+
+    entry["dom"] = up and bool(lanes)
+    entry["rx_dbm"] = rx
+    entry["tx_dbm"] = tx
+    entry["bias_ma"] = bias
+    entry["multi_lane"] = len(lanes) > 1
+    entry["rx_zone"] = _OPTIC_ZONE.get(rx_band, "")
+    entry["rx_pos"] = _optic_meter_pos(rx, media)
+    entry["tx_pos"] = _tx_meter_pos(tx)
+    entry["temp_zone"] = temp_zone
+    entry["health"] = health
+    entry["rx_avg"] = rx_avg
+    entry["triage_note"] = note
 
 
 def _format_speed_gbps(speed_mbps):
@@ -1114,22 +1180,32 @@ def participant_detail(request, asn):
 
             # 8b. Flag ports whose learned L2 MACs are heard on unassigned IPs:
             #     the participant is mis-bound to an invalid/disallowed address.
+            #     `invalid_ip` is defaulted on every MAC (even when there are no
+            #     unassigned MACs at all) so the mobile card view can sort the
+            #     anomalous ones to the top with dictsort without tripping over a
+            #     missing key.
             unassigned_by_mac = _fetch_unassigned_by_mac(lg, token)
-            if unassigned_by_mac:
-                for lp in logical_ports:
-                    bindings = []
-                    seen = set()
-                    for m in lp["macs"]:
-                        mac = m.get("mac_address", "")
-                        for hit in unassigned_by_mac.get(_norm_mac(mac), []):
-                            key = (mac, hit["ip"])
-                            if key in seen:
-                                continue
-                            seen.add(key)
-                            bindings.append({"mac": mac, **hit})
-                    lp["invalid_ip_bindings"] = bindings
-                    if bindings:
-                        has_invalid_ip = True
+            for lp in logical_ports:
+                bindings = []
+                seen = set()
+                for m in lp["macs"]:
+                    m.setdefault("invalid_ip", False)
+                    mac = m.get("mac_address", "")
+                    hits = unassigned_by_mac.get(_norm_mac(mac), []) if unassigned_by_mac else []
+                    if hits:
+                        # Surface the anomaly on the MAC itself so the mobile
+                        # stacked-card view can flag the offending address.
+                        m["invalid_ip"] = True
+                        m["invalid_ips"] = [h["ip"] for h in hits]
+                    for hit in hits:
+                        key = (mac, hit["ip"])
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        bindings.append({"mac": mac, **hit})
+                lp["invalid_ip_bindings"] = bindings
+                if bindings:
+                    has_invalid_ip = True
 
             # 9. Compute alerts (admin only)
             if can_see_admin:
@@ -1584,10 +1660,25 @@ def optics_view(request):
             for (dev, _), optic in status_by_key.items():
                 optic["device"] = dev
                 entries.append(optic)
+
+            # Attach mobile-triage fields (health zone, light-bar positions,
+            # average RX) used by the narrow-viewport card view.
+            for entry in entries:
+                _optic_triage(entry)
     except Exception as e:
         lg_error = str(e)
+    # Mobile card order: anomalies always on top, then ascending average RX so
+    # the weakest light floats up. A dark optic (no light) sorts above all.
+    optics_triage = sorted(
+        entries,
+        key=lambda e: (
+            0 if e.get("health") != "ok" else 1,
+            e["rx_avg"] if e.get("rx_avg") is not None else float("-inf"),
+        ),
+    )
     return render(request, "dashboard/optics.html", {
         "entries": entries,
+        "optics_triage": optics_triage,
         "lg_error": lg_error,
         "is_ix_admin": True,
     })
