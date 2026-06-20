@@ -120,7 +120,6 @@
     </div>
   </div>
   <span class="nd-tf-sub">{% translate "Network-wide &middot; live from sFlow &middot; drawn in-page, not embedded" %}</span>
-  <div class="nd-tf-mobile-note">{% translate "Traffic graphs are available on a larger screen." %}</div>
   <div class="nd-tf-grid">
     <div class="nd-tf-panel">
       <div class="nd-tf-panel-head">
@@ -242,7 +241,6 @@
             <button data-range="30d">30d</button>
           </div>
         </div>
-        <div class="nd-tf-mobile-note">{% translate "Traffic graphs are available on a larger screen." %}</div>
         <div class="nd-tf-grid">
           <div class="nd-tf-panel">
             <sfmix-chart panel="if_counters" kind="mirror" asn="{{ asn }}" port="{{ forloop.counter0 }}" range="24h"></sfmix-chart>

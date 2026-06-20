@@ -60,13 +60,6 @@
 .nd-tf-leg-asn { color: var(--color-text-light); font-family: var(--font-mono, ui-monospace); font-size: .72rem; }
 .nd-tf-leg-val { color: var(--color-text-light); font-variant-numeric: tabular-nums; }
 
-/* Mobile teaser shown instead of the charts on small screens. */
-.nd-tf-mobile-note { display: none; font-size: .82rem; color: var(--color-text-light); padding: .3rem 0; }
-@media (max-width: 560px) {
-  .nd-tf-grid, .nd-tf-range { display: none; }
-  .nd-tf-mobile-note { display: block; }
-}
-
 /* uPlot tweaks to match the portal type scale. */
 .uplot, .uplot * { font-family: var(--font-sans, system-ui); }
 .u-legend { font-size: .76rem; color: var(--color-text-light); }
