@@ -12,6 +12,7 @@ services:
       OIDC_RP_CLIENT_SECRET: "${OIDC_RP_CLIENT_SECRET}"
       OIDC_PROVIDER_URL: "${OIDC_PROVIDER_URL:-https://login.sfmix.org/application/o/portal}"
       IXP_LOOKING_GLASS_URL: "${IXP_LOOKING_GLASS_URL:-https://lg.sfmix.org:8081}"
+      PROMETHEUS_URL: "${PROMETHEUS_URL:-http://metrics.sfo02.sfmix.org:9090}"
       PROMETHEUS_TRUSTED_NETWORKS: "${PROMETHEUS_TRUSTED_NETWORKS:-127.0.0.0/8,::1/128}"
     volumes:
       - db:/app/db
