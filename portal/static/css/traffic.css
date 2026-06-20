@@ -30,15 +30,21 @@
 .nd-tf-range button:first-child { border-left: 0; }
 .nd-tf-range button.on { background: var(--color-primary-light); color: #fff; font-weight: 600; }
 
-/* Full-width charts, one per row. */
-.nd-tf-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+/* Full-width charts, one per row. min-width:0 lets the grid track shrink below
+   the chart canvas's intrinsic width (default min-width:auto would otherwise
+   pin the track open and overflow the page); the chart's ResizeObserver then
+   compresses the canvas to fit. */
+.nd-tf-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; min-width: 0; }
 
-.nd-tf-panel { border: 1px solid var(--color-border); border-radius: 8px; padding: .9rem 1rem 1rem; background: #fff; }
+.nd-tf-panel { border: 1px solid var(--color-border); border-radius: 8px; padding: .9rem 1rem 1rem; background: #fff; min-width: 0; overflow: hidden; }
 .nd-tf-panel-head { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .6rem; }
 .nd-tf-title { font-size: .92rem; font-weight: 600; color: var(--color-primary); margin: 0; }
 .nd-tf-sub { font-size: .74rem; color: var(--color-text-light); }
 
-.nd-tf-panel sfmix-chart { display: block; width: 100%; min-height: 240px; }
+.nd-tf-panel sfmix-chart { display: block; width: 100%; min-width: 0; min-height: 240px; }
+/* uPlot renders its root at an explicit pixel width; clamp it so a transient
+   over-wide canvas (before the ResizeObserver fires) can't push the page out. */
+.nd-tf-panel .uplot { max-width: 100%; }
 
 /* Loading / empty skeleton. */
 .nd-tf-skel {

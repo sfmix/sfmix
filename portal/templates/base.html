@@ -17,25 +17,27 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
-  <nav class="site-nav h-16 px-6 flex items-center justify-between relative"
-       x-data="{ mobileOpen: false, desktop: window.matchMedia('(min-width: 768px)').matches }"
-       x-init="window.matchMedia('(min-width: 768px)').addEventListener('change', e => { desktop = e.matches; if (e.matches) mobileOpen = false })">
-    <a href="/" class="flex items-center gap-3 no-underline">
+  <nav class="site-nav h-16 px-6 flex items-center justify-between relative gap-4"
+       x-data="responsiveNav()">
+    <a x-ref="logo" href="/" class="flex items-center gap-3 no-underline shrink-0">
       <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="site-nav-logo h-8">
       <span class="text-white/70 text-sm font-medium hidden sm:inline">{% translate "Participant Portal" %}</span>
     </a>
 
-    {# Hamburger toggle — shown only below the md breakpoint (768px), where the inline nav would overflow. #}
-    <button @click.stop="mobileOpen = !mobileOpen" :aria-expanded="mobileOpen"
-            class="md:hidden text-white/80 hover:text-white p-1 -mr-1 transition"
+    {# Hamburger toggle — shown when the inline links can't fit (measured, not a fixed breakpoint). #}
+    <button x-show="collapsed" x-cloak @click.stop="open = !open" :aria-expanded="open"
+            class="text-white/80 hover:text-white p-1 -mr-1 transition shrink-0"
             aria-label="{% translate 'Toggle navigation' %}">
-      <svg x-show="!mobileOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      <svg x-show="mobileOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      <svg x-show="!open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <svg x-show="open" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
 
-    {# Link cluster: an inline row at md+, a drop-down panel below the nav on mobile. #}
-    <div x-show="desktop || mobileOpen" @click.away="mobileOpen = false"
-         class="nav-menu text-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 absolute md:static left-0 right-0 top-16 md:top-auto px-6 md:px-0 py-4 md:py-0 z-20">
+    {# Links: an inline row when they fit, a drop-down panel beneath the bar when they don't. #}
+    <div x-ref="menu" x-show="!collapsed || open" @click.away="open = false"
+         class="nav-links text-sm"
+         :class="collapsed
+           ? 'nav-menu flex flex-col items-start gap-3 absolute left-0 right-0 top-16 px-6 py-4 z-20'
+           : 'flex flex-row items-center gap-4'">
       <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">{% translate "Participants" %}</a>
       <a href="{% url 'ix_statistics' %}" class="text-white/70 hover:text-white transition">{% translate "Statistics" %}</a>
       <a href="{% url 'route_server_parity' %}" class="text-white/70 hover:text-white transition">{% translate "Route Servers" %}</a>
@@ -94,6 +96,37 @@
     &copy; San Francisco Metropolitan Internet eXchange
   </footer>
   <script>
+  // Responsive nav: collapse the links into a hamburger exactly when they no
+  // longer fit the bar, rather than at a hard-coded width. Measuring the real
+  // rendered widths makes this independent of item count (anon vs admin),
+  // translated label length, font scaling/zoom, DPI, and platform.
+  function responsiveNav() {
+    return {
+      open: false,
+      collapsed: false,
+      _logoW: 0,
+      _menuW: 0,
+      init() {
+        this.$nextTick(() => {
+          this.fit();
+          new ResizeObserver(() => this.fit()).observe(this.$el);
+        });
+      },
+      fit() {
+        // Logo is always laid out; re-measure the menu only while it's inline
+        // (when collapsed it's display:none, so we reuse the last known width).
+        this._logoW = this.$refs.logo.offsetWidth;
+        if (!this.collapsed) this._menuW = this.$refs.menu.scrollWidth;
+        const cs = getComputedStyle(this.$el);
+        const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+        const gap = parseFloat(cs.columnGap) || 16;
+        const avail = this.$el.clientWidth - padX;
+        this.collapsed = (this._logoW + this._menuW + gap) > avail;
+        if (!this.collapsed) this.open = false;
+      },
+    };
+  }
+
   function sortableTable() {
     return {
       search: '',
