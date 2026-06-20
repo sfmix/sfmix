@@ -67,7 +67,6 @@ def logout_view(request):
 
 # ── Dashboard views ─────────────────────────────────────────────────
 
-@login_required
 def index(request):
     return redirect("participants_list")
 
