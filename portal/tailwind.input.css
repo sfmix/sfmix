@@ -343,6 +343,123 @@ body {
 .nd-rsc-counts { font-family: var(--font-mono); font-size: .78rem; }
 .nd-sl { color: var(--color-text-light); margin: 0 .1rem; }
 
+/* ── Mobile reflow primitives ─────────────────────────────────────────
+   Building blocks for the narrow-viewport reflow of the wide admin tables
+   (LLDP, Optics) and the participant-detail MAC / ARP sections. Each wide
+   table is paired with one of these card/list layouts, swapped at the md
+   (768px) breakpoint with Tailwind's `hidden md:block` / `md:hidden`.
+   Ported from the design-system mobile concepts; built on the portal's own
+   --color-* / --font-mono tokens.
+
+   Wrapped in @layer components so Tailwind's utilities (a later layer) win:
+   the `md:hidden` / `hidden md:block` swap toggles `display` on these
+   containers, and unlayered rules would otherwise out-rank the utility and
+   leave the cards showing on desktop.  ──────────────────────────────────── */
+@layer components {
+
+/* record card (stacked cards — Optics triage, MAC/ARP) */
+.mc-stack { display: flex; flex-direction: column; gap: .55rem; }
+.mc-card { background: #fff; border: 1px solid var(--color-border); border-radius: 10px; padding: .7rem .8rem; }
+.mc-card.is-crit { border-color: #fecaca; box-shadow: inset 3px 0 0 #dc2626; }
+.mc-card.is-warn { box-shadow: inset 3px 0 0 #e8913a; }
+.mc-card.is-down { background: #fbfbfc; box-shadow: inset 3px 0 0 #9ca3af; }
+
+/* anomaly banner inside a card */
+.mc-flag { display: flex; align-items: center; gap: .4rem; font-size: .68rem; font-weight: 700;
+  border-radius: 6px; padding: .3rem .5rem; margin-bottom: .55rem; line-height: 1.3; }
+.mc-flag.crit { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+.mc-flag.warn { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
+.mc-flag.down { color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb; }
+.mc-flag .mc-flag-ic { font-size: .8rem; flex: none; }
+
+/* card header */
+.mc-head { display: flex; align-items: flex-start; gap: .5rem; }
+.mc-id { font-family: var(--font-mono); font-weight: 700; color: var(--color-primary);
+  font-size: .92rem; line-height: 1.25; word-break: break-all; }
+.mc-id.crit { color: #991b1b; }
+.mc-spacer { flex: 1; }
+.mc-sub { font-size: .72rem; color: var(--color-text-light); margin-top: .12rem; }
+.mc-sub b { color: var(--color-text); font-weight: 600; }
+
+/* labelled micro-grid */
+.mc-kv { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .9rem; margin-top: .6rem; }
+.mc-kv.cols-1 { grid-template-columns: 1fr; }
+.mc-kv > div { display: flex; flex-direction: column; gap: .06rem; min-width: 0; }
+.mc-kv .span-2 { grid-column: 1 / -1; }
+.mc-k { font-size: .58rem; text-transform: uppercase; letter-spacing: .05em; color: #9aa6b1; font-weight: 700; }
+.mc-v { font-size: .78rem; color: var(--color-text); }
+.mc-v.mono { font-family: var(--font-mono); word-break: break-all; }
+.mc-v.crit { color: #991b1b; font-weight: 600; }
+.mc-v.muted { color: var(--color-text-light); }
+
+/* status pill */
+.mc-status { font-size: .64rem; font-weight: 700; border-radius: 999px; padding: .14rem .5rem; white-space: nowrap; line-height: 1.1; }
+.mc-status.up { color: #1d7a3e; background: #e3f3e8; }
+.mc-status.down { color: #dc2626; background: #fee2e2; }
+.mc-status.idle { color: #6b7280; background: #eceff2; }
+
+/* dense list rows (compact + expand — LLDP) */
+.mr-list { display: flex; flex-direction: column; gap: .35rem; }
+.mr-row { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: .5rem .65rem; }
+.mr-row.is-crit { box-shadow: inset 3px 0 0 #dc2626; border-color: #fecaca; }
+.mr-row.is-warn { box-shadow: inset 3px 0 0 #e8913a; }
+.mr-row.is-down { box-shadow: inset 3px 0 0 #9ca3af; }
+.mr-top { display: flex; align-items: center; gap: .45rem; }
+.mr-id { font-family: var(--font-mono); font-weight: 700; font-size: .82rem; color: var(--color-primary); word-break: break-all; }
+.mr-id.crit { color: #991b1b; }
+.mr-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.mr-dot-up { background: #1d7a3e; }
+.mr-dot-warn { background: #e8913a; }
+.mr-dot-down { background: #9ca3af; }
+.mr-asn { font-size: .66rem; color: var(--color-text-light); font-family: var(--font-mono); white-space: nowrap; }
+.mr-meta { font-size: .7rem; color: var(--color-text-light); margin-top: .22rem; line-height: 1.4; }
+.mr-meta .mono { font-family: var(--font-mono); }
+.mr-meta .sep { opacity: .4; margin: 0 .32rem; }
+.mr-flag-inline { font-size: .6rem; font-weight: 700; border-radius: 4px; padding: .04rem .35rem; white-space: nowrap; }
+.mr-flag-inline.crit { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+.mr-flag-inline.warn { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
+
+/* definition list (used inside expand drawers) */
+.dl-rows { margin: .5rem 0 0; }
+.dl-row { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border-top: 1px solid #f3f4f6; font-size: .78rem; }
+.dl-row:first-child { border-top: none; }
+.dl-row dt { color: var(--color-text-light); margin: 0; }
+.dl-row dd { margin: 0; font-family: var(--font-mono); color: var(--color-text); text-align: right; word-break: break-all; }
+.dl-row dd.crit { color: #991b1b; font-weight: 600; }
+
+/* tap-to-expand drawer (LLDP) */
+.mx-row { cursor: pointer; }
+.mx-chev { transition: transform .15s; color: #9aa6b1; font-size: .7rem; flex: none; }
+.mx-chev.open { transform: rotate(180deg); color: var(--color-primary); }
+.mx-detail { margin-top: .6rem; padding-top: .6rem; border-top: 1px dashed var(--color-border); }
+
+/* metric tiles (Optics) */
+.mc-metrics { display: flex; gap: .4rem; margin-top: .6rem; }
+.mc-metric { flex: 1; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 7px; padding: .36rem .5rem; min-width: 0; }
+.mc-mv { font-family: var(--font-mono); font-size: .84rem; font-weight: 600; color: var(--color-text); margin-top: .05rem; }
+.mc-mv .u { font-weight: 400; color: var(--color-text-light); font-size: .82em; }
+.mc-mv.z-warn { color: #b45309; } .mc-mv.z-crit { color: #dc2626; } .mc-mv.z-na { color: #9aa6b1; }
+
+/* dBm light bar (Optics) */
+.mc-light { margin-top: .55rem; }
+.mc-light-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .2rem; }
+.mc-light-lab { font-size: .58rem; text-transform: uppercase; letter-spacing: .05em; color: #9aa6b1; font-weight: 700; }
+.mc-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg,#fca5a5 0 8%,#fcd34d 8% 22%,#86efac 22% 80%,#fcd34d 80% 92%,#fca5a5 92% 100%); position: relative; }
+.mc-bar i { position: absolute; top: -2px; width: 2.5px; height: 10px; border-radius: 2px; background: #0b3640; transform: translateX(-50%); box-shadow: 0 0 0 1.5px #fff; }
+.mc-bar.na { background: repeating-linear-gradient(45deg,#eef1f4,#eef1f4 4px,#e3e7ec 4px,#e3e7ec 8px); }
+.mc-bar.na i { display: none; }
+
+/* sub-MAC list (ARP/NDP conflict grouping) */
+.mc-submac { display: flex; flex-direction: column; gap: .4rem; margin-top: .55rem; }
+.mc-submac-row { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  padding: .4rem .55rem; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 7px; }
+.mc-submac-row.crit { background: #fef2f2; border-color: #fecaca; }
+.mc-submac-mac { font-family: var(--font-mono); font-size: .76rem; color: var(--color-primary); word-break: break-all; }
+.mc-submac-row.crit .mc-submac-mac { color: #991b1b; }
+.mc-submac-seen { font-size: .66rem; color: var(--color-text-light); white-space: nowrap; text-align: right; flex: none; }
+
+}  /* @layer components */
+
 /* Responsive: mobile */
 @media (max-width: 768px) {
   .nd-net-head { flex-direction: column; }
