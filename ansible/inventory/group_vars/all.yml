@@ -315,3 +315,10 @@ mosquitto_mqtt:
         65626265623964613863653863333838353362323062663762326165636132613165383566633235
         33643730363961316631323135343566636635303031636262386166303964656332393232323236
         6630393865366335336632616361393433313638363033396434
+
+# Central log sink (Loki on the metrics host). Use the oob address so log
+# traffic stays on the management network, off the public wan.
+loki_push_host: metrics.oob.sfo02.sfmix.org
+loki_push_port: 3100
+# syslog-ng receiver port for appliances that forward native syslog (e.g. OpenBSD).
+loki_syslog_port: 514

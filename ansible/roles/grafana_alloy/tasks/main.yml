@@ -1,0 +1,72 @@
+---
+- name: "Alloy: ensure apt prerequisites (gpg for signed-by repos)"
+  become: true
+  ansible.builtin.apt:
+    name:
+      - gpg
+      - ca-certificates
+    state: present
+    update_cache: true
+
+- name: "Alloy: ensure apt keyrings directory"
+  become: true
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: "Alloy: add Grafana apt signing key"
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ grafana_alloy_apt_key_url }}"
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: "0644"
+
+- name: "Alloy: add Grafana apt repository"
+  become: true
+  ansible.builtin.apt_repository:
+    repo: "{{ grafana_alloy_apt_repo }}"
+    filename: grafana
+    state: present
+
+- name: "Alloy: install package"
+  become: true
+  ansible.builtin.apt:
+    name: alloy
+    update_cache: true
+
+- name: "Alloy: ensure persistent journald storage directory"
+  become: true
+  ansible.builtin.file:
+    path: "{{ grafana_alloy_journal_path }}"
+    state: directory
+    owner: root
+    group: systemd-journal
+    mode: "2755"
+  notify: "Restart systemd-journald"
+
+- name: "Alloy: allow alloy user to read the journal"
+  become: true
+  ansible.builtin.user:
+    name: alloy
+    groups: systemd-journal
+    append: true
+  notify: "Restart alloy"
+
+- name: "Alloy: template config"
+  become: true
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: "{{ grafana_alloy_config_path }}"
+    owner: root
+    group: alloy
+    mode: "0640"
+    validate: "alloy fmt %s"
+  notify: "Restart alloy"
+
+- name: "Alloy: enable and start service"
+  become: true
+  ansible.builtin.service:
+    name: alloy
+    enabled: true
+    state: started

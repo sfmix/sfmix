@@ -1,0 +1,14 @@
+---
+# Grafana Alloy log-shipping agent: reads systemd journald and pushes to Loki.
+grafana_alloy_apt_key_url: https://apt.grafana.com/gpg.key
+grafana_alloy_apt_repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+grafana_alloy_config_path: /etc/alloy/config.alloy
+
+# journald is read from persistent storage, which this role ensures exists.
+grafana_alloy_journal_path: /var/log/journal
+grafana_alloy_journal_max_age: "12h"
+
+# Loki push endpoint. loki_push_host is defined centrally in group_vars/all.yml
+# (oob address); this default keeps the role self-contained.
+loki_push_host: metrics.oob.sfo02.sfmix.org
+loki_push_port: 3100

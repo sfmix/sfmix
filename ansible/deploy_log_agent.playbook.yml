@@ -1,0 +1,11 @@
+---
+# Deploy the Grafana Alloy log-shipping agent (journald -> Loki) to hosts in
+# the log_agent group. Pilot rollout: add hosts to the group as we expand.
+#   ansible-playbook deploy_log_agent.playbook.yml \
+#     --vault-password-file ~/.sfmix_ansible_vault
+# Limit to one host while testing:  --limit snappy.sfmix.org
+- name: "Logging: Grafana Alloy agent"
+  hosts: log_agent
+  gather_facts: true
+  roles:
+    - grafana_alloy

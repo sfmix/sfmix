@@ -1,2 +1,6 @@
 ---
 snappy_bgp_interface: "eth0"
+
+# snappy is not on the oob management network, so it ships logs to the public
+# metrics endpoint (the oob address is unreachable from here).
+loki_push_host: metrics.sfo02.sfmix.org

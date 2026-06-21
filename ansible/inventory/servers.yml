@@ -99,3 +99,10 @@ all:
     ixp_portal:
       hosts:
         portal.sfmix.org:
+    # Hosts running the Grafana Alloy log-shipping agent (journald -> Loki).
+    # Start with low-stakes pilots; expand as the rollout proves out.
+    log_agent:
+      hosts:
+        snappy.sfmix.org:
+        shell.sfmix.org:
+        rs-linux.sfmix.org:
