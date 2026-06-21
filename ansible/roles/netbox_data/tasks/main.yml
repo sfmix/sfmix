@@ -201,3 +201,52 @@
       }}
 # This creates a simple flat list of currently-assigned participant IP addresses as strings
 # e.g.  ["206.197.187.1", "206.197.187.2", "206.197.187.5", ... ]
+    ports_by_participant: >
+      {{
+        dict(netbox_peering_port_interfaces.values() |
+          selectattr('custom_fields.participant') |
+          groupby('custom_fields.participant.id'))
+      }}
+# This maps each participant (tenant) ID to the list of its peering-port interfaces,
+# so the participants template can look up a member's connections directly instead of
+# rescanning every interface. Participants with no ports are simply absent.
+# e.g.  {158: [<Ethernet29 on switch01.fmt01>], ...}
+    ips_by_port: >
+      {{
+        dict(netbox_participant_ip_addresses.values() |
+          selectattr('custom_fields.participant_lag') |
+          groupby('custom_fields.participant_lag.id'))
+      }}
+# This maps each peering-port (LAG) interface ID to the list of participant IP addresses
+# assigned to it (typically one IPv4 + one IPv6), so the template avoids rescanning every
+# IP address per port.
+# e.g.  {2032: [<206.197.187.x>, <2001:504:30::x>], ...}
+
+- name: Identify the peering-LAN VLAN id(s)
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.set_fact:
+    cacheable: true
+    peering_lan_vlan_ids: "{{ peering_lan_vlan_ids | default([]) + [item.id] }}"
+  loop: "{{ exchange_fabric_vlans.values() | list }}"
+  when: item.tags | selectattr('slug', 'equalto', 'peering_lan') | list | length > 0
+  loop_control:
+    label: "{{ item.id }}"
+# The VLAN id(s) tagged "peering_lan" in the Exchange Fabric VLANs group. e.g. [1]
+
+- name: Build the peering-LAN prefix list for IP-to-VLAN mapping
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.set_fact:
+    cacheable: true
+    peering_lan_prefixes: "{{ peering_lan_prefixes | default([]) + [{'vlan_id': item.vlan.id, 'prefix': item.prefix}] }}"
+  loop: "{{ netbox_prefixes.values() | list }}"
+  when:
+    - item.vlan
+    - item.vlan.id in (peering_lan_vlan_ids | default([]))
+  loop_control:
+    label: "{{ item.prefix }}"
+# Flat list of {vlan_id, prefix} for every prefix on a peering-LAN VLAN. The participants
+# template tests each participant IP against these prefixes (by containment) to decide which
+# VLAN the IP belongs to, replacing a deeply-nested vlan/tag/prefix scan run per IP address.
+# e.g.  [{'vlan_id': 1, 'prefix': '206.197.187.0/24'}, {'vlan_id': 1, 'prefix': '2001:504:30::/64'}]
