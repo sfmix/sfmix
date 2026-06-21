@@ -74,8 +74,7 @@ all:
         rpki-linux.sfmix.org:
     tailscale:
       hosts:
-        tailscale-sfo02.sfo02.sfmix.org:
-        tailscale-scl04.scl04.sfmix.org:
+        tailscale-sfo02.sfmix.org:
     proxmox_hypervisors:
       hosts:
         pve01-paulave200-sfo.sfmix.org:
@@ -109,3 +108,10 @@ all:
         netbox.sfo02.sfmix.org:
         metrics.sfo02.sfmix.org:
         alice.sfmix.org:
+        librenms.sfmix.org:
+        tailscale-sfo02.sfmix.org:
+        ns1.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
+        rpki-linux.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
+        teleport.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
+        login.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
+        portal.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
