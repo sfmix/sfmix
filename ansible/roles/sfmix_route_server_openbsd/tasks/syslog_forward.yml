@@ -1,0 +1,15 @@
+---
+# Forward OpenBSD syslogd logs to the central Loki receiver (syslog-ng :514).
+# Included standalone via deploy_openbsd_syslog.playbook.yml so it does NOT run
+# the bgpd/rpki tasks in this role's main.yml.
+# UDP (@udp://) matches the central syslog-ng receiver, which resets raw TCP
+# connections (its tcp() source rejects OpenBSD's TCP framing). All other SFMIX
+# senders use UDP to this receiver.
+- name: "syslog: forward to central Loki receiver over UDP"
+  become: true
+  ansible.builtin.blockinfile:
+    path: /etc/syslog.conf
+    marker: "# {mark} ANSIBLE MANAGED: central log forwarding"
+    block: |
+      *.info  @udp://{{ loki_push_host }}:{{ loki_syslog_port }}
+  notify: Restart syslogd

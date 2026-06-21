@@ -1,0 +1,14 @@
+---
+# Configure OpenBSD route server(s) to forward syslog to the central Loki
+# receiver (syslog-ng :514). Surgical: includes only the syslog_forward task,
+# so it does NOT touch bgpd/rpki config.
+#   ansible-playbook deploy_openbsd_syslog.playbook.yml \
+#     --vault-password-file ~/.sfmix_ansible_vault
+- name: "Logging: OpenBSD syslog forwarding to Loki"
+  hosts: rs_openbsd
+  gather_facts: true
+  tasks:
+    - name: "Forward syslog to central Loki receiver"
+      ansible.builtin.include_role:
+        name: sfmix_route_server_openbsd
+        tasks_from: syslog_forward.yml

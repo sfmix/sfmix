@@ -22,3 +22,11 @@
   ansible.builtin.service:
     name: bgplgd
     state: restarted
+
+# OpenBSD syslogd needs a full restart (not SIGHUP reload) to pick up loghost
+# (remote forwarding) changes.
+- name: Restart syslogd
+  become: true
+  ansible.builtin.service:
+    name: syslogd
+    state: restarted
