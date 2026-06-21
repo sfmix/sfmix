@@ -55,6 +55,15 @@ member_list:
 {% else %}
 {%   set participant_type = "peering" %}
 {% endif %}
+{# Count this participant's peering ports up front so we can skip members that have no live connection yet #}
+{# (e.g. a newly-approved joiner whose port isn't turned up). The route-server/edge ASes below are hardcoded. #}
+{% set conn_ns = namespace(count=0) %}
+{% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
+{%   if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
+{%     set conn_ns.count = conn_ns.count + 1 %}
+{%   endif %}
+{% endfor %}
+{% if participant.custom_fields.as_number in [12276, 63055] or conn_ns.count > 0 %}
   - asnum: {{ participant.custom_fields.as_number }}
     member_type: {{ participant_type }}
     name: {{ participant.description }}
@@ -163,4 +172,5 @@ member_list:
       {% endfor %}
 
       {% endif %}
+{% endif %}
 {% endfor %}
