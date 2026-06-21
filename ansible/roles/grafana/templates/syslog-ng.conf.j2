@@ -35,8 +35,30 @@ destination d_loki {
     syslog("localhost" transport("tcp") port(1514));
 };
 
+# Canonical hostname map, generated from NetBox by the netbox-hostmap-sync timer.
+# Looks up the message SOURCEIP and, when found, rewrites HOST to the canonical
+# name (beating the reverse-DNS the sources do above). Unmapped IPs keep rDNS.
+parser p_hostmap {
+    add-contextual-data(
+        selector("$SOURCEIP")
+        database("/opt/loki/host-map.csv")
+    );
+};
+
+filter f_has_canonical_host {
+    "${canonical_host}" ne ""
+};
+
+rewrite r_canonical_host {
+    set("${canonical_host}", value("HOST"));
+};
+
 log {
     source(s_net_udp);
     source(s_net_tcp);
+    parser(p_hostmap);
+    if (filter(f_has_canonical_host)) {
+        rewrite(r_canonical_host);
+    };
     destination(d_loki);
 };

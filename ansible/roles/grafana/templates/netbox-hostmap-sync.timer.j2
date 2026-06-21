@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically sync NetBox -> syslog-ng host-map
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ grafana_hostmap_sync_interval | default('15min') }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

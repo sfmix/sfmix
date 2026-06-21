@@ -90,6 +90,7 @@
 
 - name: "Grafana Loki: Create directory"
   become: true
+  tags: [loki]
   ansible.builtin.file:
     path: /opt/loki
     state: directory
@@ -98,6 +99,7 @@
     mode: ug=rwx,o=rx
 - name: "Grafana Loki: Template loki-config.yaml"
   become: true
+  tags: [loki]
   ansible.builtin.template:
     src: loki-config.yaml.j2
     dest: /opt/loki/loki-config.yaml
@@ -107,6 +109,7 @@
   notify: "Restart loki docker container"
 - name: "Grafana Loki: Template promtail-config.yaml"
   become: true
+  tags: [loki]
   ansible.builtin.template:
     src: promtail-config.yaml.j2
     dest: /opt/loki/promtail-config.yaml
@@ -116,6 +119,7 @@
   notify: "Restart promtail docker container"
 - name: "Grafana Loki: Template syslog-ng.conf"
   become: true
+  tags: [loki, hostmap]
   ansible.builtin.template:
     src: syslog-ng.conf.j2
     dest: /opt/loki/syslog-ng.conf
@@ -125,6 +129,7 @@
   notify: "Restart syslog-ng docker container"
 - name: "Grafana Loki: Run loki"
   become: true
+  tags: [loki]
   community.docker.docker_container:
     name: loki
     image: "{{ grafana_loki_image }}"
@@ -135,6 +140,7 @@
     command: "-config.file=/opt/loki/loki-config.yaml"
 - name: "Grafana Loki: Run promtail"
   become: true
+  tags: [loki]
   community.docker.docker_container:
     name: promtail
     image: "{{ grafana_promtail_image }}"
@@ -143,8 +149,19 @@
     volumes:
       - /opt/loki:/opt/loki
     command: "-config.file=/opt/loki/promtail-config.yaml"
+- name: "Grafana Loki: Ensure host-map.csv exists for syslog-ng add-contextual-data"
+  become: true
+  tags: [loki, hostmap]
+  ansible.builtin.copy:
+    content: ""
+    dest: /opt/loki/host-map.csv
+    force: false          # never clobber the syncer-generated map
+    owner: root
+    group: root
+    mode: ug=rw,o=r
 - name: "Grafana Loki: Run syslog-ng"
   become: true
+  tags: [loki, hostmap]
   community.docker.docker_container:
     name: syslog-ng
     image: "{{ grafana_syslog_ng_image }}"
@@ -152,3 +169,47 @@
     network_mode: host
     volumes:
       - /opt/loki/syslog-ng.conf:/etc/syslog-ng/syslog-ng.conf
+      # Mount the dir (not the file) so the syncer's atomic replace is visible
+      # inside the container on reload.
+      - /opt/loki:/opt/loki
+
+# ── NetBox -> syslog-ng canonical host-map syncer (systemd timer) ──────
+- name: "Grafana Loki: Install netbox host-map syncer"
+  become: true
+  tags: [loki, hostmap]
+  ansible.builtin.copy:
+    src: netbox_syslog_hostmap.py
+    dest: /opt/loki/netbox_syslog_hostmap.py
+    owner: root
+    group: root
+    mode: ug=rwx,o=rx
+- name: "Grafana Loki: Template host-map syncer env (NetBox creds)"
+  become: true
+  tags: [loki, hostmap]
+  ansible.builtin.template:
+    src: netbox-hostmap.env.j2
+    dest: /opt/loki/netbox-hostmap.env
+    owner: root
+    group: root
+    mode: ug=rw,o=        # contains an API token
+- name: "Grafana Loki: Install host-map sync systemd units"
+  become: true
+  tags: [loki, hostmap]
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: ug=rw,o=r
+  loop:
+    - netbox-hostmap-sync.service
+    - netbox-hostmap-sync.timer
+  notify: "Reload systemd"
+- name: "Grafana Loki: Enable host-map sync timer"
+  become: true
+  tags: [loki, hostmap]
+  ansible.builtin.systemd_service:
+    name: netbox-hostmap-sync.timer
+    enabled: true
+    state: started
+    daemon_reload: true
