@@ -106,3 +106,6 @@ all:
         snappy.sfmix.org:
         shell.sfmix.org:
         rs-linux.sfmix.org:
+        netbox.sfo02.sfmix.org:
+        metrics.sfo02.sfmix.org:
+        alice.sfmix.org:
