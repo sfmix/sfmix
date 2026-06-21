@@ -33,6 +33,12 @@ schema_config:
         prefix: index_
         period: 24h
 
+ingester:
+  # zstd compresses repetitive syslog/journald better than the gzip default,
+  # at similar or lower CPU. Existing gzip chunks remain readable; only new
+  # chunks use zstd.
+  chunk_encoding: zstd
+
 ruler:
   alertmanager_url: http://localhost:9093
 
@@ -48,4 +54,16 @@ compactor:
   delete_request_store: filesystem
 
 limits_config:
-  retention_period: 3y
+  # Global log retention. Sized as an operational buffer that won't grow the
+  # disk unbounded once syslog from all VMs is centralized here. Loki retention
+  # is time-based only (no size cap), so re-measure growth/day after syslog
+  # fan-in and tune. Per-stream overrides (limits_config.retention_stream) can
+  # keep noisy syslog shorter and curated streams longer if needed.
+  retention_period: 90d
+  # Per-stream overrides take priority over the global period above. Add
+  # selectors here once fleet volume reveals hot streams (highest priority
+  # wins). Example (commented until we identify a noisy source):
+  # retention_stream:
+  #   - selector: '{job="syslog", severity="debug"}'
+  #     priority: 10
+  #     period: 14d
