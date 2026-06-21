@@ -55,15 +55,11 @@ member_list:
 {% else %}
 {%   set participant_type = "peering" %}
 {% endif %}
-{# Count this participant's peering ports up front so we can skip members that have no live connection yet #}
-{# (e.g. a newly-approved joiner whose port isn't turned up). The route-server/edge ASes below are hardcoded. #}
-{% set conn_ns = namespace(count=0) %}
-{% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
-{%   if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
-{%     set conn_ns.count = conn_ns.count + 1 %}
-{%   endif %}
-{% endfor %}
-{% if participant.custom_fields.as_number in [12276, 63055] or conn_ns.count > 0 %}
+{# This participant's peering ports, precomputed (grouped by participant) in the netbox_data role. #}
+{# Skip members with no live port yet (e.g. a newly-approved joiner whose port isn't turned up). #}
+{# The route-server/edge ASes below are hardcoded and intentionally bypass this check. #}
+{% set participant_ports = ports_by_participant.get(participant_id, []) %}
+{% if participant.custom_fields.as_number in [12276, 63055] or participant_ports %}
   - asnum: {{ participant.custom_fields.as_number }}
     member_type: {{ participant_type }}
     name: {{ participant.description }}
@@ -108,8 +104,7 @@ member_list:
               address: "2001:504:30::ba06:3055:2"
       {% else %}
 
-      {% for peering_port_id, peering_port in netbox_peering_port_interfaces.items() %}
-      {%   if peering_port.custom_fields.participant and peering_port.custom_fields.participant.id == participant_id %}
+      {% for peering_port in participant_ports %}
       - ixp_id: 155
         state: active
         if_list:
@@ -121,28 +116,22 @@ member_list:
             if_speed: {{ (peering_port.speed / 1000) | int }}
             {%   endif %}
             {% endif %}
-        {% set vlan_map = namespace(vlan_ids={}, ipv4={}, ipv6 = {}) %}
-        {% for ip_address in netbox_participant_ip_addresses.values() %}
-        {%   if ip_address.custom_fields.participant_lag and ip_address.custom_fields.participant_lag.id == peering_port_id %}
-        {%     for vlan in exchange_fabric_vlans.values() %}
-        {%       for tag in vlan.tags %}
-        {%         if tag.slug == "peering_lan" %}
-        {%           for prefix in netbox_prefixes.values() %}
-        {%             if prefix.vlan and prefix.vlan.id == vlan.id %}
-        {%               if (ip_address.address | ansible.utils.ipaddr('address')) | ansible.utils.ipaddr(prefix.prefix) %}
-        {%                 set vlan_map.vlan_ids = vlan_map.vlan_ids | combine({vlan.id: True}) %}
-        {%                 if ip_address.family.value == 4 %}
-        {%                   set vlan_map.ipv4 = vlan_map.ipv4 | combine({vlan.id: ip_address}) %}
-        {%                 elif ip_address.family.value == 6 %}
-        {%                   set vlan_map.ipv6 = vlan_map.ipv6 | combine({vlan.id: ip_address}) %}
-        {%                 endif %}
-        {%               endif %}
-        {%             endif %}
-        {%           endfor %}
-        {%         endif %}
-        {%       endfor %}
-        {%     endfor %}
-        {%   endif %}
+        {# Map this port's IPs onto peering-LAN VLAN(s) by prefix containment. #}
+        {# ips_by_port and peering_lan_prefixes are precomputed in the netbox_data role. #}
+        {% set vlan_map = namespace(vlan_ids=[], ipv4={}, ipv6={}) %}
+        {% for ip_address in ips_by_port.get(peering_port.id, []) %}
+        {%   for plp in peering_lan_prefixes %}
+        {%     if (ip_address.address | ansible.utils.ipaddr('address')) | ansible.utils.ipaddr(plp.prefix) %}
+        {%       if plp.vlan_id not in vlan_map.vlan_ids %}
+        {%         set vlan_map.vlan_ids = vlan_map.vlan_ids + [plp.vlan_id] %}
+        {%       endif %}
+        {%       if ip_address.family.value == 4 %}
+        {%         set vlan_map.ipv4 = vlan_map.ipv4 | combine({plp.vlan_id: ip_address}) %}
+        {%       elif ip_address.family.value == 6 %}
+        {%         set vlan_map.ipv6 = vlan_map.ipv6 | combine({plp.vlan_id: ip_address}) %}
+        {%       endif %}
+        {%     endif %}
+        {%   endfor %}
         {% endfor %}
         {% if vlan_map.vlan_ids %}
         vlan_list:
@@ -168,7 +157,6 @@ member_list:
             {% endif %}
           {% endif %}
         {% endfor %}
-      {%   endif %}
       {% endfor %}
 
       {% endif %}
