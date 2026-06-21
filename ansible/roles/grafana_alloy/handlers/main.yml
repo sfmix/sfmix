@@ -1,0 +1,12 @@
+---
+- name: "Restart alloy"
+  become: true
+  ansible.builtin.service:
+    name: alloy
+    state: restarted
+
+- name: "Restart systemd-journald"
+  become: true
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted

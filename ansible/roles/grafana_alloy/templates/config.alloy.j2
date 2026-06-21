@@ -1,0 +1,39 @@
+// Managed by Ansible (roles/grafana_alloy).
+// Ships the systemd journal to Loki on {{ loki_push_host }}.
+
+loki.source.journal "system" {
+  max_age       = "{{ grafana_alloy_journal_max_age }}"
+  path          = "{{ grafana_alloy_journal_path }}"
+  forward_to    = [loki.write.default.receiver]
+  relabel_rules = loki.relabel.journal.rules
+  labels        = {
+    job  = "journal",
+    host = "{{ inventory_hostname }}",
+  }
+}
+
+// Keep labels bounded (low cardinality). Never label by message/PID.
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "severity"
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://{{ loki_push_host }}:{{ loki_push_port }}/loki/api/v1/push"
+  }
+
+  // Buffer to disk so logs survive Loki/network blips and agent restarts.
+  wal {
+    enabled         = true
+    max_segment_age = "1h"
+  }
+}
