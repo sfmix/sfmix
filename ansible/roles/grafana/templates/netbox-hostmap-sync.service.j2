@@ -1,0 +1,14 @@
+[Unit]
+Description=Sync NetBox -> syslog-ng canonical host-map
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/loki/netbox-hostmap.env
+ExecStart=/usr/bin/python3 /opt/loki/netbox_syslog_hostmap.py \
+  --output /opt/loki/host-map.csv \
+  --status-file /opt/loki/host-map-status.json \
+  --reload-cmd 'docker kill --signal=HUP syslog-ng'
+# status is logged to the journal (journalctl -u netbox-hostmap-sync) and the
+# JSON status file above.
