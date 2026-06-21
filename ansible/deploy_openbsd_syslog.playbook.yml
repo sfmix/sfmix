@@ -5,7 +5,7 @@
 #   ansible-playbook deploy_openbsd_syslog.playbook.yml \
 #     --vault-password-file ~/.sfmix_ansible_vault
 - name: "Logging: OpenBSD syslog forwarding to Loki"
-  hosts: rs_openbsd
+  hosts: rs_openbsd:looking_glass:quarantine_looking_glass
   gather_facts: true
   tasks:
     - name: "Forward syslog to central Loki receiver"
