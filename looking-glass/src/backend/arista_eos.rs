@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -9,7 +10,7 @@ use crate::config::{DeviceConfig, Platform};
 use crate::structured::*;
 
 use super::driver::DeviceDriver;
-use super::ssh::{ssh_exec_direct, ssh_exec_stream};
+use super::ssh::{ssh_exec_direct, ssh_exec_stream, ConnectionPool};
 
 /// Arista EOS device driver.
 ///
@@ -17,11 +18,12 @@ use super::ssh::{ssh_exec_direct, ssh_exec_stream};
 /// structured JSON output, which is parsed into platform-independent types.
 pub struct AristaEosDriver {
     config: DeviceConfig,
+    pool: Arc<ConnectionPool>,
 }
 
 impl AristaEosDriver {
-    pub fn new(config: DeviceConfig) -> Self {
-        Self { config }
+    pub(crate) fn new(config: DeviceConfig, pool: Arc<ConnectionPool>) -> Self {
+        Self { config, pool }
     }
 
     /// Execute a CLI command with `| json` suffix and parse the JSON response.
@@ -30,7 +32,7 @@ impl AristaEosDriver {
     /// escape sequences or shell prompts.
     async fn exec_json<T: for<'de> Deserialize<'de>>(&self, cli: &str) -> Result<T> {
         let cli_command = format!("{cli} | json");
-        let raw = ssh_exec_direct(&self.config, &cli_command).await?;
+        let raw = ssh_exec_direct(&self.pool, &self.config, &cli_command).await?;
         serde_json::from_str(raw.trim())
             .map_err(|e| anyhow::anyhow!("failed to parse EOS JSON for '{cli}': {e}"))
     }
@@ -584,7 +586,7 @@ impl DeviceDriver for AristaEosDriver {
                     Verb::Traceroute => format!("traceroute {target}"),
                     _ => unreachable!(),
                 };
-                let rx = ssh_exec_stream(&self.config, &cli_command).await?;
+                let rx = ssh_exec_stream(&self.pool, &self.config, &cli_command).await?;
                 CommandOutput::Stream(rx)
             }
             _ => anyhow::bail!("unsupported command for Arista EOS"),

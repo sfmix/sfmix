@@ -346,10 +346,27 @@ pub struct DeviceCacheConfig {
     /// Drop MAC entries not seen within this many seconds. 0 disables pruning.
     #[serde(default = "default_mac_retention_secs")]
     pub mac_table_retention_secs: i64,
+    /// SSH connection pool: how often (seconds) to run a CLI freshness probe on an
+    /// otherwise-idle pooled connection to a device. Real commands suppress the
+    /// probe (they prove freshness), so this only fires during genuine idle gaps.
+    /// `0` disables the synthetic probe (rely on transport keepalive +
+    /// reconnect-on-use) — set this if probe commands are noisy in command
+    /// accounting.
+    #[serde(default = "default_ssh_probe_interval_secs")]
+    pub ssh_probe_interval_secs: u64,
+    /// SSH connection pool: optional hard cap (seconds) on a pooled connection's
+    /// age, to bound SSH session/key lifetime. `0` keeps connections warm
+    /// indefinitely while freshness probes pass.
+    #[serde(default)]
+    pub ssh_max_idle_secs: u64,
 }
 
 fn default_mac_retention_secs() -> i64 {
     7 * 24 * 3600 // 7 days
+}
+
+fn default_ssh_probe_interval_secs() -> u64 {
+    120
 }
 
 /// Per-resource-type TTL overrides (seconds). Falls back to `default` when absent.
