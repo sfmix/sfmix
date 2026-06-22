@@ -6,7 +6,7 @@ use russh::client;
 use russh::client::KeyboardInteractiveAuthResponse;
 use russh::{Channel, ChannelMsg};
 use russh::client::Msg;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tokio::time::timeout;
 use tracing::{debug, trace, warn};
 
@@ -59,7 +59,6 @@ pub(crate) type ConnectionPool = Pool<client::Handle<ClientHandler>>;
 /// open between uses and verified by a transport keepalive plus an idle CLI probe.
 /// This replaced the previous connect → exec → disconnect-per-command model, which
 /// flooded device logs with auth churn.
-
 pub(crate) struct ClientHandler {
     /// If set, the server's host key SHA-256 fingerprint (as "SHA256:base64...")
     /// must match this value. Obtained via `ssh-keygen -lf /path/to/key`.
@@ -623,4 +622,285 @@ pub(crate) fn build_pool(
     ));
     pool.clone().spawn_freshness_task();
     pool
+}
+
+// ── Persistent MD-CLI shell session (Nokia SR-OS) ────────────────────────────
+//
+// Nokia SR-OS refuses a *second* channel on an existing SSH connection
+// (`AdministrativelyProhibited`), so the per-command "open a fresh channel"
+// reuse model used for Arista does not work — every command after the first
+// would fail channel-open and trigger a reconnect storm. The workable strategy
+// is the inverse: open **one** PTY+shell channel and pipeline every command
+// through it, never sending `exit`. We never open a second channel, so we never
+// hit the limit — this is exactly how netmiko/scrapli/NAPALM drive SR-OS.
+//
+// Command completion reuses the *same* heuristic the proven single-shot
+// `shell_collect` uses: "received data, then a short idle gap" (the device has
+// returned to its prompt awaiting input). A trailing-prompt fast-path short-cuts
+// the idle wait when detected; a miss is harmless (the idle gap still completes
+// the read), and `extract_sros_json` already strips the echo/prompt/ANSI noise.
+
+/// Idle gap after receiving data that signals an SR-OS command is complete
+/// (the device is back at its prompt). Matches the proven `shell_collect` value.
+const SHELL_IDLE_GAP: Duration = Duration::from_secs(5);
+
+/// Bound on the initial banner/prompt read when establishing a shell session.
+const SHELL_BANNER_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// A pooled, long-lived MD-CLI shell session: one authenticated connection plus
+/// one persistent PTY+shell channel that every command pipelines through.
+///
+/// The channel is wrapped in a `Mutex` because the pool hands out
+/// `Arc<ShellSession>` (a shared ref) while reading/writing the channel needs
+/// `&mut`. The pool's per-device lock already serialises access, so this mutex is
+/// effectively uncontended — it exists only to satisfy the borrow checker.
+pub(crate) struct ShellSession {
+    handle: client::Handle<ClientHandler>,
+    channel: Mutex<Channel<Msg>>,
+}
+
+impl ShellSession {
+    fn is_closed(&self) -> bool {
+        self.handle.is_closed()
+    }
+}
+
+/// Fast-path completion check: does the buffer end at an MD-CLI input prompt?
+///
+/// SR-OS MD-CLI renders the prompt as a context line (`[/]`) followed by an input
+/// line like `A:admin@cr1.sfo01#`. The command *echo* has the command text after
+/// the `#`, so it never matches here — only the fresh prompt printed once output
+/// is done. A miss is harmless: the idle-gap safety net still completes the read.
+fn sros_prompt_tail(buf: &[u8]) -> bool {
+    let s = String::from_utf8_lossy(buf);
+    // Strip ANSI escapes / carriage returns so the trailing prompt is visible.
+    let clean: String = {
+        let mut out = String::with_capacity(s.len());
+        let mut chars = s.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '\x1b' {
+                if chars.peek() == Some(&'[') {
+                    chars.next();
+                    while let Some(&n) = chars.peek() {
+                        chars.next();
+                        if n.is_ascii_alphabetic() || n == '~' {
+                            break;
+                        }
+                    }
+                }
+            } else if c != '\r' {
+                out.push(c);
+            }
+        }
+        out
+    };
+    let Some(last) = clean.lines().rfind(|l| !l.trim().is_empty()) else {
+        return false;
+    };
+    let last = last.trim_end();
+    // e.g. "A:admin@cr1.sfo01#", "*A:admin@host#", operational ">" variants.
+    (last.ends_with('#') || last.ends_with('>'))
+        && last.contains('@')
+        && last.contains(':')
+        && last.len() < 80
+}
+
+/// Read from a persistent shell channel until the device settles back at its
+/// prompt. Completion = a trailing prompt (fast path) or data-then-idle-gap
+/// (safety net). Returns the raw collected bytes (caller runs `extract_sros_json`).
+///
+/// Timeout or an unexpected channel close are `Retryable`: a half-read shell is
+/// corrupted, so the pool evicts the session and reconnects a fresh one.
+async fn read_until_settled(
+    channel: &mut Channel<Msg>,
+    cmd_timeout: Duration,
+) -> Result<String, OpError> {
+    let mut output = Vec::new();
+    let mut got_data = false;
+
+    let collect = timeout(cmd_timeout, async {
+        loop {
+            match timeout(SHELL_IDLE_GAP, channel.wait()).await {
+                Err(_) => {
+                    // Idle gap: if we've seen output, the device is back at its
+                    // prompt — the command is done. Otherwise keep waiting.
+                    if got_data {
+                        return Ok(());
+                    }
+                }
+                Ok(Some(ChannelMsg::Data { data, .. })) => {
+                    trace!(bytes = data.len(), "shell session data");
+                    output.extend_from_slice(&data);
+                    got_data = true;
+                    if sros_prompt_tail(&output) {
+                        return Ok(());
+                    }
+                }
+                Ok(Some(ChannelMsg::ExtendedData { data, ext: 1 })) => {
+                    output.extend_from_slice(&data);
+                    got_data = true;
+                    if sros_prompt_tail(&output) {
+                        return Ok(());
+                    }
+                }
+                Ok(Some(ChannelMsg::Eof)) | Ok(None) => {
+                    return Err(OpError::Retryable(anyhow::anyhow!(
+                        "persistent shell channel closed unexpectedly"
+                    )));
+                }
+                _ => {}
+            }
+        }
+    })
+    .await;
+
+    match collect {
+        Err(_) => Err(OpError::Retryable(anyhow::anyhow!(
+            "persistent shell command timed out after {}s",
+            cmd_timeout.as_secs()
+        ))),
+        Ok(Err(e)) => Err(e),
+        Ok(Ok(())) => Ok(String::from_utf8_lossy(&output).to_string()),
+    }
+}
+
+/// Connect, authenticate, and open a single persistent PTY+shell channel for an
+/// SR-OS device. Consumes the login banner / initial prompt so the first
+/// command's output is clean.
+pub(crate) async fn ssh_connect_shell(config: &DeviceConfig) -> Result<ShellSession> {
+    let handle = ssh_connect(config).await?;
+    let mut channel = handle
+        .channel_open_session()
+        .await
+        .context("failed to open SR-OS shell channel")?;
+
+    // Large terminal to avoid pagination; combined with `| no-more` per command.
+    channel
+        .request_pty(false, "xterm", 0, 0, 65535, 65535, &[])
+        .await
+        .context("failed to request PTY for SR-OS shell")?;
+    channel
+        .request_shell(true)
+        .await
+        .context("failed to request SR-OS shell")?;
+
+    // Best-effort: drain the login banner / first prompt. Even if this read
+    // doesn't cleanly settle, the first real command reads until *its* prompt and
+    // `extract_sros_json` tolerates leading noise; a truly dead shell surfaces as
+    // a Retryable timeout on the first command and reconnects.
+    let _ = read_until_settled(&mut channel, SHELL_BANNER_TIMEOUT).await;
+
+    debug!(device = config.name, "SR-OS persistent shell ready");
+    Ok(ShellSession {
+        handle,
+        channel: Mutex::new(channel),
+    })
+}
+
+/// Run one CLI command over the persistent shell channel and return the raw
+/// output. Does **not** send `exit` — the channel stays open for reuse.
+async fn shell_session_exec(
+    session: &ShellSession,
+    _config: &DeviceConfig,
+    cli: &str,
+    cmd_timeout: Duration,
+) -> Result<String, OpError> {
+    let mut channel = session.channel.lock().await;
+    let line = format!("{cli}\n");
+    channel
+        .data(line.as_bytes())
+        .await
+        .map_err(|e| OpError::Retryable(anyhow::anyhow!("failed to send command to SR-OS shell: {e}")))?;
+    read_until_settled(&mut channel, cmd_timeout).await
+}
+
+/// CLI freshness probe over the persistent shell (keeps it warm + verifies the
+/// device CLI, not just the transport, is responsive).
+async fn shell_session_probe(session: &ShellSession, config: &DeviceConfig) -> Result<()> {
+    let output = shell_session_exec(session, config, "show system time", PROBE_TIMEOUT)
+        .await
+        .map_err(OpError::into_inner)?;
+    if output.trim().is_empty() {
+        anyhow::bail!("freshness probe returned no output for {}", config.name);
+    }
+    Ok(())
+}
+
+/// Pool of persistent SR-OS shell sessions (one reused channel per device).
+pub(crate) type NokiaShellPool = Pool<ShellSession>;
+
+/// Execute an SR-OS CLI command over the device's persistent (pooled) shell.
+pub(crate) async fn nokia_shell_exec(
+    pool: &NokiaShellPool,
+    config: &DeviceConfig,
+    cli: &str,
+) -> Result<String> {
+    debug!(device = config.name, command = cli, "SR-OS exec (persistent shell)");
+    let cmd_timeout = Duration::from_secs(config.command_timeout_secs);
+    // reuse=true is the whole point: one persistent shell channel, reused across
+    // commands. A Retryable error (timeout / closed shell) evicts the session and
+    // reconnects a fresh one, retrying the command once.
+    pool.run(config, true, move |session| async move {
+        shell_session_exec(&session, config, cli, cmd_timeout).await
+    })
+    .await
+}
+
+/// Build the SR-OS persistent-shell pool and start its freshness/keepalive task.
+pub(crate) fn build_shell_pool(
+    probe_interval: Duration,
+    max_idle: Option<Duration>,
+) -> Arc<NokiaShellPool> {
+    let connect: ConnectFn<ShellSession> =
+        Box::new(|cfg: DeviceConfig| Box::pin(async move { ssh_connect_shell(&cfg).await }));
+    let is_closed: IsClosedFn<ShellSession> = Box::new(|s: &ShellSession| s.is_closed());
+    let probe: ProbeFn<ShellSession> = Box::new(|s: Arc<ShellSession>, cfg: DeviceConfig| {
+        Box::pin(async move { shell_session_probe(&s, &cfg).await })
+    });
+
+    let pool = Arc::new(NokiaShellPool::new(
+        connect,
+        is_closed,
+        probe,
+        probe_interval,
+        max_idle,
+    ));
+    pool.clone().spawn_freshness_task();
+    pool
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_tail_detects_md_cli_prompt() {
+        assert!(sros_prompt_tail(b"...json...\n[/]\nA:admin@cr1.sfo01#"));
+        assert!(sros_prompt_tail(b"A:admin@cr1.sfo01# "));
+        assert!(sros_prompt_tail(b"*A:admin@cr1.sfo01.transit# "));
+        // Operational ">" variant.
+        assert!(sros_prompt_tail(b"A:admin@host> "));
+    }
+
+    #[test]
+    fn prompt_tail_ignores_command_echo() {
+        // The echo line has the command after the `#`, so it must NOT match —
+        // otherwise we'd stop reading before any output arrived.
+        assert!(!sros_prompt_tail(
+            b"A:admin@cr1.sfo01# info json /state router interface * | no-more"
+        ));
+    }
+
+    #[test]
+    fn prompt_tail_ignores_plain_output() {
+        assert!(!sros_prompt_tail(b"{\n  \"nokia-state:interface\": []\n}"));
+        assert!(!sros_prompt_tail(b""));
+        assert!(!sros_prompt_tail(b"some text\nmore text"));
+    }
+
+    #[test]
+    fn prompt_tail_strips_ansi() {
+        // ANSI cursor/color codes trailing the prompt must not defeat detection.
+        assert!(sros_prompt_tail(b"\x1b[0m[/]\n\x1b[1mA:admin@cr1.sfo01#\x1b[0m "));
+    }
 }

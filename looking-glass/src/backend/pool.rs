@@ -17,7 +17,7 @@ use crate::structured::{CommandOutput, DeviceStateCache};
 use super::arista_eos::AristaEosDriver;
 use super::nokia_sros::NokiaSrosDriver;
 use super::driver::DeviceDriver;
-use super::ssh::{self, ConnectionPool};
+use super::ssh::{self, ConnectionPool, NokiaShellPool};
 
 /// Manages a pool of device configurations and dispatches commands.
 ///
@@ -31,6 +31,10 @@ use super::ssh::{self, ConnectionPool};
 pub struct DevicePool {
     devices: HashMap<String, DeviceConfig>,
     conn_pool: Arc<ConnectionPool>,
+    /// Persistent SR-OS shell pool (one reused MD-CLI channel per device). `None`
+    /// when `nokia_persistent_shell` is disabled, in which case SR-OS falls back
+    /// to single-use raw connections.
+    nokia_shell_pool: Option<Arc<NokiaShellPool>>,
 }
 
 impl DevicePool {
@@ -43,9 +47,13 @@ impl DevicePool {
         let max_idle = (cache.ssh_max_idle_secs > 0)
             .then(|| Duration::from_secs(cache.ssh_max_idle_secs));
         let conn_pool = ssh::build_pool(probe_interval, max_idle);
+        let nokia_shell_pool = cache
+            .nokia_persistent_shell
+            .then(|| ssh::build_shell_pool(probe_interval, max_idle));
         Self {
             devices: map,
             conn_pool,
+            nokia_shell_pool,
         }
     }
 
@@ -95,6 +103,7 @@ impl DevicePool {
             let pmap = port_map.clone();
             let pvlans: Vec<String> = public_vlans.to_vec();
             let conn_pool = self.conn_pool.clone();
+            let nokia_shell_pool = self.nokia_shell_pool.clone();
 
             tokio::spawn(async move {
                 let _permit = device_permit;
@@ -102,7 +111,7 @@ impl DevicePool {
                     device = config.name,
                     "dispatching command to device"
                 );
-                let result = match execute_on_device_inner(&conn_pool, &config, &command, &identity, &admin_group, &pmap, &pvlans).await {
+                let result = match execute_on_device_inner(&conn_pool, &nokia_shell_pool, &config, &command, &identity, &admin_group, &pmap, &pvlans).await {
                     Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
@@ -157,9 +166,10 @@ impl DevicePool {
             let pmap = pmap.clone();
             let pvlans: Vec<String> = public_vlans.to_vec();
             let conn_pool = self.conn_pool.clone();
+            let nokia_shell_pool = self.nokia_shell_pool.clone();
             tokio::spawn(async move {
                 let _permit = device_permit;
-                let result = match execute_on_device_inner(&conn_pool, &config, &command, &identity, &admin_group, &pmap, &pvlans).await {
+                let result = match execute_on_device_inner(&conn_pool, &nokia_shell_pool, &config, &command, &identity, &admin_group, &pmap, &pvlans).await {
                     Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
@@ -204,8 +214,9 @@ impl DevicePool {
             let tx = tx.clone();
             let name = name.clone();
             let conn_pool = self.conn_pool.clone();
+            let nokia_shell_pool = self.nokia_shell_pool.clone();
             tokio::spawn(async move {
-                let entry = poll_single_device(&conn_pool, &config).await;
+                let entry = poll_single_device(&conn_pool, &nokia_shell_pool, &config).await;
                 let _ = tx.send((name, entry)).await;
             });
         }
@@ -222,11 +233,16 @@ impl DevicePool {
 /// Poll all four cacheable resources from a single device.
 async fn poll_single_device(
     conn_pool: &Arc<ConnectionPool>,
+    nokia_shell_pool: &Option<Arc<NokiaShellPool>>,
     config: &DeviceConfig,
 ) -> DeviceStateCache {
     let driver: Box<dyn DeviceDriver> = match config.platform {
         Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone(), conn_pool.clone())),
-        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone(), conn_pool.clone())),
+        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(
+            config.clone(),
+            conn_pool.clone(),
+            nokia_shell_pool.clone(),
+        )),
     };
 
     let mut cache = DeviceStateCache::default();
@@ -339,8 +355,10 @@ fn make_poll_command(resource: Resource) -> Command {
 }
 
 /// Execute a command on a device and apply output filtering.
+#[allow(clippy::too_many_arguments)]
 async fn execute_on_device_inner(
     conn_pool: &Arc<ConnectionPool>,
+    nokia_shell_pool: &Option<Arc<NokiaShellPool>>,
     config: &DeviceConfig,
     command: &Command,
     identity: &Identity,
@@ -350,7 +368,11 @@ async fn execute_on_device_inner(
 ) -> Result<CommandResult> {
     let driver: Box<dyn DeviceDriver> = match config.platform {
         Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone(), conn_pool.clone())),
-        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone(), conn_pool.clone())),
+        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(
+            config.clone(),
+            conn_pool.clone(),
+            nokia_shell_pool.clone(),
+        )),
     };
 
     let mut result = driver.execute(command).await?;

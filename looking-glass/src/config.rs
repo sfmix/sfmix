@@ -359,6 +359,20 @@ pub struct DeviceCacheConfig {
     /// indefinitely while freshness probes pass.
     #[serde(default)]
     pub ssh_max_idle_secs: u64,
+    /// Nokia SR-OS persistent-shell pooling. When `true` (default for a present
+    /// `device_cache` table), SR-OS devices reuse a single long-lived MD-CLI
+    /// shell channel for every CLI command instead of opening a fresh connection
+    /// per command. SR-OS refuses a *second* channel on an existing connection
+    /// (`AdministrativelyProhibited`), so the pool keeps ONE channel open and
+    /// pipelines commands through it — collapsing the per-command connect/auth
+    /// churn (the dominant SR-OS device-log noise) to per-connection-lifetime.
+    /// Set `false` to fall back to the safe single-use-connection behaviour.
+    #[serde(default = "default_nokia_persistent_shell")]
+    pub nokia_persistent_shell: bool,
+}
+
+fn default_nokia_persistent_shell() -> bool {
+    true
 }
 
 fn default_mac_retention_secs() -> i64 {

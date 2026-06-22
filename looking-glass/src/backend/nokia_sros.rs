@@ -10,20 +10,43 @@ use crate::config::{DeviceConfig, Platform};
 use crate::structured::*;
 
 use super::driver::DeviceDriver;
-use super::ssh::{ssh_exec, ssh_exec_stream, ConnectionPool};
+use super::ssh::{nokia_shell_exec, ssh_exec, ssh_exec_stream, ConnectionPool, NokiaShellPool};
 
 /// Nokia SR-OS MD-CLI device driver.
 ///
 /// Connects to SR-OS devices via SSH and uses `info json /state <path>` to get
 /// structured JSON output, which is parsed into platform-independent types.
+///
+/// SR-OS refuses a second SSH channel on an existing connection, so two pooling
+/// strategies are wired here:
+/// - `shell_pool` (preferred, `nokia_persistent_shell = true`): one long-lived
+///   MD-CLI shell channel per device, reused for every command — this is what
+///   cuts the per-command connect/auth log churn.
+/// - `pool` (fallback / streaming): single-use raw connections. Always used for
+///   streaming ping/traceroute, and for collect commands when the shell pool is
+///   disabled.
 pub struct NokiaSrosDriver {
     config: DeviceConfig,
     pool: Arc<ConnectionPool>,
+    shell_pool: Option<Arc<NokiaShellPool>>,
 }
 
 impl NokiaSrosDriver {
-    pub(crate) fn new(config: DeviceConfig, pool: Arc<ConnectionPool>) -> Self {
-        Self { config, pool }
+    pub(crate) fn new(
+        config: DeviceConfig,
+        pool: Arc<ConnectionPool>,
+        shell_pool: Option<Arc<NokiaShellPool>>,
+    ) -> Self {
+        Self { config, pool, shell_pool }
+    }
+
+    /// Run an SR-OS CLI command, preferring the persistent shell pool when
+    /// enabled and falling back to a single-use connection otherwise.
+    async fn exec_cli(&self, cli: &str) -> Result<String> {
+        match &self.shell_pool {
+            Some(sp) => nokia_shell_exec(sp, &self.config, cli).await,
+            None => ssh_exec(&self.pool, &self.config, cli).await,
+        }
     }
 
     /// Execute `info json /state <path>` and parse the JSON response.
@@ -31,7 +54,7 @@ impl NokiaSrosDriver {
     #[allow(dead_code)]
     async fn exec_json<T: for<'de> Deserialize<'de>>(&self, state_path: &str) -> Result<T> {
         let cli_command = format!("info json /state {state_path} | no-more");
-        let raw = ssh_exec(&self.pool, &self.config, &cli_command).await?;
+        let raw = self.exec_cli(&cli_command).await?;
         let clean = extract_sros_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse SR-OS JSON for '/state {state_path}': {e}"))
@@ -43,7 +66,7 @@ impl NokiaSrosDriver {
     /// The `| no-more` pipe disables pagination.
     async fn exec_json_value(&self, state_path: &str) -> Result<Value> {
         let cli_command = format!("info json /state {state_path} | no-more");
-        let raw = ssh_exec(&self.pool, &self.config, &cli_command).await?;
+        let raw = self.exec_cli(&cli_command).await?;
         let clean = extract_sros_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse SR-OS JSON for '/state {state_path}': {e}"))
