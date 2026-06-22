@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{Result, anyhow};
 use tokio::sync::mpsc;
@@ -7,7 +9,7 @@ use tracing::{debug, warn};
 use crate::ratelimit::{DeviceRateLimiter, DeviceRateLimitError};
 
 use crate::command::{AddressFamily, Command, CommandResult, Resource, Verb};
-use crate::config::{DeviceConfig, Platform};
+use crate::config::{DeviceCacheConfig, DeviceConfig, Platform};
 use crate::identity::Identity;
 use crate::participants::{PortClass, PortMap};
 use crate::structured::{CommandOutput, DeviceStateCache};
@@ -15,24 +17,35 @@ use crate::structured::{CommandOutput, DeviceStateCache};
 use super::arista_eos::AristaEosDriver;
 use super::nokia_sros::NokiaSrosDriver;
 use super::driver::DeviceDriver;
+use super::ssh::{self, ConnectionPool};
 
 /// Manages a pool of device configurations and dispatches commands.
 ///
 /// Device-level rate limiting (concurrency + CPM) is enforced via
 /// `DeviceRateLimiter`, which is passed to `execute()`. This keeps
 /// the pool focused on dispatch and the rate limiter focused on limits.
+///
+/// Owns the shared [`ConnectionPool`] of reusable per-device SSH connections;
+/// every driver built here is handed a clone so commands reuse one connection
+/// per device instead of reconnecting per command.
 pub struct DevicePool {
     devices: HashMap<String, DeviceConfig>,
+    conn_pool: Arc<ConnectionPool>,
 }
 
 impl DevicePool {
-    pub fn new(devices: Vec<DeviceConfig>) -> Self {
+    pub fn new(devices: Vec<DeviceConfig>, cache: &DeviceCacheConfig) -> Self {
         let map: HashMap<String, DeviceConfig> = devices
             .into_iter()
             .map(|d| (d.name.clone(), d))
             .collect();
+        let probe_interval = Duration::from_secs(cache.ssh_probe_interval_secs);
+        let max_idle = (cache.ssh_max_idle_secs > 0)
+            .then(|| Duration::from_secs(cache.ssh_max_idle_secs));
+        let conn_pool = ssh::build_pool(probe_interval, max_idle);
         Self {
             devices: map,
+            conn_pool,
         }
     }
 
@@ -81,6 +94,7 @@ impl DevicePool {
 
             let pmap = port_map.clone();
             let pvlans: Vec<String> = public_vlans.to_vec();
+            let conn_pool = self.conn_pool.clone();
 
             tokio::spawn(async move {
                 let _permit = device_permit;
@@ -88,7 +102,7 @@ impl DevicePool {
                     device = config.name,
                     "dispatching command to device"
                 );
-                let result = match execute_on_device_inner(&config, &command, &identity, &admin_group, &pmap, &pvlans).await {
+                let result = match execute_on_device_inner(&conn_pool, &config, &command, &identity, &admin_group, &pmap, &pvlans).await {
                     Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
@@ -142,9 +156,10 @@ impl DevicePool {
             let admin_group = admin_group.clone();
             let pmap = pmap.clone();
             let pvlans: Vec<String> = public_vlans.to_vec();
+            let conn_pool = self.conn_pool.clone();
             tokio::spawn(async move {
                 let _permit = device_permit;
-                let result = match execute_on_device_inner(&config, &command, &identity, &admin_group, &pmap, &pvlans).await {
+                let result = match execute_on_device_inner(&conn_pool, &config, &command, &identity, &admin_group, &pmap, &pvlans).await {
                     Ok(r) => r,
                     Err(e) => {
                         warn!(device = config.name, error = %e, "device command failed");
@@ -188,8 +203,9 @@ impl DevicePool {
             let config = config.clone();
             let tx = tx.clone();
             let name = name.clone();
+            let conn_pool = self.conn_pool.clone();
             tokio::spawn(async move {
-                let entry = poll_single_device(&config).await;
+                let entry = poll_single_device(&conn_pool, &config).await;
                 let _ = tx.send((name, entry)).await;
             });
         }
@@ -204,10 +220,13 @@ impl DevicePool {
 }
 
 /// Poll all four cacheable resources from a single device.
-async fn poll_single_device(config: &DeviceConfig) -> DeviceStateCache {
+async fn poll_single_device(
+    conn_pool: &Arc<ConnectionPool>,
+    config: &DeviceConfig,
+) -> DeviceStateCache {
     let driver: Box<dyn DeviceDriver> = match config.platform {
-        Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone())),
-        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone())),
+        Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone(), conn_pool.clone())),
+        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone(), conn_pool.clone())),
     };
 
     let mut cache = DeviceStateCache::default();
@@ -321,6 +340,7 @@ fn make_poll_command(resource: Resource) -> Command {
 
 /// Execute a command on a device and apply output filtering.
 async fn execute_on_device_inner(
+    conn_pool: &Arc<ConnectionPool>,
     config: &DeviceConfig,
     command: &Command,
     identity: &Identity,
@@ -329,8 +349,8 @@ async fn execute_on_device_inner(
     public_vlans: &[String],
 ) -> Result<CommandResult> {
     let driver: Box<dyn DeviceDriver> = match config.platform {
-        Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone())),
-        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone())),
+        Platform::AristaEos => Box::new(AristaEosDriver::new(config.clone(), conn_pool.clone())),
+        Platform::NokiaSros => Box::new(NokiaSrosDriver::new(config.clone(), conn_pool.clone())),
     };
 
     let mut result = driver.execute(command).await?;

@@ -97,7 +97,7 @@ async fn main() -> Result<()> {
     );
 
     // Initialize device backend pool
-    let device_pool = DevicePool::new(config.devices);
+    let device_pool = DevicePool::new(config.devices, &config.device_cache);
     info!("Configured devices: {:?}", device_pool.device_names());
 
     // Initialize per-device rate limiter

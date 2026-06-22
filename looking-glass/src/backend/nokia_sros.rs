@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -8,7 +10,7 @@ use crate::config::{DeviceConfig, Platform};
 use crate::structured::*;
 
 use super::driver::DeviceDriver;
-use super::ssh::{ssh_exec, ssh_exec_stream};
+use super::ssh::{ssh_exec, ssh_exec_stream, ConnectionPool};
 
 /// Nokia SR-OS MD-CLI device driver.
 ///
@@ -16,11 +18,12 @@ use super::ssh::{ssh_exec, ssh_exec_stream};
 /// structured JSON output, which is parsed into platform-independent types.
 pub struct NokiaSrosDriver {
     config: DeviceConfig,
+    pool: Arc<ConnectionPool>,
 }
 
 impl NokiaSrosDriver {
-    pub fn new(config: DeviceConfig) -> Self {
-        Self { config }
+    pub(crate) fn new(config: DeviceConfig, pool: Arc<ConnectionPool>) -> Self {
+        Self { config, pool }
     }
 
     /// Execute `info json /state <path>` and parse the JSON response.
@@ -28,7 +31,7 @@ impl NokiaSrosDriver {
     #[allow(dead_code)]
     async fn exec_json<T: for<'de> Deserialize<'de>>(&self, state_path: &str) -> Result<T> {
         let cli_command = format!("info json /state {state_path} | no-more");
-        let raw = ssh_exec(&self.config, &cli_command).await?;
+        let raw = ssh_exec(&self.pool, &self.config, &cli_command).await?;
         let clean = extract_sros_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse SR-OS JSON for '/state {state_path}': {e}"))
@@ -40,7 +43,7 @@ impl NokiaSrosDriver {
     /// The `| no-more` pipe disables pagination.
     async fn exec_json_value(&self, state_path: &str) -> Result<Value> {
         let cli_command = format!("info json /state {state_path} | no-more");
-        let raw = ssh_exec(&self.config, &cli_command).await?;
+        let raw = ssh_exec(&self.pool, &self.config, &cli_command).await?;
         let clean = extract_sros_json(&raw);
         serde_json::from_str(&clean)
             .map_err(|e| anyhow::anyhow!("failed to parse SR-OS JSON for '/state {state_path}': {e}"))
@@ -603,7 +606,7 @@ impl DeviceDriver for NokiaSrosDriver {
                     Verb::Traceroute => format!("traceroute {target}"),
                     _ => unreachable!(),
                 };
-                let rx = ssh_exec_stream(&self.config, &cli_command).await?;
+                let rx = ssh_exec_stream(&self.pool, &self.config, &cli_command).await?;
                 CommandOutput::Stream(rx)
             }
             _ => anyhow::bail!("unsupported command for Nokia SR-OS"),
