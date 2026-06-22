@@ -769,7 +769,12 @@ class AristaEOSDevice(DeviceDiscovery):
                     )
 
         netbox_interface_type = None
-        for interface_name, interface_details in interfaces_response.items():
+        # Process LAGs (Port-Channels) before their member Ethernet interfaces so a
+        # newly created LAG is registered in nb_ifaces before members try to link to it.
+        for interface_name, interface_details in sorted(
+            interfaces_response.items(),
+            key=lambda kv: 0 if kv[1].get("hardware") == "portChannel" else 1,
+        ):
             if interface_name == "defaults":
                 continue
             eapi_interface_type = interface_details["hardware"]
@@ -850,19 +855,49 @@ class AristaEOSDevice(DeviceDiscovery):
                             .get("vlanId")
                         )
 
+            desired_lag_name = iface_lag_member.get(interface_name)
+            desired_lag_id = (
+                nb_ifaces[desired_lag_name].id
+                if desired_lag_name and desired_lag_name in nb_ifaces
+                else None
+            )
+
             existing_interface = nb_ifaces.get(interface_name)
             if existing_interface is None:
                 if netbox_interface_type and netbox_interface_speed:
                     logger.info(
                         f"{'[DRY-RUN] Would create' if dry_run else 'Creating'}"
                         f" interface: {self.device_name} / {interface_name}"
+                        f" (type={netbox_interface_type}, speed={netbox_interface_speed},"
+                        f" mode={netbox_interface_mode}, untagged={untagged_vlan},"
+                        f" tagged={sorted(tagged_vlans)}, lag={desired_lag_name!r},"
+                        f" description={interface_description!r})"
                     )
                     if not dry_run:
-                        netbox.dcim.interfaces.create(
+                        create_kwargs: Dict[str, Any] = dict(
                             device={"name": self.device_name},
                             name=interface_name,
                             type=netbox_interface_type,
                             speed=netbox_interface_speed,
+                            description=interface_description,
+                            mode=netbox_interface_mode,
+                        )
+                        if tagged_vlans:
+                            create_kwargs["tagged_vlans"] = [
+                                exchange_vlan_map[vlan_id].id
+                                for vlan_id in tagged_vlans
+                            ]
+                        if untagged_vlan:
+                            create_kwargs["untagged_vlan"] = exchange_vlan_map[
+                                untagged_vlan
+                            ].id
+                        if desired_lag_id:
+                            create_kwargs["lag"] = desired_lag_id
+                        # Register the new interface so members processed later in
+                        # this same pass can resolve their LAG to it (single-pass
+                        # convergence; LAGs are iterated before their members).
+                        nb_ifaces[interface_name] = netbox.dcim.interfaces.create(
+                            **create_kwargs
                         )
             else:
                 logger.debug(f"Examining Interface: {self.device_name} / {interface_name}:")
@@ -935,8 +970,6 @@ class AristaEOSDevice(DeviceDiscovery):
                             existing_interface.untagged_vlan = None
                     changed = True
 
-                desired_lag_name = iface_lag_member.get(interface_name)
-                desired_lag_id = nb_ifaces[desired_lag_name].id if desired_lag_name and desired_lag_name in nb_ifaces else None
                 current_lag_id = existing_interface.lag.id if existing_interface.lag else None
                 if current_lag_id != desired_lag_id:
                     old_lag_name = existing_interface.lag.name if existing_interface.lag else None
