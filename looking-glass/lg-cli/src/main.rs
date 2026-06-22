@@ -262,7 +262,11 @@ async fn run_ssh_server(
         methods,
         keys: vec![key],
         inactivity_timeout: Some(std::time::Duration::from_secs(300)),
-        auth_rejection_time: std::time::Duration::from_secs(1),
+        // Clients walk through every agent identity before reaching the looking-glass
+        // cert (and we reject all non-cert keys), so this constant-time rejection delay
+        // is paid once per offered key. Keep it short: auth here is cert-or-anonymous,
+        // there's no secret to brute-force, so a long delay only punishes normal logins.
+        auth_rejection_time: std::time::Duration::from_millis(150),
         ..Default::default()
     };
 
@@ -353,10 +357,6 @@ impl SshSessionHandler {
             Some(t) if term_supports_rich(t) => ColorMode::Rich,
             _ => ColorMode::Color,
         }
-    }
-
-    fn extract_identity_from_key(&self, _public_key: &PublicKey) -> Identity {
-        Identity::anonymous()
     }
 
     fn verify_and_extract_cert_identity(&self, certificate: &Certificate) -> Option<Identity> {
@@ -600,25 +600,55 @@ impl<'a> SessionWriter for SshWriter<'a> {
     }
 }
 
+/// Auth methods to keep offering after a rejection: publickey (so the client tries
+/// its remaining identities, including the looking-glass cert) and keyboard-interactive
+/// (the anonymous fallback once publickey is exhausted).
+fn pk_and_kbd() -> russh::MethodSet {
+    let mut methods = russh::MethodSet::empty();
+    methods.push(MethodKind::PublicKey);
+    methods.push(MethodKind::KeyboardInteractive);
+    methods
+}
+
 impl server::Handler for SshSessionHandler {
     type Error = anyhow::Error;
 
     async fn auth_publickey_offered(
         &mut self,
         _user: &str,
-        _public_key: &PublicKey,
+        public_key: &PublicKey,
     ) -> Result<Auth, Self::Error> {
-        Ok(Auth::Accept)
+        // Only a looking-glass cert authenticates here, and LG certs always wrap an
+        // ephemeral Ed25519 key (see inject_agent_cert). The authoritative decision
+        // happens post-signature in auth_openssh_certificate / auth_publickey; this
+        // offer-stage filter is a touch-avoidance optimization: drop keys whose
+        // algorithm can't be an LG cert before the client signs (and, for sk-* keys,
+        // before it prompts for a hardware touch). Plain Ed25519 keys still proceed
+        // and are rejected in auth_publickey.
+        if matches!(public_key.algorithm(), ssh_key::Algorithm::Ed25519) {
+            Ok(Auth::Accept)
+        } else {
+            Ok(Auth::Reject {
+                proceed_with_methods: Some(pk_and_kbd()),
+                partial_success: false,
+            })
+        }
     }
 
     async fn auth_publickey(
         &mut self,
         user: &str,
-        public_key: &PublicKey,
+        _public_key: &PublicKey,
     ) -> Result<Auth, Self::Error> {
-        debug!(user, "SSH public key auth accepted");
-        *self.identity.lock().unwrap() = self.extract_identity_from_key(public_key);
-        Ok(Auth::Accept)
+        // Plain public keys never authenticate — only a looking-glass cert does.
+        // Reject and keep offering publickey + keyboard-interactive so the client
+        // moves on to its remaining identities (the cert) and ultimately the
+        // anonymous keyboard-interactive fallback.
+        debug!(user, "ignoring plain public key (only looking-glass certs authenticate)");
+        Ok(Auth::Reject {
+            proceed_with_methods: Some(pk_and_kbd()),
+            partial_success: false,
+        })
     }
 
     async fn auth_openssh_certificate(
@@ -638,8 +668,10 @@ impl server::Handler for SshSessionHandler {
             }
             None => {
                 debug!(user, "SSH certificate auth rejected (validation failed)");
+                // Not a looking-glass cert — keep trying so the client can still fall
+                // through to anonymous via keyboard-interactive.
                 Ok(Auth::Reject {
-                    proceed_with_methods: None,
+                    proceed_with_methods: Some(pk_and_kbd()),
                     partial_success: false,
                 })
             }
@@ -652,12 +684,10 @@ impl server::Handler for SshSessionHandler {
         _submethods: &str,
         _response: Option<server::Response<'a>>,
     ) -> Result<Auth, Self::Error> {
-        let mut methods = russh::MethodSet::empty();
-        methods.push(MethodKind::PublicKey);
-        Ok(Auth::Reject {
-            proceed_with_methods: Some(methods),
-            partial_success: false,
-        })
+        // No looking-glass cert was presented — fall back to anonymous access.
+        // Accept immediately (no prompts), which russh turns into USERAUTH_SUCCESS.
+        *self.identity.lock().unwrap() = Identity::anonymous();
+        Ok(Auth::Accept)
     }
 
     async fn channel_open_session(
