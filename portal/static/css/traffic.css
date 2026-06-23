@@ -130,3 +130,26 @@
 .uplot, .uplot * { font-family: var(--font-sans, system-ui); }
 .u-legend { font-size: .76rem; color: var(--color-text-light); }
 .u-legend .u-marker { width: 10px; height: 10px; }
+
+/* ── Mobile: reclaim horizontal real-estate for the canvas ────────────
+   Charts sit inside several nested cards — section / layer-band body /
+   ops panel / chart panel — and on a narrow screen their stacked horizontal
+   padding (≈3.75–4.15rem per side) squeezes the plot to roughly a third of
+   the viewport. Collapse the *horizontal* insets only (keep the vertical
+   rhythm) so the canvas runs nearly edge-to-edge; matches the 768px
+   breakpoint used elsewhere in the portal. */
+@media (max-width: 768px) {
+  .nd-tf-section { padding-left: .45rem; padding-right: .45rem; }
+  .nd-ops-panel { padding-left: .4rem; padding-right: .4rem; }
+  .nd-tf-panel { padding-left: .35rem; padding-right: .35rem; }
+  /* Only layer-band bodies that actually wrap a chart get tightened; text
+     bands (L1/L3/L4 details) keep their normal inset. */
+  .nd-lband-body:has(.nd-tf-band) { padding-left: .3rem; padding-right: .3rem; }
+  /* Keep heads/captions off the very edge so labels still read as a card,
+     while the canvas itself runs wider beneath them. */
+  .nd-tf-section-head,
+  .nd-tf-head,
+  .nd-tf-section > .nd-tf-sub,
+  .nd-ops-panel > .nd-tf-sub,
+  .nd-tf-panel-head { padding-left: .2rem; padding-right: .2rem; }
+}
