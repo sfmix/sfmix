@@ -40,6 +40,16 @@
 .nd-tf-range button:first-child { border-left: 0; }
 .nd-tf-range button.on { background: var(--color-primary-light); color: #fff; font-weight: 600; }
 
+/* Time-zone toggle (SF Time / UTC) — injected next to each range picker by
+   traffic-charts.js. Mirrors the range picker so the two read as a pair. */
+.nd-tf-tz { display: inline-flex; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; margin-left: .5rem; }
+.nd-tf-tz button {
+  font: inherit; font-size: .78rem; padding: .25rem .7rem; background: #fff;
+  border: 0; border-left: 1px solid var(--color-border); color: var(--color-text-light); cursor: pointer;
+}
+.nd-tf-tz button:first-child { border-left: 0; }
+.nd-tf-tz button.on { background: var(--color-primary-light); color: #fff; font-weight: 600; }
+
 /* Full-width charts, one per row. min-width:0 lets the grid track shrink below
    the chart canvas's intrinsic width (default min-width:auto would otherwise
    pin the track open and overflow the page); the chart's ResizeObserver then
@@ -62,9 +72,24 @@
   font-size: .8rem; color: var(--color-text-light); background: var(--color-bg-alt);
 }
 
-/* Custom legend for the stacked peer chart. */
+/* Custom legend for the stacked peer chart. Items are clickable buttons that
+   isolate/add their series; the crosshair updates each value + the time line. */
 .nd-tf-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .75rem; }
-.nd-tf-leg-item { display: inline-flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--color-text); }
+/* Point-in-time readout (full-width row above the swatches): tracks the
+   crosshair, shows "latest" when idle. */
+.nd-tf-leg-time {
+  flex-basis: 100%; font-size: .72rem; color: var(--color-text-light);
+  font-variant-numeric: tabular-nums; margin-bottom: .15rem; min-height: 1em;
+}
+.nd-tf-leg-item {
+  display: inline-flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--color-text);
+  font: inherit; font-size: .78rem; background: none; border: 0; padding: .1rem .25rem;
+  border-radius: 4px; cursor: pointer;
+}
+.nd-tf-leg-item:hover { background: var(--color-bg-alt); }
+.nd-tf-leg-item:focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 1px; }
+/* Series toggled out of the isolated view: dimmed but still clickable to re-add. */
+.nd-tf-leg-item.nd-tf-off { opacity: .4; }
 .nd-tf-sw { width: 11px; height: 11px; border-radius: 3px; flex: none; }
 .nd-tf-leg-name { color: var(--color-text); }
 .nd-tf-leg-asn { color: var(--color-text-light); font-family: var(--font-mono, ui-monospace); font-size: .72rem; }
