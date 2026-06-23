@@ -635,3 +635,28 @@ body {
 
 .dash-card { border-radius: var(--radius-card); transition: border-color .15s; }
 .dash-card:hover { border-color: var(--color-primary-light); }
+
+/* ── Sticky-bar visual polish ─────────────────────────────────────────
+   The pinned bars — the identity bar, the logical-port headers, and (on mobile)
+   the layer-band tags — read as a layered stack while scrolling. Give them all
+   the identity bar's gently rounded corners, a subtle-but-distinct border, a
+   soft drop shadow for elevation, and a little breathing room so stacked bars
+   don't butt together. Appended after the base/responsive rules so it layers on
+   top of them by source order. */
+.nd-sticky-id { box-shadow: 0 2px 6px rgba(0, 0, 0, .10); }
+.nd-lport-head {
+  border: 1px solid var(--color-border); border-radius: var(--radius-card);
+  margin: .4rem; box-shadow: 0 2px 6px rgba(0, 0, 0, .10);
+}
+/* Pin offsets gain a small gap so a stuck bar doesn't touch the one above it. */
+@media (max-width: 768px) {
+  .nd-lport-head { top: calc(var(--nd-id-h, 0px) + .4rem); }
+  .nd-lband-tag {
+    border: 1px solid var(--color-border); border-radius: var(--radius-card);
+    margin: .4rem; box-shadow: 0 2px 6px rgba(0, 0, 0, .10);
+    top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px) + .8rem);
+  }
+}
+@media (min-width: 769px) {
+  .nd-lport-head { top: calc(var(--nd-id-h, 0px) + .4rem); }
+}
