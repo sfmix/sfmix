@@ -646,7 +646,7 @@ body {
 .nd-sticky-id { box-shadow: 0 2px 6px rgba(0, 0, 0, .10); }
 .nd-lport-head {
   border: 1px solid var(--color-border); border-radius: var(--radius-card);
-  margin: .4rem; box-shadow: 0 2px 6px rgba(0, 0, 0, .10);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .10);
 }
 /* Pin offsets gain a small gap so a stuck bar doesn't touch the one above it. */
 @media (max-width: 768px) {
