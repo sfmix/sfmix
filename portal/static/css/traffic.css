@@ -100,11 +100,20 @@
 .nd-tf-leg-asn { color: var(--color-text-light); font-family: var(--font-mono, ui-monospace); font-size: .72rem; }
 .nd-tf-leg-val { color: var(--color-text-light); font-variant-numeric: tabular-nums; }
 
-/* Held ("pinned") point. A dashed background crosshair marks the pinned time;
-   the readout freezes on its values while the live cursor keeps roaming. */
-.nd-tf-held-line {
+/* Held ("pinned") point. A bold solid accent crosshair + a filled point on each
+   series mark the pinned time (vs the live cursor's faint blue-grey dashed line),
+   while the readout freezes on its values and the live cursor keeps roaming. */
+/* No z-index: inserted as over's first child, so it paints behind the live
+   cursor/points by DOM order — a true "background" marker. */
+.nd-tf-pin-marker { position: absolute; inset: 0; pointer-events: none; }
+.nd-tf-pin-xline {
   position: absolute; top: 0; bottom: 0; width: 0;
-  border-left: 1px dashed var(--color-accent); pointer-events: none; z-index: 2;
+  border-left: 2px solid var(--color-accent);
+}
+.nd-tf-pin-dot {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--color-accent); box-sizing: border-box;
+  transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #fff;
 }
 /* Small ✕ that clears the pin (in the stacked time line and the pin box head). */
 .nd-tf-pin-clear {

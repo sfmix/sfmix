@@ -21,10 +21,11 @@
  *   - Crosshair picker: hovering (or dragging a touch) shows a vertical
  *     crosshair and updates the legend values + a time readout to that exact
  *     point in time. Drag-to-zoom is disabled so a touch acts purely as a picker.
- *   - Held point: clicking (or tapping) pins the current point in time. A dashed
- *     "background" crosshair marks it and the readout freezes on its values, so
- *     you can keep moving the live crosshair to compare other points. Clicking a
- *     new spot moves the pin; the ✕ (or clicking the pinned point again) clears it.
+ *   - Held point: a bold accent-coloured "background" crosshair + a point on each
+ *     series marks a pinned moment, and the readout freezes on its values so you
+ *     can keep moving the faint live crosshair to compare other points. Desktop:
+ *     click to pin (click again / ✕ to clear). Mobile: drag to move the crosshair,
+ *     lift to hold that point; ✕ clears.
  */
 (function () {
   "use strict";
@@ -169,12 +170,55 @@
     return c;
   }
 
-  // Drive the uPlot cursor from touch so dragging a finger across the chart moves
-  // the live crosshair (uPlot's own cursor is mouse-only). touchstart stays
-  // passive so a tap still synthesises a click (→ pin); touchmove is cancelled so
-  // a drag explores the chart instead of scrolling the page.
-  function enableTouchPicker(u) {
-    if (!u || !u.over) return;
+  // ── Held ("pinned") point marker ───────────────────────────────────────────
+  // A bold, accent-coloured crosshair (vs the live cursor's faint blue-grey
+  // dashed line) plus a filled point on each series — echoing uPlot's own cursor
+  // points so the pin reads as "the same kind of marker, frozen in place". Lives
+  // in u.over as DOM children, inserted *behind* the live cursor, so it survives
+  // cursor moves (uPlot only repaints the canvas on data/scale/size changes) and
+  // needs no canvas hooks.
+  function makePinMarker(u) {
+    var wrap = document.createElement("div");
+    wrap.className = "nd-tf-pin-marker";
+    wrap.style.display = "none";
+    var line = document.createElement("div");
+    line.className = "nd-tf-pin-xline";
+    wrap.appendChild(line);
+    u.over.insertBefore(wrap, u.over.firstChild); // behind the live cursor/points
+    return { wrap: wrap, line: line, dots: [] };
+  }
+  function positionPinMarker(u, m, heldIdx, withDots) {
+    if (heldIdx == null) { m.wrap.style.display = "none"; return; }
+    var xpos = u.valToPos(u.data[0][heldIdx], "x");
+    if (xpos < 0 || xpos > u.over.clientWidth + 1) { m.wrap.style.display = "none"; return; }
+    m.wrap.style.display = "";
+    m.line.style.left = Math.round(xpos) + "px";
+    m.dots.forEach(function (d) { d.remove(); });
+    m.dots.length = 0;
+    if (!withDots) return; // stacked has no live cursor points either — line only
+    for (var i = 1; i < u.series.length; i++) {
+      var s = u.series[i];
+      if (s.show === false) continue;
+      var yval = u.data[i][heldIdx];
+      if (yval == null) continue;
+      var ypos = u.valToPos(yval, s.scale || "y");
+      var dot = document.createElement("div");
+      dot.className = "nd-tf-pin-dot";
+      var stroke = typeof s.stroke === "function" ? s.stroke(u, i) : s.stroke;
+      dot.style.background = stroke || TEXT_LIGHT;
+      dot.style.left = Math.round(xpos) + "px";
+      dot.style.top = Math.round(ypos) + "px";
+      m.wrap.appendChild(dot);
+      m.dots.push(dot);
+    }
+  }
+
+  // Pointer interactions. Mouse: hover moves the live crosshair (uPlot), a click
+  // toggles the pin (click the pinned point again to clear). Touch: a finger drag
+  // moves the live crosshair; lifting the finger holds (pins) that point — so you
+  // explore by dragging and pin by letting go. The synthesized click after a tap
+  // is suppressed so it can't immediately un-pin.
+  function attachInteractions(u, host) {
     var over = u.over;
     function place(e, prevent) {
       if (!e.touches || !e.touches.length) return;
@@ -187,34 +231,16 @@
     }
     over.addEventListener("touchstart", function (e) { place(e, false); }, { passive: true });
     over.addEventListener("touchmove", function (e) { place(e, true); }, { passive: false });
-  }
+    over.addEventListener("touchend", function (e) {
+      if (e.cancelable) e.preventDefault(); // suppress the synthesized click
+      if (u.cursor.idx != null) host._setHeld(u.cursor.idx);
+    }, { passive: false });
 
-  // ── Held ("pinned") point ────────────────────────────────────────────────
-  // A dashed vertical line painted behind the live cursor, marking the pinned
-  // point in time. It lives in u.over as a DOM child so it survives cursor moves
-  // (uPlot only repaints the canvas on data/scale/size changes, not on hover).
-  function makeHeldLine(u) {
-    var el = document.createElement("div");
-    el.className = "nd-tf-held-line";
-    el.style.display = "none";
-    u.over.appendChild(el);
-    return el;
-  }
-  function positionHeldLine(u, el, xval) {
-    if (xval == null) { el.style.display = "none"; return; }
-    var left = u.valToPos(xval, "x");
-    if (left < 0 || left > u.over.clientWidth + 1) { el.style.display = "none"; return; }
-    el.style.left = Math.round(left) + "px";
-    el.style.display = "";
-  }
-  // Click/tap pins the point under the cursor. A small movement budget rejects
-  // drags (touch exploration or accidental mouse drags) so only deliberate taps
-  // pin. Clicking the already-pinned index clears it.
-  function attachHeldClick(u, host) {
-    var over = u.over, dx = null, dy = null;
-    over.addEventListener("pointerdown", function (e) { dx = e.clientX; dy = e.clientY; });
+    var downX = null, downY = null, ptype = null;
+    over.addEventListener("pointerdown", function (e) { downX = e.clientX; downY = e.clientY; ptype = e.pointerType; });
     over.addEventListener("click", function (e) {
-      if (dx != null && Math.abs(e.clientX - dx) + Math.abs(e.clientY - dy) > 8) return;
+      if (ptype === "touch") return; // touchend already handled the pin
+      if (downX != null && Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 8) return;
       var idx = u.cursor.idx;
       if (idx == null) return;
       host._setHeld(idx === host._heldIdx ? null : idx);
@@ -524,9 +550,7 @@
       if (!this._u || !this._renderReadout || !this._data) return;
       var held = this._heldIdx;
       this._renderReadout(this._u.cursor.idx, held);
-      if (this._heldLine) {
-        positionHeldLine(this._u, this._heldLine, held != null ? this._data.timestamps[held] : null);
-      }
+      if (this._pinMarker) positionPinMarker(this._u, this._pinMarker, held, this._pinDots);
     }
     _onResize() {
       if (this._u && this.clientWidth) {
@@ -537,7 +561,7 @@
     _reset() {
       if (this._u) { this._u.destroy(); this._u = null; }
       this._renderReadout = null;
-      this._heldLine = null;
+      this._pinMarker = null;
       this.innerHTML = "";
     }
     _skeleton(msg) {
@@ -554,9 +578,9 @@
       if (!res || !res.u) return;
       this._u = res.u;
       this._renderReadout = res.render || function () {};
-      this._heldLine = makeHeldLine(this._u);
-      enableTouchPicker(this._u);
-      attachHeldClick(this._u, this);
+      this._pinMarker = makePinMarker(this._u);
+      this._pinDots = this.kind !== "stacked"; // match the live cursor: dots only where it shows them
+      attachInteractions(this._u, this);
       this._refresh();
     }
     load() {
