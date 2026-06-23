@@ -8,6 +8,12 @@ grafana_alloy_config_path: /etc/alloy/config.alloy
 grafana_alloy_journal_path: /var/log/journal
 grafana_alloy_journal_max_age: "12h"
 
+# unattended-upgrades writes package-level detail to its own logfiles rather
+# than journald. This role tails them and grants the alloy user read access
+# via a default ACL (so recreated/rotated logs stay readable).
+grafana_alloy_unattended_upgrades_dir: /var/log/unattended-upgrades
+grafana_alloy_unattended_upgrades_glob: "{{ grafana_alloy_unattended_upgrades_dir }}/*.log"
+
 # Loki push endpoint. loki_push_host is defined centrally in group_vars/all.yml
 # (oob address); this default keeps the role self-contained.
 loki_push_host: metrics.oob.sfo02.sfmix.org

@@ -12,6 +12,23 @@ loki.source.journal "system" {
   }
 }
 
+// Tail unattended-upgrades' own logs. apt's automatic upgrades write the
+// package-level detail (what was upgraded, dpkg actions, shutdown installs)
+// to these files, NOT to journald -- so this is the only way to see what
+// actually changed, as opposed to merely that a run happened.
+local.file_match "unattended_upgrades" {
+  path_targets = [{
+    __path__ = "{{ grafana_alloy_unattended_upgrades_glob }}",
+    job      = "unattended-upgrades",
+    host     = "{{ inventory_hostname }}",
+  }]
+}
+
+loki.source.file "unattended_upgrades" {
+  targets    = local.file_match.unattended_upgrades.targets
+  forward_to = [loki.write.default.receiver]
+}
+
 // Keep labels bounded (low cardinality). Never label by message/PID.
 loki.relabel "journal" {
   forward_to = []
