@@ -1,10 +1,11 @@
 ---
-- name: "Alloy: ensure apt prerequisites (gpg for signed-by repos)"
+- name: "Alloy: ensure apt prerequisites (gpg for signed-by repos, acl for log access)"
   become: true
   ansible.builtin.apt:
     name:
       - gpg
       - ca-certificates
+      - acl
     state: present
     update_cache: true
 
@@ -52,6 +53,37 @@
     groups: systemd-journal
     append: true
   notify: "Restart alloy"
+
+- name: "Alloy: detect unattended-upgrades log directory"
+  become: true
+  ansible.builtin.stat:
+    path: "{{ grafana_alloy_unattended_upgrades_dir }}"
+  register: grafana_alloy_uu_dir
+
+# unattended-upgrades logs are root-owned; the alloy user needs read access to
+# tail them. A recursive access ACL covers the current files; a default ACL on
+# the directory makes rotated/recreated logs inherit the same access.
+- name: "Alloy: grant alloy read on existing unattended-upgrades logs"
+  become: true
+  when: grafana_alloy_uu_dir.stat.exists
+  ansible.posix.acl:
+    path: "{{ grafana_alloy_unattended_upgrades_dir }}"
+    entity: alloy
+    etype: user
+    permissions: rX
+    recursive: true
+    state: present
+
+- name: "Alloy: default-ACL so new unattended-upgrades logs stay readable by alloy"
+  become: true
+  when: grafana_alloy_uu_dir.stat.exists
+  ansible.posix.acl:
+    path: "{{ grafana_alloy_unattended_upgrades_dir }}"
+    entity: alloy
+    etype: user
+    permissions: rX
+    default: true
+    state: present
 
 - name: "Alloy: template config"
   become: true
