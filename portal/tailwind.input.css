@@ -428,7 +428,8 @@ body {
 .mr-dot-up { background: #1d7a3e; }
 .mr-dot-warn { background: #e8913a; }
 .mr-dot-down { background: #9ca3af; }
-.mr-asn { font-size: .66rem; color: var(--color-text-light); font-family: var(--font-mono); white-space: nowrap; }
+.mr-asn { font-size: .66rem; color: var(--color-text-light); white-space: nowrap; min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.mr-asn .as { font-family: var(--font-mono); color: var(--color-text); font-weight: 600; }
 .mr-meta { font-size: .7rem; color: var(--color-text-light); margin-top: .22rem; line-height: 1.4; }
 .mr-meta .mono { font-family: var(--font-mono); }
 .mr-meta .sep { opacity: .4; margin: 0 .32rem; }

@@ -33,12 +33,7 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'device' ? 'text-gray-900' : ''"
               @click="sortBy('device')">
-            {% translate "Device" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('device')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'localif' ? 'text-gray-900' : ''"
-              @click="sortBy('localif')">
-            {% translate "Local Interface" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('localif')"></span>
+            {% translate "Local" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('device')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'description' ? 'text-gray-900' : ''"
@@ -48,17 +43,7 @@
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'neighbordev' ? 'text-gray-900' : ''"
               @click="sortBy('neighbordev')">
-            {% translate "Neighbor Device" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('neighbordev')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'neighborport' ? 'text-gray-900' : ''"
-              @click="sortBy('neighborport')">
-            {% translate "Neighbor Port" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('neighborport')"></span>
-          </th>
-          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
-              :class="sortCol === 'ttl' ? 'text-gray-900' : ''"
-              @click="sortBy('ttl')">
-            TTL<span class="sort-indicator text-xs ml-1" x-text="indicator('ttl')"></span>
+            {% translate "Neighbor" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('neighbordev')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'participant' ? 'text-gray-900' : ''"
@@ -76,14 +61,16 @@
             data-sort-description="{{ entry.description|default:''|lower }}"
             data-sort-neighbordev="{{ entry.neighbor_device|default:''|lower }}"
             data-sort-neighborport="{{ entry.neighbor_port|default:''|lower }}"
-            data-sort-ttl="{{ entry.ttl|default:'' }}"
             data-sort-participant="{% if entry.participant_asn %}{{ entry.participant_asn }}{% endif %}">
-          <td class="px-4 py-2 text-xs">{{ entry.device|default:"—" }}</td>
-          <td class="px-4 py-2 font-mono text-xs">{{ entry.local_interface }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            <div class="text-xs text-gray-900">{{ entry.device|default:"—" }}</div>
+            <div class="font-mono text-[11px] text-gray-500">{{ entry.local_interface }}</div>
+          </td>
           <td class="px-4 py-2 text-xs text-gray-600">{{ entry.description|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs">{{ entry.neighbor_device|default:"—" }}</td>
-          <td class="px-4 py-2 font-mono text-xs">{{ entry.neighbor_port|default:"—" }}</td>
-          <td class="px-4 py-2 text-xs">{{ entry.ttl|default:"—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            <div class="text-xs text-gray-900">{{ entry.neighbor_device|default:"—" }}</div>
+            <div class="font-mono text-[11px] text-gray-500">{{ entry.neighbor_port|default:"—" }}</div>
+          </td>
           <td class="px-4 py-2 text-xs">
             {% if entry.participant_asn %}
             <a href="{% url 'participant_detail' entry.participant_asn %}"
@@ -100,9 +87,9 @@
   </div>
 
   {# Mobile: compact list, tap a row to expand to every field (Reflow B). #}
-  {# Worst-first: unmatched or TTL-expiring neighbours float to the top. #}
+  {# Matched participants first; unmatched neighbours sink to the bottom. #}
   <div class="md:hidden mr-list">
-    {% for entry in entries|dictsortreversed:"warn" %}
+    {% for entry in entries|dictsortreversed:"has_participant" %}
     <div class="mr-row mx-row{% if entry.warn %} is-warn{% endif %}"
          x-show="rowVisible($el)"
          x-data="{ open: false }" @click="open = !open"
@@ -117,7 +104,7 @@
         <span class="mr-dot {% if entry.warn %}mr-dot-warn{% else %}mr-dot-up{% endif %}"></span>
         <span class="mr-id">{{ entry.local_interface }}</span>
         <span class="mc-spacer"></span>
-        <span class="mr-asn">{% if entry.participant_asn %}AS{{ entry.participant_asn }}{% else %}—{% endif %}</span>
+        <span class="mr-asn">{% if entry.participant_asn %}<span class="as">AS{{ entry.participant_asn }}</span> {{ entry.participant_name }}{% else %}—{% endif %}</span>
         <span class="mx-chev" :class="open && 'open'">&#9662;</span>
       </div>
       <div class="mr-meta">{{ entry.device|default:"—" }}<span class="sep">&middot;</span>&harr; <span class="mono">{{ entry.neighbor_port|default:"—" }}</span> @ {{ entry.neighbor_device|default:"—" }}</div>
