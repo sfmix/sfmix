@@ -318,3 +318,64 @@ class RsSessionSortKeyTests(SimpleTestCase):
         once = sorted(entries, key=_rs_session_sort_key)
         twice = sorted(reversed(once), key=_rs_session_sort_key)
         self.assertEqual(once, twice)
+
+
+class LldpNeighborsViewTtlTests(SimpleTestCase):
+    """The LG serializes LldpNeighbor.ttl as a *string* (empty when the device
+    omits it), so the view must coerce before comparing. Comparing the raw
+    string against an int raised "'<' not supported between instances of 'str'
+    and 'int'", which blanked the whole table behind the lg_error banner.
+    """
+
+    def _run_view(self, lldp_entries):
+        from unittest.mock import MagicMock, patch
+
+        from django.test import RequestFactory
+
+        from dashboard import views
+
+        lg = MagicMock()
+        lg.base_url = "https://lg.example"
+        lg.get_lldp_neighbors.return_value = [
+            {"device": "switch01", "success": True, "data": lldp_entries},
+        ]
+        lg.get_participant_ports.return_value = []
+        lg.get_interfaces_status.return_value = []
+
+        captured = {}
+
+        def fake_render(request, template, context):
+            captured.update(context)
+            from django.http import HttpResponse
+            return HttpResponse("ok")
+
+        request = RequestFactory().get("/admin/lldp/")
+        request.session = {}
+        request.user = MagicMock(is_authenticated=True)
+        with patch.object(views, "LookingGlassClient", return_value=lg), \
+                patch.object(views, "_is_ix_admin", return_value=True), \
+                patch.object(views, "render", side_effect=fake_render):
+            views.lldp_neighbors(request)
+        return captured
+
+    def test_string_ttl_does_not_raise_and_is_coerced(self):
+        ctx = self._run_view([
+            {"local_interface": "Ethernet1", "ttl": "120"},
+            {"local_interface": "Ethernet2", "ttl": "15"},
+        ])
+        self.assertIsNone(ctx["lg_error"])
+        by_if = {e["local_interface"]: e for e in ctx["entries"]}
+        self.assertEqual(by_if["Ethernet1"]["ttl"], 120)
+        self.assertFalse(by_if["Ethernet1"]["ttl_expiring"])
+        self.assertEqual(by_if["Ethernet2"]["ttl"], 15)
+        self.assertTrue(by_if["Ethernet2"]["ttl_expiring"])
+
+    def test_empty_or_missing_ttl_becomes_none(self):
+        ctx = self._run_view([
+            {"local_interface": "Ethernet3", "ttl": ""},
+            {"local_interface": "Ethernet4"},
+        ])
+        self.assertIsNone(ctx["lg_error"])
+        for e in ctx["entries"]:
+            self.assertIsNone(e["ttl"])
+            self.assertFalse(e["ttl_expiring"])

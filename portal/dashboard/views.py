@@ -155,7 +155,14 @@ def lldp_neighbors(request):
                 entry["description"] = iface_description.get(key, "")
                 # Triage flag for the mobile compact view: an unmatched neighbour
                 # or a TTL about to expire floats to the top and carries a banner.
-                ttl = entry.get("ttl")
+                # The LG returns ttl as a string (empty when the device omits it),
+                # so coerce to int before comparing and normalise for the template.
+                raw_ttl = entry.get("ttl")
+                try:
+                    ttl = int(raw_ttl) if raw_ttl not in (None, "") else None
+                except (TypeError, ValueError):
+                    ttl = None
+                entry["ttl"] = ttl
                 entry["ttl_expiring"] = ttl is not None and ttl < 30
                 entry["warn"] = entry["ttl_expiring"] or not entry["participant_asn"]
     except Exception as e:
