@@ -15,15 +15,29 @@
 </div>
 {% endif %}
 
-{# ── Sticky condensed identity bar (mobile only) ─────────────── #}
+{# ── Sticky condensed identity bar ───────────────────────────── #}
 {% comment %}
-Pinned to the top of the viewport on narrow screens so the network's name/ASN
-stays in view while scrolling. On desktop this is hidden and the full header
-below carries the title.
+Pinned to the top of the viewport while scrolling. On mobile it stays condensed
+(name / ASN / status) and the hero header below carries the meta + actions. On
+desktop it becomes the single status line — the meta (type/ports/capacity) and
+invalid-IP chip below fold up into it, and the hero's now-duplicate identity
+block is hidden (see the min-width desktop rules), leaving the hero with just
+its action buttons.
 {% endcomment %}
 <div class="nd-sticky-id">
   <span class="nd-sid-name">{{ member.name|default:_("Unknown Network") }}</span>
   <span class="nd-sid-asn">AS{{ asn }}</span>
+  <span class="nd-sid-meta">
+    {% if member.participant_type %}<span><b>{% translate "Type:" %}</b> {{ member.participant_type }}</span>{% endif %}
+    <span><b>{% translate "Ports:" %}</b> {% blocktranslate with logical=logical_port_count physical=physical_port_count %}{{ logical }} logical, {{ physical }} physical{% endblocktranslate %}</span>
+    <span><b>{% translate "Capacity:" %}</b>
+      {% if total_active_gbps == total_provisioned_gbps %}
+        {% blocktranslate with active=total_active_gbps|floatformat:0 %}{{ active }}G active{% endblocktranslate %}
+      {% else %}
+        {% blocktranslate with active=total_active_gbps|floatformat:0 provisioned=total_provisioned_gbps|floatformat:0 %}{{ active }}G active / {{ provisioned }}G provisioned{% endblocktranslate %}
+      {% endif %}
+    </span>
+  </span>
   <span class="nd-spacer"></span>
   <span class="nd-ov-chip">
     {% if net_status == "active" %}<span class="nd-dot nd-dot-up"></span> {% translate "Active" %}
@@ -32,6 +46,9 @@ below carries the title.
     {% else %}<span class="nd-dot nd-dot-unk"></span> {% translate "Unknown" %}
     {% endif %}
   </span>
+  {% if has_invalid_ip %}
+  <span class="nd-ov-chip nd-ov-bad nd-sid-only" title="{% translate 'A MAC on this network is sourcing an IP that is not assigned on the IX' %}">&#9940; {% translate "Invalid IP" %}</span>
+  {% endif %}
 </div>
 
 {# ── Network Header ─────────────────────────────────────────── #}

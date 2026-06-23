@@ -142,6 +142,13 @@ body {
 .nd-sticky-id { display: flex; position: sticky; top: 0; z-index: 30; align-items: center; gap: .5rem; padding: .5rem 1rem; background: #f7f8fa; border: 1px solid var(--color-border); border-radius: var(--radius-card); margin-bottom: 1rem; }
 .nd-sid-name { font-weight: 700; font-size: .95rem; color: var(--color-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .nd-sid-asn { font-family: var(--font-mono); font-size: .78rem; font-weight: 500; color: var(--color-primary-light); border: 1px solid var(--color-border); border-radius: 4px; padding: .05rem .4rem; flex: 0 0 auto; }
+/* Extras carried in the bar on desktop only: the meta line (type/ports/capacity)
+   and the invalid-IP chip. Hidden by default so the bar stays condensed on
+   mobile; revealed in the min-width desktop block, where the hero's duplicate of
+   this information is hidden. */
+.nd-sid-meta { display: none; flex-wrap: wrap; align-items: center; gap: .15rem 1.25rem; font-size: .8rem; color: var(--color-text-light); min-width: 0; }
+.nd-sid-meta b { color: var(--color-text); font-weight: 600; }
+.nd-sid-only { display: none; }
 
 /* Header */
 .nd-net-head { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; margin-bottom: 1.5rem; }
@@ -497,6 +504,23 @@ body {
   .nd-rs-table { display: none; }
   .nd-rs-compact { display: flex; flex-direction: column; gap: .35rem; }
   .nd-scope-legend { flex-direction: column; gap: .25rem; }
+}
+
+/* Responsive: desktop (wider than the mobile breakpoint). The sticky identity
+   bar is the single status line here — name/ASN plus the meta and invalid-IP
+   chip — so the hero header drops its now-duplicate identity block and keeps
+   only the action buttons. The logical-port headers also pin beneath the
+   identity bar (the same sticky stack as mobile, offset by the measured
+   --nd-id-h) so the interface-bundle context stays in view while scrolling a
+   long service stackup. */
+@media (min-width: 769px) {
+  .nd-sticky-id .nd-sid-meta { display: flex; }
+  .nd-sticky-id .nd-sid-only { display: inline-flex; }
+  .nd-net-head .nd-net-id { display: none; }
+  /* overflow:hidden (clips the card's rounded corners) would trap the sticky
+     header inside the card; allow it to pin to the viewport instead. */
+  .nd-lport { overflow: visible; }
+  .nd-lport-head { position: sticky; top: var(--nd-id-h, 0px); z-index: 20; }
 }
 
 /* ── Page Chrome (navbar, footer, dropdowns) ──────────────────────── */
