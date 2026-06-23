@@ -165,6 +165,9 @@ def lldp_neighbors(request):
                 entry["ttl"] = ttl
                 entry["ttl_expiring"] = ttl is not None and ttl < 30
                 entry["warn"] = entry["ttl_expiring"] or not entry["participant_asn"]
+                # Mobile list orders matched participants first (dictsortreversed
+                # on this flag); 1 sorts above 0.
+                entry["has_participant"] = 1 if entry["participant_asn"] else 0
     except Exception as e:
         lg_error = str(e)
     return render(request, "dashboard/lldp_neighbors.html", {
