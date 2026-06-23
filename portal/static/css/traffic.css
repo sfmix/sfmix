@@ -139,6 +139,12 @@
    rhythm) so the canvas runs nearly edge-to-edge; matches the 768px
    breakpoint used elsewhere in the portal. */
 @media (max-width: 768px) {
+  /* Halve the outer page gutter on the chart pages (traffic.css isn't loaded
+     elsewhere, so global chrome is untouched). base.html's <main> uses
+     Tailwind's px-6 (1.5rem); main.w-full out-specifies that .px-6 utility and
+     overrides the same padding-inline property, so the cards start ~0.75rem
+     closer to each edge. */
+  main.w-full { padding-inline: .75rem; }
   .nd-tf-section { padding-left: .45rem; padding-right: .45rem; }
   .nd-ops-panel { padding-left: .4rem; padding-right: .4rem; }
   .nd-tf-panel { padding-left: .35rem; padding-right: .35rem; }
