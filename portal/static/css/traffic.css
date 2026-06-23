@@ -115,24 +115,16 @@
   border: 2px solid var(--color-accent); box-sizing: border-box;
   transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #fff;
 }
-/* Small ✕ that clears the pin (in the stacked time line and the pin box head). */
+/* Small ✕ that clears the pin (used in the stacked legend's time line). */
 .nd-tf-pin-clear {
   font: inherit; font-size: .72rem; line-height: 1; padding: .05rem .3rem; cursor: pointer;
   background: none; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-light);
 }
 .nd-tf-pin-clear:hover { background: var(--color-bg-alt); }
 
-/* Pinned readout box for the non-stacked charts (their uPlot legend stays live). */
-.nd-tf-pin {
-  margin-top: .6rem; border: 1px dashed var(--color-accent); border-radius: 6px;
-  padding: .4rem .6rem; background: #fffdf9;
-}
-.nd-tf-pin-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
-.nd-tf-pin-time { font-size: .74rem; font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
-.nd-tf-pin-chips { display: flex; flex-wrap: wrap; gap: .25rem .9rem; }
-.nd-tf-pin-chip { display: inline-flex; align-items: center; gap: .35rem; font-size: .76rem; }
-.nd-tf-pin-name { color: var(--color-text); }
-.nd-tf-pin-val { color: var(--color-text-light); font-variant-numeric: tabular-nums; }
+/* When a point is pinned on a non-stacked chart we drive uPlot's own legend to
+   the held values and flag it here so the values read in the accent colour. */
+.u-legend.nd-tf-leg-pinned .u-value { color: var(--color-accent); font-weight: 600; }
 
 /* uPlot tweaks to match the portal type scale. */
 .uplot, .uplot * { font-family: var(--font-sans, system-ui); }

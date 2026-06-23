@@ -213,11 +213,13 @@
     }
   }
 
-  // Pointer interactions. Mouse: hover moves the live crosshair (uPlot), a click
-  // toggles the pin (click the pinned point again to clear). Touch: a finger drag
-  // moves the live crosshair; lifting the finger holds (pins) that point — so you
-  // explore by dragging and pin by letting go. The synthesized click after a tap
-  // is suppressed so it can't immediately un-pin.
+  // Pointer interactions — symmetric on mouse and touch: press-drag-scrub the pin
+  // and release to hold it.
+  //   Touch: a finger drag moves the live crosshair; lifting holds that point.
+  //   Mouse: pressing pins the point under the cursor and dragging scrubs it
+  //          around live; releasing holds it. A press-release in place on the
+  //          already-pinned point clears it (toggle). Plain hover (no button)
+  //          still roams the live crosshair via uPlot.
   function attachInteractions(u, host) {
     var over = u.over;
     function place(e, prevent) {
@@ -236,59 +238,51 @@
       if (u.cursor.idx != null) host._setHeld(u.cursor.idx);
     }, { passive: false });
 
-    var downX = null, downY = null, ptype = null;
-    over.addEventListener("pointerdown", function (e) { downX = e.clientX; downY = e.clientY; ptype = e.pointerType; });
-    over.addEventListener("click", function (e) {
-      if (ptype === "touch") return; // touchend already handled the pin
-      if (downX != null && Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 8) return;
-      var idx = u.cursor.idx;
-      if (idx == null) return;
-      host._setHeld(idx === host._heldIdx ? null : idx);
+    // Mouse drag-scrub. Listeners on document (added only while pressed, removed
+    // on release) keep the scrub alive even if the pointer leaves the chart.
+    over.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      e.preventDefault(); // no text selection while scrubbing
+      var before = host._heldIdx, moved = false;
+      if (u.cursor.idx != null) host._setHeld(u.cursor.idx);
+      function move() {
+        moved = true;
+        if (u.cursor.idx != null) host._setHeld(u.cursor.idx);
+      }
+      function up() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+        // A click in place on the already-pinned point clears it.
+        if (!moved && before != null && before === u.cursor.idx) host._setHeld(null);
+      }
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
     });
   }
 
-  // Pinned readout box for the non-stacked charts (mirror/aggregate/line). Their
-  // built-in uPlot legend keeps showing the *live* cursor values; this box shows
-  // the *held* values, reusing each series' own value formatter and colour.
-  function makePinBox(host, u) {
-    var box = document.createElement("div");
-    box.className = "nd-tf-pin";
-    box.style.display = "none";
-    var head = document.createElement("div");
-    head.className = "nd-tf-pin-head";
-    var timeEl = document.createElement("span");
-    timeEl.className = "nd-tf-pin-time";
-    var clear = document.createElement("button");
-    clear.type = "button"; clear.className = "nd-tf-pin-clear"; clear.textContent = "✕";
-    clear.title = "Clear pinned point";
-    clear.addEventListener("click", function (e) { e.stopPropagation(); host._setHeld(null); });
-    head.appendChild(timeEl); head.appendChild(clear);
-    var chips = document.createElement("div");
-    chips.className = "nd-tf-pin-chips";
-    box.appendChild(head); box.appendChild(chips);
-    host.appendChild(box);
-
+  // For the non-stacked charts (mirror/aggregate/line) we reuse uPlot's own
+  // built-in legend rather than adding a second readout: this driver writes the
+  // held (or, absent a pin, the live cursor) values into the existing .u-value
+  // cells and flags the legend as pinned so CSS can recolour it. Runs from the
+  // setCursor hook, so it wins over uPlot's own live update on every move.
+  function makeLegendDriver(u) {
+    var legendEl = u.root.querySelector(".u-legend");
     function render(liveIdx, heldIdx) {
-      if (heldIdx == null) { box.style.display = "none"; return; }
-      box.style.display = "";
-      timeEl.textContent = "📌 " + fmtTime(u.data[0][heldIdx]);
-      chips.textContent = "";
-      for (var i = 1; i < u.series.length; i++) {
-        var s = u.series[i];
-        if (s.show === false) continue;
-        var raw = u.data[i][heldIdx];
-        var txt = s.value ? s.value(u, raw) : (raw == null ? "—" : String(raw));
-        var stroke = typeof s.stroke === "function" ? s.stroke(u, i) : s.stroke;
-        var chip = document.createElement("span");
-        chip.className = "nd-tf-pin-chip";
-        var sw = document.createElement("span");
-        sw.className = "nd-tf-sw"; sw.style.background = stroke || TEXT_LIGHT;
-        var nm = document.createElement("span");
-        nm.className = "nd-tf-pin-name"; nm.textContent = s.label || "";
-        var vl = document.createElement("span");
-        vl.className = "nd-tf-pin-val"; vl.textContent = txt;
-        chip.appendChild(sw); chip.appendChild(nm); chip.appendChild(vl);
-        chips.appendChild(chip);
+      if (!legendEl) return;
+      legendEl.classList.toggle("nd-tf-leg-pinned", heldIdx != null);
+      var idx = heldIdx != null ? heldIdx : liveIdx;
+      if (idx == null) return; // idle + unpinned: leave uPlot's default values
+      var cells = legendEl.querySelectorAll(".u-value");
+      for (var i = 0; i < u.series.length; i++) {
+        var cell = cells[i];
+        if (!cell) continue;
+        var raw = u.data[i][idx];
+        if (i === 0) {
+          cell.textContent = (heldIdx != null ? "📌 " : "") + fmtTime(raw);
+        } else {
+          var s = u.series[i];
+          cell.textContent = s.value ? s.value(u, raw, i, idx) : (raw == null ? "—" : String(raw));
+        }
       }
     }
     return { render: render };
@@ -317,9 +311,10 @@
         { label: "Out → IX", stroke: TEAL, width: 2, fill: TEAL + "26", value: function (u, v) { return fmtBps(v); } },
         { label: "In ← IX", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
       ],
+      hooks: { setCursor: [function () { host._refresh(); }] },
     };
     var u = new uPlot(opts, [xs, out, inNeg], host);
-    return { u: u, render: makePinBox(host, u).render };
+    return { u: u, render: makeLegendDriver(u).render };
   }
 
   function drawStacked(host, data, ctx) {
@@ -480,9 +475,10 @@
         { label: s0.name || "Ingress", stroke: TEAL, width: 2, fill: TEAL + "26", value: function (u, v) { return fmtBps(v); } },
         { label: s1.name || "Egress", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
       ],
+      hooks: { setCursor: [function () { host._refresh(); }] },
     };
     var u = new uPlot(opts, [xs, s0.values || [], neg], host);
-    return { u: u, render: makePinBox(host, u).render };
+    return { u: u, render: makeLegendDriver(u).render };
   }
 
   function drawLine(host, data) {
@@ -508,9 +504,10 @@
         { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, values: function (u, sp) { return sp.map(fmtAxisFor(unit)); } },
       ],
       series: series,
+      hooks: { setCursor: [function () { host._refresh(); }] },
     };
     var u = new uPlot(opts, seriesData, host);
-    return { u: u, render: makePinBox(host, u).render };
+    return { u: u, render: makeLegendDriver(u).render };
   }
 
   var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine };
