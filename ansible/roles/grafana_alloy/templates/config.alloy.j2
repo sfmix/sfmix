@@ -26,7 +26,28 @@ local.file_match "unattended_upgrades" {
 
 loki.source.file "unattended_upgrades" {
   targets    = local.file_match.unattended_upgrades.targets
+  forward_to = [loki.process.unattended_upgrades.receiver]
+}
+
+// Use the timestamp embedded in each line (e.g. "2026-06-20 06:22:11,453 INFO ...")
+// as the log entry time. Without this, loki.source.file stamps lines at read
+// time, so a full file read backfills every historical line at "now".
+// Lines without a leading timestamp (dpkg continuation output) fall through
+// and keep read time, which is fine.
+loki.process "unattended_upgrades" {
   forward_to = [loki.write.default.receiver]
+
+  stage.regex {
+    expression = "^(?P<ts>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d{3})"
+  }
+  // unattended-upgrades logs in the host's local time. Alloy runs on the same
+  // host, so "Local" resolves to that host's zone -- correct whether the host
+  // is UTC or anything else, with no per-host config.
+  stage.timestamp {
+    source   = "ts"
+    format   = "2006-01-02 15:04:05,000"
+    location = "Local"
+  }
 }
 
 // Keep labels bounded (low cardinality). Never label by message/PID.
