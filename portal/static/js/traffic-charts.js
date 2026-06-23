@@ -21,6 +21,10 @@
  *   - Crosshair picker: hovering (or dragging a touch) shows a vertical
  *     crosshair and updates the legend values + a time readout to that exact
  *     point in time. Drag-to-zoom is disabled so a touch acts purely as a picker.
+ *   - Held point: clicking (or tapping) pins the current point in time. A dashed
+ *     "background" crosshair marks it and the readout freezes on its values, so
+ *     you can keep moving the live crosshair to compare other points. Clicking a
+ *     new spot moves the pin; the ✕ (or clicking the pinned point again) clears it.
  */
 (function () {
   "use strict";
@@ -138,6 +142,12 @@
     return null;
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
   function cumulative(seriesValues) {
     // seriesValues: array of value-arrays (per peer). Returns cumulative arrays,
     // smallest-on-top painter order handled by caller.
@@ -159,23 +169,103 @@
     return c;
   }
 
-  // Drive the uPlot cursor from touch so dragging a finger across the chart
-  // moves the crosshair and updates the legend (uPlot's own cursor is mouse-only).
+  // Drive the uPlot cursor from touch so dragging a finger across the chart moves
+  // the live crosshair (uPlot's own cursor is mouse-only). touchstart stays
+  // passive so a tap still synthesises a click (→ pin); touchmove is cancelled so
+  // a drag explores the chart instead of scrolling the page.
   function enableTouchPicker(u) {
     if (!u || !u.over) return;
     var over = u.over;
-    function handle(e) {
+    function place(e, prevent) {
       if (!e.touches || !e.touches.length) return;
       var t = e.touches[0];
       var rect = over.getBoundingClientRect();
-      var left = t.clientX - rect.left;
-      var top = t.clientY - rect.top;
+      var left = t.clientX - rect.left, top = t.clientY - rect.top;
       if (left < 0 || left > rect.width) return;
       u.setCursor({ left: left, top: top });
-      if (e.cancelable) e.preventDefault(); // keep the gesture on the chart, not page scroll
+      if (prevent && e.cancelable) e.preventDefault();
     }
-    over.addEventListener("touchstart", handle, { passive: false });
-    over.addEventListener("touchmove", handle, { passive: false });
+    over.addEventListener("touchstart", function (e) { place(e, false); }, { passive: true });
+    over.addEventListener("touchmove", function (e) { place(e, true); }, { passive: false });
+  }
+
+  // ── Held ("pinned") point ────────────────────────────────────────────────
+  // A dashed vertical line painted behind the live cursor, marking the pinned
+  // point in time. It lives in u.over as a DOM child so it survives cursor moves
+  // (uPlot only repaints the canvas on data/scale/size changes, not on hover).
+  function makeHeldLine(u) {
+    var el = document.createElement("div");
+    el.className = "nd-tf-held-line";
+    el.style.display = "none";
+    u.over.appendChild(el);
+    return el;
+  }
+  function positionHeldLine(u, el, xval) {
+    if (xval == null) { el.style.display = "none"; return; }
+    var left = u.valToPos(xval, "x");
+    if (left < 0 || left > u.over.clientWidth + 1) { el.style.display = "none"; return; }
+    el.style.left = Math.round(left) + "px";
+    el.style.display = "";
+  }
+  // Click/tap pins the point under the cursor. A small movement budget rejects
+  // drags (touch exploration or accidental mouse drags) so only deliberate taps
+  // pin. Clicking the already-pinned index clears it.
+  function attachHeldClick(u, host) {
+    var over = u.over, dx = null, dy = null;
+    over.addEventListener("pointerdown", function (e) { dx = e.clientX; dy = e.clientY; });
+    over.addEventListener("click", function (e) {
+      if (dx != null && Math.abs(e.clientX - dx) + Math.abs(e.clientY - dy) > 8) return;
+      var idx = u.cursor.idx;
+      if (idx == null) return;
+      host._setHeld(idx === host._heldIdx ? null : idx);
+    });
+  }
+
+  // Pinned readout box for the non-stacked charts (mirror/aggregate/line). Their
+  // built-in uPlot legend keeps showing the *live* cursor values; this box shows
+  // the *held* values, reusing each series' own value formatter and colour.
+  function makePinBox(host, u) {
+    var box = document.createElement("div");
+    box.className = "nd-tf-pin";
+    box.style.display = "none";
+    var head = document.createElement("div");
+    head.className = "nd-tf-pin-head";
+    var timeEl = document.createElement("span");
+    timeEl.className = "nd-tf-pin-time";
+    var clear = document.createElement("button");
+    clear.type = "button"; clear.className = "nd-tf-pin-clear"; clear.textContent = "✕";
+    clear.title = "Clear pinned point";
+    clear.addEventListener("click", function (e) { e.stopPropagation(); host._setHeld(null); });
+    head.appendChild(timeEl); head.appendChild(clear);
+    var chips = document.createElement("div");
+    chips.className = "nd-tf-pin-chips";
+    box.appendChild(head); box.appendChild(chips);
+    host.appendChild(box);
+
+    function render(liveIdx, heldIdx) {
+      if (heldIdx == null) { box.style.display = "none"; return; }
+      box.style.display = "";
+      timeEl.textContent = "📌 " + fmtTime(u.data[0][heldIdx]);
+      chips.textContent = "";
+      for (var i = 1; i < u.series.length; i++) {
+        var s = u.series[i];
+        if (s.show === false) continue;
+        var raw = u.data[i][heldIdx];
+        var txt = s.value ? s.value(u, raw) : (raw == null ? "—" : String(raw));
+        var stroke = typeof s.stroke === "function" ? s.stroke(u, i) : s.stroke;
+        var chip = document.createElement("span");
+        chip.className = "nd-tf-pin-chip";
+        var sw = document.createElement("span");
+        sw.className = "nd-tf-sw"; sw.style.background = stroke || TEXT_LIGHT;
+        var nm = document.createElement("span");
+        nm.className = "nd-tf-pin-name"; nm.textContent = s.label || "";
+        var vl = document.createElement("span");
+        vl.className = "nd-tf-pin-val"; vl.textContent = txt;
+        chip.appendChild(sw); chip.appendChild(nm); chip.appendChild(vl);
+        chips.appendChild(chip);
+      }
+    }
+    return { render: render };
   }
 
   function drawMirror(host, data) {
@@ -202,7 +292,8 @@
         { label: "In ← IX", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
       ],
     };
-    return new uPlot(opts, [xs, out, inNeg], host);
+    var u = new uPlot(opts, [xs, out, inNeg], host);
+    return { u: u, render: makePinBox(host, u).render };
   }
 
   function drawStacked(host, data, ctx) {
@@ -239,12 +330,22 @@
     var legend = document.createElement("div");
     legend.className = "nd-tf-legend";
 
-    // Point-in-time readout, updated by the crosshair; "latest" when idle.
+    // Time line: a pinned segment ("📌 …" + clear) and a live cursor segment.
+    // Created once; render toggles their visibility to avoid per-move churn.
     var timeEl = document.createElement("div");
     timeEl.className = "nd-tf-leg-time";
+    var pinSpan = document.createElement("span");
+    pinSpan.className = "nd-tf-leg-pin"; pinSpan.style.display = "none";
+    var clearBtn = document.createElement("button");
+    clearBtn.type = "button"; clearBtn.className = "nd-tf-pin-clear"; clearBtn.textContent = "✕";
+    clearBtn.title = "Clear pinned point"; clearBtn.style.display = "none";
+    clearBtn.addEventListener("click", function (e) { e.stopPropagation(); ctx.host._setHeld(null); });
+    var cursorSpan = document.createElement("span");
+    cursorSpan.className = "nd-tf-leg-cursor";
+    timeEl.appendChild(pinSpan); timeEl.appendChild(clearBtn); timeEl.appendChild(cursorSpan);
     legend.appendChild(timeEl);
 
-    var valEls = [];
+    var valEls = [], liveEls = [];
     peers.forEach(function (p, i) {
       var item = document.createElement("button");
       item.type = "button";
@@ -263,12 +364,17 @@
         (p.asn ? ' <span class="nd-tf-leg-asn">AS' + escapeHtml(p.asn) + "</span>" : "");
       var valEl = document.createElement("span");
       valEl.className = "nd-tf-leg-val";
-      valEl.textContent = fmtVal(lastNonNull(p.values), unit);
       valEls.push(valEl);
+      // Secondary live value, shown in parens beside the held value when a pin
+      // is active and the cursor is elsewhere.
+      var liveEl = document.createElement("span");
+      liveEl.className = "nd-tf-leg-live"; liveEl.style.display = "none";
+      liveEls.push(liveEl);
 
       item.appendChild(sw);
       item.appendChild(nameEl);
       item.appendChild(valEl);
+      item.appendChild(liveEl);
       item.addEventListener("click", function () {
         // Toggle this peer. Removing the last selected one empties the set,
         // which the renderer treats as "all shown" — so an all-off state can't
@@ -279,17 +385,33 @@
       legend.appendChild(item);
     });
 
-    // Reflect the crosshair: idx null => latest values, else values at that time.
-    function renderAt(idx) {
-      if (idx == null) {
-        timeEl.textContent = "latest";
-        peers.forEach(function (p, i) { valEls[i].textContent = fmtVal(lastNonNull(p.values), unit); });
+    // Render the legend for a live cursor index + held index. With a pin active,
+    // the held values are primary and the live cursor's values trail in parens.
+    function renderAt(liveIdx, heldIdx) {
+      var heldOn = heldIdx != null;
+      var liveElsewhere = heldOn && liveIdx != null && liveIdx !== heldIdx;
+      if (heldOn) {
+        pinSpan.style.display = ""; pinSpan.textContent = "📌 " + fmtTime(xs[heldIdx]);
+        clearBtn.style.display = "";
+        cursorSpan.style.display = liveElsewhere ? "" : "none";
+        if (liveElsewhere) cursorSpan.textContent = " · ⌖ " + fmtTime(xs[liveIdx]);
       } else {
-        timeEl.textContent = fmtTime(xs[idx]);
-        peers.forEach(function (p, i) { valEls[i].textContent = fmtVal(p.values[idx], unit); });
+        pinSpan.style.display = "none"; clearBtn.style.display = "none";
+        cursorSpan.style.display = "";
+        cursorSpan.textContent = liveIdx != null ? fmtTime(xs[liveIdx]) : "latest";
       }
+      var primaryIdx = heldOn ? heldIdx : (liveIdx != null ? liveIdx : null);
+      peers.forEach(function (p, i) {
+        var pv = primaryIdx != null ? p.values[primaryIdx] : lastNonNull(p.values);
+        valEls[i].textContent = fmtVal(pv, unit);
+        if (liveElsewhere) {
+          liveEls[i].style.display = "";
+          liveEls[i].textContent = "(" + fmtVal(p.values[liveIdx], unit) + ")";
+        } else {
+          liveEls[i].style.display = "none";
+        }
+      });
     }
-    renderAt(null);
 
     var opts = {
       width: host.clientWidth || 720,
@@ -303,17 +425,11 @@
         { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, values: function (u, sp) { return sp.map(fmtAxisFor(unit)); } },
       ],
       series: series,
-      hooks: { setCursor: [function (u) { renderAt(u.cursor.idx); }] },
+      hooks: { setCursor: [function () { ctx.host._refresh(); }] },
     };
     var u = new uPlot(opts, seriesData, host);
     host.appendChild(legend);
-    return u;
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
-    });
+    return { u: u, render: renderAt };
   }
 
   function drawAggregate(host, data) {
@@ -339,7 +455,8 @@
         { label: s1.name || "Egress", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
       ],
     };
-    return new uPlot(opts, [xs, s0.values || [], neg], host);
+    var u = new uPlot(opts, [xs, s0.values || [], neg], host);
+    return { u: u, render: makePinBox(host, u).render };
   }
 
   function drawLine(host, data) {
@@ -366,7 +483,8 @@
       ],
       series: series,
     };
-    return new uPlot(opts, seriesData, host);
+    var u = new uPlot(opts, seriesData, host);
+    return { u: u, render: makePinBox(host, u).render };
   }
 
   var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine };
@@ -382,6 +500,7 @@
       this.endpoint = this.getAttribute("endpoint");
       this.range = this.getAttribute("range") || "24h";
       this._sel = new Set(); // isolated peer indices for the stacked legend
+      this._heldIdx = null;  // pinned point-in-time index (null = none)
       this._ro = new ResizeObserver(this._onResize.bind(this));
       this._ro.observe(this);
       this.load();
@@ -397,11 +516,28 @@
     }
     // Redraw from cached data (no re-query) — used by the time-zone toggle.
     applyTz() { if (this._data) this._render(); }
+    // Pin (or clear) the held point in time and refresh the readout + line.
+    _setHeld(idx) { this._heldIdx = idx; this._refresh(); }
+    // Push the current (live cursor, held) state into the chart's readout and
+    // reposition the held line. Cheap; safe to call on every cursor move/resize.
+    _refresh() {
+      if (!this._u || !this._renderReadout || !this._data) return;
+      var held = this._heldIdx;
+      this._renderReadout(this._u.cursor.idx, held);
+      if (this._heldLine) {
+        positionHeldLine(this._u, this._heldLine, held != null ? this._data.timestamps[held] : null);
+      }
+    }
     _onResize() {
-      if (this._u && this.clientWidth) this._u.setSize({ width: this.clientWidth, height: 240 });
+      if (this._u && this.clientWidth) {
+        this._u.setSize({ width: this.clientWidth, height: 240 });
+        this._refresh();
+      }
     }
     _reset() {
       if (this._u) { this._u.destroy(); this._u = null; }
+      this._renderReadout = null;
+      this._heldLine = null;
       this.innerHTML = "";
     }
     _skeleton(msg) {
@@ -414,8 +550,14 @@
     _render() {
       this._reset();
       var draw = DRAW[this.kind] || drawMirror;
-      this._u = draw(this, this._data, { sel: this._sel, rerender: this._render.bind(this) });
-      if (this._u) enableTouchPicker(this._u);
+      var res = draw(this, this._data, { sel: this._sel, rerender: this._render.bind(this), host: this });
+      if (!res || !res.u) return;
+      this._u = res.u;
+      this._renderReadout = res.render || function () {};
+      this._heldLine = makeHeldLine(this._u);
+      enableTouchPicker(this._u);
+      attachHeldClick(this._u, this);
+      this._refresh();
     }
     load() {
       this._skeleton("querying…");
@@ -434,6 +576,7 @@
           if (!hasData) { this._skeleton("No traffic data for this window."); return; }
           this._data = data;
           this._sel = new Set(); // fresh data: drop any prior isolation
+          this._heldIdx = null;  // and any pinned point (timescale/peers differ)
           this._render();
         }.bind(this))
         .catch(function () {

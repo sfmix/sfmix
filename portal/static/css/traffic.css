@@ -78,9 +78,14 @@
 /* Point-in-time readout (full-width row above the swatches): tracks the
    crosshair, shows "latest" when idle. */
 .nd-tf-leg-time {
-  flex-basis: 100%; font-size: .72rem; color: var(--color-text-light);
+  flex-basis: 100%; display: flex; align-items: center; flex-wrap: wrap; gap: .35rem;
+  font-size: .72rem; color: var(--color-text-light);
   font-variant-numeric: tabular-nums; margin-bottom: .15rem; min-height: 1em;
 }
+.nd-tf-leg-pin { color: var(--color-text); font-weight: 600; }
+.nd-tf-leg-cursor { color: var(--color-text-light); }
+/* Secondary live value shown beside the pinned value while a pin is held. */
+.nd-tf-leg-live { color: var(--color-text-light); font-variant-numeric: tabular-nums; opacity: .8; }
 .nd-tf-leg-item {
   display: inline-flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--color-text);
   font: inherit; font-size: .78rem; background: none; border: 0; padding: .1rem .25rem;
@@ -94,6 +99,31 @@
 .nd-tf-leg-name { color: var(--color-text); }
 .nd-tf-leg-asn { color: var(--color-text-light); font-family: var(--font-mono, ui-monospace); font-size: .72rem; }
 .nd-tf-leg-val { color: var(--color-text-light); font-variant-numeric: tabular-nums; }
+
+/* Held ("pinned") point. A dashed background crosshair marks the pinned time;
+   the readout freezes on its values while the live cursor keeps roaming. */
+.nd-tf-held-line {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  border-left: 1px dashed var(--color-accent); pointer-events: none; z-index: 2;
+}
+/* Small ✕ that clears the pin (in the stacked time line and the pin box head). */
+.nd-tf-pin-clear {
+  font: inherit; font-size: .72rem; line-height: 1; padding: .05rem .3rem; cursor: pointer;
+  background: none; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-light);
+}
+.nd-tf-pin-clear:hover { background: var(--color-bg-alt); }
+
+/* Pinned readout box for the non-stacked charts (their uPlot legend stays live). */
+.nd-tf-pin {
+  margin-top: .6rem; border: 1px dashed var(--color-accent); border-radius: 6px;
+  padding: .4rem .6rem; background: #fffdf9;
+}
+.nd-tf-pin-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
+.nd-tf-pin-time { font-size: .74rem; font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.nd-tf-pin-chips { display: flex; flex-wrap: wrap; gap: .25rem .9rem; }
+.nd-tf-pin-chip { display: inline-flex; align-items: center; gap: .35rem; font-size: .76rem; }
+.nd-tf-pin-name { color: var(--color-text); }
+.nd-tf-pin-val { color: var(--color-text-light); font-variant-numeric: tabular-nums; }
 
 /* uPlot tweaks to match the portal type scale. */
 .uplot, .uplot * { font-family: var(--font-sans, system-ui); }
