@@ -44,16 +44,19 @@
       {% if user.is_authenticated %}
         <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
         {% if is_ix_admin %}
-          <span class="nav-admin-badge px-2 py-0.5 rounded text-xs font-medium">{% translate "Admin" %}</span>
-          <a href="{% url 'lldp_neighbors' %}" class="text-white/70 hover:text-white transition">{% translate "LLDP" %}</a>
-          <a href="{% url 'optics' %}" class="text-white/70 hover:text-white transition">{% translate "Optics" %}</a>
+          {# All admin-only pages live under one dropdown, accented in indigo to set it apart from the regular (teal) nav links. #}
           <div class="relative" x-data="{ open: false }" @click.away="open = false">
-            <button @click="open = !open" class="flex items-center gap-1 text-white/70 hover:text-white transition">
-              {% translate "Cache" %}
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            <button @click="open = !open"
+                    class="nav-admin-toggle flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition"
+                    :aria-expanded="open">
+              {% translate "Admin" %}
+              <svg class="w-3 h-3 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div x-show="open" x-cloak class="nav-dropdown absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-b-md shadow-lg z-10">
-              <a href="{% url 'device_cache_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "Devices" %}</a>
+            <div x-show="open" x-cloak class="nav-dropdown absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-b-md shadow-lg z-10">
+              <a href="{% url 'lldp_neighbors' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "LLDP" %}</a>
+              <a href="{% url 'optics' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "Optics" %}</a>
+              <div class="border-t border-gray-100 my-1"></div>
+              <a href="{% url 'device_cache_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "Device cache" %}</a>
               <a href="{% url 'netbox_status' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "NetBox" %}</a>
             </div>
           </div>
