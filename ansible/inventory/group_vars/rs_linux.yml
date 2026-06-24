@@ -21,6 +21,10 @@ arouteserver_use_local_files:
 # can poll /neighbors. Fetches the IX IP list from lg-server's RPC over mgmt.
 sfmix_route_server_linux_lg_neighborhood_watch_bind: "10.1.1.18:29185"
 sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://10.2.1.26:9090"
+# Evidence capture: rolling pcap ring buffer + extracted pcaps under the unit's
+# StateDirectory (/var/lib/lg-neighborhood-watch). Persisted here so deploys keep
+# it enabled (the role default is empty/off).
+sfmix_route_server_linux_lg_neighborhood_watch_evidence_dir: "/var/lib/lg-neighborhood-watch/evidence"
 # Same shared RPC secret as alice's lg-server (decrypts with the same vault key).
 sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: !vault |
           $ANSIBLE_VAULT;1.1;AES256

@@ -65,6 +65,10 @@ looking_glass_http_port: 8080
 looking_glass_rpc_bind: "10.2.1.26:9090"
 # Poll the ARP/NDP sensor on rs-linux (its mgmt IP) for discovered neighbors.
 looking_glass_discovered_sensor_url: "http://10.1.1.18:29185"
+# MAC liveness/staleness window (matches the sensor's sensor_ttl_secs): excludes
+# MACs unheard this long from the conflict flag, so completed migrations stop
+# reading as active. Also gates anomaly-event liveness/close.
+looking_glass_discovered_mac_ttl_secs: 1800
 # Allow the sensor (rs-linux mgmt IP) through UFW to reach lg-server RPC.
 looking_glass_rpc_allow_from: "10.1.1.18"
 looking_glass_public_vlans:

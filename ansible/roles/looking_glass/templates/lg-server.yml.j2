@@ -96,6 +96,17 @@ discovered:
   sensor_url: "{{ looking_glass_discovered_sensor_url }}"
   poll_interval_secs: {{ looking_glass_discovered_poll_interval_secs | default(60) }}
   state_file: "{{ looking_glass_discovered_state_file | default('/var/lib/looking-glass/discovered-neighbors.json') }}"
+  # Durable ND-anomaly event store (SQLite) under the ReadWritePaths state dir.
+  # Records new-MAC-on-IP conflicts + one-MAC-many-IP sweeps and triggers evidence
+  # pcap snapshots on the sensor.
+  anomaly_db: "{{ looking_glass_discovered_anomaly_db | default('/var/lib/looking-glass/nd-anomalies.sqlite') }}"
+  anomaly_cooldown_secs: {{ looking_glass_discovered_anomaly_cooldown_secs | default(600) }}
+{% if looking_glass_discovered_mac_ttl_secs is defined %}
+  # MAC liveness/staleness window: a MAC unheard this long stops counting toward
+  # the conflict flag (so completed migrations stop reading as active).
+  mac_ttl_secs: {{ looking_glass_discovered_mac_ttl_secs }}
+{% endif %}
+  max_ips_per_mac: {{ looking_glass_discovered_max_ips_per_mac | default(8) }}
 {% endif %}
 
 rate_limits:

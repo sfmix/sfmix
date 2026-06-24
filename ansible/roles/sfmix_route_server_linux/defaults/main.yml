@@ -47,3 +47,14 @@ sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://localhost:909
 sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: ""
 sfmix_route_server_linux_lg_neighborhood_watch_lg_poll_interval_secs: 300
 sfmix_route_server_linux_lg_neighborhood_watch_solicit_interval_secs: 60
+# TTL (seconds) for a heard (ip, mac) before it decays out of /neighbors. Must be
+# well above the lg-server discovered poll interval so a real conflict is seen in
+# many polls before aging out. Empty disables decay (report everything since boot).
+sfmix_route_server_linux_lg_neighborhood_watch_sensor_ttl_secs: 1800
+# Evidence capture: directory for the rolling pcap ring buffer + extracted pcaps.
+# Empty (default) disables evidence capture entirely. Set to enable (the role must
+# ensure it exists and is writable by the neighwatch user).
+sfmix_route_server_linux_lg_neighborhood_watch_evidence_dir: ""
+sfmix_route_server_linux_lg_neighborhood_watch_ring_buffer_secs: 1800
+sfmix_route_server_linux_lg_neighborhood_watch_ring_buffer_max_bytes: 104857600   # 100 MiB
+sfmix_route_server_linux_lg_neighborhood_watch_evidence_max_bytes: 524288000      # 500 MiB

@@ -91,6 +91,13 @@
       PrivateTmp=true
       ReadOnlyPaths=/etc/lg-neighborhood-watch
 
+      # Writable state for the evidence ring buffer + extracted pcaps. systemd
+      # creates /var/lib/lg-neighborhood-watch owned by the service user and adds
+      # it to the (otherwise read-only) writable set. Empty/unused when
+      # evidence_dir is unset.
+      StateDirectory=lg-neighborhood-watch
+      StateDirectoryMode=0750
+
       # Bound memory and make this the first OOM victim, so bird (critical) is
       # never the one killed under host memory pressure.
       MemoryMax=128M
