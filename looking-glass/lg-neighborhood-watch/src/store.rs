@@ -2,9 +2,16 @@
 //!
 //! Capture threads emit [`Observation`]s onto a channel; a single writer task
 //! owns the authoritative map and republishes a lock-free [`Snapshot`] for the
-//! HTTP interface. There is no persistence and no time-based decay here — the
-//! durable accumulation (and tenant-change eviction) lives in lg-server. If this
-//! process restarts it simply re-learns from the fabric.
+//! HTTP interface. There is no persistence here — the durable accumulation (and
+//! tenant-change eviction) lives in lg-server. If this process restarts it
+//! simply re-learns from the fabric.
+//!
+//! Time-based decay is optional (`sensor_ttl_secs`): when enabled, a (ip, mac)
+//! entry not re-heard within the TTL is dropped, so `/neighbors` reflects only
+//! *currently-live* MACs. This keeps the sensor from feeding stale MACs (e.g. a
+//! migrated-away router's old address) to lg-server forever, and bounds memory.
+//! The TTL must be set well above lg-server's poll interval so a real conflict
+//! is seen in many polls before it ages out — it governs liveness, not detection.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -61,7 +68,12 @@ struct Entry {
 }
 
 /// Drain observations, maintaining the table and republishing on a tick.
-pub async fn run_writer(mut rx: mpsc::Receiver<Observation>, table: Arc<ArcSwap<Snapshot>>) {
+/// When `ttl_secs` is set, entries not re-heard within the TTL are decayed.
+pub async fn run_writer(
+    mut rx: mpsc::Receiver<Observation>,
+    table: Arc<ArcSwap<Snapshot>>,
+    ttl_secs: Option<u64>,
+) {
     // ip -> (family, mac -> Entry)
     let mut map: HashMap<String, (String, HashMap<String, Entry>)> = HashMap::new();
     let mut total: u64 = 0;
@@ -94,6 +106,13 @@ pub async fn run_writer(mut rx: mpsc::Receiver<Observation>, table: Arc<ArcSwap<
                 dirty = true;
             }
             _ = tick.tick() => {
+                // Decay stale entries even when no new observations arrive, so a
+                // gone-quiet conflict drops out of `/neighbors` on time.
+                if let Some(ttl) = ttl_secs {
+                    if prune_stale(&mut map, ttl, Utc::now()) {
+                        dirty = true;
+                    }
+                }
                 if dirty {
                     table.store(Arc::new(build_snapshot(&map, total)));
                     dirty = false;
@@ -101,6 +120,30 @@ pub async fn run_writer(mut rx: mpsc::Receiver<Observation>, table: Arc<ArcSwap<
             }
         }
     }
+}
+
+/// Drop (ip, mac) entries whose `last_heard` is older than `ttl_secs`, then any
+/// IP left with no MACs. Returns true if anything was removed.
+fn prune_stale(
+    map: &mut HashMap<String, (String, HashMap<String, Entry>)>,
+    ttl_secs: u64,
+    now: DateTime<Utc>,
+) -> bool {
+    let cutoff = now - chrono::Duration::seconds(ttl_secs as i64);
+    let mut removed = false;
+    map.retain(|_ip, (_fam, macs)| {
+        macs.retain(|_mac, e| {
+            let fresh = DateTime::parse_from_rfc3339(&e.last_heard)
+                .map(|t| t.with_timezone(&Utc) >= cutoff)
+                .unwrap_or(true); // keep unparseable rather than silently drop
+            if !fresh {
+                removed = true;
+            }
+            fresh
+        });
+        !macs.is_empty()
+    });
+    removed
 }
 
 /// Evict oldest-by-last_heard MACs until the per-IP cap is satisfied.
@@ -152,5 +195,52 @@ fn build_snapshot(map: &HashMap<String, (String, HashMap<String, Entry>)>, total
         ip_count: map.len(),
         conflict_count,
         observation_count: total,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(last_heard: &str) -> Entry {
+        Entry { first_heard: last_heard.to_string(), last_heard: last_heard.to_string(), iface: "vlan998".into(), count: 1 }
+    }
+
+    fn at(s: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&Utc)
+    }
+
+    #[test]
+    fn prune_drops_only_stale_macs_and_empty_ips() {
+        let mut map: HashMap<String, (String, HashMap<String, Entry>)> = HashMap::new();
+        // IP with one fresh + one stale MAC (a migration in progress).
+        let mut macs = HashMap::new();
+        macs.insert("aa:aa".to_string(), entry("2026-06-18T23:50:00Z")); // stale (40m old)
+        macs.insert("bb:bb".to_string(), entry("2026-06-19T00:25:00Z")); // fresh (5m old)
+        map.insert("10.0.0.1".to_string(), ("IPv4".to_string(), macs));
+        // IP whose only MAC is stale -> the whole IP should drop.
+        let mut macs2 = HashMap::new();
+        macs2.insert("cc:cc".to_string(), entry("2026-06-18T23:50:00Z"));
+        map.insert("10.0.0.2".to_string(), ("IPv4".to_string(), macs2));
+
+        // TTL 1800s (30m); now is 30m past the stale entries, 5m past the fresh one.
+        let removed = prune_stale(&mut map, 1800, at("2026-06-19T00:30:00Z"));
+        assert!(removed);
+        // 10.0.0.1 keeps only the fresh MAC.
+        let (_f, macs) = &map["10.0.0.1"];
+        assert_eq!(macs.len(), 1);
+        assert!(macs.contains_key("bb:bb"));
+        // 10.0.0.2 is gone entirely.
+        assert!(!map.contains_key("10.0.0.2"));
+    }
+
+    #[test]
+    fn prune_is_a_noop_when_all_fresh() {
+        let mut map: HashMap<String, (String, HashMap<String, Entry>)> = HashMap::new();
+        let mut macs = HashMap::new();
+        macs.insert("aa:aa".to_string(), entry("2026-06-19T00:29:30Z"));
+        map.insert("10.0.0.1".to_string(), ("IPv4".to_string(), macs));
+        assert!(!prune_stale(&mut map, 1800, at("2026-06-19T00:30:00Z")));
+        assert_eq!(map["10.0.0.1"].1.len(), 1);
     }
 }

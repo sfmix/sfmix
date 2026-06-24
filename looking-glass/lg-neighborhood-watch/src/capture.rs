@@ -20,14 +20,22 @@ use pnet::packet::Packet;
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
+use crate::ringbuf::CapturedFrame;
 use crate::store::Observation;
 
 /// Spawn a dedicated OS thread capturing on `iface`. Returns immediately.
-pub fn spawn_capture(iface: String, tx: mpsc::Sender<Observation>, dropped: Arc<AtomicU64>) {
+/// When `ring_tx` is `Some`, every ARP/NDP frame's raw bytes are also teed to the
+/// ring buffer for later evidence extraction.
+pub fn spawn_capture(
+    iface: String,
+    tx: mpsc::Sender<Observation>,
+    dropped: Arc<AtomicU64>,
+    ring_tx: Option<std::sync::mpsc::SyncSender<CapturedFrame>>,
+) {
     std::thread::Builder::new()
         .name(format!("capture-{iface}"))
         .spawn(move || {
-            if let Err(e) = capture_loop(&iface, &tx, &dropped) {
+            if let Err(e) = capture_loop(&iface, &tx, &dropped, ring_tx.as_ref()) {
                 warn!("capture on {iface} stopped: {e}");
             }
         })
@@ -38,6 +46,7 @@ fn capture_loop(
     iface: &str,
     tx: &mpsc::Sender<Observation>,
     dropped: &Arc<AtomicU64>,
+    ring_tx: Option<&std::sync::mpsc::SyncSender<CapturedFrame>>,
 ) -> anyhow::Result<()> {
     let interface = datalink::interfaces()
         .into_iter()
@@ -56,6 +65,16 @@ fn capture_loop(
     loop {
         match rx.next() {
             Ok(frame) => {
+                // Tee raw ARP/NDP frames to the ring buffer (incl. ARP requests
+                // and DAD probes that `parse_frame` discards — they're the
+                // "who was asking" context evidence needs). Never block: drop on
+                // backpressure (ring writer is best-effort).
+                if let Some(ring) = ring_tx {
+                    if is_arp_or_ndp(frame) {
+                        let (ts_sec, ts_usec) = now_ts();
+                        let _ = ring.try_send(CapturedFrame { ts_sec, ts_usec, data: frame.to_vec() });
+                    }
+                }
                 if let Some(obs) = parse_frame(frame, iface) {
                     // Never block the capture thread: drop and count on backpressure.
                     if tx.try_send(obs).is_err() {
@@ -67,6 +86,41 @@ fn capture_loop(
                 warn!("capture read error on {iface}: {e}");
             }
         }
+    }
+}
+
+/// Wall-clock now split into the (seconds, microseconds) a pcap record wants.
+fn now_ts() -> (u32, u32) {
+    let d = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    (d.as_secs() as u32, d.subsec_micros())
+}
+
+/// True for ARP frames and IPv6 ICMPv6 NDP frames (RS/RA/NS/NA/Redirect) — the
+/// frame classes worth keeping in the ring buffer.
+fn is_arp_or_ndp(frame: &[u8]) -> bool {
+    let Some(eth) = EthernetPacket::new(frame) else { return false };
+    match eth.get_ethertype() {
+        EtherTypes::Arp => true,
+        EtherTypes::Ipv6 => {
+            let Some(ip6) = Ipv6Packet::new(eth.payload()) else { return false };
+            if ip6.get_next_header() != IpNextHeaderProtocols::Icmpv6 {
+                return false;
+            }
+            match Icmpv6Packet::new(ip6.payload()).map(|i| i.get_icmpv6_type()) {
+                Some(t) => matches!(
+                    t,
+                    Icmpv6Types::RouterSolicit
+                        | Icmpv6Types::RouterAdvert
+                        | Icmpv6Types::NeighborSolicit
+                        | Icmpv6Types::NeighborAdvert
+                        | Icmpv6Types::Redirect
+                ),
+                None => false,
+            }
+        }
+        _ => false,
     }
 }
 

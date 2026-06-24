@@ -23,3 +23,5 @@ axum = "0.8"
 tokio-stream = "0.1"
 clap = { version = "4", features = ["derive"] }
 arc-swap = "1"
+chrono.workspace = true
+reqwest = { workspace = true, features = ["stream"] }

@@ -4,8 +4,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use axum::{extract::State, response::IntoResponse, routing::get, Json, Router};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
+use serde::Deserialize;
 
+use crate::evidence::{EvidenceStore, SnapshotOutcome};
 use crate::store::Snapshot;
 
 #[derive(Clone)]
@@ -15,6 +23,8 @@ pub struct AppState {
     pub last_lg_sync: Arc<ArcSwap<Option<String>>>,
     pub dropped: Arc<AtomicU64>,
     pub ifaces: Vec<String>,
+    /// Evidence extraction store; `None` when `evidence_dir` is unconfigured.
+    pub evidence: Option<Arc<EvidenceStore>>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -22,7 +32,80 @@ pub fn router(state: AppState) -> Router {
         .route("/neighbors", get(neighbors))
         .route("/healthz", get(healthz))
         .route("/metrics", get(metrics))
+        .route("/evidence", get(evidence_list))
+        .route("/evidence/snapshot", post(evidence_snapshot))
+        .route("/evidence/{id}", get(evidence_get))
         .with_state(state)
+}
+
+/// Body of `POST /evidence/snapshot`.
+#[derive(Debug, Deserialize)]
+struct SnapshotRequest {
+    event_id: String,
+    macs: Vec<String>,
+    /// RFC3339 window bounds.
+    time_start: String,
+    time_end: String,
+}
+
+/// POST /evidence/snapshot — extract a filtered pcap for an anomaly.
+async fn evidence_snapshot(
+    State(state): State<AppState>,
+    Json(req): Json<SnapshotRequest>,
+) -> impl IntoResponse {
+    let Some(store) = state.evidence.clone() else {
+        return (StatusCode::NOT_IMPLEMENTED, "evidence capture not configured").into_response();
+    };
+    let (Ok(start), Ok(end)) = (
+        chrono::DateTime::parse_from_rfc3339(&req.time_start),
+        chrono::DateTime::parse_from_rfc3339(&req.time_end),
+    ) else {
+        return (StatusCode::BAD_REQUEST, "time_start/time_end must be RFC3339").into_response();
+    };
+    let start_sec = start.timestamp().max(0) as u32;
+    let end_sec = end.timestamp().max(0) as u32;
+
+    match store.snapshot(&req.event_id, &req.macs, start_sec, end_sec).await {
+        SnapshotOutcome::Done(meta) | SnapshotOutcome::Existing(meta) => Json(meta).into_response(),
+        SnapshotOutcome::InProgress => {
+            (StatusCode::CONFLICT, "snapshot in progress").into_response()
+        }
+        SnapshotOutcome::Busy => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            [("retry-after", "5")],
+            "extraction concurrency limit reached",
+        )
+            .into_response(),
+    }
+}
+
+/// GET /evidence — list saved evidence pcaps with metadata.
+async fn evidence_list(State(state): State<AppState>) -> impl IntoResponse {
+    match state.evidence {
+        Some(store) => Json(store.list()).into_response(),
+        None => (StatusCode::NOT_IMPLEMENTED, "evidence capture not configured").into_response(),
+    }
+}
+
+/// GET /evidence/{id} — stream a saved pcap.
+async fn evidence_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+    let Some(store) = state.evidence else {
+        return (StatusCode::NOT_IMPLEMENTED, "evidence capture not configured").into_response();
+    };
+    let Some(path) = store.evidence_path(&id) else {
+        return (StatusCode::NOT_FOUND, "evidence not found").into_response();
+    };
+    match tokio::fs::read(&path).await {
+        Ok(bytes) => (
+            [
+                ("content-type", "application/vnd.tcpdump.pcap".to_string()),
+                ("content-disposition", format!("attachment; filename=\"{id}.pcap\"")),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("reading evidence: {e}")).into_response(),
+    }
 }
 
 /// All currently-heard (ip, mac) rows.

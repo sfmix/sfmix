@@ -193,6 +193,24 @@ discovered:
   sensor_url: http://rs-linux.sfmix.org:29185
   poll_interval_secs: 60
   state_file: /var/lib/looking-glass/discovered-neighbors.json
+  # Durable ND-anomaly event store (SQLite). Records each new-MAC-on-an-existing-IP
+  # event with rollup so bursts collapse into one event. Unset disables recording.
+  anomaly_db: /var/lib/looking-glass/nd-anomalies.sqlite
+  # Per-IP cooldown. While a conflict keeps being heard within this window, it
+  # stays one open event whose last_seen window-end keeps extending; new distinct
+  # MACs also bump flap_count. The event closes ~one cooldown after the conflict
+  # stops being heard; a later recurrence opens a fresh event. Default 600.
+  anomaly_cooldown_secs: 600
+  # MAC TTL (seconds) for conflict computation in the published snapshot, and the
+  # liveness window for anomaly rollup. A MAC not heard within it is marked stale
+  # and excluded from the conflict flag, so a completed migration stops reading as
+  # active. Unset = no aging (all heard MACs count toward the conflict flag).
+  # Recommend matching the sensor's sensor_ttl_secs (e.g. 1800).
+  # mac_ttl_secs: 1800
+  # One-MAC-many-IP (proxy-ARP) cardinality threshold: a single MAC claiming more
+  # than this many *unassigned* IPs in a poll opens a mac_claims_many_ips sweep
+  # event. Cross-tenant claims (one MAC answering for ≥2 ASNs) always trigger.
+  max_ips_per_mac: 8
 
 # ---------------------------------------------------------------------------
 # Policies — command access rules (first-match evaluation)

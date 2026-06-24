@@ -159,6 +159,23 @@ impl RpcClient {
 
         Ok(resp.json().await?)
     }
+
+    /// Generic GET returning the raw `reqwest::Response` for streaming binary
+    /// bodies (e.g. evidence pcaps) without buffering them in memory.
+    pub async fn get_raw(&self, path: &str) -> Result<reqwest::Response> {
+        let resp = self
+            .http
+            .get(format!("{}{}", self.base_url, path))
+            .header("X-RPC-Secret", &self.secret)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("RPC GET {} failed: {} {}", path, status, body));
+        }
+        Ok(resp)
+    }
 }
 
 /// Read an SSE response stream, parsing events and forwarding them.

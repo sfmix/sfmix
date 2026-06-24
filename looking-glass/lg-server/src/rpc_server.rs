@@ -39,6 +39,9 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/participant-ports", get(participant_ports))
         .route("/rpc/v1/ix-ip-assignments", get(ix_ip_assignments))
         .route("/rpc/v1/discovered-neighbors", get(discovered_neighbors))
+        .route("/rpc/v1/nd-events", get(nd_events))
+        .route("/rpc/v1/nd-events/{id}", get(nd_event_detail))
+        .route("/rpc/v1/nd-events/{id}/pcap", get(nd_event_pcap))
         .route("/rpc/v1/netbox/status", get(netbox_status))
         .route("/rpc/v1/device-cache/status", get(device_cache_status))
         .route("/rpc/v1/peeringdb-cache", get(peeringdb_cache))
@@ -365,6 +368,102 @@ async fn discovered_neighbors(
             .into_response()
         }
         None => Json(serde_json::to_value(&**cache).unwrap_or_default()).into_response(),
+    }
+}
+
+/// Query filter for the ND-anomaly event listing.
+#[derive(serde::Deserialize)]
+struct NdEventFilter {
+    asn: Option<u32>,
+    ip: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+/// GET /rpc/v1/nd-events — durable ND-anomaly events (new MAC on an existing IP),
+/// newest-first. `?asn=`/`?ip=` narrow; `?limit=`/`?offset=` page (default 200/0,
+/// limit capped at 1000).
+async fn nd_events(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+    Query(filter): Query<NdEventFilter>,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let Some(store) = state.lg.anomaly.as_ref() else {
+        // Anomaly recording not configured: present an empty, well-formed result.
+        return Json(serde_json::json!({ "events": [] })).into_response();
+    };
+    let limit = filter.limit.unwrap_or(200).clamp(1, 1000);
+    let offset = filter.offset.unwrap_or(0).max(0);
+    match store.list_events(filter.asn, filter.ip.as_deref(), limit, offset, chrono::Utc::now()) {
+        Ok(events) => Json(serde_json::json!({ "events": events })).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+    }
+}
+
+/// GET /rpc/v1/nd-events/{id} — one ND-anomaly event by UUID.
+async fn nd_event_detail(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let Some(store) = state.lg.anomaly.as_ref() else {
+        return (StatusCode::NOT_FOUND, "anomaly recording not configured").into_response();
+    };
+    match store.get_event(&id, chrono::Utc::now()) {
+        Ok(Some(event)) => Json(event).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "event not found").into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+    }
+}
+
+/// GET /rpc/v1/nd-events/{id}/pcap — stream the event's evidence pcap from the
+/// sensor. Resolves the event's `evidence_id`, then proxies (streaming) the
+/// sensor's `GET /evidence/{evidence_id}`.
+async fn nd_event_pcap(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let Some(store) = state.lg.anomaly.as_ref() else {
+        return (StatusCode::NOT_FOUND, "anomaly recording not configured").into_response();
+    };
+    let evidence_id = match store.get_event(&id, chrono::Utc::now()) {
+        Ok(Some(ev)) => match ev.evidence_id {
+            Some(eid) => eid,
+            None => return (StatusCode::NOT_FOUND, "no evidence captured for this event").into_response(),
+        },
+        Ok(None) => return (StatusCode::NOT_FOUND, "event not found").into_response(),
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+    };
+    let Some(sensor_url) = state.lg.anomaly_sensor_url.as_ref() else {
+        return (StatusCode::NOT_FOUND, "sensor not configured").into_response();
+    };
+    let url = format!("{}/evidence/{}", sensor_url.trim_end_matches('/'), evidence_id);
+    let client = reqwest::Client::new();
+    match client.get(&url).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            let body = axum::body::Body::from_stream(resp.bytes_stream());
+            (
+                [("content-type", "application/vnd.tcpdump.pcap")],
+                body,
+            )
+                .into_response()
+        }
+        Ok(resp) => (
+            StatusCode::BAD_GATEWAY,
+            format!("sensor returned {} for evidence {evidence_id}", resp.status()),
+        )
+            .into_response(),
+        Err(e) => (StatusCode::BAD_GATEWAY, format!("fetching evidence from sensor: {e}")).into_response(),
     }
 }
 
