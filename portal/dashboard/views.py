@@ -7,7 +7,12 @@ from datetime import datetime
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import (
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import redirect, render
 from django.utils.timesince import timesince
 from django.utils.translation import gettext, ngettext
@@ -175,6 +180,76 @@ def lldp_neighbors(request):
         "lg_error": lg_error,
         "is_ix_admin": True,
     })
+
+
+def _nd_event_display(ev):
+    """Attach human-readable timestamps + a kind flag to an ND-anomaly event."""
+    opened = _parse_rfc3339(ev.get("opened_at"))
+    last = _parse_rfc3339(ev.get("last_seen"))
+    ev["opened_display"] = opened.strftime("%Y-%m-%d %H:%M") if opened else ""
+    ev["last_seen_ago"] = timesince(last) if last else ""
+    ev["is_sweep"] = ev.get("kind") == "mac_claims_many_ips"
+    return ev
+
+
+@login_required
+def nd_events(request):
+    """Durable ND-anomaly event log (admin only).
+
+    Lists new-MAC-on-an-existing-IP conflicts and one-MAC-many-IP (proxy-ARP)
+    sweeps, newest-first, with IP/ASN filters and offset paging.
+    """
+    if not _is_ix_admin(request):
+        return HttpResponseForbidden(gettext("IX Administrators only."))
+    events = []
+    lg_error = None
+    token = request.session.get("oidc_id_token")
+    ip_filter = (request.GET.get("ip") or "").strip()
+    asn_filter = (request.GET.get("asn") or "").strip()
+    try:
+        page = max(int(request.GET.get("page", 0)), 0)
+    except (ValueError, TypeError):
+        page = 0
+    limit = 100
+    try:
+        lg = LookingGlassClient()
+        if not lg.base_url:
+            lg_error = gettext("Looking Glass not configured")
+        else:
+            asn = int(asn_filter) if asn_filter.isdigit() else None
+            data = lg.get_nd_events(
+                token=token, asn=asn, ip=ip_filter or None, limit=limit, offset=page * limit
+            )
+            events = [_nd_event_display(e) for e in data.get("events", [])]
+    except Exception as e:
+        lg_error = str(e)
+    return render(request, "dashboard/nd_events.html", {
+        "events": events,
+        "lg_error": lg_error,
+        "ip_filter": ip_filter,
+        "asn_filter": asn_filter,
+        "page": page,
+        "has_prev": page > 0,
+        "has_next": len(events) == limit,
+        "is_ix_admin": True,
+    })
+
+
+@login_required
+def nd_event_pcap(request, event_id):
+    """Stream an ND-anomaly event's evidence pcap to the browser (admin only)."""
+    if not _is_ix_admin(request):
+        return HttpResponseForbidden(gettext("IX Administrators only."))
+    token = request.session.get("oidc_id_token")
+    lg = LookingGlassClient()
+    if not lg.base_url:
+        return HttpResponseForbidden(gettext("Looking Glass not configured"))
+    resp = StreamingHttpResponse(
+        lg.stream_nd_event_pcap(event_id, token=token),
+        content_type="application/vnd.tcpdump.pcap",
+    )
+    resp["Content-Disposition"] = f'attachment; filename="nd-event-{event_id}.pcap"'
+    return resp
 
 
 # ── Network detail helpers ─────────────────────────────────────────
@@ -1025,6 +1100,16 @@ def _fetch_discovered_by_ip(lg, token, asn):
     MACs (a conflict) rather than the single one the kernel chose.
     """
     discovered_by_ip = {}
+    # Count durable anomaly events per IP so the detail page can link to history.
+    event_counts: dict[str, int] = {}
+    try:
+        ev_data = lg.get_nd_events(token=token, asn=asn, limit=500)
+        for ev in ev_data.get("events", []):
+            addr = ev.get("ip")
+            if addr:
+                event_counts[addr] = event_counts.get(addr, 0) + 1
+    except Exception:
+        logger.warning("Failed to fetch ND events for AS%s", asn, exc_info=True)
     try:
         result = lg.get_discovered_neighbors(token=token, asn=asn)
         for neighbor in result.get("neighbors", []):
@@ -1035,6 +1120,7 @@ def _fetch_discovered_by_ip(lg, token, asn):
             discovered_by_ip[addr] = {
                 "macs": macs,
                 "conflict": bool(neighbor.get("conflict")),
+                "event_count": event_counts.get(addr, 0),
             }
     except Exception:
         logger.warning("Failed to fetch discovered neighbors", exc_info=True)

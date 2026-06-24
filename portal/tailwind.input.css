@@ -323,6 +323,19 @@ body {
 .nd-disc-invalid-row .nd-mac-addr { color: #991b1b; }
 .nd-disc-empty { font-size: .78rem; color: var(--color-text-light); font-style: italic; }
 
+/* Stale MACs (aged past mac_ttl): dimmed, struck, don't count toward conflict. */
+.nd-mac-stale { color: var(--color-text-light); opacity: .55; text-decoration: line-through; }
+.nd-stale-tag { font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; opacity: .8; text-decoration: none; }
+
+/* "N events · history" link to the ND anomaly event log for a conflicting IP. */
+.nd-event-badge { display: inline-flex; align-items: center; font-size: .62rem; font-weight: 700; color: #3730a3; background: #eef2ff; border: 1px solid #c7d2fe; padding: .03rem .35rem; border-radius: 4px; margin-left: .4rem; vertical-align: middle; white-space: nowrap; text-decoration: none; }
+.nd-event-badge:hover { background: #e0e7ff; }
+
+/* Event-kind badges on the ND anomaly events page. */
+.nd-kind-badge { display: inline-flex; align-items: center; font-size: .62rem; font-weight: 700; padding: .03rem .35rem; border-radius: 4px; white-space: nowrap; }
+.nd-kind-newmac { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
+.nd-kind-sweep { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+
 /* Route-server table (L4) */
 .nd-rs-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .nd-rs-table th { text-align: left; font-weight: 600; padding: .35rem .5rem; border-bottom: 2px solid #e5e7eb; color: var(--color-text-light); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
