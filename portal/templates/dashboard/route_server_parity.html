@@ -29,7 +29,8 @@
   <span><span class="nd-dot nd-dot-up"></span> <b class="sev-ok">{{ counts.ok }}</b> {% translate "OK" %}</span>
 </div>
 
-<div class="pt-table-wrap bg-white border rounded-lg overflow-x-auto">
+<!-- Desktop: wide parity table -->
+<div class="hidden md:block pt-table-wrap bg-white border rounded-lg overflow-x-auto">
   <table class="pt-table w-full">
     <thead class="pt-thead text-left">
       <tr>
@@ -80,6 +81,54 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<!-- Mobile: one card per participant (entries already sorted worst-first) -->
+<div class="md:hidden mc-stack">
+  {% for e in entries %}
+  <div class="mc-card{% if e.parity.severity == 'crit' %} is-crit{% elif e.parity.severity == 'warn' %} is-warn{% endif %}">
+    {% if e.parity.issues %}
+    <div class="mc-flag {% if e.parity.severity == 'crit' %}crit{% else %}warn{% endif %}">
+      <span class="mc-flag-ic">&#9888;</span>
+      <span>{% for issue in e.parity.issues %}{{ issue }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</span>
+    </div>
+    {% endif %}
+    <div class="mc-head">
+      <div style="min-width:0">
+        <a href="{% url 'participant_detail' e.asn %}" class="pt-card-name lnk-name">{{ e.name }}</a>
+        <div><a href="{% url 'participant_detail' e.asn %}" class="lnk-asn">AS{{ e.asn }}</a></div>
+      </div>
+      <span class="mc-spacer"></span>
+      {% if e.parity.severity == "crit" %}
+      <span class="st-badge st-crit">{% translate "Critical" %}</span>
+      {% elif e.parity.severity == "warn" %}
+      <span class="st-badge st-warn">{% translate "At risk" %}</span>
+      {% else %}
+      <span class="st-badge st-ok">{% translate "OK" %}</span>
+      {% endif %}
+    </div>
+    <div class="par-mc-grid">
+      {% for rs in e.parity.rs %}
+      <div class="par-mc-rs">
+        <div class="par-mc-rsname">{{ rs.name }}</div>
+        {% for cell in rs.afs %}
+        <div class="par-af-line">
+          {% if cell.established %}<span class="nd-dot nd-dot-up"></span>
+          {% elif cell.present %}<span class="nd-dot nd-dot-warn"></span>
+          {% else %}<span class="nd-dot nd-dot-down"></span>{% endif %}
+          <span class="par-af-label">{{ cell.label }}</span>
+          {% if cell.established %}<span class="par-received">{{ cell.received|default:"0" }}</span>
+          {% elif cell.present %}<span class="par-state-warn">{{ cell.state }}</span>
+          {% else %}<span class="par-no-session">{% translate "no session" %}</span>{% endif %}
+        </div>
+        {% empty %}
+        <span class="par-dash">—</span>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
