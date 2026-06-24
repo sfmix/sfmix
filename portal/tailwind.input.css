@@ -614,6 +614,11 @@ body {
 .par-row-crit { background: #fef2f2; }
 .par-row-warn { background: #fffbeb; }
 
+/* Mobile parity card — per-route-server status grid inside the card */
+.par-mc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem .9rem; margin-top: .7rem; }
+.par-mc-rs { min-width: 0; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 7px; padding: .45rem .55rem; }
+.par-mc-rsname { font-size: .58rem; text-transform: uppercase; letter-spacing: .05em; color: #9aa6b1; font-weight: 700; margin-bottom: .25rem; }
+
 /* Severity count highlights */
 .sev-crit { color: #991b1b; }
 .sev-warn { color: #92400e; }
