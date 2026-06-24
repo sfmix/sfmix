@@ -132,6 +132,44 @@ class LookingGlassClient:
             params["asn"] = str(asn)
         return self._get("/api/v1/discovered-neighbors", token, params or None)
 
+    def get_nd_events(
+        self,
+        token: str | None = None,
+        asn: int | None = None,
+        ip: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get durable ND-anomaly events (new-MAC-on-IP and one-MAC-many-IP sweeps).
+
+        ``asn``/``ip`` narrow the listing; ``limit``/``offset`` page it.
+        Returns ``{"events": [...]}`` newest-first.
+        """
+        params = {}
+        if asn is not None:
+            params["asn"] = str(asn)
+        if ip:
+            params["ip"] = ip
+        if limit is not None:
+            params["limit"] = str(limit)
+        if offset is not None:
+            params["offset"] = str(offset)
+        return self._get("/api/v1/nd-events", token, params or None)
+
+    def stream_nd_event_pcap(self, event_id: str, token: str | None = None):
+        """Yield the evidence pcap bytes for an event, streaming from lg-http.
+
+        The httpx stream stays open while the generator is iterated, so the view
+        can pipe it straight into a ``StreamingHttpResponse`` without buffering.
+        """
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        url = f"{self.base_url}/api/v1/nd-events/{event_id}/pcap"
+        with httpx.stream("GET", url, headers=headers, timeout=self.timeout) as resp:
+            resp.raise_for_status()
+            yield from resp.iter_bytes()
+
 
 def get_lg_client() -> LookingGlassClient:
     """Get a configured LookingGlassClient instance."""

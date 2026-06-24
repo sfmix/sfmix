@@ -409,9 +409,10 @@ its action buttons.
                 <td class="nd-mac-ip"{% if dn.macs|length > 1 %} rowspan="{{ dn.macs|length }}"{% endif %}>
                   {{ dn.ip }}
                   {% if dn.conflict %}<span class="nd-warn-flag nd-warn-flag-crit" title="{% translate 'More than one MAC has been heard claiming this IP' %}">&#9888; {% translate "multiple MACs" %}</span>{% endif %}
+                  {% if dn.event_count %}<a href="{% url 'nd_events' %}?ip={{ dn.ip }}" class="nd-event-badge" title="{% translate 'View this IP in the ND anomaly event log' %}">{% blocktranslate count n=dn.event_count %}{{ n }} event &middot; history{% plural %}{{ n }} events &middot; history{% endblocktranslate %}</a>{% endif %}
                 </td>
                 {% endif %}
-                <td class="nd-mac-addr">{{ m.mac }}</td>
+                <td class="nd-mac-addr{% if m.stale %} nd-mac-stale{% endif %}">{{ m.mac }}{% if m.stale %} <span class="nd-stale-tag" title="{% translate 'Not heard recently; excluded from the conflict flag' %}">({% translate "stale" %})</span>{% endif %}</td>
                 <td class="nd-mac-seen">{{ m.first_seen_display|default:"—" }}</td>
                 <td class="nd-mac-seen">{% if m.last_seen_ago %}{% blocktranslate with a=m.last_seen_ago %}{{ a }} ago{% endblocktranslate %}{% else %}—{% endif %}</td>
               </tr>
@@ -452,18 +453,19 @@ its action buttons.
             <div class="mc-flag crit"><span class="mc-flag-ic">&#9888;</span> {% translate "More than one MAC is claiming this IP" %}</div>
             {% endif %}
             <div class="mc-head"><div><div class="mc-id{% if dn.conflict %} crit{% endif %}">{{ dn.ip }}</div><div class="mc-sub">{% if ":" in dn.ip %}IPv6{% else %}IPv4{% endif %}{% if dn.macs|length > 1 %} &middot; {% blocktranslate count n=dn.macs|length %}{{ n }} MAC{% plural %}{{ n }} MACs{% endblocktranslate %}{% endif %}</div></div></div>
+            {% if dn.event_count %}<a href="{% url 'nd_events' %}?ip={{ dn.ip }}" class="nd-event-badge">{% blocktranslate count n=dn.event_count %}{{ n }} event &middot; history{% plural %}{{ n }} events &middot; history{% endblocktranslate %}</a>{% endif %}
             {% if dn.macs|length > 1 %}
             <div class="mc-submac">
               {% for m in dn.macs %}
               <div class="mc-submac-row">
-                <span class="mc-submac-mac">{{ m.mac }}</span>
+                <span class="mc-submac-mac{% if m.stale %} nd-mac-stale{% endif %}">{{ m.mac }}{% if m.stale %} <span class="nd-stale-tag">({% translate "stale" %})</span>{% endif %}</span>
                 <span class="mc-submac-seen">{% if m.last_seen_ago %}{% blocktranslate with a=m.last_seen_ago %}last {{ a }} ago{% endblocktranslate %}{% endif %}{% if m.first_seen_display %}<br>{% blocktranslate with f=m.first_seen_display %}since {{ f }}{% endblocktranslate %}{% endif %}</span>
               </div>
               {% endfor %}
             </div>
             {% else %}{% with m=dn.macs.0 %}
             <div class="mc-kv">
-              <div class="span-2"><div class="mc-k">{% translate "MAC" %}</div><div class="mc-v mono">{{ m.mac }}</div></div>
+              <div class="span-2"><div class="mc-k">{% translate "MAC" %}</div><div class="mc-v mono{% if m.stale %} nd-mac-stale{% endif %}">{{ m.mac }}{% if m.stale %} <span class="nd-stale-tag">({% translate "stale" %})</span>{% endif %}</div></div>
               <div><div class="mc-k">{% translate "First seen" %}</div><div class="mc-v">{{ m.first_seen_display|default:"—" }}</div></div>
               <div><div class="mc-k">{% translate "Last seen" %}</div><div class="mc-v">{% if m.last_seen_ago %}{% blocktranslate with a=m.last_seen_ago %}{{ a }} ago{% endblocktranslate %}{% else %}—{% endif %}</div></div>
             </div>

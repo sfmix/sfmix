@@ -379,3 +379,102 @@ class LldpNeighborsViewTtlTests(SimpleTestCase):
         for e in ctx["entries"]:
             self.assertIsNone(e["ttl"])
             self.assertFalse(e["ttl_expiring"])
+
+
+# ── ND anomaly events page (Phase 4) ────────────────────────────────
+
+from types import SimpleNamespace
+from unittest import mock
+
+from django.test import RequestFactory, override_settings
+
+from dashboard import views
+
+# Render tests don't run collectstatic, so swap the manifest static storage for
+# the plain one (otherwise {% static %} in base.html raises on a missing manifest).
+_PLAIN_STATIC = override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+
+_NDEV = {
+    "events": [
+        {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "kind": "new_mac_on_ip", "ip": "2001:db8:0:1::10", "family": "IPv6",
+            "asn": 64496, "tenant": "Example Networks",
+            "old_macs": ["0200.5e10.0a01"], "new_mac": "0200.5e99.dead", "claimed_ips": [],
+            "opened_at": "2026-06-18T00:00:30+00:00", "last_seen": "2026-06-18T00:03:00+00:00",
+            "flap_count": 3, "evidence_id": "11111111-1111-4111-8111-111111111111", "closed": False,
+        },
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "kind": "mac_claims_many_ips", "ip": "", "family": "",
+            "asn": None, "tenant": None, "old_macs": [], "new_mac": "0200.5eaa.bbbb",
+            "claimed_ips": ["198.51.100.5", "198.51.100.6"],
+            "opened_at": "2026-06-17T21:10:00+00:00", "last_seen": "2026-06-17T21:18:00+00:00",
+            "flap_count": 2, "evidence_id": None, "closed": True,
+        },
+    ]
+}
+
+
+def _admin_request(path="/admin/nd-events/", admin=True):
+    req = RequestFactory().get(path)
+    req.user = SimpleNamespace(is_authenticated=True)
+    req.session = {"oidc_is_ix_admin": admin, "oidc_id_token": "tok"}
+    return req
+
+
+@_PLAIN_STATIC
+class NdEventsViewTests(SimpleTestCase):
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_renders_both_event_kinds(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        inst.get_nd_events.return_value = _NDEV
+        resp = views.nd_events(_admin_request())
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn("MAC sweep", html)
+        self.assertIn("new MAC", html)
+        self.assertIn("2001:db8:0:1::10", html)      # per-IP subject
+        self.assertIn("0200.5eaa.bbbb", html)         # sweep offending MAC
+        self.assertIn("/admin/nd-events/11111111-1111-4111-8111-111111111111/pcap/", html)  # evidence link
+        self.assertIn("active", html)                 # open event status
+
+    def test_non_admin_is_forbidden(self):
+        resp = views.nd_events(_admin_request(admin=False))
+        self.assertEqual(resp.status_code, 403)
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_empty_when_no_events(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        inst.get_nd_events.return_value = {"events": []}
+        resp = views.nd_events(_admin_request())
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("No ND anomaly events recorded", resp.content.decode())
+
+
+class NdEventCountEnrichmentTests(SimpleTestCase):
+    def test_discovered_by_ip_attaches_event_count(self):
+        lg = mock.Mock()
+        lg.get_nd_events.return_value = {
+            "events": [
+                {"ip": "2001:db8:0:1::10"}, {"ip": "2001:db8:0:1::10"}, {"ip": "192.0.2.10"},
+            ]
+        }
+        lg.get_discovered_neighbors.return_value = {
+            "neighbors": [
+                {"ip": "2001:db8:0:1::10", "conflict": True,
+                 "macs": [{"mac": "a", "first_seen": "", "last_seen": ""}]},
+                {"ip": "192.0.2.99", "conflict": False,
+                 "macs": [{"mac": "b", "first_seen": "", "last_seen": ""}]},
+            ]
+        }
+        out = views._fetch_discovered_by_ip(lg, "tok", 64496)
+        self.assertEqual(out["2001:db8:0:1::10"]["event_count"], 2)
+        self.assertEqual(out["192.0.2.99"]["event_count"], 0)

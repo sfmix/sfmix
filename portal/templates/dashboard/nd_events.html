@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "ND Anomaly Events" %} – SFMIX Portal{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
+</div>
+
+<h1 class="page-title text-2xl font-bold mb-2">{% translate "ND Anomaly Events" %}</h1>
+<p class="text-sm text-gray-500 mb-6">
+  {% translate "Neighbor-discovery anomalies heard on the IX fabric: a new MAC appearing on an existing IP, or a single MAC claiming many IPs (proxy-ARP)." %}
+</p>
+
+{% if lg_error %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
+  {% translate "Unable to fetch ND events:" %} {{ lg_error }}
+</div>
+{% endif %}
+
+{# Server-side filters (IP / ASN) — the listing is paginated upstream. #}
+<form method="get" class="flex flex-wrap items-end gap-3 mb-4">
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{% translate "IP address" %}</label>
+    <input type="text" name="ip" value="{{ ip_filter }}" placeholder="192.0.2.10"
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2">
+  </div>
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{% translate "ASN" %}</label>
+    <input type="text" name="asn" value="{{ asn_filter }}" placeholder="64496" inputmode="numeric"
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2">
+  </div>
+  <button type="submit" class="bg-gray-800 text-white text-sm rounded px-4 py-1.5 hover:bg-gray-700 transition">
+    {% translate "Filter" %}
+  </button>
+  {% if ip_filter or asn_filter %}
+  <a href="{% url 'nd_events' %}" class="back-link text-sm">{% translate "Clear" %}</a>
+  {% endif %}
+</form>
+
+{% if events %}
+<div x-data="sortableTable()" x-init="sortBy('opened')">
+  <div class="flex items-center justify-between mb-2">
+    <input type="search" x-model="search" placeholder="{% translate 'Filter this page…' %}"
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2">
+    <span class="text-xs text-gray-500">
+      <span x-show="search" x-cloak x-text="visibleCount + ' of {{ events|length }}'"></span>
+      <span x-show="!search">{{ events|length }} {% translate "events" %}</span>
+    </span>
+  </div>
+  <div class="hidden md:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
+        <tr>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'opened' ? 'text-gray-900' : ''" @click="sortBy('opened')">
+            {% translate "Opened" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('opened')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'kind' ? 'text-gray-900' : ''" @click="sortBy('kind')">
+            {% translate "Kind" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('kind')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'subject' ? 'text-gray-900' : ''" @click="sortBy('subject')">
+            {% translate "Subject" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('subject')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'participant' ? 'text-gray-900' : ''" @click="sortBy('participant')">
+            {% translate "Participant" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('participant')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium">{% translate "Detail" %}</th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'flaps' ? 'text-gray-900' : ''" @click="sortBy('flaps')">
+            {% translate "Flaps" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('flaps')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
+              :class="sortCol === 'status' ? 'text-gray-900' : ''" @click="sortBy('status')">
+            {% translate "Status" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('status')"></span>
+          </th>
+          <th class="px-4 py-2 font-medium">{% translate "Evidence" %}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for ev in events %}
+        <tr x-show="rowVisible($el)"
+            class="{% if not ev.closed %}nd-disc-conflict{% endif %}"
+            data-search="{{ ev.kind }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}"
+            data-sort-opened="{{ ev.opened_at }}"
+            data-sort-kind="{{ ev.kind }}"
+            data-sort-subject="{% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}"
+            data-sort-participant="{% if ev.asn %}{{ ev.asn }}{% endif %}"
+            data-sort-flaps="{{ ev.flap_count|default:0 }}"
+            data-sort-status="{% if ev.closed %}1{% else %}0{% endif %}">
+          <td class="px-4 py-2 text-xs whitespace-nowrap">{{ ev.opened_display|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs">
+            {% if ev.is_sweep %}
+            <span class="nd-kind-badge nd-kind-sweep" title="{% translate 'One MAC claiming many IPs' %}">{% translate "MAC sweep" %}</span>
+            {% else %}
+            <span class="nd-kind-badge nd-kind-newmac" title="{% translate 'A new MAC appeared on an IP that already had others' %}">{% translate "new MAC" %}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 font-mono text-xs">
+            {% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}
+            <span class="text-gray-400">{{ ev.family }}</span>
+          </td>
+          <td class="px-4 py-2 text-xs">
+            {% if ev.asn %}
+            <a href="{% url 'participant_detail' ev.asn %}" class="back-link">AS{{ ev.asn }}</a>
+            <span class="text-gray-700 ml-1">{{ ev.tenant|default:"" }}</span>
+            {% else %}<span class="text-gray-400">{% translate "unassigned" %}</span>{% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs">
+            {% if ev.is_sweep %}
+            <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP claimed{% plural %}{{ n }} IPs claimed{% endblocktranslate %}</span>
+            <div class="font-mono text-[11px] text-gray-500 truncate max-w-xs" title="{{ ev.claimed_ips|join:', ' }}">{{ ev.claimed_ips|join:", " }}</div>
+            {% else %}
+            <span class="font-mono text-[11px] text-gray-500">{{ ev.old_macs|join:", " }}</span>
+            <span class="text-gray-400">&rarr;</span>
+            <span class="font-mono text-[11px] text-gray-900">{{ ev.new_mac }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs">{{ ev.flap_count|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs whitespace-nowrap">
+            {% if ev.closed %}
+            <span class="text-gray-400">{% translate "closed" %}</span>
+            {% else %}
+            <span class="nd-warn-flag nd-warn-flag-crit">{% translate "active" %}</span>
+            {% endif %}
+            {% if ev.last_seen_ago %}<div class="text-[11px] text-gray-400">{% blocktranslate with a=ev.last_seen_ago %}last {{ a }} ago{% endblocktranslate %}</div>{% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs">
+            {% if ev.evidence_id %}
+            <a href="{% url 'nd_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a>
+            {% else %}<span class="text-gray-300">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Mobile: compact list, tap to expand. Active events float to the top. #}
+  <div class="md:hidden mr-list">
+    {% for ev in events %}
+    <div class="mr-row mx-row{% if not ev.closed %} is-warn{% endif %}"
+         x-show="rowVisible($el)"
+         x-data="{ open: false }" @click="open = !open"
+         data-search="{{ ev.kind }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}">
+      <div class="mr-top">
+        <span class="mr-dot {% if not ev.closed %}mr-dot-warn{% else %}mr-dot-up{% endif %}"></span>
+        <span class="mr-id font-mono">{% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}</span>
+        <span class="mc-spacer"></span>
+        <span class="mr-asn">{% if ev.asn %}AS{{ ev.asn }}{% else %}—{% endif %}</span>
+        <span class="mx-chev" :class="open && 'open'">&#9662;</span>
+      </div>
+      <div class="mr-meta">
+        {% if ev.is_sweep %}{% translate "MAC sweep" %}{% else %}{% translate "new MAC" %}{% endif %}
+        <span class="sep">&middot;</span>{{ ev.opened_display }}
+      </div>
+      <div class="mx-detail" x-show="open" x-cloak @click.stop>
+        <dl class="dl-rows">
+          <div class="dl-row"><dt>{% translate "Opened" %}</dt><dd>{{ ev.opened_display|default:"—" }}</dd></div>
+          <div class="dl-row"><dt>{% translate "Participant" %}</dt><dd style="font-family:inherit">{% if ev.asn %}AS{{ ev.asn }} {{ ev.tenant }}{% else %}{% translate "unassigned" %}{% endif %}</dd></div>
+          {% if ev.is_sweep %}
+          <div class="dl-row"><dt>{% translate "Offending MAC" %}</dt><dd>{{ ev.new_mac }}</dd></div>
+          <div class="dl-row"><dt>{% translate "Claimed IPs" %}</dt><dd style="font-family:inherit">{{ ev.claimed_ips|join:", " }}</dd></div>
+          {% else %}
+          <div class="dl-row"><dt>{% translate "Old MAC(s)" %}</dt><dd>{{ ev.old_macs|join:", " }}</dd></div>
+          <div class="dl-row"><dt>{% translate "New MAC" %}</dt><dd>{{ ev.new_mac }}</dd></div>
+          {% endif %}
+          <div class="dl-row"><dt>{% translate "Flaps" %}</dt><dd>{{ ev.flap_count|default:"—" }}</dd></div>
+          <div class="dl-row"><dt>{% translate "Status" %}</dt><dd class="{% if not ev.closed %}crit{% endif %}">{% if ev.closed %}{% translate "closed" %}{% else %}{% translate "active" %}{% endif %}</dd></div>
+          {% if ev.evidence_id %}
+          <div class="dl-row"><dt>{% translate "Evidence" %}</dt><dd style="font-family:inherit"><a href="{% url 'nd_event_pcap' ev.id %}" class="back-link" @click.stop>{% translate "download pcap" %}</a></dd></div>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Pagination. #}
+  {% if has_prev or has_next %}
+  <div class="flex items-center justify-between mt-4 text-sm">
+    {% if has_prev %}
+    <a href="?{% if ip_filter %}ip={{ ip_filter }}&{% endif %}{% if asn_filter %}asn={{ asn_filter }}&{% endif %}page={{ page|add:'-1' }}" class="back-link">&larr; {% translate "Newer" %}</a>
+    {% else %}<span></span>{% endif %}
+    {% if has_next %}
+    <a href="?{% if ip_filter %}ip={{ ip_filter }}&{% endif %}{% if asn_filter %}asn={{ asn_filter }}&{% endif %}page={{ page|add:'1' }}" class="back-link">{% translate "Older" %} &rarr;</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% elif not lg_error %}
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+  {% if ip_filter or asn_filter %}{% translate "No ND events match this filter." %}{% else %}{% translate "No ND anomaly events recorded." %}{% endif %}
+</div>
+{% endif %}
+{% endblock %}
