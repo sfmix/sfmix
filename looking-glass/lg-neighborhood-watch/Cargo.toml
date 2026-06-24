@@ -24,3 +24,6 @@ chrono.workspace = true
 axum = "0.8"
 pnet = "0.35"
 socket2 = { version = "0.5", features = ["all"] }
+
+[dev-dependencies]
+tempfile = "3"

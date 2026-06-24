@@ -151,6 +151,12 @@ pub struct DiscoveredMac {
     pub first_seen: String,
     /// RFC3339, most recent time this (ip, mac) was heard.
     pub last_seen: String,
+    /// True when `last_seen` is older than the configured `mac_ttl_secs`: the MAC
+    /// hasn't been heard recently, so it no longer counts toward the live
+    /// `conflict` flag. Defaults to false so pre-existing on-disk caches (written
+    /// before aging) deserialize unchanged.
+    #[serde(default)]
+    pub stale: bool,
 }
 
 fn default_assigned() -> bool {
@@ -172,6 +178,63 @@ pub struct DiscoveredNeighbor {
     /// pre-existing on-disk store files (all assigned) still deserialize.
     #[serde(default = "default_assigned")]
     pub assigned: bool,
+}
+
+// ── ND Anomaly Events ───────────────────────────────────────────────
+//
+// A durable record of a new-MAC-on-an-existing-IP event detected while folding
+// sensor polls into the discovered-neighbor store. Unlike the live `conflict`
+// flag (which latches forever), these events carry rollup state: repeated flaps
+// on the same IP within a cooldown window collapse into one event with a rising
+// `flap_count`, so a burst of churn becomes a single bounded record rather than
+// an event storm. Persisted by `AnomalyStore` (SQLite) in lg-server and served
+// over RPC.
+
+/// Event-kind discriminator: a single MAC newly appearing on an existing IP.
+pub const EVENT_KIND_NEW_MAC: &str = "new_mac_on_ip";
+/// Event-kind discriminator: one MAC claiming many IPs (proxy-ARP / sweep).
+pub const EVENT_KIND_MAC_SWEEP: &str = "mac_claims_many_ips";
+
+fn default_event_kind() -> String {
+    EVENT_KIND_NEW_MAC.to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnomalyEvent {
+    /// UUID v4 primary key.
+    pub id: String,
+    /// What kind of anomaly this is: `new_mac_on_ip` (a new MAC appeared on an IP
+    /// that already had others) or `mac_claims_many_ips` (one MAC claiming many
+    /// IPs — proxy-ARP / impersonation / sweep). Defaults to `new_mac_on_ip` so
+    /// rows/payloads written before this field deserialize unchanged.
+    #[serde(default = "default_event_kind")]
+    pub kind: String,
+    /// For `new_mac_on_ip`: the conflicted IP. For `mac_claims_many_ips`: empty
+    /// (the MAC is the subject; see `claimed_ips`).
+    pub ip: String,
+    pub family: String,
+    pub asn: Option<u32>,
+    pub tenant: Option<String>,
+    /// MACs already heard for this IP when the new one appeared (per-IP events).
+    pub old_macs: Vec<String>,
+    /// `new_mac_on_ip`: the newly-heard MAC. `mac_claims_many_ips`: the offending MAC.
+    pub new_mac: String,
+    /// `mac_claims_many_ips`: the set of IPs this MAC was heard claiming (capped).
+    /// Empty for `new_mac_on_ip`.
+    #[serde(default)]
+    pub claimed_ips: Vec<String>,
+    /// RFC3339, when this event was first opened (window start).
+    pub opened_at: String,
+    /// RFC3339, the most recent time the conflict was *heard* (window end).
+    /// Advanced both by new-MAC flaps and by re-hearing an ongoing conflict, so
+    /// it tracks the true duration the anomaly persisted, not just new arrivals.
+    pub last_seen: String,
+    /// Number of distinct new-MAC arrivals rolled into this event (>= 1).
+    pub flap_count: u64,
+    /// Links to a sensor pcap snapshot once captured (Phase 2).
+    pub evidence_id: Option<String>,
+    /// True once the cooldown window has elapsed with no further flaps.
+    pub closed: bool,
 }
 
 // ── CommandOutput enum ──────────────────────────────────────────────

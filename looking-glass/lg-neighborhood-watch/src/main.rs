@@ -21,8 +21,10 @@ use tracing::info;
 
 mod capture;
 mod config;
+mod evidence;
 mod http;
 mod lgpoll;
+mod ringbuf;
 mod solicit;
 mod store;
 
@@ -63,14 +65,48 @@ async fn main() -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel::<store::Observation>(4096);
     {
         let table = table.clone();
-        tokio::spawn(async move { store::run_writer(rx, table).await });
+        let ttl = cfg.sensor_ttl_secs;
+        tokio::spawn(async move { store::run_writer(rx, table, ttl).await });
     }
+
+    // Evidence capture (optional): rolling pcap ring buffer + extraction store.
+    // Capture threads tee raw ARP/NDP frames to the ring writer.
+    let (evidence_store, ring_tx) = if let Some(ref dir) = cfg.evidence_dir {
+        let dir = PathBuf::from(dir);
+        let ring_dir = dir.join("ring");
+        let ring_cfg = ringbuf::RingConfig::new(ring_dir.clone(), cfg.ring_buffer_secs, cfg.ring_buffer_max_bytes);
+        // Bounded handoff; capture drops on backpressure rather than blocking.
+        let (rtx, rrx) = std::sync::mpsc::sync_channel::<ringbuf::CapturedFrame>(8192);
+        std::thread::Builder::new()
+            .name("ring-writer".into())
+            .spawn(move || ringbuf::run_ring_writer(rrx, ring_cfg))
+            .expect("spawn ring writer thread");
+        match evidence::EvidenceStore::new(dir.join("snapshots"), ring_dir, cfg.evidence_max_bytes) {
+            Ok(store) => {
+                info!(
+                    "Evidence capture enabled (dir: {}, ring {}s/{}MiB, evidence cap {}MiB)",
+                    dir.display(),
+                    cfg.ring_buffer_secs,
+                    cfg.ring_buffer_max_bytes / (1024 * 1024),
+                    cfg.evidence_max_bytes / (1024 * 1024),
+                );
+                (Some(Arc::new(store)), Some(rtx))
+            }
+            Err(e) => {
+                tracing::warn!("evidence store init failed ({e}); evidence capture disabled");
+                (None, None)
+            }
+        }
+    } else {
+        (None, None)
+    };
 
     // Capture threads, one per interface.
     for iface in &cfg.interfaces {
-        capture::spawn_capture(iface.clone(), tx.clone(), dropped.clone());
+        capture::spawn_capture(iface.clone(), tx.clone(), dropped.clone(), ring_tx.clone());
     }
     drop(tx); // capture threads hold their own clones
+    drop(ring_tx); // capture threads hold their own clones
 
     // Solicitation: warn early if raw sockets are unavailable, then sweep.
     solicit::preflight();
@@ -95,6 +131,7 @@ async fn main() -> Result<()> {
         last_lg_sync,
         dropped,
         ifaces: cfg.interfaces.clone(),
+        evidence: evidence_store,
     };
     let app = http::router(state);
 

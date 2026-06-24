@@ -162,6 +162,14 @@ struct MacTableQuery {
     vlan: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct NdEventQuery {
+    asn: Option<u32>,
+    ip: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers to extract identity/rate_key from request extensions
 // ---------------------------------------------------------------------------
@@ -424,6 +432,66 @@ async fn get_discovered_neighbors(
     }
 }
 
+/// Proxy ND-anomaly events from lg-server. `?asn=`/`?ip=` narrow; `?limit=`/`?offset=` page.
+async fn get_nd_events(
+    State(state): State<HttpState>,
+    Query(query): Query<NdEventQuery>,
+) -> impl IntoResponse {
+    let mut params: Vec<String> = Vec::new();
+    if let Some(asn) = query.asn {
+        params.push(format!("asn={asn}"));
+    }
+    if let Some(ref ip) = query.ip {
+        // IP literals (incl. IPv6 colons) are query-safe; no reserved chars.
+        params.push(format!("ip={ip}"));
+    }
+    if let Some(limit) = query.limit {
+        params.push(format!("limit={limit}"));
+    }
+    if let Some(offset) = query.offset {
+        params.push(format!("offset={offset}"));
+    }
+    let path = if params.is_empty() {
+        "/rpc/v1/nd-events".to_string()
+    } else {
+        format!("/rpc/v1/nd-events?{}", params.join("&"))
+    };
+    match state.rpc.get_json(&path).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
+/// Proxy a single ND-anomaly event by id from lg-server.
+async fn get_nd_event_detail(
+    State(state): State<HttpState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.rpc.get_json(&format!("/rpc/v1/nd-events/{id}")).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
+/// Stream an ND-anomaly event's evidence pcap from lg-server (which in turn
+/// streams it from the sensor). Not buffered in memory.
+async fn get_nd_event_pcap(
+    State(state): State<HttpState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.rpc.get_raw(&format!("/rpc/v1/nd-events/{id}/pcap")).await {
+        Ok(resp) => (
+            [
+                ("content-type", "application/vnd.tcpdump.pcap".to_string()),
+                ("content-disposition", format!("attachment; filename=\"nd-event-{id}.pcap\"")),
+            ],
+            axum::body::Body::from_stream(resp.bytes_stream()),
+        )
+            .into_response(),
+        Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
 /// Proxy PeeringDB cache from lg-server.
 async fn get_peeringdb_cache(
     State(state): State<HttpState>,
@@ -582,6 +650,9 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/participant-ports", get(get_participant_ports))
         .route("/api/v1/ix-ip-assignments", get(get_ix_ip_assignments))
         .route("/api/v1/discovered-neighbors", get(get_discovered_neighbors))
+        .route("/api/v1/nd-events", get(get_nd_events))
+        .route("/api/v1/nd-events/{id}", get(get_nd_event_detail))
+        .route("/api/v1/nd-events/{id}/pcap", get(get_nd_event_pcap))
         .route("/api/v1/netbox/status", get(get_netbox_status))
         .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .route("/api/v1/peeringdb-cache", get(get_peeringdb_cache))

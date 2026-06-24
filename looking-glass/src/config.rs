@@ -42,10 +42,38 @@ pub struct DiscoveredNeighborsConfig {
     /// Where to persist the discovered-neighbor store. Unset = in-memory only.
     #[serde(default)]
     pub state_file: Option<String>,
+    /// Where to persist the ND-anomaly event store (SQLite). Unset disables
+    /// anomaly recording (the live conflict flag still works).
+    #[serde(default)]
+    pub anomaly_db: Option<String>,
+    /// Per-IP cooldown window (seconds): repeated new-MAC flaps within this
+    /// window of an open event roll into it (incrementing `flap_count`) instead
+    /// of opening fresh events. Default 600 (10 min).
+    #[serde(default = "default_anomaly_cooldown")]
+    pub anomaly_cooldown_secs: u64,
+    /// MAC time-to-live (seconds) for conflict computation in the published
+    /// snapshot (Phase 3). `None` disables aging — all heard MACs count toward
+    /// the conflict flag, as today.
+    #[serde(default)]
+    pub mac_ttl_secs: Option<u64>,
+    /// Cardinality threshold for one-MAC-many-IP (proxy-ARP) detection: a single
+    /// MAC heard claiming more than this many *unassigned* IPs in a poll opens a
+    /// `mac_claims_many_ips` sweep event. Cross-tenant claims (one MAC answering
+    /// for ≥2 distinct ASNs' IPs) always trigger regardless of this. Default 8.
+    #[serde(default = "default_max_ips_per_mac")]
+    pub max_ips_per_mac: u64,
+}
+
+fn default_max_ips_per_mac() -> u64 {
+    8
 }
 
 fn default_discovered_poll_interval() -> u64 {
     60
+}
+
+fn default_anomaly_cooldown() -> u64 {
+    600
 }
 
 /// VLAN visibility configuration for MAC address table output.

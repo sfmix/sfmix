@@ -134,6 +134,13 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "as".to_string());
     let public_vlans = server_cfg.vlans.public.clone();
 
+    // ND-anomaly event store (SQLite). None when not configured.
+    let anomaly = server_cfg
+        .discovered
+        .as_ref()
+        .and_then(looking_glass::anomaly::open_from_config);
+    let anomaly_sensor_url = server_cfg.discovered.as_ref().map(|d| d.sensor_url.clone());
+
     let lg = Arc::new(LookingGlass {
         service_name: server_cfg.service.name.clone(),
         policy,
@@ -154,6 +161,8 @@ async fn main() -> Result<()> {
         device_cache_cfg: server_cfg.device_cache.clone(),
         peeringdb_cache: ArcSwap::from_pointee(peeringdb::PeeringdbCache::empty()),
         discovered: ArcSwap::from_pointee(looking_glass::discovered::DiscoveredCache::empty()),
+        anomaly,
+        anomaly_sensor_url,
     });
 
     // Device state cache: initial warm-up + background refresh

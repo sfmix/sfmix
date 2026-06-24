@@ -1,6 +1,6 @@
 // Re-export all data structs from lg-types::structured.
 pub use lg_types::structured::{
-    ArpEntry, DiscoveredMac, DiscoveredNeighbor, InterfaceCounters, InterfaceDetail,
+    AnomalyEvent, ArpEntry, DiscoveredMac, DiscoveredNeighbor, InterfaceCounters, InterfaceDetail,
     InterfaceOptics, InterfaceStatus, LldpNeighbor, MacEntry, OpticalLane, OpticsInventoryEntry,
 };
 

@@ -81,6 +81,12 @@ pub struct LookingGlass {
     pub peeringdb_cache: ArcSwap<PeeringdbCache>,
     /// Discovered ARP/NDP neighbors heard on the IX fabric (from lg-neighborhood-watch).
     pub discovered: ArcSwap<crate::discovered::DiscoveredCache>,
+    /// Durable ND-anomaly event store (SQLite). `None` when anomaly recording is
+    /// not configured (`discovered.anomaly_db` unset).
+    pub anomaly: Option<std::sync::Arc<crate::anomaly::AnomalyStore>>,
+    /// Base URL of the lg-neighborhood-watch sensor, for streaming evidence pcaps.
+    /// `None` when discovered-neighbor polling is not configured.
+    pub anomaly_sensor_url: Option<String>,
 }
 
 impl LookingGlass {

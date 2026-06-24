@@ -53,6 +53,8 @@ jsonwebtoken.workspace = true
 rand = "0.10"
 regex = "1"
 chrono.workspace = true
+rusqlite = { version = "0.32", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
 
 [profile.release]
 opt-level = "s"

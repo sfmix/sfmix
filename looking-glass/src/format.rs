@@ -978,6 +978,7 @@ mod tests {
             mac: mac.to_string(),
             first_seen: "2026-06-18T00:00:00Z".to_string(),
             last_seen: "2026-06-18T00:05:00Z".to_string(),
+            stale: false,
         }
     }
 
