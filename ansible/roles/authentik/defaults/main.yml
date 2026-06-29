@@ -10,4 +10,4 @@ authentik_authentik:
     username: username
     password: password
     from: noreply@example.com
-  tag: "2026.2.1"
+  tag: "2026.5.3"
