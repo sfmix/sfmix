@@ -308,8 +308,8 @@
       ],
       series: [
         { value: function (u, v) { return fmtTime(v); } },
-        { label: "Out → IX", stroke: TEAL, width: 2, fill: TEAL + "26", value: function (u, v) { return fmtBps(v); } },
-        { label: "In ← IX", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
+        { label: "IX → Participant", stroke: TEAL, width: 2, fill: TEAL + "26", value: function (u, v) { return fmtBps(v); } },
+        { label: "Participant → IX", stroke: AMBER, width: 2, fill: AMBER + "26", value: function (u, v) { return fmtBps(v == null ? null : -v); } },
       ],
       hooks: { setCursor: [function () { host._refresh(); }] },
     };
