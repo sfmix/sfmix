@@ -59,9 +59,18 @@ def load_live():
     def g(u):
         with urllib.request.urlopen(u, timeout=30) as r:
             return json.load(r)
+    import urllib.parse
     t = g(f"{sflow}/topology/json")
-    ser = g(f"{prom}/api/v1/series?match[]=sflow_ifoutoctets")["data"]
-    sp = {(s.get("host"), s.get("ifname")): s.get("ifspeed") for s in ser}
+    # instant query returns only LIVE series (avoids stale label-sets, e.g. a
+    # lingering ifspeed=1G from a past flap on a port that is really 100G).
+    res = g(f"{prom}/api/v1/query?query="
+            + urllib.parse.quote("sflow_ifoutoctets"))["data"]["result"]
+    _rank = {"1G": 1, "10G": 10, "25G": 25, "40G": 40, "100G": 100, "400G": 400, "800G": 800}
+    sp = {}
+    for r in res:
+        m = r["metric"]; k = (m.get("host"), m.get("ifname")); v = m.get("ifspeed")
+        if k not in sp or _rank.get(v, 0) > _rank.get(sp[k], 0):
+            sp[k] = v  # keep the highest live speed if duplicates
     links = [{"name": n, "node1": l["node1"], "port1": l["port1"],
               "node2": l["node2"], "port2": l["port2"],
               "speed1": sp.get((l["node1"], l["port1"])),
@@ -489,9 +498,23 @@ def emit():
         print("wrote", path, f"({len(pos)} nodes, {len(edges)} links)")
 
 
+def emit_one(uid, title, folder_uid, layout="metro_ring", mlab=True):
+    nodes, edges = load()
+    pos = remove_overlaps(normalize(LAYOUTS[layout](nodes, edges), target_w=1800))
+    dash = build_dashboard(pos, edges, uid, title, mlab)
+    dash["folderUid"] = folder_uid
+    path = os.path.join(HERE, "previews", f"{uid}.dash.json")
+    json.dump(dash, open(path, "w"))
+    print("wrote", path, f"({len(pos)} nodes, {len(edges)} links, layout={layout})")
+
+
 def main():
     if sys.argv[1:2] == ["emit"]:
         return emit()
+    if sys.argv[1:2] == ["emit-one"]:
+        # emit-one <uid> <title> <folderUid> [layout]
+        return emit_one(sys.argv[2], sys.argv[3], sys.argv[4],
+                        sys.argv[5] if len(sys.argv) > 5 else "metro_ring")
     which = sys.argv[1:] or [k for k in LAYOUTS]
     nodes, edges = load()
     results = []
