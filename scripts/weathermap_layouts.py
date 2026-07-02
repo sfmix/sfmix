@@ -42,6 +42,12 @@ PROM_DS_UID = "y22GmBEVk"
 SWITCH_ICON = "public/plugins/tamirsuliman-weathermap-panel/icons/networking/switch.svg"
 BLANK_ICON = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
 
+# Manual position swaps applied after auto-layout, to untangle a cluster the
+# force-directed layout folds. Santa Clara's scl01-scl02-scl05-scl04 4-cycle
+# lands as an hourglass; swapping scl01<->scl04 orders the nodes cyclically
+# around a diamond so the ring edges stop crossing.
+POS_SWAPS = [("switch01.scl01", "switch01.scl04")]
+
 
 def short(n):
     return ".".join(n.split(".")[:2])
@@ -211,6 +217,15 @@ def remove_overlaps(pos, pad=26, iters=400):
         if not moved:
             break
     return {n: (P[n][0], P[n][1]) for n in names}
+
+
+def apply_swaps(pos):
+    """Exchange positions of configured node pairs (POS_SWAPS) to untangle
+    clusters the force-directed layout folds. No-op if a node is absent."""
+    for a, b in POS_SWAPS:
+        if a in pos and b in pos:
+            pos[a], pos[b] = pos[b], pos[a]
+    return pos
 
 
 # ---------------------------------------------------------------------------
@@ -515,7 +530,7 @@ EMIT = [
 def emit():
     nodes, edges = load()
     for uid, title, lay, mlab in EMIT:
-        pos = remove_overlaps(normalize(LAYOUTS[lay](nodes, edges), target_w=1800))
+        pos = apply_swaps(remove_overlaps(normalize(LAYOUTS[lay](nodes, edges), target_w=1800)))
         dash = build_dashboard(pos, edges, uid, title, mlab)
         path = os.path.join(HERE, "previews", f"{uid}.dash.json")
         json.dump(dash, open(path, "w"))
@@ -524,7 +539,7 @@ def emit():
 
 def emit_one(uid, title, folder_uid, layout="metro_ring", mlab=True):
     nodes, edges = load()
-    pos = remove_overlaps(normalize(LAYOUTS[layout](nodes, edges), target_w=1800))
+    pos = apply_swaps(remove_overlaps(normalize(LAYOUTS[layout](nodes, edges), target_w=1800)))
     dash = build_dashboard(pos, edges, uid, title, mlab)
     dash["folderUid"] = folder_uid
     path = os.path.join(HERE, "previews", f"{uid}.dash.json")
@@ -556,7 +571,7 @@ def push_dashboard(dash):
 def refresh(uid, title, folder_uid, layout="metro_ring"):
     """Rebuild the weathermap from live topology and push it to Grafana."""
     nodes, edges = load()
-    pos = remove_overlaps(normalize(LAYOUTS[layout](nodes, edges), target_w=1800))
+    pos = apply_swaps(remove_overlaps(normalize(LAYOUTS[layout](nodes, edges), target_w=1800)))
     dash = build_dashboard(pos, edges, uid, title, layout == "metro_ring")
     dash["folderUid"] = folder_uid
     res = push_dashboard(dash)
