@@ -23,6 +23,17 @@ grafana_weathermap_plugin_id: tamirsuliman-weathermap-panel
 grafana_weathermap_version: "1.5.2"
 grafana_weathermap_url: "https://github.com/allamiro/grafana-network-weathermap-ng/releases/download/v{{ grafana_weathermap_version }}/{{ grafana_weathermap_plugin_id }}-{{ grafana_weathermap_version }}.zip"
 grafana_weathermap_sha256: "8c1f0aa3cbb5026705677ca0c4f40580dfd37ba41179c35fddd49474bb959c29"
+# Server-side PNG rendering (weathermap/report screenshots, alert images).
+grafana_renderer_image: grafana/grafana-image-renderer:3.12.6
+grafana_renderer_token: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          31326563636534623665613665663539646364623833653031653863323132366262353139646439
+          3663313266623363366533333033663461376336663531610a616563363237323136366535393830
+          34636137376464336630373334663561653531386662363963303833343339663564396564373965
+          3339393638643739340a353631373365613531316366386638333936623234393034623136666530
+          39383735396137623766386264383862646132636137326532373139353261613235613839363430
+          34353033653531666566656130313331653434326131336662353064623932386135396562363539
+          613434373365353136346535623861666430
 grafana_loki_image: grafana/loki:3.0.0
 grafana_promtail_image: grafana/promtail:3.0.0
 grafana_syslog_ng_image: balabit/syslog-ng:4.8.0
