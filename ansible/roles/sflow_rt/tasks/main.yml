@@ -67,6 +67,16 @@
     - python3-requests
     - systemd-cron
 
+- name: "Place NetBox read-only API token for topology.py"
+  become: true
+  no_log: true
+  ansible.builtin.copy:
+    content: "{{ sflow_rt_netbox_api_token }}"
+    dest: /home/sfmix/.netbox_api_token
+    owner: sfmix
+    group: sfmix
+    mode: u=rw,go=
+
 - name: "Place ~sfmix/topology.py"
   become: true
   ansible.builtin.template:

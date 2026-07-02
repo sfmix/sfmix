@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import netrc
+import os
 import pyeapi
 import requests
 import sys
@@ -7,13 +8,12 @@ import sys
 # eAPI info
 EAPI_TRANSPORT = "https"
 NETRC_HOST = "sfmix.org"
-# FIXME / TODO: The set of devices to discover should come from a Source of
-#   Truth, like Netbox
-SWITCHES = [
-{% for peering_switch in netbox_peering_switches.values() %}
-    "{{ peering_switch.name }}",
-{% endfor %}
-]
+
+# NetBox (Source of Truth for the set of devices to discover). The list of
+# switches is queried live at runtime so topology changes in NetBox are picked
+# up on the next cron run without re-templating this file via Ansible.
+NETBOX_API = "{{ ixp_netbox_api_endpoint }}"
+NETBOX_TOKEN_FILE = os.path.expanduser("~/.netbox_api_token")
 
 # sFlow-RT REST API
 RT = "http://metrics.sfo02.sfmix.org:8008/topology/json"
@@ -25,6 +25,29 @@ if not auth_info:
     sys.exit(1)
 else:
     EAPI_USER, _, EAPI_PASSWD = auth_info
+
+
+def get_peering_switches():
+    """Return the hostnames of active peering switches from NetBox."""
+    try:
+        with open(NETBOX_TOKEN_FILE) as fh:
+            token = fh.read().strip()
+    except OSError as e:
+        print("Couldn't read NetBox token from %s: %r" % (NETBOX_TOKEN_FILE, e))
+        sys.exit(5)
+
+    switches = []
+    url = "%s/api/dcim/devices/" % NETBOX_API
+    params = {"status": "active", "role": "peering_switch", "limit": 200}
+    headers = {"Authorization": "Token %s" % token, "Accept": "application/json"}
+    while url:
+        r = requests.get(url, params=params, headers=headers, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        switches.extend(d["name"] for d in data["results"])
+        url = data["next"]  # absolute URL for the next page (or None)
+        params = None
+    return switches
 
 nodes = {}
 links = {}
@@ -137,6 +160,17 @@ def getInternalLinks():
                         links["G%s" % lagno] = lentry
                         lagno = lagno + 1
 
+
+try:
+    SWITCHES = get_peering_switches()
+except Exception as e:
+    print("Exception while querying NetBox %s: %r" % (NETBOX_API, e))
+    sys.exit(5)
+
+if not SWITCHES:
+    print("NetBox returned no active peering switches; refusing to publish an "
+          "empty topology")
+    sys.exit(6)
 
 for switch in SWITCHES:
     try:
