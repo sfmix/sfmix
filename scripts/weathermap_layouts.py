@@ -508,7 +508,45 @@ def emit_one(uid, title, folder_uid, layout="metro_ring", mlab=True):
     print("wrote", path, f"({len(pos)} nodes, {len(edges)} links, layout={layout})")
 
 
+def push_dashboard(dash):
+    """POST a dashboard to Grafana. Bearer GRAFANA_TOKEN (service account) or
+    basic GRAFANA_USER/GRAFANA_PASS. GRAFANA_URL default localhost:3000."""
+    import urllib.request
+    url = os.environ.get("GRAFANA_URL", "http://127.0.0.1:3000")
+    headers = {"Content-Type": "application/json"}
+    tok = os.environ.get("GRAFANA_TOKEN")
+    if tok:
+        headers["Authorization"] = "Bearer " + tok
+    else:
+        import base64
+        u = os.environ.get("GRAFANA_USER", "admin")
+        p = os.environ.get("GRAFANA_PASS", "")
+        headers["Authorization"] = "Basic " + base64.b64encode(f"{u}:{p}".encode()).decode()
+    req = urllib.request.Request(url + "/api/dashboards/db",
+                                 data=json.dumps(dash).encode(), method="POST",
+                                 headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def refresh(uid, title, folder_uid, layout="metro_ring"):
+    """Rebuild the weathermap from live topology and push it to Grafana."""
+    nodes, edges = load()
+    pos = remove_overlaps(normalize(LAYOUTS[layout](nodes, edges), target_w=1800))
+    dash = build_dashboard(pos, edges, uid, title, layout == "metro_ring")
+    dash["folderUid"] = folder_uid
+    res = push_dashboard(dash)
+    print("weathermap refresh: status=%s uid=%s version=%s (%d nodes, %d links, %s)"
+          % (res.get("status"), res.get("uid"), res.get("version"),
+             len(pos), len(edges), layout))
+    return 0 if res.get("status") == "success" else 1
+
+
 def main():
+    if sys.argv[1:2] == ["refresh"]:
+        # refresh <uid> <title> <folderUid> [layout]
+        return refresh(sys.argv[2], sys.argv[3], sys.argv[4],
+                       sys.argv[5] if len(sys.argv) > 5 else "metro_ring")
     if sys.argv[1:2] == ["emit"]:
         return emit()
     if sys.argv[1:2] == ["emit-one"]:

@@ -96,3 +96,50 @@
       http://localhost:8008/app/ixp-metrics/scripts/metrics.js/members/json
     minute: "30"
     hour: "*/12"
+
+# ── Weathermap auto-refresh (metro-ring from discovered LLDP topology) ──────
+# Rebuilds the Grafana weathermap from sflow-rt /topology/json (the LLDP graph
+# topology.py publishes) + live interface speeds, and pushes it to Grafana.
+# Runs 15 min after topology.py so the topology is fresh.
+- name: "Weathermap: install graphviz (layout engine)"
+  become: true
+  tags: [weathermap_cron]
+  ansible.builtin.apt:
+    name: graphviz
+    state: present
+
+- name: "Weathermap: place ~sfmix/weathermap_layouts.py"
+  become: true
+  tags: [weathermap_cron]
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/weathermap_layouts.py"
+    dest: /home/sfmix/weathermap_layouts.py
+    owner: sfmix
+    group: sfmix
+    mode: u=rwx,go=
+
+- name: "Weathermap: place Grafana service-account token"
+  become: true
+  tags: [weathermap_cron]
+  no_log: true
+  ansible.builtin.copy:
+    content: "{{ grafana_weathermap_sa_token }}"
+    dest: /home/sfmix/.grafana_weathermap_token
+    owner: sfmix
+    group: sfmix
+    mode: u=rw,go=
+
+- name: "Weathermap: refresh from topology every 12 hours"
+  become: true
+  tags: [weathermap_cron]
+  ansible.builtin.cron:
+    name: "SFMIX weathermap refresh"
+    user: sfmix
+    job: >-
+      GRAFANA_TOKEN=$(cat /home/sfmix/.grafana_weathermap_token)
+      /home/sfmix/weathermap_layouts.py refresh
+      '{{ weathermap_dashboard_uid }}' '{{ weathermap_dashboard_title }}'
+      '{{ weathermap_dashboard_folder_uid }}' {{ weathermap_layout }}
+      >> /home/sfmix/weathermap_refresh.log 2>&1
+    minute: "15"
+    hour: "*/12"
