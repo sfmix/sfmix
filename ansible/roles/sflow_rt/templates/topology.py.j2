@@ -71,6 +71,7 @@ def getInfo(ip):
         transport=EAPI_TRANSPORT,
         username=EAPI_USER,
         password=EAPI_PASSWD,
+        timeout=30,
         return_node=True,
     )
     response = node.enable(commands)
@@ -172,12 +173,26 @@ if not SWITCHES:
           "empty topology")
     sys.exit(6)
 
+# Best-effort: not every device tagged "peering_switch" in NetBox speaks Arista
+# eAPI (e.g. transit routers), and a switch may be transiently unreachable. Skip
+# the ones we can't reach and build the topology from those that respond, rather
+# than aborting the whole run on the first failure.
+skipped = []
 for switch in SWITCHES:
     try:
         getInfo(switch)
     except Exception as e:
-        print("Exception while connecting to %s: %r" % (switch, e))
-        sys.exit(2)
+        print("Warning: skipping %s: %r" % (switch, e))
+        skipped.append(switch)
+
+if not nodes:
+    print("None of the %d NetBox peering switches were reachable via eAPI; "
+          "refusing to publish an empty topology" % len(SWITCHES))
+    sys.exit(2)
+
+if skipped:
+    print("Reached %d/%d switches (skipped: %s)"
+          % (len(SWITCHES) - len(skipped), len(SWITCHES), ", ".join(skipped)))
 
 getInternalLinks()
 
