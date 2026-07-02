@@ -413,24 +413,35 @@ def build_weathermap(pos, edges, with_metro_labels):
             cx = sum(p[0] for p in pts) / len(pts)
             top = min(p[1] for p in pts) - 60
             labels.append(_node(METRO_NAME.get(m, m), cx, top, is_label=True))
-    links = []
-    deg = Counter()
+    # Group edges by unordered node pair so parallel links (e.g. a 100G + a 400G
+    # between the same two switches) can be given DISTINCT anchors — otherwise
+    # both route on anchor 0 (auto) between the same points and overlap, hiding
+    # one. Single links keep anchor 0 (clean auto-routing toward the peer).
+    ANCHOR_CYCLE = [1, 2, 3, 4]
+    by_pair = defaultdict(list)
     for e in edges:
-        if e["a"] not in nodes or e["b"] not in nodes:
-            continue
-        deg[e["a"]] += 1; deg[e["b"]] += 1
-        links.append({
-            "arrows": {"height": 10, "offset": 2, "width": 8},
-            "id": uid5("link", *sorted([e["q1"], e["q2"]])),
-            "nodes": [nodes[e["a"]], nodes[e["b"]]],
-            "showThroughputPercentage": True,
-            "sides": {"A": {"anchor": 0, "bandwidth": e["bits"], "dashboardLink": "",
-                            "labelOffset": 60, "query": e["q1"]},
-                      "Z": {"anchor": 0, "bandwidth": e["bits"], "dashboardLink": "",
-                            "labelOffset": 60, "query": e["q2"]}},
-            "stroke": 8})
+        if e["a"] in nodes and e["b"] in nodes:
+            by_pair[frozenset([e["a"], e["b"]])].append(e)
+    links = []
+    per_anchor = defaultdict(lambda: Counter())  # node -> {anchorIdx: count}
+    for pair, es in by_pair.items():
+        for i, e in enumerate(es):
+            anc = 0 if len(es) == 1 else ANCHOR_CYCLE[i % len(ANCHOR_CYCLE)]
+            per_anchor[e["a"]][anc] += 1
+            per_anchor[e["b"]][anc] += 1
+            links.append({
+                "arrows": {"height": 10, "offset": 2, "width": 8},
+                "id": uid5("link", *sorted([e["q1"], e["q2"]])),
+                "nodes": [nodes[e["a"]], nodes[e["b"]]],
+                "showThroughputPercentage": True,
+                "sides": {"A": {"anchor": anc, "bandwidth": e["bits"], "dashboardLink": "",
+                                "labelOffset": 60, "query": e["q1"]},
+                          "Z": {"anchor": anc, "bandwidth": e["bits"], "dashboardLink": "",
+                                "labelOffset": 60, "query": e["q2"]}},
+                "stroke": 8})
     for n, nd in nodes.items():
-        nd["anchors"]["0"]["numLinks"] = deg.get(n, 0)
+        for anc, cnt in per_anchor.get(n, {}).items():
+            nd["anchors"][str(anc)]["numLinks"] = cnt
     allpos = list(pos.values()) + [(l["position"][0], l["position"][1]) for l in labels]
     maxx = max(p[0] for p in allpos) + 120
     maxy = max(p[1] for p in allpos) + 90
