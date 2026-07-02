@@ -9,5 +9,10 @@ mobile_image: "img/mobile-sf-night.jpg"
 
 SFMIX verwendet sFlow, um Metadaten zum Datenverkehr des Internet-Knotens zu erfassen, einschließlich Volumenkennzahlen zwischen einzelnen Teilnehmern. Paketinhalte werden niemals erfasst oder inspiziert. Der Stack besteht aus sFlow-RT, Prometheus und [Grafana](https://grafana.com/).
 
-- [Dashboard zum Gesamtverkehr](https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef)
-- [Verkehrs-Weathermap](https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495)
+<div class="stat-cta-grid">
+
+{{< stat-card icon="📈" url="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" title="Dashboard zum Gesamtverkehr" desc="Gesamtdurchsatz des Knotens, Spitzenwerte und historische Trends." >}}
+
+{{< stat-card icon="🗺️" url="https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495" title="Verkehrs-Weathermap" desc="Live-Auslastung je Verbindung im SFMIX-Switch-Fabric." >}}
+
+</div>

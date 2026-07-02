@@ -10,5 +10,10 @@ mobile_image: "img/mobile-sf-night.jpg"
 
 SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer volume metrics. Packet payloads are never captured or inspected. The stack is sFlow-RT, Prometheus, and [Grafana](https://grafana.com/).
 
-- [Overall Traffic Dashboard](https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef)
-- [Traffic Weathermap](https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495)
+<div class="stat-cta-grid">
+
+{{< stat-card icon="📈" url="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" title="Overall Traffic Dashboard" desc="Aggregate exchange throughput, peaks, and historical trends." >}}
+
+{{< stat-card icon="🗺️" url="https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495" title="Traffic Weathermap" desc="Live per-link utilization across the SFMIX switch fabric." >}}
+
+</div>

@@ -470,6 +470,77 @@ img { max-width: 100%; height: auto; }
   font-size: 1.1rem;
 }
 
+/* ===== Stat CTA cards ===== */
+/* Large, full-area click/tap targets for linking to statistics sources.
+   The entire card is the link so it's easy to hit on desktop and mobile. */
+.stat-cta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin: 1.75rem 0 2rem;
+}
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 96px;
+  padding: 1.5rem 1.75rem;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 10px;
+  color: var(--color-text);
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(11, 54, 64, 0.06);
+  transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+}
+.stat-card:hover,
+.stat-card:focus-visible {
+  text-decoration: none;
+  color: var(--color-text);
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 24px rgba(11, 54, 64, 0.16);
+}
+.stat-card-icon {
+  flex: 0 0 auto;
+  font-size: 2.25rem;
+  line-height: 1;
+}
+.stat-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.stat-card-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.01em;
+}
+.stat-card-desc {
+  font-size: 0.92rem;
+  color: var(--color-text-light);
+  line-height: 1.4;
+}
+.stat-card-arrow {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 1.5rem;
+  color: var(--color-accent);
+  transition: transform 0.15s;
+}
+.stat-card:hover .stat-card-arrow,
+.stat-card:focus-visible .stat-card-arrow {
+  transform: translateX(4px);
+}
+@media (max-width: 480px) {
+  .stat-card { padding: 1.25rem 1.35rem; gap: 1rem; }
+  .stat-card-icon { font-size: 1.9rem; }
+  .stat-card-title { font-size: 1.1rem; }
+}
+
 /* ===== Team Bios ===== */
 .bio {
   margin-bottom: 2rem;

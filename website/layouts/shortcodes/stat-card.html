@@ -1,0 +1,25 @@
+{{- /*
+  stat-card — a large, touch-friendly call-to-action linking to a statistics
+  source. The whole card is a single click/tap target so desktop and mobile
+  users have a big, easy area to land on.
+
+  Params (all named):
+    url   — destination link (required)
+    title — heading text
+    desc  — supporting one-line description
+    icon  — optional emoji/symbol shown in the card
+    external — set to "false" to keep the link in the same tab (defaults external)
+
+  Usage:
+    {{< stat-card url="https://…" title="Overall Traffic" desc="…" icon="📈" >}}
+*/ -}}
+{{- $url := .Get "url" -}}
+{{- $external := ne (.Get "external") "false" -}}
+<a class="stat-card" href="{{ $url }}"{{ if $external }} target="_blank" rel="noopener"{{ end }}>
+  {{- with .Get "icon" }}<span class="stat-card-icon" aria-hidden="true">{{ . }}</span>{{ end }}
+  <span class="stat-card-body">
+    <span class="stat-card-title">{{ .Get "title" }}</span>
+    {{- with .Get "desc" }}<span class="stat-card-desc">{{ . }}</span>{{ end }}
+  </span>
+  <span class="stat-card-arrow" aria-hidden="true">&rarr;</span>
+</a>

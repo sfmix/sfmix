@@ -9,5 +9,10 @@ mobile_image: "img/mobile-sf-night.jpg"
 
 SFMIX usa sFlow para muestrear los metadatos del tráfico del intercambio, incluidas las métricas de volumen de par a par. Las cargas útiles de los paquetes nunca se capturan ni se inspeccionan. La pila está compuesta por sFlow-RT, Prometheus y [Grafana](https://grafana.com/).
 
-- [Panel de tráfico general](https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef)
-- [Mapa de calor del tráfico](https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495)
+<div class="stat-cta-grid">
+
+{{< stat-card icon="📈" url="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" title="Panel de tráfico general" desc="Rendimiento agregado del intercambio, picos y tendencias históricas." >}}
+
+{{< stat-card icon="🗺️" url="https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495" title="Mapa de calor del tráfico" desc="Utilización en vivo por enlace en la red de conmutación de SFMIX." >}}
+
+</div>
