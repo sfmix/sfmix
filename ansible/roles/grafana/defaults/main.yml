@@ -17,6 +17,12 @@ grafana_oauth_client_secret: !vault |
   63373061313862343666636334363935633739353365633733323633346564396131303366656533
   64353032616165383235383830383530343666633039623136663763616533636135373861316434
   34353565306130646365
+# Network Weathermap NG (allamiro fork) — unsigned, pinned manual install.
+# Replaces archived knightss27-weathermap-panel (broken on Grafana 11+/React 19).
+grafana_weathermap_plugin_id: tamirsuliman-weathermap-panel
+grafana_weathermap_version: "1.5.2"
+grafana_weathermap_url: "https://github.com/allamiro/grafana-network-weathermap-ng/releases/download/v{{ grafana_weathermap_version }}/{{ grafana_weathermap_plugin_id }}-{{ grafana_weathermap_version }}.zip"
+grafana_weathermap_sha256: "8c1f0aa3cbb5026705677ca0c4f40580dfd37ba41179c35fddd49474bb959c29"
 grafana_loki_image: grafana/loki:3.0.0
 grafana_promtail_image: grafana/promtail:3.0.0
 grafana_syslog_ng_image: balabit/syslog-ng:4.8.0
