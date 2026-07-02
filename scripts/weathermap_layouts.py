@@ -402,6 +402,19 @@ def _node(label, x, y, is_label=False):
             "useConstantSpacing": False}
 
 
+def stroke_for(bits):
+    """Link line width by capacity — gentle (~sqrt) so 400G reads thicker than
+    100G without dwarfing it."""
+    g = bits / 1e9
+    if g >= 800: return 16
+    if g >= 400: return 12
+    if g >= 100: return 6
+    if g >= 40: return 5
+    if g >= 25: return 4
+    if g >= 10: return 3
+    return 2
+
+
 def build_weathermap(pos, edges, with_metro_labels):
     nodes = {n: _node(n, x, y) for n, (x, y) in pos.items()}
     labels = []
@@ -438,7 +451,7 @@ def build_weathermap(pos, edges, with_metro_labels):
                                 "labelOffset": 60, "query": e["q1"]},
                           "Z": {"anchor": anc, "bandwidth": e["bits"], "dashboardLink": "",
                                 "labelOffset": 60, "query": e["q2"]}},
-                "stroke": 8})
+                "stroke": stroke_for(e["bits"])})
     for n, nd in nodes.items():
         for anc, cnt in per_anchor.get(n, {}).items():
             nd["anchors"][str(anc)]["numLinks"] = cnt
