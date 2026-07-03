@@ -45,14 +45,20 @@
         <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
         {% if is_ix_admin %}
           {# All admin-only pages live under one dropdown, accented in indigo to set it apart from the regular (teal) nav links. #}
-          <div class="relative" x-data="{ open: false }" @click.away="open = false">
+          {% comment %}When collapsed into the mobile panel, the submenu expands inline (accordion,
+          indented) instead of as an absolute popover — which, anchored to the narrow left-aligned
+          toggle, would overflow off the left edge. Mirrors the sfmix.org mobile nav.{% endcomment %}
+          <div class="relative" :class="collapsed && 'w-full'" x-data="{ open: false }" @click.away="open = false">
             <button @click="open = !open"
                     class="nav-admin-toggle flex items-center gap-1 px-2.5 py-0.5 rounded text-sm font-medium transition"
                     :aria-expanded="open">
               {% translate "Admin" %}
               <svg class="w-3 h-3 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div x-show="open" x-cloak class="nav-dropdown absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-b-md shadow-lg z-10">
+            <div x-show="open" x-cloak class="z-10"
+                 :class="collapsed
+                   ? 'nav-submenu-inline mt-1 w-full'
+                   : 'nav-dropdown absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-b-md shadow-lg'">
               <a href="{% url 'lldp_neighbors' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "LLDP" %}</a>
               <a href="{% url 'optics' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "Optics" %}</a>
               <a href="{% url 'nd_events' %}" class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">{% translate "ND Events" %}</a>
@@ -70,12 +76,15 @@
       {# Language picker — posts to the set_language view; it stores the choice in the django_language cookie and redirects back here. #}
       {% get_current_language as LANGUAGE_CODE %}
       {% get_language_info_list for LANGUAGES as languages %}
-      <div class="relative" x-data="{ open: false }" @click.away="open = false">
+      <div class="relative" :class="collapsed && 'w-full'" x-data="{ open: false }" @click.away="open = false">
         <button @click="open = !open" class="flex items-center gap-1 text-white/70 hover:text-white transition" aria-label="{% translate 'Change language' %}">
           {% for lang in languages %}{% if lang.code == LANGUAGE_CODE %}{{ lang.name_local|capfirst }}{% endif %}{% endfor %}
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
         </button>
-        <div x-show="open" x-cloak class="nav-dropdown absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-b-md shadow-lg z-10">
+        <div x-show="open" x-cloak class="z-10"
+             :class="collapsed
+               ? 'nav-submenu-inline mt-1 w-full'
+               : 'nav-dropdown absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-b-md shadow-lg'">
           <form action="{% url 'set_language' %}" method="post">
             {% csrf_token %}
             <input name="next" type="hidden" value="{{ request.get_full_path }}">
