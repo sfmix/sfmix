@@ -121,8 +121,13 @@ its action buttons.
   <span class="nd-alert-icon">&#8635;</span>
   <div class="nd-alert-body">
     <b>{% translate "Reflecting neighbor-discovery traffic onto the fabric" %}</b>
+    {% if reflection_notice.active %}
     {% blocktranslate count n=reflection_notice.ip_count %}This network's connection is currently re-flooding neighbor-discovery frames for {{ n }} other member IP back onto the exchange.{% plural %}This network's connection is currently re-flooding neighbor-discovery frames for {{ n }} other member IPs back onto the exchange.{% endblocktranslate %}
+    {% else %}
+    {% blocktranslate count n=reflection_notice.ip_count with ago=reflection_notice.last_seen_ago %}This network's connection recently re-flooded neighbor-discovery frames for {{ n }} other member IP back onto the exchange (last seen {{ ago }} ago).{% plural %}This network's connection recently re-flooded neighbor-discovery frames for {{ n }} other member IPs back onto the exchange (last seen {{ ago }} ago).{% endblocktranslate %}
+    {% endif %}
     {% translate "This is typically a virtualized/bridged uplink with an internal loop re-transmitting frames it receives but doesn't own; it usually appears after a fabric flap and clears on its own. It's benign (not spoofing), but it adds needless broadcast load — disabling the loop (bridge loop-protection / non-reflecting mode) stops it." %}
+    {% if reflection_notice.reflector_mac %}<span class="nd-alert-where" style="opacity:1">{% blocktranslate with mac=reflection_notice.reflector_mac %}Reflector MAC: {{ mac }}{% endblocktranslate %}</span>{% endif %}
     {% if is_ix_admin %}<span class="nd-alert-where"><a href="{% url 'nd_events' %}?asn={{ asn }}" class="back-link">L3 · {% translate "ND anomaly events" %} &rarr;</a></span>{% else %}<span class="nd-alert-where">L3 · {% translate "neighbor discovery" %}</span>{% endif %}
   </div>
 </div>
