@@ -21,6 +21,7 @@ enum Resource {
     Arp,
     #[serde(rename = "ipv6_neighbors")]
     IPv6Neighbors,
+    NdEvents, NdEventDetail, NdEvidence,
 }
 
 #[derive(Deserialize)]

@@ -296,6 +296,11 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::Participants => "participants",
         Resource::IxIpAssignments => return "show ix-ip-assignments".to_string(),
         Resource::DiscoveredNeighbors => return "show discovered-neighbors".to_string(),
+        Resource::NdEvents => return "show nd-events".to_string(),
+        Resource::NdEventDetail => {
+            return format!("show nd-events detail {}", command.target.as_deref().unwrap_or("*"));
+        }
+        Resource::NdEvidence => return "show nd-events evidence".to_string(),
         Resource::ParticipantDetail => {
             return format!("show participant {}", command.target.as_deref().unwrap_or("*"));
         }

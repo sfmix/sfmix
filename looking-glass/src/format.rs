@@ -465,6 +465,178 @@ pub fn format_participant_detail(
     out
 }
 
+// ── ND anomaly events ───────────────────────────────────────────────
+
+/// Short human-readable kind label for an ND-anomaly event.
+fn nd_kind_label(kind: &str) -> &'static str {
+    match kind {
+        lg_types::structured::EVENT_KIND_MAC_SWEEP => "mac-sweep",
+        _ => "new-mac",
+    }
+}
+
+/// Human-readable byte size (IEC units), e.g. `1.4 MiB`.
+fn human_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
+    let mut v = bytes as f64;
+    let mut i = 0;
+    while v >= 1024.0 && i < UNITS.len() - 1 {
+        v /= 1024.0;
+        i += 1;
+    }
+    if i == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{v:.1} {}", UNITS[i])
+    }
+}
+
+/// Render the ND-anomaly event listing as a table (newest-first order preserved
+/// from the store).
+pub fn format_nd_events(events: &[AnomalyEvent], mode: ColorMode) -> String {
+    if events.is_empty() {
+        return "No ND anomaly events.\n".to_string();
+    }
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("ID", mode),
+        bold_str("Kind", mode),
+        bold_str("Subject", mode),
+        bold_str("MAC", mode),
+        bold_str("ASN", mode),
+        bold_str("Flaps", mode),
+        bold_str("State", mode),
+        bold_str("Last seen", mode),
+    ]);
+    for e in events {
+        // For a per-IP event the subject is the IP; for a MAC sweep it is the set
+        // of claimed IPs (the MAC is the actor, shown in its own column).
+        let subject = if e.kind == lg_types::structured::EVENT_KIND_MAC_SWEEP {
+            match e.claimed_ips.len() {
+                0 => "(no IPs)".to_string(),
+                1 => e.claimed_ips[0].clone(),
+                n => format!("{n} IPs"),
+            }
+        } else {
+            e.ip.clone()
+        };
+        let asn = e.asn.map(|a| format!("AS{a}")).unwrap_or_else(|| "—".to_string());
+        // State carries the classification: a "reflection" sweep is benign
+        // flap-induced re-flooding, called out distinctly from open/closed.
+        let mut state = if e.closed { "closed".to_string() } else { "OPEN".to_string() };
+        if e.classification.as_deref() == Some(lg_types::structured::EVENT_CLASSIFICATION_REFLECTION) {
+            state = format!("{state} reflection");
+        }
+        let state = if mode != ColorMode::Plain && !e.closed {
+            format!("{}", state.red())
+        } else {
+            state
+        };
+        builder.push_record([
+            e.id.clone(),
+            nd_kind_label(&e.kind).to_string(),
+            subject,
+            e.new_mac.clone(),
+            asn,
+            e.flap_count.to_string(),
+            state,
+            e.last_seen.clone(),
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, mode);
+    format!("{table}\n")
+}
+
+/// Render full detail for one ND-anomaly event, with evidence metadata inline
+/// when a pcap snapshot exists (`evidence` resolved from the sensor listing).
+pub fn format_nd_event_detail(
+    event: &AnomalyEvent,
+    evidence: Option<&EvidenceMeta>,
+    mode: ColorMode,
+) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "{}", bold_str("ND Anomaly Event", mode));
+    let _ = writeln!(out, "  ID:             {}", event.id);
+    let _ = writeln!(out, "  Kind:           {} ({})", nd_kind_label(&event.kind), event.kind);
+    if let Some(class) = event.classification.as_deref() {
+        let shown = if mode == ColorMode::Plain { class.to_string() } else { format!("{}", class.yellow()) };
+        let _ = writeln!(out, "  Classification: {shown}");
+    }
+    let state = if event.closed { "closed" } else { "OPEN" };
+    let state = if mode == ColorMode::Plain || event.closed {
+        state.to_string()
+    } else {
+        format!("{}", state.red())
+    };
+    let _ = writeln!(out, "  State:          {state}");
+    let _ = writeln!(out, "  Family:         {}", event.family);
+    if event.kind == lg_types::structured::EVENT_KIND_MAC_SWEEP {
+        let _ = writeln!(out, "  Offending MAC:  {}", event.new_mac);
+        let _ = writeln!(out, "  Claimed IPs:    {}", event.claimed_ips.len());
+        for ip in &event.claimed_ips {
+            let _ = writeln!(out, "                    {ip}");
+        }
+    } else {
+        let _ = writeln!(out, "  IP:             {}", event.ip);
+        let _ = writeln!(out, "  New MAC:        {}", event.new_mac);
+        let old = if event.old_macs.is_empty() { "—".to_string() } else { event.old_macs.join(", ") };
+        let _ = writeln!(out, "  Prior MACs:     {old}");
+    }
+    let asn = event.asn.map(|a| format!("AS{a}")).unwrap_or_else(|| "—".to_string());
+    let _ = writeln!(out, "  ASN:            {asn}");
+    let _ = writeln!(out, "  Tenant:         {}", event.tenant.as_deref().unwrap_or("—"));
+    let _ = writeln!(out, "  Flap count:     {}", event.flap_count);
+    let _ = writeln!(out, "  Opened at:      {}", event.opened_at);
+    let _ = writeln!(out, "  Last seen:      {}", event.last_seen);
+
+    match (&event.evidence_id, evidence) {
+        (Some(eid), Some(meta)) => {
+            let _ = writeln!(out, "  Evidence:       {eid}");
+            let _ = writeln!(out, "    Frames:       {}", meta.frame_count);
+            let _ = writeln!(out, "    Size:         {}", human_bytes(meta.size_bytes));
+            let _ = writeln!(out, "    Captured at:  {}", meta.created_at);
+            let _ = writeln!(out, "    (pcap via portal: /api/v1/nd-events/{}/pcap)", event.id);
+        }
+        (Some(eid), None) => {
+            let _ = writeln!(out, "  Evidence:       {eid} (metadata unavailable from sensor)");
+        }
+        (None, _) => {
+            let _ = writeln!(out, "  Evidence:       none captured");
+        }
+    }
+    out
+}
+
+/// Render the sensor's captured-evidence pcap listing (metadata only).
+pub fn format_nd_evidence(metas: &[EvidenceMeta], mode: ColorMode) -> String {
+    if metas.is_empty() {
+        return "No captured evidence.\n".to_string();
+    }
+    let mut metas: Vec<&EvidenceMeta> = metas.iter().collect();
+    metas.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("Evidence ID", mode),
+        bold_str("Frames", mode),
+        bold_str("Size", mode),
+        bold_str("Captured at", mode),
+    ]);
+    for m in &metas {
+        builder.push_record([
+            m.evidence_id.clone(),
+            m.frame_count.to_string(),
+            human_bytes(m.size_bytes),
+            m.created_at.clone(),
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, mode);
+    format!("{table}\n")
+}
+
 /// Render a device header with Unicode box drawing.
 ///
 /// Example: `╭─── switch03.fmt01.sfmix.org ───╮`

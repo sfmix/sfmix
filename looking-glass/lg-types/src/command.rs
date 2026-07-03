@@ -83,6 +83,15 @@ pub enum Resource {
     /// IPv6 neighbor table (NDP)
     #[serde(rename = "ipv6_neighbors")]
     IPv6Neighbors,
+    /// Durable ND-anomaly events (new MAC on an IP / MAC claiming many IPs).
+    /// `filter_asn` narrows to one participant; `target` (when set) narrows to
+    /// one IP.
+    NdEvents,
+    /// Full detail for a single ND-anomaly event (`target` = event UUID),
+    /// including its captured-evidence metadata.
+    NdEventDetail,
+    /// Listing of captured evidence pcaps with metadata (no packet bytes).
+    NdEvidence,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
