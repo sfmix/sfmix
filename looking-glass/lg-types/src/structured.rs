@@ -253,6 +253,18 @@ pub struct AnomalyEvent {
     pub classification: Option<String>,
 }
 
+/// Metadata for one saved evidence pcap, as exposed by the lg-neighborhood-watch
+/// sensor's `GET /evidence` listing. Mirrors the sensor's own `EvidenceMeta` so
+/// the CLI can display capture size/frames/time without shipping the pcap bytes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceMeta {
+    pub evidence_id: String,
+    pub frame_count: u64,
+    pub size_bytes: u64,
+    /// RFC3339 modified time of the pcap file.
+    pub created_at: String,
+}
+
 // ── CommandOutput enum ──────────────────────────────────────────────
 
 /// The unified output type for all looking glass commands.

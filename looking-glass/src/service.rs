@@ -14,7 +14,7 @@ use crate::participants::{ParticipantMap, PortMap, PortClass};
 use crate::peeringdb::PeeringdbCache;
 use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::ratelimit::{ConnectionTracker, DeviceRateLimiter, RateLimiter};
-use crate::structured::{CommandOutput, DeviceStateCache, InterfaceOptics};
+use crate::structured::{CommandOutput, DeviceStateCache, EvidenceMeta, InterfaceOptics};
 
 // ---------------------------------------------------------------------------
 // RPC types
@@ -150,6 +150,73 @@ impl LookingGlass {
                 command.filter_asn,
                 ColorMode::Plain,
             );
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::Participants(text),
+            }]);
+        }
+
+        if command.resource == Resource::NdEvents {
+            // `target` (when present) narrows to one IP; otherwise `filter_asn`
+            // narrows to one participant. Mirrors the /rpc/v1/nd-events endpoint.
+            let text = match self.anomaly.as_ref() {
+                None => "ND anomaly recording is not configured.\n".to_string(),
+                Some(store) => match store.list_events(
+                    command.filter_asn,
+                    command.target.as_deref(),
+                    200,
+                    0,
+                    chrono::Utc::now(),
+                ) {
+                    Ok(events) => crate::format::format_nd_events(&events, ColorMode::Plain),
+                    Err(e) => format!("Error querying ND events: {e}\n"),
+                },
+            };
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::Participants(text),
+            }]);
+        }
+
+        if command.resource == Resource::NdEventDetail {
+            let id = command
+                .target
+                .as_deref()
+                .ok_or_else(|| Error::BadRequest("missing event id".to_string()))?;
+            let text = match self.anomaly.as_ref() {
+                None => "ND anomaly recording is not configured.\n".to_string(),
+                Some(store) => match store.get_event(id, chrono::Utc::now()) {
+                    Ok(Some(event)) => {
+                        // Resolve the captured-evidence metadata (if any) from the
+                        // sensor so detail shows pcap size/frames/time without bytes.
+                        let evidence = match event.evidence_id.as_deref() {
+                            Some(eid) => self
+                                .fetch_evidence_metas()
+                                .await
+                                .ok()
+                                .and_then(|metas| metas.into_iter().find(|m| m.evidence_id == eid)),
+                            None => None,
+                        };
+                        crate::format::format_nd_event_detail(&event, evidence.as_ref(), ColorMode::Plain)
+                    }
+                    Ok(None) => format!("No ND event with id {id}.\n"),
+                    Err(e) => format!("Error querying ND event: {e}\n"),
+                },
+            };
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::Participants(text),
+            }]);
+        }
+
+        if command.resource == Resource::NdEvidence {
+            let text = match self.fetch_evidence_metas().await {
+                Ok(metas) => crate::format::format_nd_evidence(&metas, ColorMode::Plain),
+                Err(e) => format!("Evidence metadata unavailable: {e}\n"),
+            };
             return Ok(vec![DeviceResult {
                 device: "local".to_string(),
                 success: true,
@@ -294,6 +361,29 @@ impl LookingGlass {
     /// The admin group name from the policy engine.
     pub fn admin_group(&self) -> &str {
         self.policy.admin_group()
+    }
+
+    /// Fetch the captured-evidence pcap listing (metadata only) from the
+    /// lg-neighborhood-watch sensor. Used to enrich ND-event detail and to back
+    /// `show nd-events evidence`. Never returns pcap bytes.
+    async fn fetch_evidence_metas(&self) -> Result<Vec<EvidenceMeta>, String> {
+        let Some(url) = self.anomaly_sensor_url.as_ref() else {
+            return Err("sensor not configured".to_string());
+        };
+        let endpoint = format!("{}/evidence", url.trim_end_matches('/'));
+        let client = reqwest::Client::new();
+        match client
+            .get(&endpoint)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                resp.json::<Vec<EvidenceMeta>>().await.map_err(|e| e.to_string())
+            }
+            Ok(resp) => Err(format!("sensor returned {}", resp.status())),
+            Err(e) => Err(e.to_string()),
+        }
     }
 
     // Retained for when cache serving is gated on per-resource TTL freshness;

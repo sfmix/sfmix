@@ -100,6 +100,31 @@ commands:
             name: "<asn>"
             help: Filter to a specific participant ASN (e.g. 13335, AS13335)
             command: { verb: show, resource: discovered_neighbors, filter_asn: "$arg" }
+      nd-events:
+        help: ND anomaly events (new MAC on an IP, or a MAC claiming many IPs)
+        command: { verb: show, resource: nd_events }
+        children:
+          ip:
+            help: Filter events to a specific IP address
+            children:
+              _arg:
+                name: "<ip>"
+                help: IP address (e.g. 206.51.5.1 or 2001:504:30::1)
+                command: { verb: show, resource: nd_events, target: "$arg" }
+          detail:
+            help: Full detail for one event (incl. evidence metadata)
+            children:
+              _arg:
+                name: "<event-id>"
+                help: Event UUID from 'show nd-events'
+                command: { verb: show, resource: nd_event_detail, target: "$arg" }
+          evidence:
+            help: Captured evidence pcap metadata (size, frames, time) — no packets
+            command: { verb: show, resource: nd_evidence }
+          _arg:
+            name: "<asn>"
+            help: Filter events to a specific participant ASN (e.g. 13335, AS13335)
+            command: { verb: show, resource: nd_events, filter_asn: "$arg" }
       netbox:
         help: NetBox cache status
         command: { verb: show, resource: netbox_cache }

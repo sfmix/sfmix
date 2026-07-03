@@ -412,6 +412,34 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_show_nd_events() {
+        // Bare list.
+        let c = parse_command("show nd-events").unwrap();
+        assert_eq!(c.resource, Resource::NdEvents);
+        assert_eq!(c.filter_asn, None);
+        assert!(c.target.is_none());
+
+        // ASN filter (bare positional, like discovered-neighbors).
+        let c = parse_command("show nd-events AS13335").unwrap();
+        assert_eq!(c.resource, Resource::NdEvents);
+        assert_eq!(c.filter_asn, Some(13335));
+
+        // IP filter.
+        let c = parse_command("show nd-events ip 206.51.5.1").unwrap();
+        assert_eq!(c.resource, Resource::NdEvents);
+        assert_eq!(c.target.as_deref(), Some("206.51.5.1"));
+
+        // Detail by id.
+        let c = parse_command("show nd-events detail 550e8400-e29b-41d4-a716-446655440000").unwrap();
+        assert_eq!(c.resource, Resource::NdEventDetail);
+        assert_eq!(c.target.as_deref(), Some("550e8400-e29b-41d4-a716-446655440000"));
+
+        // Evidence listing.
+        let c = parse_command("show nd-events evidence").unwrap();
+        assert_eq!(c.resource, Resource::NdEvidence);
+    }
+
+    #[test]
     fn test_parse_show_optics() {
         let command = parse_command("show optics").unwrap();
         assert_eq!(command.resource, Resource::Optics);
