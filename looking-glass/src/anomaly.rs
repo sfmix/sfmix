@@ -126,7 +126,8 @@ impl AnomalyStore {
                 evidence_id TEXT,
                 closed      INTEGER NOT NULL DEFAULT 0,
                 kind        TEXT NOT NULL DEFAULT 'new_mac_on_ip',
-                claimed_ips TEXT
+                claimed_ips TEXT,
+                classification TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_nd_events_ip ON nd_events(ip);
             CREATE INDEX IF NOT EXISTS idx_nd_events_asn ON nd_events(asn);
@@ -135,6 +136,19 @@ impl AnomalyStore {
             "#,
         )
         .context("initializing nd_events schema")?;
+
+        // Additive column migrations for DBs created before a column existed. SQLite
+        // has no `ADD COLUMN IF NOT EXISTS`, so we run each `ALTER` and tolerate the
+        // "duplicate column name" error (column already present); anything else is a
+        // real failure worth surfacing. Keep newly-added nullable columns in this
+        // list so existing on-disk stores gain them on the next startup.
+        for ddl in ["ALTER TABLE nd_events ADD COLUMN classification TEXT"] {
+            match conn.execute(ddl, []) {
+                Ok(_) => {}
+                Err(e) if e.to_string().contains("duplicate column name") => {}
+                Err(e) => return Err(e).with_context(|| format!("nd_events migration: {ddl}")),
+            }
+        }
 
         let cooldown = Duration::seconds(cooldown_secs as i64);
 
@@ -282,14 +296,26 @@ impl AnomalyStore {
     /// sweep that grows over successive polls is one event with an accumulating
     /// `claimed_ips` set rather than an event storm. Errors are logged and
     /// swallowed. Returns the event id and whether it was newly opened.
+    ///
+    /// `asn`/`tenant` attribute the sweep to the offending MAC's owning
+    /// participant (resolved from NetBox assignments). `classification` refines
+    /// what the sweep *is*: pass `Some("reflection")` when the claims are verbatim
+    /// flood reflection (the frames preserved the true owner's MAC in their
+    /// link-layer option). Classification is monotonic — once an open sweep is
+    /// classified it is never downgraded by a later plain fold — and asn/tenant
+    /// are filled in if the event was opened before they were known.
+    #[allow(clippy::too_many_arguments)]
     pub fn record_mac_sweep(
         &self,
         mac: &str,
         family: &str,
+        asn: Option<u32>,
+        tenant: Option<&str>,
         claimed_ips: &[String],
+        classification: Option<&str>,
         now: DateTime<Utc>,
     ) -> Option<ConflictRecord> {
-        match self.record_mac_sweep_inner(mac, family, claimed_ips, now) {
+        match self.record_mac_sweep_inner(mac, family, asn, tenant, claimed_ips, classification, now) {
             Ok(r) => Some(r),
             Err(e) => {
                 warn!("Failed to record ND MAC-sweep for {mac}: {e}");
@@ -298,11 +324,15 @@ impl AnomalyStore {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn record_mac_sweep_inner(
         &self,
         mac: &str,
         family: &str,
+        asn: Option<u32>,
+        tenant: Option<&str>,
         claimed_ips: &[String],
+        classification: Option<&str>,
         now: DateTime<Utc>,
     ) -> Result<ConflictRecord> {
         let now_str = now.to_rfc3339();
@@ -310,7 +340,9 @@ impl AnomalyStore {
         let Inner { conn, open_sweeps, .. } = &mut *guard;
 
         // Roll into the open sweep for this MAC if still within cooldown: union the
-        // newly-claimed IPs, bump flap_count, extend the window.
+        // newly-claimed IPs, bump flap_count, extend the window. `COALESCE` upgrades
+        // classification/asn/tenant if they were unset at open time without ever
+        // clobbering a value already present.
         if let Some(sw) = open_sweeps.get_mut(mac) {
             if now - sw.last_seen <= self.cooldown {
                 for ip in claimed_ips {
@@ -323,8 +355,12 @@ impl AnomalyStore {
                 sw.last_seen = now;
                 let ips_json = serde_json::to_string(&sorted(&sw.ips)).context("serializing claimed_ips")?;
                 conn.execute(
-                    "UPDATE nd_events SET flap_count = ?1, last_seen = ?2, claimed_ips = ?3 WHERE id = ?4",
-                    rusqlite::params![sw.flap_count as i64, now_str, ips_json, sw.id],
+                    "UPDATE nd_events
+                        SET flap_count = ?1, last_seen = ?2, claimed_ips = ?3,
+                            asn = COALESCE(asn, ?4), tenant = COALESCE(tenant, ?5),
+                            classification = COALESCE(classification, ?6)
+                      WHERE id = ?7",
+                    rusqlite::params![sw.flap_count as i64, now_str, ips_json, asn, tenant, classification, sw.id],
                 )
                 .context("updating sweep")?;
                 return Ok(ConflictRecord { event_id: sw.id.clone(), is_new: false });
@@ -344,9 +380,9 @@ impl AnomalyStore {
         let ips_json = serde_json::to_string(&sorted(&ips)).context("serializing claimed_ips")?;
         conn.execute(
             "INSERT INTO nd_events
-                (id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen, flap_count, evidence_id, closed, kind, claimed_ips)
-             VALUES (?1, '', ?2, NULL, NULL, '[]', ?3, ?4, ?4, 1, NULL, 0, 'mac_claims_many_ips', ?5)",
-            rusqlite::params![id, family, mac, now_str, ips_json],
+                (id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen, flap_count, evidence_id, closed, kind, claimed_ips, classification)
+             VALUES (?1, '', ?2, ?3, ?4, '[]', ?5, ?6, ?6, 1, NULL, 0, 'mac_claims_many_ips', ?7, ?8)",
+            rusqlite::params![id, family, asn, tenant, mac, now_str, ips_json, classification],
         )
         .context("inserting sweep event")?;
         open_sweeps.insert(mac.to_string(), OpenSweep { id: id.clone(), last_seen: now, flap_count: 1, ips });
@@ -415,7 +451,7 @@ impl AnomalyStore {
     ) -> Result<Vec<AnomalyEvent>> {
         let guard = self.inner.lock().unwrap();
         let mut sql = String::from(
-            "SELECT id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen, flap_count, evidence_id, closed, kind, claimed_ips
+            "SELECT id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen, flap_count, evidence_id, closed, kind, claimed_ips, classification
              FROM nd_events WHERE 1=1",
         );
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -450,7 +486,7 @@ impl AnomalyStore {
         let event = guard
             .conn
             .query_row(
-                "SELECT id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen, flap_count, evidence_id, closed, kind, claimed_ips
+                "SELECT id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen, flap_count, evidence_id, closed, kind, claimed_ips, classification
                  FROM nd_events WHERE id = ?1",
                 rusqlite::params![id],
                 |row| Ok(row_to_event(row, now, self.cooldown)),
@@ -477,6 +513,7 @@ fn row_to_event(row: &rusqlite::Row, now: DateTime<Utc>, cooldown: Duration) -> 
     let closed_int: i64 = row.get(11)?;
     let kind: String = row.get(12)?;
     let claimed_ips_json: Option<String> = row.get(13)?;
+    let classification: Option<String> = row.get(14)?;
     let old_macs: Vec<String> =
         serde_json::from_str(&old_macs_json).context("deserializing old_macs")?;
     let claimed_ips: Vec<String> = claimed_ips_json
@@ -502,6 +539,7 @@ fn row_to_event(row: &rusqlite::Row, now: DateTime<Utc>, cooldown: Duration) -> 
         flap_count: flap_count.max(0) as u64,
         evidence_id: row.get(10)?,
         closed: closed_int != 0 || expired,
+        classification,
     })
 }
 
@@ -662,12 +700,12 @@ mod tests {
         let s = store(600);
         let base = at("2026-06-19T00:00:00Z");
         let r1 = s
-            .record_mac_sweep("0a:rogue", "", &["10.0.0.1".into(), "10.0.0.2".into()], base)
+            .record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.1".into(), "10.0.0.2".into()], None, base)
             .unwrap();
         assert!(r1.is_new);
         // More IPs claimed by the same MAC within cooldown → same event, grown set.
         let r2 = s
-            .record_mac_sweep("0a:rogue", "", &["10.0.0.2".into(), "10.0.0.3".into()], base + Duration::seconds(60))
+            .record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.2".into(), "10.0.0.3".into()], None, base + Duration::seconds(60))
             .unwrap();
         assert!(!r2.is_new, "a growing sweep rolls into the open event");
         assert_eq!(r1.event_id, r2.event_id);
@@ -687,11 +725,80 @@ mod tests {
         let s = store(600);
         let t = at("2026-06-19T00:00:00Z");
         s.record_conflict("10.0.0.1", "IPv4", Some(64500), Some("Acme"), &["aa:aa".into()], "bb:bb", t).unwrap();
-        s.record_mac_sweep("0a:rogue", "", &["10.0.0.5".into(), "10.0.0.6".into()], t).unwrap();
+        s.record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.5".into(), "10.0.0.6".into()], None, t).unwrap();
         let all = s.list_events(None, None, 10, 0, t).unwrap();
         assert_eq!(all.len(), 2);
         assert_eq!(all.iter().filter(|e| e.kind == lg_types::structured::EVENT_KIND_NEW_MAC).count(), 1);
         assert_eq!(all.iter().filter(|e| e.kind == lg_types::structured::EVENT_KIND_MAC_SWEEP).count(), 1);
+    }
+
+    #[test]
+    fn reflection_sweep_records_classification_and_owner() {
+        let s = store(600);
+        let t = at("2026-06-19T00:00:00Z");
+        s.record_mac_sweep(
+            "0a:00:05:18:9d:49",
+            "IPv6",
+            Some(26415),
+            Some("Verisign"),
+            &["2001:db8::1".into(), "2001:db8::2".into()],
+            Some(lg_types::structured::EVENT_CLASSIFICATION_REFLECTION),
+            t,
+        )
+        .unwrap();
+        let e = &s.list_events(None, None, 10, 0, t).unwrap()[0];
+        assert_eq!(e.kind, lg_types::structured::EVENT_KIND_MAC_SWEEP);
+        assert_eq!(e.classification.as_deref(), Some("reflection"));
+        assert_eq!(e.asn, Some(26415), "attributed to the reflector's participant");
+        assert_eq!(e.new_mac, "0a:00:05:18:9d:49");
+    }
+
+    #[test]
+    fn classification_upgrades_but_never_downgrades() {
+        let s = store(600);
+        let base = at("2026-06-19T00:00:00Z");
+        // Opens plain (no classification yet, owner unknown).
+        s.record_mac_sweep("0a:rogue", "IPv6", None, None, &["2001:db8::1".into()], None, base).unwrap();
+        // A later fold carries the reflection signal + resolved owner → upgrade.
+        s.record_mac_sweep(
+            "0a:rogue", "IPv6", Some(26415), Some("Verisign"), &["2001:db8::2".into()],
+            Some("reflection"), base + Duration::seconds(60),
+        )
+        .unwrap();
+        let e = &s.list_events(None, None, 10, 0, base + Duration::seconds(60)).unwrap()[0];
+        assert_eq!(e.classification.as_deref(), Some("reflection"), "None → reflection upgrades");
+        assert_eq!(e.asn, Some(26415), "asn filled in on the fold");
+        // A subsequent plain fold must not clear the classification.
+        s.record_mac_sweep("0a:rogue", "IPv6", None, None, &["2001:db8::3".into()], None, base + Duration::seconds(120)).unwrap();
+        let e = &s.list_events(None, None, 10, 0, base + Duration::seconds(120)).unwrap()[0];
+        assert_eq!(e.classification.as_deref(), Some("reflection"), "reflection is never downgraded");
+        assert_eq!(e.asn, Some(26415), "resolved owner is retained");
+    }
+
+    #[test]
+    fn migrates_a_pre_classification_db_and_reads_old_rows_as_unclassified() {
+        // Build the *old* table shape by hand (no classification column) and seed a row.
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"CREATE TABLE nd_events (
+                id TEXT PRIMARY KEY, ip TEXT NOT NULL, family TEXT NOT NULL, asn INTEGER,
+                tenant TEXT, old_macs TEXT NOT NULL, new_mac TEXT NOT NULL, opened_at TEXT NOT NULL,
+                last_seen TEXT NOT NULL, flap_count INTEGER NOT NULL DEFAULT 1, evidence_id TEXT,
+                closed INTEGER NOT NULL DEFAULT 0, kind TEXT NOT NULL DEFAULT 'new_mac_on_ip', claimed_ips TEXT
+            );"#,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO nd_events (id, ip, family, asn, tenant, old_macs, new_mac, opened_at, last_seen)
+             VALUES ('old-1', '10.0.0.1', 'IPv4', NULL, NULL, '[\"aa:aa\"]', 'bb:bb', ?1, ?1)",
+            rusqlite::params![at("2026-06-19T00:00:00Z").to_rfc3339()],
+        )
+        .unwrap();
+        // from_conn must add the column without error and the old row must read back.
+        let s = AnomalyStore::from_conn(conn, 600).unwrap();
+        let ev = s.get_event("old-1", at("2026-06-19T00:00:00Z")).unwrap().unwrap();
+        assert_eq!(ev.classification, None, "pre-migration rows read as unclassified");
+        assert_eq!(ev.new_mac, "bb:bb");
     }
 
     #[test]

@@ -14,7 +14,8 @@
       "last_seen": "2026-06-18T00:03:00+00:00",
       "flap_count": 3,
       "evidence_id": "11111111-1111-4111-8111-111111111111",
-      "closed": false
+      "closed": false,
+      "classification": null
     },
     {
       "id": "22222222-2222-4222-8222-222222222222",
@@ -30,7 +31,8 @@
       "last_seen": "2026-06-17T21:18:00+00:00",
       "flap_count": 2,
       "evidence_id": null,
-      "closed": true
+      "closed": true,
+      "classification": null
     },
     {
       "id": "33333333-3333-4333-8333-333333333333",
@@ -46,7 +48,25 @@
       "last_seen": "2026-06-15T12:01:00+00:00",
       "flap_count": 1,
       "evidence_id": "33333333-3333-4333-8333-333333333333",
-      "closed": true
+      "closed": true,
+      "classification": null
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "kind": "mac_claims_many_ips",
+      "ip": "",
+      "family": "IPv6",
+      "asn": 64496,
+      "tenant": "Example Networks",
+      "old_macs": [],
+      "new_mac": "0200.5e77.aa02",
+      "claimed_ips": ["2001:db8:0:1::20", "2001:db8:0:1::21", "2001:db8:0:1::22"],
+      "opened_at": "2026-06-18T00:01:00+00:00",
+      "last_seen": "2026-06-18T00:06:00+00:00",
+      "flap_count": 7,
+      "evidence_id": "44444444-4444-4444-8444-444444444444",
+      "closed": false,
+      "classification": "reflection"
     }
   ]
 }

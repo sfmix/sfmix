@@ -189,6 +189,11 @@ def _nd_event_display(ev):
     ev["opened_display"] = opened.strftime("%Y-%m-%d %H:%M") if opened else ""
     ev["last_seen_ago"] = timesince(last) if last else ""
     ev["is_sweep"] = ev.get("kind") == "mac_claims_many_ips"
+    # A reflection is a sweep-kind event the detector re-characterized as benign
+    # flood reflection (see the SLLA-preservation signal in lg-neighborhood-watch):
+    # a bridging participant re-flooded others' ND frames verbatim. Present it as
+    # informational rather than as an impersonation/proxy-ARP alarm.
+    ev["is_reflection"] = ev.get("classification") == "reflection"
     return ev
 
 
@@ -1127,6 +1132,35 @@ def _fetch_discovered_by_ip(lg, token, asn):
     return discovered_by_ip
 
 
+def _fetch_reflection_notice(lg, token, asn):
+    """Summarize any *active* flood-reflection attributed to this participant.
+
+    Reflection events are sweep-kind events classified ``reflection`` (a bridging
+    stack re-flooding others' ND frames verbatim), attributed to the reflector's
+    ASN. Returns ``{"ip_count", "flap_count", "reflector_mac"}`` for the most
+    active open reflection event, or ``None`` when the participant isn't
+    reflecting. Informational only — this is an L2-hygiene nudge, not an alarm.
+    """
+    try:
+        ev_data = lg.get_nd_events(token=token, asn=asn, limit=500)
+    except Exception:
+        logger.warning("Failed to fetch ND events for reflection notice AS%s", asn, exc_info=True)
+        return None
+    best = None
+    for ev in ev_data.get("events", []):
+        if ev.get("classification") != "reflection" or ev.get("closed"):
+            continue
+        ips = len(ev.get("claimed_ips", []) or [])
+        cand = {
+            "ip_count": ips,
+            "flap_count": ev.get("flap_count", 0),
+            "reflector_mac": ev.get("new_mac", ""),
+        }
+        if best is None or ips > best["ip_count"]:
+            best = cand
+    return best
+
+
 def _norm_mac(s):
     """Normalize a MAC to bare lowercase hex for cross-source matching.
 
@@ -1205,6 +1239,7 @@ def participant_detail(request, asn):
     alerts = []
     has_invalid_ip = False
     rs_parity = None
+    reflection_notice = None
     lg_error = None
 
     try:
@@ -1263,6 +1298,11 @@ def participant_detail(request, asn):
             arp_by_ip = _fetch_arp_by_ip(lg, token)
             ndp_by_ip = _fetch_ndp_by_ip(lg, token)
             discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn)
+
+            # 6b. Is this participant currently reflecting flooded ND traffic back
+            #     onto the fabric? Informational banner for admins / the member.
+            if can_see_admin:
+                reflection_notice = _fetch_reflection_notice(lg, token, asn)
 
             # 7. Route-server sessions + configured RS list from Alice-LG
             rs_sessions, routeservers = _fetch_rs_data(asn)
@@ -1344,6 +1384,7 @@ def participant_detail(request, asn):
         "alerts": alerts,
         "has_invalid_ip": has_invalid_ip,
         "rs_parity": rs_parity,
+        "reflection_notice": reflection_notice,
         "lg_error": lg_error,
         "can_see_admin": can_see_admin,
         "is_own_network": asn in user_asns,
