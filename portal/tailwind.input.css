@@ -555,6 +555,18 @@ body {
 .nav-admin-toggle { background: var(--color-portal-100); color: var(--color-portal-700); }
 .nav-admin-toggle:hover { background: #c7d2fe; color: var(--color-portal-700); }
 .nav-dropdown { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+/* Submenu rendered inline inside the collapsed mobile panel (accordion style): flows within
+   the teal panel and indents under its toggle, instead of an absolute popover that would anchor
+   to the narrow left-aligned toggle and overflow off-screen. Links re-themed to match the panel.
+   Mirrors the sfmix.org mobile nav (position:static submenu). */
+.nav-submenu-inline { padding-left: 0.75rem; }
+.nav-submenu-inline a,
+.nav-submenu-inline button { color: rgba(255,255,255,0.7); }
+.nav-submenu-inline a:hover,
+.nav-submenu-inline button:hover { color: #fff; background: transparent; }
+.nav-submenu-inline button.font-semibold,
+.nav-submenu-inline .text-gray-900 { color: #fff; }
+.nav-submenu-inline .border-t { border-color: rgba(255,255,255,0.18); }
 .rainbow-bar { height: 3px; background: linear-gradient(90deg, #8B2FC9, #3B7DD8, #A0C814, #E8B000, #D42020); }
 .site-footer { background: var(--color-brand-hero-dark, #071f26); color: #9fb2bb; font-size: .85rem; }
 
