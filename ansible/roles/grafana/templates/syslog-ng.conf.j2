@@ -26,6 +26,11 @@ source s_net_tcp {
     tcp(
         ip(0.0.0.0)
         port(514)
+        # The tcp() driver defaults to max-connections(10); once 10 devices are
+        # connected, syslog-ng accepts then immediately drops any further TCP
+        # clients, so their logs silently never arrive. Raise it well above the
+        # device count.
+        max-connections(1000)
         use-dns(yes)
         use-fqdn(yes)
     );
