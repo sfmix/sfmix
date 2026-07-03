@@ -209,6 +209,45 @@ rolling event with an accumulating `claimed_ips` set, capped at 256):
 
 A member's own MAC on its own assigned addresses trips neither.
 
+### `reflection` classification — flap-induced flood reflection
+
+Not a separate kind: a **classification** refinement (`classification = 'reflection'`)
+on a `mac_claims_many_ips` event. It distinguishes benign flood *reflection* from
+genuine impersonation, which the raw kind cannot.
+
+**The mechanism.** After a participant's link flaps, their MAC ages out of the
+fabric and traffic for it is flooded to every port. A participant whose uplink is
+a virtualized/bridged stack with an internal loop can re-emit that flooded ND
+traffic back onto the exchange — rewriting only the outer Ethernet source MAC to
+its own while preserving each frame byte-for-byte. To the detector this one MAC
+now appears to source many other members' addresses, which looks exactly like a
+cross-tenant sweep.
+
+**The signal.** A re-transmitted frame preserves the *original owner's* MAC in
+its NDP source/target-link-layer-address option (or, for ARP, the sender-hardware-
+address), while the outer Ethernet source is the reflector's. A device crafting or
+proxying frames puts its *own* MAC in that option; only verbatim re-transmission
+preserves the original. The sensor's `parse_frame` compares the two and, on a
+disagreement, sets `Observation.mismatched_mac` to the option's MAC; `store.rs`
+counts these per `(ip, mac)` and surfaces `mismatch_count` / `mismatched_mac` on
+`/neighbors`.
+
+**Server handling** (`discovered.rs::update_at`). An observation is treated as
+reflection when its `mismatched_mac` is already a known owner of that IP. Such
+observations are peeled off *before* the conflict/liveness/sweep folds — so they
+never open a new-MAC event against the victim, never latch the victim's live
+`conflict` flag, and never feed plain sweep detection. Instead they roll up into
+one `record_mac_sweep(..., classification = "reflection")` event **per reflector
+MAC**, attributed to the reflector's own participant (resolved from that MAC's
+clean sightings on its assigned IPs) and listing the reflected victim IPs in
+`claimed_ips`. Classification is monotonic — an open event upgrades to
+`reflection` when the signal appears and is never downgraded by a later plain
+fold. A frame whose option names a MAC that was *never* an owner of the IP is a
+forged/crafted option, not verbatim reflection: it falls through to normal
+new-MAC handling. Victims are neither notified nor flagged (reflected frames are
+harmless when unmodified); the portal shows the reflector an informational badge
+and a banner on its participant page.
+
 ### Aging (Phase 3) — the three knobs
 
 | Window | Where | Default (deployed) | Effect |
@@ -267,14 +306,18 @@ CREATE TABLE nd_events (
     evidence_id TEXT,               -- links to sensor pcap
     closed      INTEGER NOT NULL DEFAULT 0,
     kind        TEXT NOT NULL DEFAULT 'new_mac_on_ip',  -- | 'mac_claims_many_ips'
-    claimed_ips TEXT                -- JSON array (sweeps), capped 256
+    claimed_ips TEXT,               -- JSON array (sweeps), capped 256
+    classification TEXT             -- NULL (plain) | 'reflection'
 );
 -- indexes: ip, asn, opened_at, kind
 ```
 
 `closed` is recomputed at read time. The serialized `AnomalyEvent`
-(`lg-types/structured.rs`) mirrors these fields; `DiscoveredMac` gained
-`stale: bool` (`#[serde(default)]` so old on-disk caches deserialize).
+(`lg-types/structured.rs`) mirrors these fields; `classification` is
+`#[serde(default)]` (`None`) so pre-existing rows/payloads deserialize unchanged,
+and `AnomalyStore::from_conn` runs an idempotent `ALTER TABLE … ADD COLUMN
+classification` (tolerating "duplicate column name") so on-disk stores gain it on
+the next startup. `DiscoveredMac` gained `stale: bool` similarly.
 
 ## API surface
 

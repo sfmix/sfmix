@@ -56,6 +56,17 @@ pub struct SensorObservation {
     /// RFC3339; the sensor's most recent sighting.
     #[serde(default)]
     pub last_heard: String,
+    /// Times the sensor saw this (ip, mac) sourced by a frame whose two MAC
+    /// assertions disagreed (the NDP link-layer-address option, or the ARP
+    /// sender-hardware-address, named a different MAC than the outer Ethernet
+    /// source). Nonzero is the fingerprint of verbatim flood *reflection*.
+    #[serde(default)]
+    pub mismatch_count: u64,
+    /// The counterpart MAC from those mismatching frames: for an NDP row (`mac`
+    /// is the Ethernet source) this is the option's MAC — the *original owner*
+    /// whose frame was re-flooded. `None` when no mismatch was seen.
+    #[serde(default)]
+    pub mismatched_mac: Option<String>,
 }
 
 /// A newly-opened anomaly event that warrants a pcap snapshot. Returned from
@@ -265,6 +276,16 @@ impl DiscoveredNeighborStore {
         // The inverse — distinct fresh IPs claimed per MAC this poll — drives
         // one-MAC-many-IP (proxy-ARP) sweep detection.
         let mut mac_ips: HashMap<&str, std::collections::HashSet<&str>> = HashMap::new();
+        // Reflector MAC → (victim IPs it was heard re-flooding, family). A reflected
+        // frame preserves the true owner's MAC inside its link-layer option while
+        // rewriting the outer source to the reflector, so it is *not* a claim: it is
+        // excluded from the conflict/liveness/sweep folds above and rolled up here
+        // into a single reflection event attributed to the reflector.
+        let mut reflections: HashMap<&str, (std::collections::HashSet<&str>, &str)> = HashMap::new();
+        // MAC → its owning participant, learned from the MAC's own clean (non-
+        // reflected) sightings on assigned IPs. Used to attribute the reflection
+        // event to the reflector's participant.
+        let mut mac_owner: HashMap<&str, (Option<u32>, Option<&str>)> = HashMap::new();
 
         // Fold in observations, preserving the earliest first_seen and advancing
         // last_seen. Assigned IPs already have a record; an IP not in the
@@ -278,6 +299,36 @@ impl DiscoveredNeighborStore {
                 tenant: None,
                 macs: HashMap::new(),
             });
+
+            // Reflection: this frame's outer source (`obs.mac`) differs from the MAC
+            // its link-layer option named (`obs.mismatched_mac`), and that named MAC
+            // is one already legitimately heard for this IP. That is verbatim
+            // re-flooding, not a new claim — so peel it off before the conflict
+            // check: it must not open a new-MAC event against the victim, latch the
+            // victim's live conflict flag, or feed sweep detection. It is rolled up
+            // per reflector after the loop instead. (A mismatch whose inner MAC is
+            // *not* an existing owner is a forged option, not a reflection; it falls
+            // through to normal handling below.)
+            let reflected = obs
+                .mismatched_mac
+                .as_deref()
+                .is_some_and(|inner| rec.macs.keys().any(|k| k.eq_ignore_ascii_case(inner)));
+            if reflected {
+                let e = reflections
+                    .entry(obs.mac.as_str())
+                    .or_insert_with(|| (std::collections::HashSet::new(), obs.family.as_str()));
+                e.0.insert(obs.ip.as_str());
+                continue;
+            }
+
+            // Learn this MAC's own participant from its clean sightings on assigned
+            // IPs, so a reflection event can be attributed to the reflector.
+            if let Some(a) = assigned.get(obs.ip.as_str()) {
+                mac_owner
+                    .entry(obs.mac.as_str())
+                    .or_insert((a.asn, a.tenant.as_deref()));
+            }
+
             // A new MAC arriving on an IP that already has other MAC(s) is the
             // anomaly: record it (with rollup) before folding it into the record.
             // The first MAC ever heard for an IP is not a conflict.
@@ -358,7 +409,8 @@ impl DiscoveredNeighborStore {
                 let big_unassigned = self.max_ips_per_mac > 0 && unassigned > self.max_ips_per_mac;
                 if cross_tenant || big_unassigned {
                     let claimed: Vec<String> = ips.iter().map(|s| s.to_string()).collect();
-                    if let Some(record) = store.record_mac_sweep(mac, "", &claimed, now) {
+                    let (asn, tenant) = mac_owner.get(mac).copied().unwrap_or((None, None));
+                    if let Some(record) = store.record_mac_sweep(mac, "", asn, tenant, &claimed, None, now) {
                         if record.is_new {
                             new_anomalies.push(NewAnomaly {
                                 event_id: record.event_id,
@@ -366,6 +418,35 @@ impl DiscoveredNeighborStore {
                                 at: now,
                             });
                         }
+                    }
+                }
+            }
+        }
+
+        // Reflection rollup: one event per reflector MAC, attributed to the
+        // reflector's participant, listing the victim IPs it re-flooded. Keyed on
+        // the MAC in the same sweep store, so repeated reflection bursts within the
+        // cooldown collapse into one growing event (and merge with any genuine sweep
+        // for the same MAC, keeping the reflection classification).
+        if let Some(store) = anomaly {
+            for (reflector_mac, (victim_ips, family)) in &reflections {
+                let (asn, tenant) = mac_owner.get(reflector_mac).copied().unwrap_or((None, None));
+                let claimed: Vec<String> = victim_ips.iter().map(|s| s.to_string()).collect();
+                if let Some(record) = store.record_mac_sweep(
+                    reflector_mac,
+                    family,
+                    asn,
+                    tenant,
+                    &claimed,
+                    Some(lg_types::structured::EVENT_CLASSIFICATION_REFLECTION),
+                    now,
+                ) {
+                    if record.is_new {
+                        new_anomalies.push(NewAnomaly {
+                            event_id: record.event_id,
+                            macs: vec![(*reflector_mac).to_string()],
+                            at: now,
+                        });
                     }
                 }
             }
@@ -713,6 +794,22 @@ mod tests {
             mac: mac.to_string(),
             first_heard: first.to_string(),
             last_heard: last.to_string(),
+            mismatch_count: 0,
+            mismatched_mac: None,
+        }
+    }
+
+    /// A reflected sighting: `mac` (outer Ethernet source) re-flooded a frame that
+    /// still named `inner` (the true owner) in its link-layer option.
+    fn refl_obs(ip: &str, mac: &str, inner: &str, at: &str) -> SensorObservation {
+        SensorObservation {
+            ip: ip.to_string(),
+            family: "IPv6".to_string(),
+            mac: mac.to_string(),
+            first_heard: at.to_string(),
+            last_heard: at.to_string(),
+            mismatch_count: 1,
+            mismatched_mac: Some(inner.to_string()),
         }
     }
 
@@ -1268,6 +1365,136 @@ mod tests {
         assert_eq!(sweeps.len(), 1, "one rolling sweep across polls, not one-per-poll");
         assert_eq!(sweeps[0].claimed_ips.len(), 20, "claimed-IP set accumulates across polls");
         assert_eq!(sweeps[0].flap_count, 2);
+    }
+
+    fn new_mac_events(anomaly: &crate::anomaly::AnomalyStore, now: &str) -> Vec<lg_types::structured::AnomalyEvent> {
+        anomaly
+            .list_events(None, None, 100, 0, at(now))
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.kind == lg_types::structured::EVENT_KIND_NEW_MAC)
+            .collect()
+    }
+
+    #[test]
+    fn reflected_frame_rolls_up_to_the_reflector_not_the_victims() {
+        use crate::anomaly::AnomalyStore;
+        let anomaly = AnomalyStore::open(std::path::Path::new(":memory:"), 600).unwrap();
+        let mut store = DiscoveredNeighborStore::load(None).with_max_ips_per_mac(8);
+        // Victim IP owned by its real MAC; the reflector owns a separate IP.
+        let assignments = vec![
+            assign("2001:db8::victim", 64500, "Acme"),
+            assign("2001:db8::reflector", 26415, "Verisign"),
+        ];
+        // Poll 1: establish both legitimate bindings (victim's real MAC on its IP,
+        // reflector's own MAC on its own IP — the latter is how we attribute).
+        store.update_at(
+            &[
+                obs("2001:db8::victim", "aa:bb:cc:00:00:01", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z"),
+                obs("2001:db8::reflector", "0a:00:05:18:9d:49", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z"),
+            ],
+            &assignments,
+            Some(&anomaly),
+            at("2026-06-19T00:00:00Z"),
+        );
+        assert!(new_mac_events(&anomaly, "2026-06-19T00:00:00Z").is_empty());
+
+        // Poll 2: the reflector re-floods the victim's frame verbatim — outer src is
+        // the reflector, but the link-layer option still names the victim's MAC.
+        store.update_at(
+            &[
+                obs("2001:db8::reflector", "0a:00:05:18:9d:49", "2026-06-19T00:01:00Z", "2026-06-19T00:01:00Z"),
+                refl_obs("2001:db8::victim", "0a:00:05:18:9d:49", "aa:bb:cc:00:00:01", "2026-06-19T00:01:00Z"),
+            ],
+            &assignments,
+            Some(&anomaly),
+            at("2026-06-19T00:01:00Z"),
+        );
+
+        // No new-MAC event was opened against the victim: reflection is not a claim.
+        let new_macs = new_mac_events(&anomaly, "2026-06-19T00:01:00Z");
+        assert!(new_macs.is_empty(), "a reflected frame must not open a victim new-MAC event");
+        // The victim's live conflict flag did not latch (reflector not added to it).
+        let snap = store.snapshot();
+        assert!(!neighbor(&snap, "2001:db8::victim").conflict, "victim conflict flag must not latch");
+
+        // Exactly one reflection event, attributed to the reflector's participant.
+        let sweeps = sweep_events(&anomaly, "2026-06-19T00:01:00Z");
+        assert_eq!(sweeps.len(), 1, "one rolled-up reflection event");
+        let e = &sweeps[0];
+        assert_eq!(e.classification.as_deref(), Some("reflection"));
+        assert_eq!(e.new_mac, "0a:00:05:18:9d:49", "keyed on the reflector MAC");
+        assert_eq!(e.asn, Some(26415), "attributed to the reflector, not the victim");
+        assert_eq!(e.claimed_ips, vec!["2001:db8::victim"], "victim IP listed as reflected");
+    }
+
+    #[test]
+    fn multiple_victims_roll_into_one_reflection_event() {
+        use crate::anomaly::AnomalyStore;
+        let anomaly = AnomalyStore::open(std::path::Path::new(":memory:"), 600).unwrap();
+        let mut store = DiscoveredNeighborStore::load(None).with_max_ips_per_mac(8);
+        let assignments = vec![
+            assign("2001:db8::v1", 64500, "Acme"),
+            assign("2001:db8::v2", 64501, "Globex"),
+            assign("2001:db8::reflector", 26415, "Verisign"),
+        ];
+        // Establish the two victims' real MACs and the reflector's own identity.
+        store.update_at(
+            &[
+                obs("2001:db8::v1", "aa:bb:cc:00:00:01", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z"),
+                obs("2001:db8::v2", "aa:bb:cc:00:00:02", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z"),
+                obs("2001:db8::reflector", "0a:00:05:18:9d:49", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z"),
+            ],
+            &assignments,
+            Some(&anomaly),
+            at("2026-06-19T00:00:00Z"),
+        );
+        // The reflector re-floods both victims' frames in one poll.
+        store.update_at(
+            &[
+                obs("2001:db8::reflector", "0a:00:05:18:9d:49", "2026-06-19T00:01:00Z", "2026-06-19T00:01:00Z"),
+                refl_obs("2001:db8::v1", "0a:00:05:18:9d:49", "aa:bb:cc:00:00:01", "2026-06-19T00:01:00Z"),
+                refl_obs("2001:db8::v2", "0a:00:05:18:9d:49", "aa:bb:cc:00:00:02", "2026-06-19T00:01:00Z"),
+            ],
+            &assignments,
+            Some(&anomaly),
+            at("2026-06-19T00:01:00Z"),
+        );
+        // One reflection event listing both victims — not a cross-tenant sweep alarm.
+        let sweeps = sweep_events(&anomaly, "2026-06-19T00:01:00Z");
+        assert_eq!(sweeps.len(), 1);
+        assert_eq!(sweeps[0].classification.as_deref(), Some("reflection"));
+        assert_eq!(sweeps[0].claimed_ips, vec!["2001:db8::v1", "2001:db8::v2"]);
+        assert!(new_mac_events(&anomaly, "2026-06-19T00:01:00Z").is_empty());
+    }
+
+    #[test]
+    fn forged_link_layer_option_is_not_a_reflection() {
+        use crate::anomaly::AnomalyStore;
+        let anomaly = AnomalyStore::open(std::path::Path::new(":memory:"), 600).unwrap();
+        let mut store = DiscoveredNeighborStore::load(None).with_max_ips_per_mac(8);
+        let assignments = vec![assign("2001:db8::victim", 64500, "Acme")];
+        // Establish the victim's real MAC.
+        store.update_at(
+            &[obs("2001:db8::victim", "aa:bb:cc:00:00:01", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z")],
+            &assignments,
+            Some(&anomaly),
+            at("2026-06-19T00:00:00Z"),
+        );
+        // A frame whose option names a MAC that was NEVER an owner of this IP is a
+        // forged/crafted option, not verbatim reflection — it must fall through to
+        // normal new-MAC handling, opening a conflict with no reflection tag.
+        store.update_at(
+            &[refl_obs("2001:db8::victim", "de:ad:be:ef:00:01", "de:ad:be:ef:99:99", "2026-06-19T00:01:00Z")],
+            &assignments,
+            Some(&anomaly),
+            at("2026-06-19T00:01:00Z"),
+        );
+        assert!(sweep_events(&anomaly, "2026-06-19T00:01:00Z").is_empty(), "forged option is not a reflection");
+        let new_macs = new_mac_events(&anomaly, "2026-06-19T00:01:00Z");
+        assert_eq!(new_macs.len(), 1, "forged option falls through to a normal new-MAC event");
+        assert_eq!(new_macs[0].classification, None);
+        assert_eq!(new_macs[0].new_mac, "de:ad:be:ef:00:01");
     }
 
     #[test]

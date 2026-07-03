@@ -34,6 +34,12 @@ pub struct Observation {
     pub family: String,
     pub mac: String,
     pub iface: String,
+    /// Set when this frame's two MAC assertions disagreed — the NDP source/target
+    /// link-layer-address option (or, for ARP, the sender-hardware-address) named
+    /// a different MAC than the outer Ethernet source. `mac` is always the outer
+    /// Ethernet source (the transmitter); this is the *other* MAC (the original
+    /// owner whose frame was re-flooded). The fingerprint of verbatim reflection.
+    pub mismatched_mac: Option<String>,
 }
 
 /// One published row: a distinct (ip, mac) pairing with sighting times.
@@ -48,6 +54,15 @@ pub struct NeighborRow {
     pub last_heard: String,
     pub iface: String,
     pub count: u64,
+    /// Times this (ip, mac) was seen sourced by a frame whose link-layer option
+    /// (NDP) or sender-hardware-address (ARP) named a different MAC than the outer
+    /// Ethernet source — the reflection fingerprint. Zero for normal traffic.
+    #[serde(default)]
+    pub mismatch_count: u64,
+    /// The most recent counterpart MAC from those mismatching frames (the original
+    /// owner whose frame this MAC re-flooded). `None` when never mismatched.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mismatched_mac: Option<String>,
 }
 
 /// Lock-free snapshot served by the HTTP interface.
@@ -65,6 +80,8 @@ struct Entry {
     last_heard: String,
     iface: String,
     count: u64,
+    mismatch_count: u64,
+    last_mismatched_mac: Option<String>,
 }
 
 /// Drain observations, maintaining the table and republishing on a tick.
@@ -90,17 +107,24 @@ pub async fn run_writer(
                     .entry(obs.ip)
                     .or_insert_with(|| (obs.family.clone(), HashMap::new()));
                 *fam = obs.family;
+                let mismatched = obs.mismatched_mac;
                 macs.entry(obs.mac)
                     .and_modify(|e| {
                         e.last_heard = now.clone();
                         e.iface = obs.iface.clone();
                         e.count += 1;
+                        if let Some(m) = &mismatched {
+                            e.mismatch_count += 1;
+                            e.last_mismatched_mac = Some(m.clone());
+                        }
                     })
                     .or_insert(Entry {
                         first_heard: now.clone(),
                         last_heard: now,
                         iface: obs.iface,
                         count: 1,
+                        mismatch_count: if mismatched.is_some() { 1 } else { 0 },
+                        last_mismatched_mac: mismatched,
                     });
                 cap_macs(macs);
                 dirty = true;
@@ -186,6 +210,8 @@ fn build_snapshot(map: &HashMap<String, (String, HashMap<String, Entry>)>, total
                 last_heard: e.last_heard.clone(),
                 iface: e.iface.clone(),
                 count: e.count,
+                mismatch_count: e.mismatch_count,
+                mismatched_mac: e.last_mismatched_mac.clone(),
             });
         }
     }
@@ -203,7 +229,60 @@ mod tests {
     use super::*;
 
     fn entry(last_heard: &str) -> Entry {
-        Entry { first_heard: last_heard.to_string(), last_heard: last_heard.to_string(), iface: "vlan998".into(), count: 1 }
+        Entry {
+            first_heard: last_heard.to_string(),
+            last_heard: last_heard.to_string(),
+            iface: "vlan998".into(),
+            count: 1,
+            mismatch_count: 0,
+            last_mismatched_mac: None,
+        }
+    }
+
+    #[test]
+    fn mismatch_counters_fold_and_carry_to_the_row() {
+        let obs = |mac: &str, mismatched: Option<&str>| Observation {
+            ip: "2001:db8::1".into(),
+            family: "IPv6".into(),
+            mac: mac.into(),
+            iface: "vlan998".into(),
+            mismatched_mac: mismatched.map(str::to_string),
+        };
+        // Two mismatching sightings of the reflector and one clean sighting of the
+        // real owner fold into one map; the reflector row carries mismatch_count=2.
+        let mut map: HashMap<String, (String, HashMap<String, Entry>)> = HashMap::new();
+        for o in [
+            obs("0a:00:05:18:9d:49", Some("aa:bb:cc:00:00:01")),
+            obs("0a:00:05:18:9d:49", Some("aa:bb:cc:00:00:01")),
+            obs("aa:bb:cc:00:00:01", None),
+        ] {
+            let now = "2026-06-19T00:00:00Z".to_string();
+            let (_fam, macs) = map.entry(o.ip).or_insert_with(|| (o.family.clone(), HashMap::new()));
+            let mismatched = o.mismatched_mac;
+            macs.entry(o.mac)
+                .and_modify(|e| {
+                    e.count += 1;
+                    if let Some(m) = &mismatched {
+                        e.mismatch_count += 1;
+                        e.last_mismatched_mac = Some(m.clone());
+                    }
+                })
+                .or_insert(Entry {
+                    first_heard: now.clone(),
+                    last_heard: now,
+                    iface: o.iface,
+                    count: 1,
+                    mismatch_count: if mismatched.is_some() { 1 } else { 0 },
+                    last_mismatched_mac: mismatched,
+                });
+        }
+        let snap = build_snapshot(&map, 3);
+        let reflector = snap.rows.iter().find(|r| r.mac == "0a:00:05:18:9d:49").unwrap();
+        assert_eq!(reflector.mismatch_count, 2);
+        assert_eq!(reflector.mismatched_mac.as_deref(), Some("aa:bb:cc:00:00:01"));
+        let owner = snap.rows.iter().find(|r| r.mac == "aa:bb:cc:00:00:01").unwrap();
+        assert_eq!(owner.mismatch_count, 0, "the clean owner row carries no mismatch");
+        assert_eq!(owner.mismatched_mac, None);
     }
 
     fn at(s: &str) -> DateTime<Utc> {

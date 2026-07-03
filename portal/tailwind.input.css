@@ -187,6 +187,7 @@ body {
 .nd-alert { display: flex; gap: .65rem; padding: .65rem 1rem; border-radius: 6px; font-size: .85rem; line-height: 1.4; align-items: flex-start; }
 .nd-alert.crit { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
 .nd-alert.warn { background: #fffbeb; border: 1px solid #fed7aa; color: #92400e; }
+.nd-alert.info { background: #f0f9ff; border: 1px solid #bae6fd; color: #075985; }
 .nd-alert-icon { font-size: 1rem; flex-shrink: 0; }
 /* min-width:0 lets the body shrink in the flex row; overflow-wrap:anywhere lets
    long unbreakable tokens (e.g. switch01.pop1.example.net:Ethernet1, which has no
@@ -305,6 +306,8 @@ body {
 /* Inline anomaly badge (ported from wireframe warn-flag) */
 .nd-warn-flag { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; text-transform: none; letter-spacing: 0; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; padding: .03rem .35rem; border-radius: 4px; margin-left: .4rem; vertical-align: middle; white-space: nowrap; }
 .nd-warn-flag-crit { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+/* Informational (not a warning): benign, self-clearing conditions like reflection. */
+.nd-warn-flag-info { color: #075985; background: #f0f9ff; border-color: #bae6fd; }
 
 /* Data table shared by L2 learned MACs and L3 heard-on-fabric (ported from wireframe mac-table) */
 /* display:block + overflow-x:auto lets this wide column set scroll within its
@@ -335,6 +338,8 @@ body {
 .nd-kind-badge { display: inline-flex; align-items: center; font-size: .62rem; font-weight: 700; padding: .03rem .35rem; border-radius: 4px; white-space: nowrap; }
 .nd-kind-newmac { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
 .nd-kind-sweep { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+/* Reflection: informational, neutral sky palette — not an impersonation alarm. */
+.nd-kind-reflect { color: #075985; background: #f0f9ff; border: 1px solid #bae6fd; }
 
 /* Route-server table (L4) */
 .nd-rs-table { width: 100%; border-collapse: collapse; font-size: .82rem; }

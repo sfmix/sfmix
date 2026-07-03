@@ -195,6 +195,14 @@ pub const EVENT_KIND_NEW_MAC: &str = "new_mac_on_ip";
 /// Event-kind discriminator: one MAC claiming many IPs (proxy-ARP / sweep).
 pub const EVENT_KIND_MAC_SWEEP: &str = "mac_claims_many_ips";
 
+/// Classification refinement: the event is flood *reflection*, not a claim.
+/// A bridging participant re-emitted flooded ND frames verbatim — rewriting only
+/// the outer Ethernet source MAC to its own while preserving the original owner's
+/// MAC inside the NDP source/target-link-layer-address option (or, for ARP, the
+/// sender-hardware-address). Distinguishes benign flap-induced reflection from a
+/// genuine impersonation/proxy-ARP sweep, which the raw kind cannot.
+pub const EVENT_CLASSIFICATION_REFLECTION: &str = "reflection";
+
 fn default_event_kind() -> String {
     EVENT_KIND_NEW_MAC.to_string()
 }
@@ -235,6 +243,14 @@ pub struct AnomalyEvent {
     pub evidence_id: Option<String>,
     /// True once the cooldown window has elapsed with no further flaps.
     pub closed: bool,
+    /// Interpretation refinement, `None` for a plain event. `Some("reflection")`
+    /// when the triggering frames preserved the original owner's MAC in the NDP
+    /// link-layer-address option (or ARP sender-hardware-address) while the outer
+    /// Ethernet source was rewritten — i.e. a bridging participant re-flooding
+    /// fabric traffic verbatim, not spoofing. Defaults to `None` so rows/payloads
+    /// written before this field deserialize unchanged.
+    #[serde(default)]
+    pub classification: Option<String>,
 }
 
 // ── CommandOutput enum ──────────────────────────────────────────────
