@@ -2,7 +2,7 @@ import ipaddress
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
@@ -1096,25 +1096,36 @@ def _fetch_ndp_by_ip(lg, token):
     return ndp_by_ip
 
 
-def _fetch_discovered_by_ip(lg, token, asn):
+def _fetch_nd_events_for_asn(lg, token, asn):
+    """Fetch this participant's ND-anomaly events in one server-side, ASN-filtered
+    call. lg-server indexes ``nd_events`` by ASN and filters upstream, so this
+    returns only this ASN's events — fetch it once per page and reuse it (for the
+    per-IP history counts and the reflection notice) rather than round-tripping
+    the Looking Glass twice.
+    """
+    try:
+        return lg.get_nd_events(token=token, asn=asn, limit=500).get("events", [])
+    except Exception:
+        logger.warning("Failed to fetch ND events for AS%s", asn, exc_info=True)
+        return []
+
+
+def _fetch_discovered_by_ip(lg, token, asn, nd_events):
     """Fetch discovered ARP/NDP neighbors for an ASN, indexed by IP address.
 
     Returns {ip_str: {"macs": [...], "conflict": bool}} where each MAC entry
     carries display-ready first/last-seen strings. Distinct from ARP/NDP above:
     this is what was passively *heard* on the fabric, so an IP may have several
-    MACs (a conflict) rather than the single one the kernel chose.
+    MACs (a conflict) rather than the single one the kernel chose. Per-IP event
+    counts come from ``nd_events`` (already fetched once by the caller).
     """
     discovered_by_ip = {}
     # Count durable anomaly events per IP so the detail page can link to history.
     event_counts: dict[str, int] = {}
-    try:
-        ev_data = lg.get_nd_events(token=token, asn=asn, limit=500)
-        for ev in ev_data.get("events", []):
-            addr = ev.get("ip")
-            if addr:
-                event_counts[addr] = event_counts.get(addr, 0) + 1
-    except Exception:
-        logger.warning("Failed to fetch ND events for AS%s", asn, exc_info=True)
+    for ev in nd_events:
+        addr = ev.get("ip")
+        if addr:
+            event_counts[addr] = event_counts.get(addr, 0) + 1
     try:
         result = lg.get_discovered_neighbors(token=token, asn=asn)
         for neighbor in result.get("neighbors", []):
@@ -1132,33 +1143,41 @@ def _fetch_discovered_by_ip(lg, token, asn):
     return discovered_by_ip
 
 
-def _fetch_reflection_notice(lg, token, asn):
-    """Summarize any *active* flood-reflection attributed to this participant.
+# A closed reflection this old or older is treated as resolved and no longer
+# surfaced on the participant page (it stays on the admin ND events log).
+_REFLECTION_NOTICE_MAX_AGE = timedelta(days=30)
 
-    Reflection events are sweep-kind events classified ``reflection`` (a bridging
-    stack re-flooding others' ND frames verbatim), attributed to the reflector's
-    ASN. Returns ``{"ip_count", "flap_count", "reflector_mac"}`` for the most
-    active open reflection event, or ``None`` when the participant isn't
-    reflecting. Informational only — this is an L2-hygiene nudge, not an alarm.
+
+def _reflection_notice_from_events(nd_events):
+    """Summarize flood-reflection attributed to this participant, from its already
+    fetched ND events. Reflection events are ``mac_claims_many_ips`` events
+    classified ``reflection`` (a bridging stack re-flooding others' ND frames
+    verbatim). Prefers a currently-open (active) event; otherwise the most recent
+    closed one within :data:`_REFLECTION_NOTICE_MAX_AGE`. Returns a dict with
+    ``active`` / ``last_seen_ago`` for the banner, or ``None`` when this network
+    isn't (and hasn't recently been) reflecting. Informational — an L2-hygiene
+    nudge, not an alarm.
     """
-    try:
-        ev_data = lg.get_nd_events(token=token, asn=asn, limit=500)
-    except Exception:
-        logger.warning("Failed to fetch ND events for reflection notice AS%s", asn, exc_info=True)
+    reflections = [e for e in nd_events if e.get("classification") == "reflection"]
+    if not reflections:
         return None
-    best = None
-    for ev in ev_data.get("events", []):
-        if ev.get("classification") != "reflection" or ev.get("closed"):
-            continue
-        ips = len(ev.get("claimed_ips", []) or [])
-        cand = {
-            "ip_count": ips,
-            "flap_count": ev.get("flap_count", 0),
-            "reflector_mac": ev.get("new_mac", ""),
-        }
-        if best is None or ips > best["ip_count"]:
-            best = cand
-    return best
+    # A live (open) reflection always wins; else fall back to the most recent one.
+    active = [e for e in reflections if not e.get("closed")]
+    pool = active or reflections
+    ev = max(pool, key=lambda e: e.get("last_seen") or "")
+    last = _parse_rfc3339(ev.get("last_seen"))
+    is_active = not ev.get("closed")
+    if not is_active:
+        # Drop stale, long-resolved reflections so the banner self-clears.
+        if not last or datetime.now(timezone.utc) - last > _REFLECTION_NOTICE_MAX_AGE:
+            return None
+    return {
+        "ip_count": len(ev.get("claimed_ips", []) or []),
+        "flap_count": ev.get("flap_count", 0),
+        "reflector_mac": ev.get("new_mac", ""),
+        "active": is_active,
+        "last_seen_ago": timesince(last) if last else "",
+    }
 
 
 def _norm_mac(s):
@@ -1297,12 +1316,15 @@ def participant_detail(request, asn):
             # 6. ARP + NDP (kernel-chosen MAC) and passively-heard neighbors
             arp_by_ip = _fetch_arp_by_ip(lg, token)
             ndp_by_ip = _fetch_ndp_by_ip(lg, token)
-            discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn)
+            # Fetch this ASN's ND-anomaly events once; reuse for per-IP history
+            # counts and the reflection notice (one round-trip, not two).
+            nd_events = _fetch_nd_events_for_asn(lg, token, asn)
+            discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn, nd_events)
 
-            # 6b. Is this participant currently reflecting flooded ND traffic back
-            #     onto the fabric? Informational banner for admins / the member.
+            # 6b. Is this participant reflecting flooded ND traffic back onto the
+            #     fabric (now, or recently)? Informational banner for admins / member.
             if can_see_admin:
-                reflection_notice = _fetch_reflection_notice(lg, token, asn)
+                reflection_notice = _reflection_notice_from_events(nd_events)
 
             # 7. Route-server sessions + configured RS list from Alice-LG
             rs_sessions, routeservers = _fetch_rs_data(asn)
