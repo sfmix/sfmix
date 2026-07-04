@@ -117,6 +117,11 @@
           "dlon": -121.921061
         },
         {
+          "id": "switch02.fmt01",
+          "dlat": 37.47181,
+          "dlon": -121.920111
+        },
+        {
           "id": "switch03.fmt01",
           "dlat": 37.47181,
           "dlon": -121.919161
@@ -156,7 +161,12 @@
         {
           "id": "switch01.sjc01",
           "dlat": 37.242351,
-          "dlon": -121.782426
+          "dlon": -121.783376
+        },
+        {
+          "id": "switch02.sjc01",
+          "dlat": 37.242351,
+          "dlon": -121.781476
         }
       ]
     },
@@ -267,7 +277,12 @@
         {
           "id": "switch01.scl02",
           "dlat": 37.376301,
-          "dlon": -121.970597
+          "dlon": -121.971547
+        },
+        {
+          "id": "switch02.scl02",
+          "dlat": 37.376301,
+          "dlon": -121.969647
         }
       ]
     },
@@ -2296,7 +2311,7 @@
       ]
     },
     {
-      "id": "c8a92fe3-da57-5fcf-830a-fc05355306fb",
+      "id": "e1c4640e-268f-5f33-ad46-4eb7a32c88a2",
       "scope": "intra",
       "a_site": "sfo02",
       "z_site": "sfo02",
@@ -2305,7 +2320,7 @@
       "capacity_bps": 800000000000.0,
       "status": "up",
       "approximate": false,
-      "members": 2,
+      "members": 4,
       "segments": [
         {
           "medium": "building",
@@ -2323,16 +2338,70 @@
       ]
     },
     {
-      "id": "bfa994d1-72e5-51c4-8c99-15fb84feb1b0",
+      "id": "7fc54d73-b818-5e62-8491-a370d0cf3228",
+      "scope": "intra",
+      "a_site": "fmt01",
+      "z_site": "fmt01",
+      "a_device": "switch01.fmt01",
+      "z_device": "switch02.fmt01",
+      "capacity_bps": 800000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 4,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.921061,
+              37.47181
+            ],
+            [
+              -121.920111,
+              37.47181
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "808eb031-6959-5944-ae38-ee2557e5192e",
+      "scope": "intra",
+      "a_site": "fmt01",
+      "z_site": "fmt01",
+      "a_device": "switch02.fmt01",
+      "z_device": "switch03.fmt01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.920111,
+              37.47181
+            ],
+            [
+              -121.919161,
+              37.47181
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "da903c70-3e6b-528e-bd5f-317e7a8d8ec0",
       "scope": "intra",
       "a_site": "fmt01",
       "z_site": "fmt01",
       "a_device": "switch01.fmt01",
       "z_device": "switch03.fmt01",
-      "capacity_bps": 800000000000.0,
+      "capacity_bps": 100000000000.0,
       "status": "up",
       "approximate": false,
-      "members": 2,
+      "members": 1,
       "segments": [
         {
           "medium": "building",
@@ -2344,6 +2413,60 @@
             [
               -121.919161,
               37.47181
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "44229d9f-acb1-579c-8c97-fa01778cbce6",
+      "scope": "intra",
+      "a_site": "sjc01",
+      "z_site": "sjc01",
+      "a_device": "switch01.sjc01",
+      "z_device": "switch02.sjc01",
+      "capacity_bps": 200000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.783376,
+              37.242351
+            ],
+            [
+              -121.781476,
+              37.242351
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "03850988-84ac-5d8d-8dca-67ac57641709",
+      "scope": "intra",
+      "a_site": "scl02",
+      "z_site": "scl02",
+      "a_device": "switch01.scl02",
+      "z_device": "switch02.scl02",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.971547,
+              37.376301
+            ],
+            [
+              -121.969647,
+              37.376301
             ]
           ]
         }

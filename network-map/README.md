@@ -47,6 +47,19 @@ segment. See `atlas/_TEMPLATE.geojson`.
   — drives line styling and whimsy placement (water crossings get wave treatment).
 - `status` ∈ `active | retired` (planned circuits may use `active` before turn-up).
 
+## Intra-site links (switch ↔ switch)
+
+Cables carry a `scope`: `inter` (site-to-site, from `Core: Transport` ports +
+atlas geometry, above) or `intra` (switch-to-switch within one site). The builder
+derives intra links from the sflow-rt LLDP topology: any confirmed link whose two
+ends live at the same site becomes an intra cable, and parallel physical links
+between the same switch pair collapse into one **LAG** (`members` = physical link
+count, rendered as tightly-spaced parallel strands). Geometry is just the straight
+line between the two switches' in-building positions, so intra links appear only at
+the device zoom tier (inside the building box). Capacity is summed from the member
+ports' `[<Speed>]` description tokens (0 = unknown → the portal skips util colouring).
+No atlas or KMZ is involved.
+
 ## Adding a circuit
 
 1. Provision the ports with the description grammar

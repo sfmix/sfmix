@@ -39,7 +39,8 @@
   // perpendicular offset (px) by the feature's "offset" step — shared by the
   // cable layers AND the water-treatment layers so they track the same path.
   var OFFSET_EXPR = ["interpolate", ["linear"], ["zoom"],
-    8, ["*", ["get", "offset"], 2.2], 12, ["*", ["get", "offset"], 5], 15, ["*", ["get", "offset"], 9]];
+    8, ["*", ["get", "offset"], 2.2], 12, ["*", ["get", "offset"], 5],
+    15, ["*", ["get", "offset"], 9], 16.5, ["*", ["get", "offset"], 15]];
 
   function fmtBps(b) {
     if (!b || b < 1) return "0";
@@ -136,7 +137,8 @@
             id: c.id, scope: c.scope, status: c.status,
             approximate: !!c.approximate, weight: weightForCapacity(c.capacity_bps),
             capacity_bps: c.capacity_bps, offset: base + strandOff,
-            members: strands, strand: st, a_site: c.a_site, z_site: c.z_site
+            members: strands, strand: st, a_site: c.a_site, z_site: c.z_site,
+            a_device: c.a_device || "", z_device: c.z_device || ""
           },
           geometry: { type: "LineString", coordinates: smooth }
         });
@@ -331,7 +333,7 @@
     center: [-122.05, 37.6],
     zoom: 9.1,
     minZoom: 8,
-    maxZoom: 15,
+    maxZoom: 16.5,  // deep enough to inspect intra-site switch links / LAG strands
     maxBounds: [[-122.95, 37.0], [-121.4, 38.2]],
     attributionControl: false
   });
@@ -932,12 +934,15 @@
     var p = f.properties, id = p.id;
     var tr = isMetro ? METRO_STATS[id] : LAST_TRAFFIC[id];
     map.getCanvas().style.cursor = "pointer";
+    var devShort = function (d) { return (d || "").split(".")[0]; };
     var head = p.a_site.toUpperCase() + " ⇆ " + p.z_site.toUpperCase();
-    if (p.scope === "intra") head = p.a_site.toUpperCase() + " · intra-site";
-    else if (p.scope === "metro") head = p.a_site + " ⇆ " + p.z_site;
+    if (p.scope === "intra") {
+      head = p.a_site.toUpperCase() + " · " + devShort(p.a_device) + " ⇆ " + devShort(p.z_device);
+    } else if (p.scope === "metro") head = p.a_site + " ⇆ " + p.z_site;
     var rows = "";
     if (p.scope === "metro" && p.nmember) rows += row(p.nmember + " circuits", "");
-    rows += row(t("Capacity"), capLabel(p.capacity_bps));
+    if (p.members > 1) rows += row(t(p.scope === "intra" ? "LAG members" : "Member links"), p.members + "×");
+    if (p.capacity_bps > 0) rows += row(t("Capacity"), capLabel(p.capacity_bps));
     if (p.status === "down") {
       rows += '<div class="nm-pop-row"><span class="nm-chip nm-chip-offline">' + t("link offline") + "</span></div>";
     } else if (tr) {

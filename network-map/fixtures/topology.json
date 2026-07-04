@@ -20,6 +20,9 @@
   },
   "switch01.scl02.sfmix.org": {
    "ports": {}
+  },
+  "switch02.sfo02.sfmix.org": {
+   "ports": {}
   }
  },
  "links": {
@@ -52,6 +55,18 @@
    "port1": "Ethernet54/1",
    "node2": "switch01.sfo02.sfmix.org",
    "port2": "Ethernet23/1"
+  },
+  "L6": {
+   "node1": "switch01.sfo02.sfmix.org",
+   "port1": "Ethernet1/1",
+   "node2": "switch02.sfo02.sfmix.org",
+   "port2": "Ethernet1/1"
+  },
+  "L7": {
+   "node1": "switch01.sfo02.sfmix.org",
+   "port1": "Ethernet2/1",
+   "node2": "switch02.sfo02.sfmix.org",
+   "port2": "Ethernet2/1"
   }
  }
 }
