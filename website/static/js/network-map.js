@@ -446,11 +446,14 @@
         "circle-stroke-color": ["case", ["boolean", ["feature-state", "dim"], false], "#b7bcc0", "#0b3640"],
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 15, 3.5],
         // roundel gives way to the building box + switches at the device tier;
-        // also dims when another link is isolated
-        "circle-opacity": ["*", ["case", ["boolean", ["feature-state", "dim"], false], 0.15, 1],
-          ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]],
-        "circle-stroke-opacity": ["*", ["case", ["boolean", ["feature-state", "dim"], false], 0.2, 1],
-          ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]]
+        // also dims when another link is isolated. Zoom interpolate stays OUTERMOST;
+        // the dim case is baked into the pre-device-tier stop.
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"],
+          EXPAND_ZOOM - 0.5, ["case", ["boolean", ["feature-state", "dim"], false], 0.15, 1],
+          EXPAND_ZOOM + 0.5, 0],
+        "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"],
+          EXPAND_ZOOM - 0.5, ["case", ["boolean", ["feature-state", "dim"], false], 0.2, 1],
+          EXPAND_ZOOM + 0.5, 0]
       }
     });
     map.addLayer({
@@ -458,8 +461,9 @@
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 15, 3.2],
         "circle-color": "#0b3640",
-        "circle-opacity": ["*", ["case", ["boolean", ["feature-state", "dim"], false], 0.15, 1],
-          ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]]
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"],
+          EXPAND_ZOOM - 0.5, ["case", ["boolean", ["feature-state", "dim"], false], 0.15, 1],
+          EXPAND_ZOOM + 0.5, 0]
       }
     });
     // device drops — short stubs from the site centroid to each switch, so cables
@@ -634,28 +638,36 @@
   }
 
   // ---- water treatment on bridge/submarine (undersea) segments ------------
+  // Drawn ABOVE the util cable (beforeId stations-ring), so a bay crossing very
+  // obviously turns blue-and-wavy where it dives underwater.
   function addWaterTreatment() {
-    // 1) a wide translucent blue "underwater" tint beneath the crossing
+    var beforeId = map.getLayer("stations-ring") ? "stations-ring" : undefined;
+    // 1) soft white "surf" halo so the underwater run reads against blue water
+    map.addLayer({
+      id: "cable-subhalo", type: "line", source: "cable-media",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#f2fbff", "line-opacity": 0.6, "line-blur": 2,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 8, 14, 26] }
+    }, beforeId);
+    // 2) bold blue "underwater" core covering the util colour over the crossing
     map.addLayer({
       id: "cable-submarine", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#2f80c0",
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0.35, 13, 0.55],
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 16] }
-    }, "stations-ring");
-    // 2) wave line-art following the crossing — a tileable wave sprite as a
-    //    line-pattern (dashed ripple as a fallback until the sprite loads)
+      paint: { "line-color": "#1668b0", "line-opacity": 0.92,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 14, 11] }
+    }, beforeId);
+    // 3) white wave ripples on top (tileable wave sprite; dashed fallback)
     map.addLayer({
       id: "cable-water", type: "line", source: "cable-media",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#eaf6fb", "line-opacity": 0.85, "line-width": 2.2,
-        "line-dasharray": [0.5, 2] }
-    }, "stations-ring");
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: { "line-color": "#eaf6fb", "line-opacity": 0.95, "line-width": 2.2,
+        "line-dasharray": [0.6, 1.6] }
+    }, beforeId);
     map.loadImage(SPRITE_BASE + "wave-tile.png").then(function (img) {
       if (!map.hasImage("wave-tile")) map.addImage("wave-tile", img.data);
       map.setPaintProperty("cable-water", "line-pattern", "wave-tile");
       map.setPaintProperty("cable-water", "line-width",
-        ["interpolate", ["linear"], ["zoom"], 8, 6, 14, 18]);
+        ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 14]);
     }).catch(function () {});
   }
 
@@ -830,7 +842,7 @@
   // ---- click-to-isolate: highlight one cable, dim the rest ----------------
   var DIM_LAYERS = {
     cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
-      "cables-intra", "cable-drops", "cable-water", "cable-submarine"],
+      "cables-intra", "cable-drops", "cable-water", "cable-submarine", "cable-subhalo"],
     metro: ["metro-casing", "metro-line"]
   };
   // which station source + key list pairs with each cable source
