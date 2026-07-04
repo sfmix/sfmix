@@ -16,6 +16,29 @@ import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, os.pardir, "fixtures", "map.json")
+ATLAS_DIR = os.path.join(HERE, os.pardir, "atlas")
+
+
+def load_atlas():
+    """Map frozenset({a_site,z_site}) -> atlas segments, so the dev map shows the
+    real coarsened routes where we have them (geometry is public; traffic stays
+    synthetic)."""
+    import glob
+    out = {}
+    for path in glob.glob(os.path.join(ATLAS_DIR, "*.geojson")):
+        if os.path.basename(path).startswith("_"):
+            continue
+        try:
+            d = json.load(open(path))
+            c = d.get("circuit", {})
+            key = frozenset([c.get("a_site"), c.get("z_site")])
+            segs = [{"medium": f["properties"].get("medium", "underground"),
+                     "coordinates": f["geometry"]["coordinates"]} for f in d["features"]]
+            if None not in key and segs:
+                out[key] = segs
+        except Exception:
+            pass
+    return out
 
 # Real, public site coordinates (from NetBox / website/content/locations.md).
 SITES = {
@@ -121,11 +144,22 @@ def build():
             ],
         }
 
+    atlas = load_atlas()
     cables = []
     for a, z, cap, status, approx, members, segs in CABLES:
         a_ll = (SITES[a][1], SITES[a][0])
         z_ll = (SITES[z][1], SITES[z][0])
         cid = str(uuid.uuid5(NS, "%s|%s|%s|%s" % (GENERATION, a, z, cap)))
+        atlas_segs = atlas.get(frozenset([a, z]))
+        if atlas_segs and not approx:
+            segments = atlas_segs
+            cables.append({
+                "id": cid, "scope": "inter", "a_site": a, "z_site": z,
+                "a_device": DEVICES[a][0], "z_device": DEVICES[z][0],
+                "capacity_bps": cap, "status": status, "approximate": False,
+                "members": members, "segments": segments,
+            })
+            continue
         if approx or not segs:
             segments = [{"medium": "underground", "coordinates": bezier_arc(a_ll, z_ll)}]
         else:
