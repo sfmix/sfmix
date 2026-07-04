@@ -675,7 +675,7 @@
       if (!map.getLayer("water-texture")) {
         map.addLayer({
           id: "water-texture", type: "fill", source: "water",
-          paint: { "fill-pattern": "water-texture", "fill-opacity": 0.5 }
+          paint: { "fill-pattern": "water-texture", "fill-opacity": 0.75 }
         }, map.getLayer("airport-terminal") ? "airport-terminal" : beforeId);
       }
     }).catch(function () {});

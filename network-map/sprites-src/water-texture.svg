@@ -1,8 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- scattered, punctuated wave crests: darker outline + light highlight, varied
+       positions/lengths so the tile doesn't read as uniform rows -->
   <g fill="none" stroke-linecap="round">
-    <path d="M0 8 Q16 3 32 8 T64 8"   stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.4"/>
-    <path d="M0 24 Q16 19 32 24 T64 24" stroke="#3f6f86" stroke-opacity="0.13" stroke-width="1.3"/>
-    <path d="M0 40 Q16 35 32 40 T64 40" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1.4"/>
-    <path d="M0 56 Q16 51 32 56 T64 56" stroke="#3f6f86" stroke-opacity="0.13" stroke-width="1.3"/>
+    <!-- crest 1 -->
+    <path d="M8 34 q11 -7 22 0 t22 0"   stroke="#274c5e" stroke-opacity="0.30" stroke-width="2.1"/>
+    <path d="M8 32 q11 -7 22 0 t22 0"   stroke="#ffffff" stroke-opacity="0.28" stroke-width="1.3"/>
+    <!-- crest 2 -->
+    <path d="M78 18 q9 -6 18 0 t18 0"   stroke="#274c5e" stroke-opacity="0.28" stroke-width="2.0"/>
+    <path d="M78 16 q9 -6 18 0 t18 0"   stroke="#ffffff" stroke-opacity="0.26" stroke-width="1.2"/>
+    <!-- crest 3 -->
+    <path d="M30 74 q13 -8 26 0 t26 0"  stroke="#274c5e" stroke-opacity="0.30" stroke-width="2.1"/>
+    <path d="M30 72 q13 -8 26 0 t26 0"  stroke="#ffffff" stroke-opacity="0.28" stroke-width="1.3"/>
+    <!-- crest 4 (short) -->
+    <path d="M92 66 q8 -5 16 0"         stroke="#274c5e" stroke-opacity="0.26" stroke-width="1.9"/>
+    <path d="M92 64 q8 -5 16 0"         stroke="#ffffff" stroke-opacity="0.24" stroke-width="1.1"/>
+    <!-- crest 5 -->
+    <path d="M14 106 q10 -6 20 0 t20 0" stroke="#274c5e" stroke-opacity="0.28" stroke-width="2.0"/>
+    <path d="M14 104 q10 -6 20 0 t20 0" stroke="#ffffff" stroke-opacity="0.26" stroke-width="1.2"/>
+    <!-- crest 6 (short) -->
+    <path d="M86 104 q7 -5 14 0"        stroke="#274c5e" stroke-opacity="0.26" stroke-width="1.9"/>
+    <path d="M86 102 q7 -5 14 0"        stroke="#ffffff" stroke-opacity="0.24" stroke-width="1.1"/>
   </g>
 </svg>
