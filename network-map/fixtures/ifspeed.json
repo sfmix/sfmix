@@ -1,0 +1,15 @@
+{
+  "_comment": "Stand-in for the live sflow ifspeed series labels (host|ifname -> negotiated speed), the authoritative link-speed source-of-truth the builder prefers over the description [Speed] token. Mirrors what /api/v1/series?match[]={__name__=\"sflow_ifoutoctets\"} returns per interface.",
+  "switch03.fmt01|Ethernet35/1": {"speed": "400G"},
+  "switch03.fmt01|Ethernet54/1": {"speed": "400G"},
+  "switch01.sjc01|Ethernet35/1": {"speed": "400G"},
+  "switch01.sfo01|Ethernet21/1": {"speed": "100G"},
+  "switch01.sfo02|Ethernet21/1": {"speed": "100G"},
+  "switch01.sfo02|Ethernet33/1": {"speed": "400G"},
+  "switch01.sfo02|Ethernet23/1": {"speed": "400G"},
+  "switch01.sfo02|Ethernet1/1": {"speed": "100G"},
+  "switch01.sfo02|Ethernet2/1": {"speed": "100G"},
+  "switch01.sjc02|Ethernet49/1": {"speed": "100G"},
+  "switch01.scl05|Ethernet49/1": {"speed": "100G"},
+  "switch01.scl02|Ethernet33/1": {"speed": "400G"}
+}
