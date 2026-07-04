@@ -17,6 +17,58 @@ import uuid
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, os.pardir, "fixtures", "map.json")
 ATLAS_DIR = os.path.join(HERE, os.pardir, "atlas")
+WATER_JSON = os.path.join(HERE, os.pardir, os.pardir, "website", "static", "map", "basemap-water.json")
+
+
+def _water_rings():
+    """All exterior/interior rings of the basemap water polygons, for classifying
+    which cable spans cross open water (-> submarine treatment)."""
+    rings = []
+    try:
+        d = json.load(open(WATER_JSON))
+    except Exception:
+        return rings
+    for f in d.get("features", []):
+        g = f.get("geometry", {})
+        polys = g["coordinates"] if g.get("type") == "MultiPolygon" else [g.get("coordinates", [])]
+        for poly in polys:
+            for ring in poly:
+                rings.append(ring)
+    return rings
+
+
+_WATER = _water_rings()
+
+
+def _in_water(pt):
+    """Even-odd ray cast across all water rings (islands as holes cancel out)."""
+    x, y = pt
+    inside = False
+    for ring in _WATER:
+        n = len(ring)
+        j = n - 1
+        for i in range(n):
+            xi, yi = ring[i][0], ring[i][1]
+            xj, yj = ring[j][0], ring[j][1]
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+                inside = not inside
+            j = i
+    return inside
+
+
+def reseg_by_water(coords):
+    """Re-segment a coord list into underground / submarine runs by water crossing."""
+    if not coords:
+        return []
+    out, cur, cur_m = [], [coords[0]], ("submarine" if _in_water(coords[0]) else "underground")
+    for p in coords[1:]:
+        m = "submarine" if _in_water(p) else "underground"
+        cur.append(p)
+        if m != cur_m:
+            out.append({"medium": cur_m, "coordinates": cur[:]})
+            cur, cur_m = [p], m
+    out.append({"medium": cur_m, "coordinates": cur})
+    return out
 
 
 def load_atlas():
@@ -220,6 +272,20 @@ def build():
             "segments": [{"medium": "building", "coordinates": [
                 [d0["dlon"], d0["dlat"]], [d1["dlon"], d1["dlat"]]]}],
         })
+
+    # tag water-crossing spans as submarine (blue + wave treatment) by testing
+    # each vertex against the basemap water polygons
+    for c in cables:
+        if c["scope"] != "inter":
+            continue
+        coords = []
+        for seg in c["segments"]:
+            for p in seg["coordinates"]:
+                if not coords or coords[-1] != p:
+                    coords.append(p)
+        resegged = reseg_by_water(coords)
+        if any(s["medium"] == "submarine" for s in resegged):
+            c["segments"] = resegged
 
     return {
         "generation": GENERATION,

@@ -257,6 +257,7 @@
     return [mx - dy * 0.08, my + dx * 0.08];
   }
   var METRO_MEMBERS = {}, METRO_CAP = {}, METRO_STATS = {};
+  var STATION_KEYS = [], METRO_KEYS = [];
 
   // ---- map ----------------------------------------------------------------
   var map = new maplibregl.Map({
@@ -339,10 +340,12 @@
 
     map.addSource("cables", { type: "geojson", data: src.cables, promoteId: "id" });
     map.addSource("cable-media", { type: "geojson", data: src.media });
-    map.addSource("stations", { type: "geojson", data: src.stations });
+    map.addSource("stations", { type: "geojson", data: src.stations, promoteId: "code" });
     map.addSource("devices", { type: "geojson", data: src.devices });
     map.addSource("metro-cables", { type: "geojson", data: src.metroCables, promoteId: "id" });
-    map.addSource("metro-stations", { type: "geojson", data: src.metroStations });
+    map.addSource("metro-stations", { type: "geojson", data: src.metroStations, promoteId: "metro" });
+    STATION_KEYS = Object.keys(structure.sites);
+    METRO_KEYS = src.metroStations.features.map(function (f) { return f.properties.metro; });
     map.addSource("buildings", { type: "geojson", data: src.buildings });
     map.addSource("drops", { type: "geojson", data: src.drops, promoteId: "id" });
 
@@ -439,11 +442,15 @@
       id: "stations-ring", type: "circle", source: "stations",
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 5, 12, 8, 15, 11],
-        "circle-color": "#ffffff", "circle-stroke-color": "#0b3640",
+        "circle-color": "#ffffff",
+        "circle-stroke-color": ["case", ["boolean", ["feature-state", "dim"], false], "#b7bcc0", "#0b3640"],
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 15, 3.5],
-        // roundel gives way to the building box + switches at the device tier
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0],
-        "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]
+        // roundel gives way to the building box + switches at the device tier;
+        // also dims when another link is isolated
+        "circle-opacity": ["*", ["case", ["boolean", ["feature-state", "dim"], false], 0.15, 1],
+          ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]],
+        "circle-stroke-opacity": ["*", ["case", ["boolean", ["feature-state", "dim"], false], 0.2, 1],
+          ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]]
       }
     });
     map.addLayer({
@@ -451,7 +458,8 @@
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 15, 3.2],
         "circle-color": "#0b3640",
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]
+        "circle-opacity": ["*", ["case", ["boolean", ["feature-state", "dim"], false], 0.15, 1],
+          ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]]
       }
     });
     // device drops — short stubs from the site centroid to each switch, so cables
@@ -476,36 +484,44 @@
       }
     });
 
-    // metro trunk cables (overview tier)
-    var metroWidth = ["interpolate", ["linear"], ["zoom"],
-      8, ["+", ["*", ["get", "weight"], 1.3], 0], 10.6, ["+", ["*", ["get", "weight"], 1.8], 0]];
+    // metro trunk cables (overview tier). NB: the zoom interpolate must be the
+    // OUTERMOST expression — bake the casing/highlight width bump into each stop.
+    function metroWidthAdd(add) {
+      return ["interpolate", ["linear"], ["zoom"],
+        8, ["+", ["*", ["get", "weight"], 1.3], add],
+        10.6, ["+", ["*", ["get", "weight"], 1.8], add]];
+    }
     map.addLayer({
       id: "metro-casing", type: "line", source: "metro-cables",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": "#0b3640", "line-opacity": 0.9,
-        "line-width": ["+", metroWidth, 2.4] }
+        "line-width": metroWidthAdd(2.4) }
     });
     map.addLayer({
       id: "metro-line", type: "line", source: "metro-cables",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidth }
+      paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidthAdd(0) }
     });
     map.addLayer({
       id: "metro-highlight", type: "line", source: "metro-cables",
       filter: ["==", ["get", "id"], "__none__"],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": UTIL_COLOR_EXPR, "line-width": ["+", metroWidth, 1.6] }
+      paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidthAdd(1.6) }
     });
     map.addLayer({
       id: "metro-stations-ring", type: "circle", source: "metro-stations",
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 8, 10.6, 12],
-        "circle-color": "#0b3640", "circle-stroke-color": "#ffffff", "circle-stroke-width": 3
+        "circle-color": ["case", ["boolean", ["feature-state", "dim"], false], "#c3c7cb", "#0b3640"],
+        "circle-stroke-color": "#ffffff", "circle-stroke-width": 3,
+        "circle-opacity": ["case", ["boolean", ["feature-state", "dim"], false], 0.25, 1],
+        "circle-stroke-opacity": ["case", ["boolean", ["feature-state", "dim"], false], 0.25, 1]
       }
     });
     map.addLayer({
       id: "metro-stations-dot", type: "circle", source: "metro-stations",
-      paint: { "circle-radius": 3.2, "circle-color": "#ffffff" }
+      paint: { "circle-radius": 3.2, "circle-color": "#ffffff",
+        "circle-opacity": ["case", ["boolean", ["feature-state", "dim"], false], 0.25, 1] }
     });
 
     addLabels(structure);
@@ -617,15 +633,30 @@
       }).catch(function () {});
   }
 
-  // ---- water treatment on bridge/submarine segments -----------------------
+  // ---- water treatment on bridge/submarine (undersea) segments ------------
   function addWaterTreatment() {
-    // dashed white ripple line over water crossings (no sprite needed)
+    // 1) a wide translucent blue "underwater" tint beneath the crossing
+    map.addLayer({
+      id: "cable-submarine", type: "line", source: "cable-media",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#2f80c0",
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0.35, 13, 0.55],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 16] }
+    }, "stations-ring");
+    // 2) wave line-art following the crossing — a tileable wave sprite as a
+    //    line-pattern (dashed ripple as a fallback until the sprite loads)
     map.addLayer({
       id: "cable-water", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#eaf5f7", "line-opacity": 0.7, "line-width": 2,
+      paint: { "line-color": "#eaf6fb", "line-opacity": 0.85, "line-width": 2.2,
         "line-dasharray": [0.5, 2] }
     }, "stations-ring");
+    map.loadImage(SPRITE_BASE + "wave-tile.png").then(function (img) {
+      if (!map.hasImage("wave-tile")) map.addImage("wave-tile", img.data);
+      map.setPaintProperty("cable-water", "line-pattern", "wave-tile");
+      map.setPaintProperty("cable-water", "line-width",
+        ["interpolate", ["linear"], ["zoom"], 8, 6, 14, 18]);
+    }).catch(function () {});
   }
 
   // ---- decorations (whimsy) ----------------------------------------------
@@ -660,7 +691,12 @@
       id: "decorations", type: "symbol", source: "decorations",
       layout: {
         "icon-image": ["get", "icon"],
-        "icon-size": ["*", ["coalesce", ["get", "size"], 1], 0.5],
+        // grows with zoom: small & icon-like when zoomed out, large & detailed in.
+        // NB zoom interpolate must be OUTERMOST; per-feature size goes in each stop.
+        "icon-size": ["interpolate", ["linear"], ["zoom"],
+          8, ["*", ["coalesce", ["get", "size"], 1], 0.16],
+          11, ["*", ["coalesce", ["get", "size"], 1], 0.34],
+          14, ["*", ["coalesce", ["get", "size"], 1], 0.72]],
         "icon-rotate": ["coalesce", ["get", "rotation"], 0],
         "icon-allow-overlap": true, "icon-ignore-placement": true
       },
@@ -779,8 +815,8 @@
       if (!f) { clearSelection(); return; }
       var ev = { features: [f], lngLat: e.lngLat };
       var layer = f.layer.id;
-      if (layer === "cables-hit") { selectFeature("cables", f.properties.id); showCablePopup(ev); }
-      else if (layer === "metro-line") { selectFeature("metro", f.properties.id); showCablePopup(ev, true); }
+      if (layer === "cables-hit") { selectFeature("cables", f); showCablePopup(ev); }
+      else if (layer === "metro-line") { selectFeature("metro", f); showCablePopup(ev, true); }
       else if (layer === "metro-stations-ring") { clearSelection(); showMetroPopup(ev); }
       else { clearSelection(); showStationPopup(ev); }  // stations / devices
     });
@@ -794,10 +830,13 @@
   // ---- click-to-isolate: highlight one cable, dim the rest ----------------
   var DIM_LAYERS = {
     cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
-      "cables-intra", "cable-drops", "cable-water"],
+      "cables-intra", "cable-drops", "cable-water", "cable-submarine"],
     metro: ["metro-casing", "metro-line"]
   };
-  var _origOpacity = {}, _selActive = false;
+  // which station source + key list pairs with each cable source
+  var STATION_SRC = { cables: "stations", metro: "metro-stations" };
+  var STATION_KEYS_FOR = function (src) { return src === "cables" ? STATION_KEYS : METRO_KEYS; };
+  var _origOpacity = {}, _selActive = false, _dimmedStationSrc = null;
   function _dim(layer) {
     if (!map.getLayer(layer)) return;
     if (!(layer in _origOpacity)) {
@@ -805,6 +844,11 @@
       _origOpacity[layer] = (o == null ? 1 : o);
     }
     map.setPaintProperty(layer, "line-opacity", 0.1);
+  }
+  function _setStationDim(src, keys, endpoints) {
+    keys.forEach(function (k) {
+      map.setFeatureState({ source: src, id: k }, { dim: endpoints.indexOf(k) < 0 });
+    });
   }
   function clearSelection() {
     if (!_selActive) return;
@@ -814,13 +858,23 @@
     Object.keys(_origOpacity).forEach(function (l) {
       if (map.getLayer(l)) map.setPaintProperty(l, "line-opacity", _origOpacity[l]);
     });
+    if (_dimmedStationSrc) {
+      STATION_KEYS_FOR(_dimmedStationSrc === "stations" ? "cables" : "metro")
+        .forEach(function (k) { map.setFeatureState({ source: _dimmedStationSrc, id: k }, { dim: false }); });
+      _dimmedStationSrc = null;
+    }
   }
-  function selectFeature(source, id) {
+  function selectFeature(source, feat) {
     clearSelection();
     _selActive = true;
+    var props = feat.properties || {};
     DIM_LAYERS[source].forEach(_dim);
     var hl = source === "cables" ? "cables-highlight" : "metro-highlight";
-    map.setFilter(hl, ["==", ["get", "id"], id]);
+    map.setFilter(hl, ["==", ["get", "id"], props.id]);
+    // highlight the two endpoint sites; dim the rest
+    var ssrc = STATION_SRC[source];
+    _setStationDim(ssrc, STATION_KEYS_FOR(source), [props.a_site, props.z_site]);
+    _dimmedStationSrc = ssrc;
   }
   window.__nmSelect = selectFeature;       // exposed for dev/screenshot tooling
   window.__nmClearSelect = clearSelection;
