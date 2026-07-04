@@ -1,0 +1,57 @@
+{
+ "nodes": {
+  "switch03.fmt01.sfmix.org": {
+   "ports": {}
+  },
+  "switch01.sjc01.sfmix.org": {
+   "ports": {}
+  },
+  "switch01.sfo01.sfmix.org": {
+   "ports": {}
+  },
+  "switch01.sfo02.sfmix.org": {
+   "ports": {}
+  },
+  "switch01.sjc02.sfmix.org": {
+   "ports": {}
+  },
+  "switch01.scl05.sfmix.org": {
+   "ports": {}
+  },
+  "switch01.scl02.sfmix.org": {
+   "ports": {}
+  }
+ },
+ "links": {
+  "L1": {
+   "node1": "switch03.fmt01.sfmix.org",
+   "port1": "Ethernet35/1",
+   "node2": "switch01.sjc01.sfmix.org",
+   "port2": "Ethernet35/1"
+  },
+  "L2": {
+   "node1": "switch01.sfo01.sfmix.org",
+   "port1": "Ethernet21/1",
+   "node2": "switch01.sfo02.sfmix.org",
+   "port2": "Ethernet21/1"
+  },
+  "L3": {
+   "node1": "switch01.sjc02.sfmix.org",
+   "port1": "Ethernet49/1",
+   "node2": "switch01.scl05.sfmix.org",
+   "port2": "Ethernet49/1"
+  },
+  "L4": {
+   "node1": "switch01.sfo02.sfmix.org",
+   "port1": "Ethernet33/1",
+   "node2": "switch01.scl02.sfmix.org",
+   "port2": "Ethernet33/1"
+  },
+  "L5": {
+   "node1": "switch03.fmt01.sfmix.org",
+   "port1": "Ethernet54/1",
+   "node2": "switch01.sfo02.sfmix.org",
+   "port2": "Ethernet23/1"
+  }
+ }
+}

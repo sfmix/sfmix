@@ -1,0 +1,426 @@
+#!/usr/bin/env python3
+"""Build the public network-map structure from live network state + cable atlas.
+
+Runs on metrics.sfo02 (daily cron + on-demand poke). Joins:
+  * core-port inventory from Arista eAPI  (descriptions + oper status) — the
+    runtime source of truth; a port whose description starts "Core: Transport"
+    is a backbone link end, and it is included even when DOWN (rendered offline).
+  * LLDP topology from sflow-rt /topology/json — confirms which ends pair up.
+  * the committed cable atlas (network-map/atlas/*.geojson) — coarsened geometry.
+  * NetBox site records + network-map/sites.json — lat/lon, names, operators.
+
+Emits two files (atomic tmp+rename):
+  * map.json        PUBLIC  — opaque per-generation cable ids, no circuit/provider
+  * map-links.json  PRIVATE — opaque id -> member ports + circuit id/provider
+The portal serves map.json (static, CORS) and reads map-links.json to key the
+per-link traffic feed. Circuit ids / providers never appear in map.json.
+
+Modes:
+  (default)   build and write map.json + map-links.json
+  --check     report atlas<->topology drift; exit 1 on drift (no writes)
+  --dry-run   print map.json to stdout instead of writing
+
+Fixture mode (for local dev / CI, no network needed):
+  --eapi-fixture F      JSON {device: {ifname: {description, oper}}}
+  --topology-fixture F  sflow-rt /topology/json snapshot
+  --sites-fixture F     JSON {site: {lat, lon, name, operator, address}}
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import time
+import uuid
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.abspath(os.path.join(HERE, os.pardir))
+ATLAS_DIR = os.path.join(REPO, "network-map", "atlas")
+SITES_JSON = os.path.join(REPO, "network-map", "sites.json")
+
+SFLOW_URL = os.environ.get("SFLOW_URL", "http://127.0.0.1:8008")
+NETBOX_API = os.environ.get("IXP_NETBOX_API", "")
+NS = uuid.UUID("5f1e9d0c-0000-4000-8000-5f6d6978aabb")
+
+SPEED_BITS = {"1G": 1e9, "10G": 10e9, "25G": 25e9, "40G": 40e9,
+              "100G": 100e9, "400G": 400e9, "800G": 800e9,
+              "1Gbps": 1e9, "10Gbps": 10e9, "25Gbps": 25e9, "40Gbps": 40e9,
+              "100Gbps": 100e9, "400Gbps": 400e9, "800Gbps": 800e9}
+
+# Description grammar: "Core: Transport <SITE> via <Provider> {<TOKEN>} [<Speed>]"
+# Parsed with separate anchored searches (one combined regex mis-greeds provider).
+RE_SITE = re.compile(r"Transport\s+(?:to\s+)?([A-Za-z]{3}\d{2})", re.I)
+RE_PROVIDER = re.compile(r"via\s+(.+?)\s*(?:[{\[(]|$)", re.I)
+RE_BTOK = re.compile(r"\{([^}]+)\}")
+RE_PTOK = re.compile(r"\(([^)]*#[^)]*)\)")
+RE_SPEED = re.compile(r"\[([^\]]+)\]")
+
+
+def site_of(fqdn):
+    # switch01.fmt01.sfmix.org -> fmt01 ; switch01.fmt01 -> fmt01
+    parts = fqdn.split(".")
+    return parts[1] if len(parts) > 1 else fqdn
+
+
+def short(fqdn):
+    return ".".join(fqdn.split(".")[:2])
+
+
+def norm_token(tok):
+    """Normalize a circuit token for matching (strip spaces, '#')."""
+    return re.sub(r"[\s#]", "", tok or "").upper()
+
+
+def speed_to_bps(s):
+    if not s:
+        return 100e9
+    s = s.strip()
+    return SPEED_BITS.get(s, SPEED_BITS.get(s.replace("bps", "").strip() + "G", 100e9))
+
+
+# ---------------------------------------------------------------------------
+# Inputs (live or fixture)
+# ---------------------------------------------------------------------------
+def _get_json(url):
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=30) as r:
+        return json.load(r)
+
+
+def load_topology(args):
+    if args.topology_fixture:
+        return json.load(open(args.topology_fixture))
+    return _get_json("%s/topology/json" % SFLOW_URL)
+
+
+def load_eapi_inventory(args):
+    """Return {device_short: {ifname: {"description":..., "oper": "up"|"down"}}}."""
+    if args.eapi_fixture:
+        return json.load(open(args.eapi_fixture))
+    # live: query each active peering switch via eAPI (idioms from topology.py.j2)
+    import netrc
+    import pyeapi
+    import urllib.request
+    tokfile = os.path.expanduser("~/.netbox_api_token")
+    token = open(tokfile).read().strip()
+    devs, url = [], "%s/api/dcim/devices/?status=active&role=peering_switch&limit=200" % NETBOX_API
+    while url:
+        req = urllib.request.Request(url, headers={"Authorization": "Token %s" % token})
+        data = json.load(urllib.request.urlopen(req, timeout=30))
+        devs += [d["name"] for d in data["results"]]
+        url = data["next"]
+    auth = netrc.netrc().authenticators("sfmix.org")
+    user, _, pw = auth
+    inv = {}
+    for dev in devs:
+        try:
+            node = pyeapi.connect(host=dev, transport="https", username=user,
+                                  password=pw, timeout=30, return_node=True)
+            resp = node.enable(["show interfaces description"])
+            ifaces = resp[0]["result"]["interfaceDescriptions"]
+            inv[short(dev)] = {
+                ifn: {"description": v.get("description", ""),
+                      "oper": "up" if v.get("interfaceStatus", "").lower() in ("up", "connected") else "down"}
+                for ifn, v in ifaces.items()}
+        except Exception as e:
+            print("warning: eAPI %s failed: %r" % (dev, e), file=sys.stderr)
+    return inv
+
+
+def load_sites(args):
+    override = json.load(open(SITES_JSON)).get("sites", {}) if os.path.exists(SITES_JSON) else {}
+    if args.sites_fixture:
+        base = json.load(open(args.sites_fixture))
+    elif NETBOX_API:
+        base = _load_netbox_sites()
+    else:
+        base = {}
+    sites = {}
+    for code in set(list(base) + list(override)):
+        b = base.get(code, {}); o = override.get(code, {})
+        sites[code] = {
+            "lat": b.get("lat"), "lon": b.get("lon"),
+            "name": o.get("name") or b.get("name") or code,
+            "operator": o.get("operator") or b.get("operator") or "",
+            "metro": o.get("metro") or b.get("metro") or "",
+            "address": b.get("address", ""),
+        }
+    return sites
+
+
+def _load_netbox_sites():
+    import urllib.request
+    token = open(os.path.expanduser("~/.netbox_api_token")).read().strip()
+    url = "%s/api/dcim/sites/?limit=200" % NETBOX_API
+    out = {}
+    while url:
+        req = urllib.request.Request(url, headers={"Authorization": "Token %s" % token})
+        data = json.load(urllib.request.urlopen(req, timeout=30))
+        for s in data["results"]:
+            out[s["slug"]] = {"lat": s.get("latitude"), "lon": s.get("longitude"),
+                              "name": s.get("facility") or s.get("name"),
+                              "address": (s.get("physical_address") or "").replace("\r\n", ", ")}
+        url = data["next"]
+    return out
+
+
+def load_atlas():
+    atlas = []
+    if not os.path.isdir(ATLAS_DIR):
+        return atlas
+    for fn in sorted(os.listdir(ATLAS_DIR)):
+        if not fn.endswith(".geojson") or fn.startswith("_"):
+            continue
+        d = json.load(open(os.path.join(ATLAS_DIR, fn)))
+        c = d.get("circuit", {})
+        atlas.append({
+            "file": fn, "a_site": c.get("a_site"), "z_site": c.get("z_site"),
+            "status": c.get("status", "active"), "provider": c.get("provider", ""),
+            "match": [norm_token(m) for m in c.get("match", [])],
+            "segments": [{"medium": f["properties"].get("medium", "underground"),
+                          "coordinates": f["geometry"]["coordinates"]} for f in d["features"]],
+        })
+    return atlas
+
+
+# ---------------------------------------------------------------------------
+# Core-port parsing + cable assembly
+# ---------------------------------------------------------------------------
+def parse_core_ports(inv):
+    """Return list of core-port dicts from interface descriptions."""
+    ports = []
+    for dev, ifaces in inv.items():
+        for ifn, meta in ifaces.items():
+            desc = meta.get("description", "")
+            if "Core: Transport" not in desc:
+                continue
+            if "cross-x" in desc or "in cab" in desc.lower():
+                continue  # intra-cabinet cross-connect, not a mapped link
+            ms, mp = RE_SITE.search(desc), RE_PROVIDER.search(desc)
+            mb, mpt = RE_BTOK.search(desc), RE_PTOK.search(desc)
+            msp = RE_SPEED.search(desc)
+            tok = (mb.group(1) if mb else (mpt.group(1) if mpt else ""))
+            ports.append({
+                "device": dev, "ifname": ifn, "site": site_of(dev),
+                "remote_site": (ms.group(1).lower() if ms else ""),
+                "provider": (mp.group(1).strip() if mp else ""),
+                "token": tok.strip(), "ntoken": norm_token(tok),
+                "speed_bps": speed_to_bps(msp.group(1) if msp else None),
+                "oper": meta.get("oper", "down"), "desc": desc,
+            })
+    return ports
+
+
+def topo_adjacency(topology):
+    """Set of frozenset({'dev short:ifname', ...}) for confirmed LLDP links."""
+    adj = set()
+    for l in topology.get("links", {}).values():
+        a = "%s:%s" % (short(l["node1"]), l["port1"])
+        b = "%s:%s" % (short(l["node2"]), l["port2"])
+        adj.add(frozenset([a, b]))
+    return adj
+
+
+def assemble_cables(ports, adj):
+    """Group core ports into cables. Primary key: normalized circuit token;
+    tokenless ports fall back to an unordered (site,remote_site)+provider key."""
+    groups = {}
+    for p in ports:
+        if p["ntoken"]:
+            key = ("tok", p["ntoken"])
+        else:
+            key = ("pair", frozenset([p["site"], p["remote_site"]]), p["provider"].lower())
+        groups.setdefault(key, []).append(p)
+
+    cables = []
+    for key, members in groups.items():
+        sites = sorted({m["site"] for m in members} |
+                       {m["remote_site"] for m in members if m["remote_site"]})
+        # need exactly two distinct sites to place a cable
+        endpoints = [s for s in sites if s]
+        if len(endpoints) < 2:
+            continue
+        a_site, z_site = endpoints[0], endpoints[1]
+        # up if any member port participates in a confirmed LLDP link
+        up = False
+        for m in members:
+            tag = "%s:%s" % (m["device"], m["ifname"])
+            if any(tag in fs for fs in adj) and m["oper"] == "up":
+                up = True
+        # capacity: sum speeds of member ports on the a_site side (one strand/end)
+        cap = sum(m["speed_bps"] for m in members if m["site"] == a_site) or \
+            sum(m["speed_bps"] for m in members) / max(1, len(endpoints))
+        cables.append({
+            "key": key, "a_site": a_site, "z_site": z_site,
+            "members": sorted(("%s" % m["device"], m["ifname"]) for m in members),
+            "tokens": sorted({m["ntoken"] for m in members if m["ntoken"]}),
+            "provider": next((m["provider"] for m in members if m["provider"]), ""),
+            "capacity_bps": cap, "status": "up" if up else "down",
+        })
+    return cables
+
+
+# ---------------------------------------------------------------------------
+# Geometry: atlas match or auto-arc
+# ---------------------------------------------------------------------------
+def bezier_arc(p0, p1, bulge=0.1, steps=18):
+    mx, my = (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    cx, cy = mx - dy * bulge, my + dx * bulge
+    out = []
+    for i in range(steps + 1):
+        t = i / steps
+        out.append([round((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * cx + t ** 2 * p1[0], 5),
+                    round((1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * cy + t ** 2 * p1[1], 5)])
+    return out
+
+
+def match_atlas(cable, atlas):
+    toks = set(cable["tokens"])
+    for a in atlas:
+        if toks & set(a["match"]):
+            return a
+    pair = frozenset([cable["a_site"], cable["z_site"]])
+    for a in atlas:
+        if frozenset([a["a_site"], a["z_site"]]) == pair:
+            return a
+    return None
+
+
+def device_layout(devices):
+    """Small ring offsets (~metres) around a site point for the device tier."""
+    import math
+    n = len(devices)
+    if n <= 1:
+        return {devices[0]: (0.0, 0.0)} if devices else {}
+    r = 0.0016
+    return {d: (r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n))
+            for i, d in enumerate(devices)}
+
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+def build(args):
+    topology = load_topology(args)
+    inv = load_eapi_inventory(args)
+    sites_meta = load_sites(args)
+    atlas = load_atlas()
+
+    ports = parse_core_ports(inv)
+    adj = topo_adjacency(topology)
+    cables = assemble_cables(ports, adj)
+
+    # devices per site (from topology nodes + inventory)
+    devs_by_site = {}
+    for node in topology.get("nodes", {}):
+        devs_by_site.setdefault(site_of(node), set()).add(short(node))
+    for dev in inv:
+        devs_by_site.setdefault(site_of(dev), set()).add(dev)
+
+    generation = "g-" + uuid.uuid5(NS, args.generation_seed or str(len(cables))).hex[:10]
+
+    sites_out = {}
+    for code, meta in sites_meta.items():
+        if meta.get("lat") is None:
+            continue
+        devs = sorted(devs_by_site.get(code, []))
+        layout = device_layout(devs)
+        sites_out[code] = {
+            "lat": meta["lat"], "lon": meta["lon"], "name": meta["name"],
+            "operator": meta["operator"], "metro": meta["metro"], "address": meta["address"],
+            "devices": [{"id": d, "dlat": round(meta["lat"] + layout[d][1], 6),
+                         "dlon": round(meta["lon"] + layout[d][0], 6)} for d in devs],
+        }
+
+    cables_out, links_private, drift = [], {}, {"missing": [], "stale": [], "retired_live": []}
+    matched_files = set()
+    for c in cables:
+        a, z = c["a_site"], c["z_site"]
+        if a not in sites_out or z not in sites_out:
+            continue
+        a_ll = [sites_out[a]["lon"], sites_out[a]["lat"]]
+        z_ll = [sites_out[z]["lon"], sites_out[z]["lat"]]
+        atlas_hit = match_atlas(c, atlas)
+        if atlas_hit:
+            matched_files.add(atlas_hit["file"])
+            segments = atlas_hit["segments"]
+            approximate = False
+            if atlas_hit["status"] == "retired":
+                drift["retired_live"].append((atlas_hit["file"], a, z))
+        else:
+            segments = [{"medium": "underground", "coordinates": bezier_arc(a_ll, z_ll)}]
+            approximate = True
+            drift["missing"].append((a, z, c["tokens"] or c["provider"]))
+        oid = str(uuid.uuid5(NS, generation + "|" + "|".join("%s:%s" % m for m in c["members"])))
+        cables_out.append({
+            "id": oid, "scope": "inter", "a_site": a, "z_site": z,
+            "a_device": c["members"][0][0], "z_device": c["members"][-1][0],
+            "capacity_bps": c["capacity_bps"], "status": c["status"],
+            "approximate": approximate, "members": len(c["members"]),
+            "segments": segments,
+        })
+        links_private[oid] = {
+            "members": [{"host": m[0], "ifname": m[1]} for m in c["members"]],
+            "circuit": c["tokens"], "provider": c["provider"],
+            "capacity_bps": c["capacity_bps"],
+        }
+
+    # atlas entries never seen in topology
+    for a in atlas:
+        if a["file"] not in matched_files and a["status"] == "active":
+            drift["stale"].append((a["file"], a["a_site"], a["z_site"]))
+
+    mapjson = {"generation": generation,
+               "generated_at": args.now or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+               "sites": sites_out, "cables": cables_out}
+    return mapjson, links_private, drift
+
+
+def atomic_write(path, obj):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(obj, fh)
+    os.replace(tmp, path)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--out", default="/var/www/sfmix-map/map.json")
+    ap.add_argument("--links-out", default="/var/lib/sfmix-map/map-links.json")
+    ap.add_argument("--eapi-fixture")
+    ap.add_argument("--topology-fixture")
+    ap.add_argument("--sites-fixture")
+    ap.add_argument("--generation-seed", help="stable seed for opaque ids (default: derived)")
+    ap.add_argument("--now", help="override generated_at (for reproducible tests)")
+    args = ap.parse_args()
+
+    mapjson, links, drift = build(args)
+
+    if args.check:
+        n = sum(len(v) for v in drift.values())
+        print("cables: %d   sites: %d" % (len(mapjson["cables"]), len(mapjson["sites"])))
+        print("\nMISSING atlas (live link -> auto-arc): %s" % (drift["missing"] or "none"))
+        print("STALE atlas (active, not in topology):  %s" % (drift["stale"] or "none"))
+        print("RETIRED-but-live:                       %s" % (drift["retired_live"] or "none"))
+        print("\n" + ("DRIFT DETECTED" if n else "atlas in sync"))
+        return 1 if n else 0
+
+    if args.dry_run:
+        print(json.dumps(mapjson, indent=2))
+        return 0
+
+    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    os.makedirs(os.path.dirname(args.links_out), exist_ok=True)
+    atomic_write(args.out, mapjson)
+    atomic_write(args.links_out, links)
+    print("wrote %s (%d cables) and %s" % (args.out, len(mapjson["cables"]), args.links_out),
+          file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
