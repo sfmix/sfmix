@@ -637,37 +637,47 @@
       }).catch(function () {});
   }
 
-  // ---- water treatment on bridge/submarine (undersea) segments ------------
-  // Drawn ABOVE the util cable (beforeId stations-ring), so a bay crossing very
-  // obviously turns blue-and-wavy where it dives underwater.
+  // ---- water: a subtle ripple texture on the bay, reused over undersea cable --
+  // A submarine cable span reads as "submerged": the util colour is muted toward
+  // the water tone and the SAME ripple texture that styles the bay is laid over
+  // it, so it blends into the water instead of contrasting with it.
   function addWaterTreatment() {
     var beforeId = map.getLayer("stations-ring") ? "stations-ring" : undefined;
-    // 1) soft white "surf" halo so the underwater run reads against blue water
-    map.addLayer({
-      id: "cable-subhalo", type: "line", source: "cable-media",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#f2fbff", "line-opacity": 0.6, "line-blur": 2,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 8, 14, 26] }
-    }, beforeId);
-    // 2) bold blue "underwater" core covering the util colour over the crossing
+    // depth shade: slightly deeper water tone over the crossing (very soft)
     map.addLayer({
       id: "cable-submarine", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#1668b0", "line-opacity": 0.92,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 14, 11] }
+      paint: { "line-color": "#7ba7b6", "line-opacity": 0.4,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 15] }
     }, beforeId);
-    // 3) white wave ripples on top (tileable wave sprite; dashed fallback)
+    // mute the cable's util colour toward the water tone (submerged look)
     map.addLayer({
       id: "cable-water", type: "line", source: "cable-media",
-      layout: { "line-cap": "butt", "line-join": "round" },
-      paint: { "line-color": "#eaf6fb", "line-opacity": 0.95, "line-width": 2.2,
-        "line-dasharray": [0.6, 1.6] }
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#a7c6cf", "line-opacity": 0.45,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 7] }
     }, beforeId);
-    map.loadImage(SPRITE_BASE + "wave-tile.png").then(function (img) {
-      if (!map.hasImage("wave-tile")) map.addImage("wave-tile", img.data);
-      map.setPaintProperty("cable-water", "line-pattern", "wave-tile");
-      map.setPaintProperty("cable-water", "line-width",
+    // ripple texture over the span (matches the bay); replaces the mute layer's
+    // flat look with the same wave texture the water fill uses
+    map.addLayer({
+      id: "cable-ripple", type: "line", source: "cable-media",
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: { "line-color": "#cfe2e8", "line-opacity": 0.5, "line-width": 2,
+        "line-dasharray": [0.6, 1.8] }
+    }, beforeId);
+    map.loadImage(SPRITE_BASE + "water-texture.png").then(function (img) {
+      if (!map.hasImage("water-texture")) map.addImage("water-texture", img.data);
+      // ripples on the cable span
+      map.setPaintProperty("cable-ripple", "line-pattern", "water-texture");
+      map.setPaintProperty("cable-ripple", "line-width",
         ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 14]);
+      // texture the bay itself (subtle), just above the flat water fill
+      if (!map.getLayer("water-texture")) {
+        map.addLayer({
+          id: "water-texture", type: "fill", source: "water",
+          paint: { "fill-pattern": "water-texture", "fill-opacity": 0.5 }
+        }, map.getLayer("airport-terminal") ? "airport-terminal" : beforeId);
+      }
     }).catch(function () {});
   }
 
@@ -842,7 +852,7 @@
   // ---- click-to-isolate: highlight one cable, dim the rest ----------------
   var DIM_LAYERS = {
     cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
-      "cables-intra", "cable-drops", "cable-water", "cable-submarine", "cable-subhalo"],
+      "cables-intra", "cable-drops", "cable-water", "cable-submarine", "cable-ripple"],
     metro: ["metro-casing", "metro-line"]
   };
   // which station source + key list pairs with each cable source
