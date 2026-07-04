@@ -66,5 +66,10 @@ emit FID-2025-0741 "$SVROUTES" "OpenColo 3223 Kenneth St.-DRT SJC31 2805"      s
 emit FID-2023-0407 "$SVROUTES" "FID-2023-0407"                                 fmt01 sjc01 "FID-2023-0407"
 emit FID-2021-0106 "$RING"     "Equinix SV11 5GO Blvd.-Coresite SV4"           sjc01 scl02 "FID-2021-0106"
 emit FID-2025-0762 "$QTS"      "QTS SC2"                                       scl01 scl04 "FID-2025-0762"
+# sfo02<->scl02: the SF<->Santa-Clara CoreSite long-haul. The "Proposed
+# Replacement" route (200 Paul -> CoreSite SV7 3020 Coronado) is the real
+# corridor; --snap ties its ends to sfo02/scl02 (SV7 and SV4 are ~500m apart on
+# the same CoreSite campus).
+emit FID-2025-0742 "$SVROUTES" "Proposed Replacement"                          sfo02 scl02 "FID-2025-0742"
 
 echo "done -> $OUT"
