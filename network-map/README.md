@@ -82,12 +82,25 @@ Provider KMZs vary wildly, which is why not every circuit has traced geometry:
   Digital Realty (`DRT #285322`) circuits: none provided → auto-arc (dashed) or
   hand-draw. Some BIG circuits (FID-2023-0408, -0742, -0763, FID-2022-0145) lack a
   clean single-path KMZ too → auto-arc / site-pair-match a neighbouring path.
-- **Master network maps** (`BIG External-Sales`, `Customer Facing Boldyn`,
-  `Boldyn Fiber Route - APs`) — hundreds of segments named by BART line
-  (`RTE100xxx`, "BART R-Line") or unnamed, organized in folders. A specific A↔Z
-  circuit is a *chain of BART-corridor segments*, not one path; recovering it
-  needs graph routing over the segment network (future preprocessing work —
-  `map_trace_path.py --merge` only greedily chains a single file's segments).
+- **Boldyn BART-corridor network** (`Customer Facing Boldyn Fiber Network …`) —
+  Boldyn's fiber rides BART/public rights-of-way, so the KMZ is a *layered
+  network*, not per-circuit paths. Its folder tree is:
+  - `CONSTRUCTION COMPLETE` → `Underground` / `Aerial` / `Elevated Bart` — the
+    **built, in-service fiber** (the real basemap), tagged by medium;
+  - `IN PROGRESS` → `BART ROW` / `PUBLIC ROW` → **named circuit-specific callouts**
+    ("365 Main Diverse Entrance", "Conduit From Balboa To 200 Paul", "DRT Santa
+    Clara Data Center Ring", …) — proposed/under-construction routes;
+  - `DATA CENTERS` → Point placemarks (365 Main, 55 South Market, 2805 Lafayette,
+    48233 Warm Springs, …).
+  `scripts/map_boldyn_route.py` handles this: it builds a graph from every segment
+  vertex (snapped + stitched so laterals joining a line mid-span connect),
+  **prefers built fiber over in-progress** (routing penalty), Dijkstra-routes
+  between two datacenters, and tags the traced segments by their real medium
+  (Underground/Aerial). E.g. `--a-site fmt01 --z-site sjc02` traces the built
+  DF-231-4 corridor. `--list` shows the datacenter Points.
+- **Other master maps** (`BIG External-Sales`, `Boldyn Fiber Route - APs`) —
+  hundreds of unnamed/BART-line segments; the same routing approach applies but
+  they're lower-priority (the customer-facing Boldyn KMZ is cleaner).
 
 The builder falls back to a site-pair match, then a dashed auto-arc, so a circuit
 without atlas geometry still appears — it just doesn't trace its real corridor.

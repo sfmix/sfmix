@@ -99,6 +99,7 @@ CABLES = [
         ("underground", [(-121.90, 37.32)]),
     ]),
     ("fmt01", "sfo02", 10e9, "up", True, 1, []),  # approximate (auto arc, no atlas)
+    ("fmt01", "sjc02", 100e9, "up", False, 1, []),  # Boldyn DF-231-4 (BART-routed atlas)
     ("scl05", "sjc02", 100e9, "up", False, 1, [
         ("underground", [(-121.92, 37.35)]),
     ]),

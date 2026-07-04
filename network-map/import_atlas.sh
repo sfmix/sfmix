@@ -38,10 +38,22 @@ ZAYO_F22M="$(find_kmz 'Service 701967*FBDK-2172250*.kmz')"
 python3 "$TRACE" "$ZAYO_F22M" --merge --circuit-id F22M-0204477 --provider Zayo \
   --a-site sfo01 --z-site sfo02 --match 'F22M-0204477' --snap > "$OUT/F22M-0204477.geojson"; echo "OK   F22M-0204477"
 
-# --- Boldyn (single-route order KMZ: merge the 3 Fiber Path segments) ---
-BOLDYN="$(find_kmz '*55 S Market To 2805 Lafayette.kmz')"
-python3 "$TRACE" "$BOLDYN" --merge --circuit-id DF-231-4_sjc02-scl05 --provider Boldyn \
-  --a-site sjc02 --z-site scl05 --match 'DF-231-4-1,DF-231-4-2,00000231-0000' --snap > "$OUT/DF-231-4_sjc02-scl05.geojson"; echo "OK   DF-231-4 (sjc02<->scl05)"
+# --- Boldyn: fiber rides BART rights-of-way. Two kinds of source: ---
+# (a) a dedicated single-order KMZ (merge its Fiber Path segments); this one is
+#     the 55 S Market<->2805 Lafayette order (sjc02<->scl05). Match by the order
+#     number only (NOT the DF-231-4 tokens, which are the fmt01<->sjc02 link).
+BOLDYN_ORDER="$(find_kmz '*55 S Market To 2805 Lafayette.kmz')"
+python3 "$TRACE" "$BOLDYN_ORDER" --merge --circuit-id Boldyn-00000231-0000 --provider Boldyn \
+  --a-site sjc02 --z-site scl05 --match '00000231-0000' --snap > "$OUT/Boldyn-00000231-0000.geojson"
+echo "OK   Boldyn 00000231-0000 (sjc02<->scl05)"
+# (b) the customer-facing BART-network KMZ, chained via graph routing between
+#     datacenters. DF-231-4 is the fmt01<->sjc02 core link.
+BOLDYN_NET="$(find_kmz 'Customer Facing Boldyn Fiber Network 11.13.25.kmz')"
+ROUTE="$HERE/../scripts/map_boldyn_route.py"
+python3 "$ROUTE" "$BOLDYN_NET" --a-site fmt01 --z-site sjc02 \
+  --circuit-id DF-231-4 --match 'DF-231-4-1,DF-231-4-2' > "$OUT/DF-231-4.geojson"
+echo "OK   DF-231-4 (fmt01<->sjc02, BART-routed)"
+rm -f "$OUT/DF-231-4_sjc02-scl05.geojson"  # superseded by the two entries above
 
 # --- BIG Fiber (named routes inside multi-route KMZs) ---
 SVROUTES='Coresite to 2805 Lafayette - Final 3-27-25.kmz'
