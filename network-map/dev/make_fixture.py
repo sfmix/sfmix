@@ -142,7 +142,14 @@ CABLES = [
     ("scl02", "scl05", 100e9, "down", False, 2, [
         ("underground", [(-121.959, 37.374)]),
     ]),
+    # sfo02<->scl02 carries TWO circuits: a hot 400G (FID-2025-0742) and an older
+    # 100G standby (FID-2022-0145). Same pair -> drawn as adjacent parallel lines.
     ("scl02", "sfo02", 400e9, "up", False, 1, [
+        ("underground", [(-121.99, 37.50), (-122.20, 37.62)]),
+        ("bridge",      [(-122.30, 37.66)]),
+        ("underground", [(-122.38, 37.70)]),
+    ]),
+    ("scl02", "sfo02", 100e9, "up", False, 1, [
         ("underground", [(-121.99, 37.50), (-122.20, 37.62)]),
         ("bridge",      [(-122.30, 37.66)]),
         ("underground", [(-122.38, 37.70)]),
