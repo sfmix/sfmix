@@ -96,26 +96,33 @@
     });
 
     var cableFeatures = [], mediaFeatures = [], coordsById = {};
+    var STRAND_FRAC = 0.34; // strand spacing as a fraction of the pair spacing
     structure.cables.forEach(function (c) {
       var raw = cableCoords(c);
       var smooth = c.scope === "intra" ? raw : chaikin(raw, 2);
       coordsById[c.id] = { coords: smooth, approx: !!c.approximate };
-      var offset = 0;
+      var base = 0;
       if (c.scope === "inter") {
         var key = [c.a_site, c.z_site].sort().join("~");
         var n = pairCount[key]; var i = (pairSeen[key] = (pairSeen[key] || 0) + 1) - 1;
-        offset = (i - (n - 1) / 2);
+        base = (i - (n - 1) / 2);
       }
-      cableFeatures.push({
-        type: "Feature", id: c.id,
-        properties: {
-          id: c.id, scope: c.scope, status: c.status,
-          approximate: !!c.approximate, weight: weightForCapacity(c.capacity_bps),
-          capacity_bps: c.capacity_bps, offset: offset,
-          a_site: c.a_site, z_site: c.z_site
-        },
-        geometry: { type: "LineString", coordinates: smooth }
-      });
+      // A LAG / BiDi shows its member links as closely-spaced parallel strands;
+      // distinct circuits between the same pair are spaced a full step apart.
+      var strands = Math.max(1, c.members || 1);
+      for (var st = 0; st < strands; st++) {
+        var strandOff = strands > 1 ? (st - (strands - 1) / 2) * STRAND_FRAC : 0;
+        cableFeatures.push({
+          type: "Feature", id: c.id,
+          properties: {
+            id: c.id, scope: c.scope, status: c.status,
+            approximate: !!c.approximate, weight: weightForCapacity(c.capacity_bps),
+            capacity_bps: c.capacity_bps, offset: base + strandOff,
+            members: strands, strand: st, a_site: c.a_site, z_site: c.z_site
+          },
+          geometry: { type: "LineString", coordinates: smooth }
+        });
+      }
       // per-segment media features for water treatment (bridge/submarine)
       c.segments.forEach(function (seg) {
         if (seg.medium === "bridge" || seg.medium === "submarine") {
@@ -407,6 +414,7 @@
       filter: ["==", ["get", "scope"], "intra"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-width": 2.2, "line-dasharray": [2, 1],
+        "line-offset": offsetExpr,
         "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
     });
     // invisible fat hit target
@@ -414,6 +422,16 @@
       id: "cables-hit", type: "line", source: "cables",
       layout: { "line-cap": "round" },
       paint: { "line-color": "#000", "line-opacity": 0, "line-offset": offsetExpr, "line-width": 18 }
+    });
+
+    // selection highlight — the clicked cable's strands drawn bright on top while
+    // the rest are dimmed (see selectFeature). Filter matches nothing until a click.
+    map.addLayer({
+      id: "cables-highlight", type: "line", source: "cables",
+      filter: ["==", ["get", "id"], "__none__"],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": UTIL_COLOR_EXPR, "line-offset": offsetExpr,
+        "line-width": widthExprAdd(1.6) }
     });
 
     // stations: outer ring + inner dot
@@ -471,6 +489,12 @@
       id: "metro-line", type: "line", source: "metro-cables",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidth }
+    });
+    map.addLayer({
+      id: "metro-highlight", type: "line", source: "metro-cables",
+      filter: ["==", ["get", "id"], "__none__"],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": UTIL_COLOR_EXPR, "line-width": ["+", metroWidth, 1.6] }
     });
     map.addLayer({
       id: "metro-stations-ring", type: "circle", source: "metro-stations",
@@ -738,27 +762,68 @@
     className: "nm-popup", maxWidth: "280px", offset: 12 });
   var hoverable = window.matchMedia && window.matchMedia("(hover: hover)").matches;
 
+  // Priority order for picking what a click/hover targets (topmost intent first).
+  var PICK_LAYERS = ["metro-stations-ring", "metro-line", "devices-dot",
+    "stations-ring", "cables-hit"];
+  function pick(point) {
+    var layers = PICK_LAYERS.filter(function (l) { return map.getLayer(l); });
+    var f = map.queryRenderedFeatures(point, { layers: layers });
+    return f.length ? f[0] : null;
+  }
+
   function wireInteractions() {
-    // Popovers open on CLICK (clearer than hover); hover only sets the cursor.
-    var openCable = function (e) { showCablePopup(e); };
-    var openStation = function (e) { showStationPopup(e); };
-    var openMetroCable = function (e) { showCablePopup(e, true); };
-    var clickLayers = [
-      ["cables-hit", openCable],
-      ["stations-ring", openStation],
-      ["devices-dot", openStation],
-      ["metro-line", openMetroCable],
-      ["metro-stations-ring", showMetroPopup]
-    ];
-    clickLayers.forEach(function (pair) {
-      var layer = pair[0], handler = pair[1];
-      map.on("click", layer, handler);
-      if (hoverable) {
-        map.on("mouseenter", layer, function () { map.getCanvas().style.cursor = "pointer"; });
-        map.on("mouseleave", layer, function () { map.getCanvas().style.cursor = ""; });
-      }
+    // One global click dispatcher (robust across layers incl. the invisible fat
+    // hit line) — opens the popover and, for a cable/trunk, isolates it.
+    map.on("click", function (e) {
+      var f = pick(e.point);
+      if (!f) { clearSelection(); return; }
+      var ev = { features: [f], lngLat: e.lngLat };
+      var layer = f.layer.id;
+      if (layer === "cables-hit") { selectFeature("cables", f.properties.id); showCablePopup(ev); }
+      else if (layer === "metro-line") { selectFeature("metro", f.properties.id); showCablePopup(ev, true); }
+      else if (layer === "metro-stations-ring") { clearSelection(); showMetroPopup(ev); }
+      else { clearSelection(); showStationPopup(ev); }  // stations / devices
+    });
+    if (hoverable) {
+      map.on("mousemove", function (e) {
+        map.getCanvas().style.cursor = pick(e.point) ? "pointer" : "";
+      });
+    }
+  }
+
+  // ---- click-to-isolate: highlight one cable, dim the rest ----------------
+  var DIM_LAYERS = {
+    cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
+      "cables-intra", "cable-drops", "cable-water"],
+    metro: ["metro-casing", "metro-line"]
+  };
+  var _origOpacity = {}, _selActive = false;
+  function _dim(layer) {
+    if (!map.getLayer(layer)) return;
+    if (!(layer in _origOpacity)) {
+      var o = map.getPaintProperty(layer, "line-opacity");
+      _origOpacity[layer] = (o == null ? 1 : o);
+    }
+    map.setPaintProperty(layer, "line-opacity", 0.1);
+  }
+  function clearSelection() {
+    if (!_selActive) return;
+    _selActive = false;
+    if (map.getLayer("cables-highlight")) map.setFilter("cables-highlight", ["==", ["get", "id"], "__none__"]);
+    if (map.getLayer("metro-highlight")) map.setFilter("metro-highlight", ["==", ["get", "id"], "__none__"]);
+    Object.keys(_origOpacity).forEach(function (l) {
+      if (map.getLayer(l)) map.setPaintProperty(l, "line-opacity", _origOpacity[l]);
     });
   }
+  function selectFeature(source, id) {
+    clearSelection();
+    _selActive = true;
+    DIM_LAYERS[source].forEach(_dim);
+    var hl = source === "cables" ? "cables-highlight" : "metro-highlight";
+    map.setFilter(hl, ["==", ["get", "id"], id]);
+  }
+  window.__nmSelect = selectFeature;       // exposed for dev/screenshot tooling
+  window.__nmClearSelect = clearSelection;
 
   function showMetroPopup(e) {
     var f = e.features && e.features[0]; if (!f) return;
