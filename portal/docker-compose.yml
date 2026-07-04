@@ -14,8 +14,11 @@ services:
       IXP_LOOKING_GLASS_URL: "${IXP_LOOKING_GLASS_URL:-https://lg.sfmix.org:8081}"
       PROMETHEUS_URL: "${PROMETHEUS_URL:-http://metrics.sfo02.sfmix.org:9090}"
       PROMETHEUS_TRUSTED_NETWORKS: "${PROMETHEUS_TRUSTED_NETWORKS:-127.0.0.0/8,::1/128}"
+      SFMIX_MAP_LINKS_PATH: "${SFMIX_MAP_LINKS_PATH:-/data/map/map-links.json}"
     volumes:
       - db:/app/db
+      # private opaque-id -> member-ports map, rsynced from the metrics builder
+      - /var/lib/sfmix-map:/data/map:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/login/')"]
       interval: 30s

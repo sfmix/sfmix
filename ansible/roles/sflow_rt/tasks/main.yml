@@ -153,3 +153,75 @@
       >> /home/sfmix/weathermap_refresh.log 2>&1
     minute: "15"
     hour: "*/12"
+
+# ── Network-map structure builder (daily; on-demand via --tags map_structure) ──
+# Joins live eAPI core-port inventory + LLDP topology + committed cable atlas +
+# NetBox sites into map.json (PUBLIC, opaque ids) + map-links.json (PRIVATE),
+# then rsyncs both to the portal host (rrsync-restricted to /var/lib/sfmix-map).
+# Reuses this host's existing eAPI (~/.netrc) and NetBox token, like topology.py.
+- name: "Map: place ~sfmix/gen_map_structure.py"
+  become: true
+  tags: [map_structure]
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/gen_map_structure.py"
+    dest: /home/sfmix/gen_map_structure.py
+    owner: sfmix
+    group: sfmix
+    mode: u=rwx,go=
+
+- name: "Map: sync committed cable atlas + sites.json"
+  become: true
+  tags: [map_structure]
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../network-map/"
+    dest: /home/sfmix/network-map/
+    delete: true
+    rsync_opts:
+      - "--exclude=dev"
+      - "--exclude=fixtures"
+      - "--exclude=basemap"
+      - "--exclude=sprites-src"
+      - "--exclude=.kmz-cache"
+
+- name: "Map: ensure output + ssh dirs"
+  become: true
+  tags: [map_structure]
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: sfmix
+    group: sfmix
+    mode: "0700"
+  loop:
+    - /home/sfmix/map-out
+    - /home/sfmix/.ssh
+
+- name: "Map: place rsync push key for the portal host"
+  become: true
+  tags: [map_structure]
+  no_log: true
+  when: map_builder_rsync_privkey | default('') | length > 0
+  ansible.builtin.copy:
+    content: "{{ map_builder_rsync_privkey }}"
+    dest: /home/sfmix/.ssh/map_rsync
+    owner: sfmix
+    group: sfmix
+    mode: u=rw,go=
+
+- name: "Map: build structure daily and rsync to the portal"
+  become: true
+  tags: [map_structure]
+  ansible.builtin.cron:
+    name: "SFMIX network-map structure build"
+    user: sfmix
+    minute: "40"
+    hour: "{{ map_build_hour | default('4') }}"
+    job: >-
+      IXP_NETBOX_API='{{ ixp_netbox_api_endpoint }}'
+      /home/sfmix/gen_map_structure.py
+      --out /home/sfmix/map-out/map.json
+      --links-out /home/sfmix/map-out/map-links.json
+      && rsync -e 'ssh -i /home/sfmix/.ssh/map_rsync -o StrictHostKeyChecking=accept-new'
+      /home/sfmix/map-out/map.json /home/sfmix/map-out/map-links.json
+      {{ map_portal_rsync_host }}:
+      >> /home/sfmix/map_build.log 2>&1

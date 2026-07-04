@@ -133,9 +133,56 @@ def build_roads(tmp):
     print("wrote basemap-roads.json (%d segments)" % len(out))
 
 
+def build_airports():
+    q = ('[out:json][timeout:120];('
+         'way["aeroway"="runway"](%f,%f,%f,%f);'
+         'way["aeroway"="terminal"](%f,%f,%f,%f);'
+         'node["aeroway"="aerodrome"]["icao"](%f,%f,%f,%f);'
+         'way["aeroway"="aerodrome"]["icao"](%f,%f,%f,%f););out geom;'
+         % ((BBOX[1], BBOX[0], BBOX[3], BBOX[2]) * 4))
+    print("querying Overpass for airports…")
+    raw = _overpass(q)
+
+    def ring(g):
+        return [[round(p["lon"], 5), round(p["lat"], 5)] for p in g]
+
+    def centroid(g):
+        xs = [p["lon"] for p in g]; ys = [p["lat"] for p in g]
+        return [round(sum(xs) / len(xs), 5), round(sum(ys) / len(ys), 5)]
+
+    feats = []
+    for e in raw.get("elements", []):
+        tags = e.get("tags", {}); aw = tags.get("aeroway")
+        if e["type"] == "way" and "geometry" in e:
+            coords = ring(e["geometry"])
+            if len(coords) < 2:
+                continue
+            closed = coords[0] == coords[-1] and len(coords) >= 4
+            if aw == "runway":
+                if closed:
+                    feats.append({"type": "Feature", "properties": {"kind": "runway"},
+                                  "geometry": {"type": "Polygon", "coordinates": [coords]}})
+                else:
+                    feats.append({"type": "Feature", "properties": {"kind": "runway_line"},
+                                  "geometry": {"type": "LineString", "coordinates": coords}})
+            elif aw == "terminal" and closed:
+                feats.append({"type": "Feature", "properties": {"kind": "terminal"},
+                              "geometry": {"type": "Polygon", "coordinates": [coords]}})
+            elif aw == "aerodrome" and tags.get("icao"):
+                feats.append({"type": "Feature", "properties": {"kind": "aerodrome", "icao": tags["icao"]},
+                              "geometry": {"type": "Point", "coordinates": centroid(e["geometry"])}})
+        elif e["type"] == "node" and aw == "aerodrome" and tags.get("icao"):
+            feats.append({"type": "Feature", "properties": {"kind": "aerodrome", "icao": tags["icao"]},
+                          "geometry": {"type": "Point", "coordinates": [round(e["lon"], 5), round(e["lat"], 5)]}})
+    with open(os.path.join(OUT, "basemap-airports.json"), "w") as fh:
+        json.dump({"type": "FeatureCollection", "features": feats}, fh)
+    print("wrote basemap-airports.json (%d features)" % len(feats))
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     build_land()
+    build_airports()
     with tempfile.TemporaryDirectory() as tmp:
         build_water(tmp)
         build_roads(tmp)

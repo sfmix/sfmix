@@ -11,6 +11,9 @@ per layer gives correct zoom-dependent detail. Three files live in
   incl. Treasure Island, piers, sloughs).
 - `basemap-land.json`  — a single bbox rectangle used as the paper backdrop;
   water draws on top, so the crisp edge comes from the water polygons.
+- `basemap-airports.json` — OSM `aeroway` runway shapes + terminal footprints +
+  aerodrome ICAO points (SFO/OAK/SJC/Moffett/…). Rendered as subtle grey hints;
+  ICAO codes are tiny labels shown only at zoom ≥ 10.5.
 - `basemap-roads.json` — freeways: all `motorway` (incl. the I-80 Bay Bridge,
   I-580 Richmond, CA-92 San Mateo, CA-84 Dumbarton crossings) as
   `class: motorway`, plus major `trunk` state routes as `class: trunk`. The

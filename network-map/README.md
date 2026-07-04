@@ -90,6 +90,28 @@ To preview inside the real Hugo site: `hugo server -s website` and browse
 `/network-map/` (the page's `data-*-url` attributes point at portal.sfmix.org;
 override them locally if you want live-ish data).
 
+## Deployment
+
+- **Builder** (`scripts/gen_map_structure.py`) is deployed to metrics.sfo02 by
+  `ansible/roles/sflow_rt` (tag `map_structure`): it copies the script, syncs the
+  atlas + `sites.json` to `~sfmix/network-map/`, and installs a daily cron that
+  builds `map.json` + `map-links.json` and rsyncs both to the portal host
+  (rrsync-restricted to `/var/lib/sfmix-map`).
+- **Portal** (`ansible/roles/ixp_portal`) creates `/var/lib/sfmix-map`, authorizes
+  the builder's key, bind-mounts the dir read-only into the container
+  (`SFMIX_MAP_LINKS_PATH=/data/map/map-links.json`), and serves only
+  `map.json` via nginx (`location = /map/map.json`, CORS-open). The live traffic
+  feed is the Django view `/statistics/map/traffic`.
+- **One-time operator step**: generate an SSH keypair for the push, vault the
+  private key as `map_builder_rsync_privkey` (sflow_rt) and set the public key as
+  `map_builder_rsync_pubkey` (ixp_portal). Run ansible with
+  `--vault-password-file ~/.sfmix_ansible_vault`. Poke a rebuild any time with
+  `ansible-playbook push_servers.playbook.yml --tags map_structure` (then the
+  cron command, or run the builder directly on the host).
+- **Website** (`website/`) is the static shell — MapLibre, basemap, sprites,
+  `network-map.js` — deployed by the existing GitHub Pages workflow. No build-time
+  data step; all data is fetched live from the portal.
+
 ## Directory map
 
 ```
