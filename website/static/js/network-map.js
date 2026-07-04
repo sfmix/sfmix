@@ -214,6 +214,7 @@
       sources: {
         water: { type: "geojson", data: BASEMAP_BASE + "basemap-water.json" },
         land: { type: "geojson", data: BASEMAP_BASE + "basemap-land.json" },
+        airports: { type: "geojson", data: BASEMAP_BASE + "basemap-airports.json" },
         roads: { type: "geojson", data: BASEMAP_BASE + "basemap-roads.json", tolerance: 0.5 }
       },
       layers: [
@@ -221,6 +222,18 @@
         { id: "land", type: "fill", source: "land", paint: { "fill-color": "#f4f1e9" } },
         { id: "water", type: "fill", source: "water",
           paint: { "fill-color": "#a7c6cf", "fill-outline-color": "#8fb2bd" } },
+        // airports — runway/terminal hints (no clutter; ICAO labels via markers)
+        { id: "airport-terminal", type: "fill", source: "airports",
+          filter: ["==", ["get", "kind"], "terminal"],
+          paint: { "fill-color": "#cfc9ba", "fill-opacity": 0.7 } },
+        { id: "airport-runway-fill", type: "fill", source: "airports",
+          filter: ["==", ["get", "kind"], "runway"],
+          paint: { "fill-color": "#b7b3a7" } },
+        { id: "airport-runway", type: "line", source: "airports",
+          filter: ["==", ["get", "kind"], "runway_line"],
+          layout: { "line-cap": "butt" },
+          paint: { "line-color": "#b0aca0",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 12, 3, 15, 9] } },
         { id: "trunk-casing", type: "line", source: "roads", minzoom: 9.5,
           filter: ["==", ["get", "class"], "trunk"],
           layout: { "line-cap": "round", "line-join": "round" },
@@ -256,7 +269,7 @@
     customAttribution: "Basemap © OpenStreetMap contributors · SFMIX"
   }), "bottom-right");
 
-  var siteMarkers = [], deviceMarkers = [], decoTextMarkers = [], metroMarkers = [];
+  var siteMarkers = [], deviceMarkers = [], decoTextMarkers = [], metroMarkers = [], airportMarkers = [];
 
   map.on("load", function () {
     fetch(STRUCTURE_URL, { mode: "cors" })
@@ -398,6 +411,7 @@
     });
 
     addLabels(structure);
+    addAirportLabels();
     addWaterTreatment();
     if (DECOR_URL) addDecorations();
     wireInteractions();
@@ -425,6 +439,8 @@
     metroMarkers.forEach(function (m) { m.getElement().style.display = metro ? "" : "none"; });
     var expanded = z >= EXPAND_ZOOM;
     deviceMarkers.forEach(function (m) { m.getElement().style.display = expanded ? "" : "none"; });
+    var showIcao = z >= ICAO_ZOOM;
+    airportMarkers.forEach(function (m) { m.getElement().style.display = showIcao ? "" : "none"; });
   }
 
   // ---- HTML label markers -------------------------------------------------
@@ -466,6 +482,25 @@
       });
     });
   }
+  // ---- airport ICAO labels (tiny, zoom-gated) -----------------------------
+  var ICAO_ZOOM = 10.5;
+  function addAirportLabels() {
+    fetch(BASEMAP_BASE + "basemap-airports.json").then(function (r) { return r.json(); })
+      .then(function (fc) {
+        fc.features.forEach(function (f) {
+          if (f.properties.kind !== "aerodrome" || !f.properties.icao) return;
+          var d = document.createElement("div");
+          d.className = "nm-label nm-label-icao";
+          d.textContent = f.properties.icao;
+          var m = new maplibregl.Marker({ element: d, anchor: "center" })
+            .setLngLat(f.geometry.coordinates).addTo(map);
+          m.getElement().style.display = "none";
+          airportMarkers.push(m);
+        });
+        setTier();
+      }).catch(function () {});
+  }
+
   // ---- water treatment on bridge/submarine segments -----------------------
   function addWaterTreatment() {
     // dashed white ripple line over water crossings (no sprite needed)
