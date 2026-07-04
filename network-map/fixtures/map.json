@@ -160,13 +160,23 @@
       "devices": [
         {
           "id": "switch01.sjc01",
-          "dlat": 37.242351,
+          "dlat": 37.242951,
           "dlon": -121.783376
         },
         {
           "id": "switch02.sjc01",
-          "dlat": 37.242351,
+          "dlat": 37.242951,
+          "dlon": -121.782426
+        },
+        {
+          "id": "switch03.sjc01",
+          "dlat": 37.242951,
           "dlon": -121.781476
+        },
+        {
+          "id": "switch04.sjc01",
+          "dlat": 37.241751,
+          "dlon": -121.783376
         }
       ]
     },
@@ -2425,7 +2435,88 @@
       "z_site": "sjc01",
       "a_device": "switch01.sjc01",
       "z_device": "switch02.sjc01",
-      "capacity_bps": 200000000000.0,
+      "capacity_bps": 800000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 4,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.783376,
+              37.242951
+            ],
+            [
+              -121.782426,
+              37.242951
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5f430072-2674-5470-bd79-00a9d3f2b2d3",
+      "scope": "intra",
+      "a_site": "sjc01",
+      "z_site": "sjc01",
+      "a_device": "switch03.sjc01",
+      "z_device": "switch01.sjc01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.781476,
+              37.242951
+            ],
+            [
+              -121.783376,
+              37.242951
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cdda51a9-97de-53ab-b51f-3fcebb370e11",
+      "scope": "intra",
+      "a_site": "sjc01",
+      "z_site": "sjc01",
+      "a_device": "switch03.sjc01",
+      "z_device": "switch02.sjc01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.781476,
+              37.242951
+            ],
+            [
+              -121.782426,
+              37.242951
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "243a326e-6653-58c1-bb95-6319c84d4f57",
+      "scope": "intra",
+      "a_site": "sjc01",
+      "z_site": "sjc01",
+      "a_device": "switch04.sjc01",
+      "z_device": "switch01.sjc01",
+      "capacity_bps": 400000000000.0,
       "status": "up",
       "approximate": false,
       "members": 2,
@@ -2435,11 +2526,38 @@
           "coordinates": [
             [
               -121.783376,
-              37.242351
+              37.241751
             ],
             [
-              -121.781476,
-              37.242351
+              -121.783376,
+              37.242951
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4f8ba13e-ce4e-515a-b518-f8b3cad28229",
+      "scope": "intra",
+      "a_site": "sjc01",
+      "z_site": "sjc01",
+      "a_device": "switch04.sjc01",
+      "z_device": "switch02.sjc01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.783376,
+              37.241751
+            ],
+            [
+              -121.782426,
+              37.242951
             ]
           ]
         }
