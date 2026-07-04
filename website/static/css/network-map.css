@@ -31,6 +31,13 @@
 .nm-label-site .nm-code { font-weight: 800; }
 .nm-label-site .nm-name { font-weight: 500; opacity: .78; font-size: 11px; }
 .nm-label-device { font-size: 11px; font-weight: 600; opacity: .85; }
+.nm-label-icao {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  color: #8f8b7f;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .8);
+}
 .nm-label-deco {
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
