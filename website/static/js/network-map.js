@@ -23,7 +23,8 @@
   // shows one node per metro to avoid clustering tight sites (e.g. Santa Clara);
   // above it, individual sites; above EXPAND_ZOOM, devices within each site.
   var METRO_ZOOM = 10.6;
-  var EXPAND_ZOOM = 12.4;
+  var EXPAND_ZOOM = 13.0;       // building box + switch dots become readable here
+  var DEVICE_LABEL_ZOOM = 14.3; // switch captions wait for room to avoid collisions
 
   // i18n bridge (English fallback keys)
   var I18N = {};
@@ -94,10 +95,11 @@
       pairCount[key] = (pairCount[key] || 0) + 1;
     });
 
-    var cableFeatures = [], mediaFeatures = [];
+    var cableFeatures = [], mediaFeatures = [], coordsById = {};
     structure.cables.forEach(function (c) {
       var raw = cableCoords(c);
       var smooth = c.scope === "intra" ? raw : chaikin(raw, 2);
+      coordsById[c.id] = { coords: smooth, approx: !!c.approximate };
       var offset = 0;
       if (c.scope === "inter") {
         var key = [c.a_site, c.z_site].sort().join("~");
@@ -126,7 +128,7 @@
       });
     });
 
-    var stationFeatures = [], deviceFeatures = [];
+    var stationFeatures = [], deviceFeatures = [], buildingFeatures = [];
     Object.keys(sites).forEach(function (code) {
       var s = sites[code];
       stationFeatures.push({
@@ -135,6 +137,12 @@
           metro: s.metro || "", address: s.address || "", ndev: (s.devices || []).length },
         geometry: { type: "Point", coordinates: [s.lon, s.lat] }
       });
+      if (s.building) {
+        buildingFeatures.push({
+          type: "Feature", properties: { code: code },
+          geometry: { type: "Polygon", coordinates: [s.building] }
+        });
+      }
       (s.devices || []).forEach(function (d) {
         deviceFeatures.push({
           type: "Feature",
@@ -177,16 +185,32 @@
       if (c.status !== "down") g.anyUp = true;
       if (!c.approximate) g.allApprox = false;
     });
-    var metroPairCount = {}, metroPairSeen = {};
-    Object.keys(mGroups).forEach(function (k) { metroPairCount[k] = 1; });
     var metroCableFeatures = Object.keys(mGroups).map(function (key) {
       var g = mGroups[key];
       var id = "metro:" + key;
       METRO_MEMBERS[id] = g.ids; METRO_CAP[id] = g.cap;
-      var line = chaikin([metroCentroid[g.a], midBulge(metroCentroid[g.a], metroCentroid[g.z]), metroCentroid[g.z]], 2);
+      // Trace the trunk along its richest real member cable (prefer non-approx,
+      // then most points) so it follows a real corridor instead of floating; run
+      // it centroid -> real path -> centroid so it meets the metro roundels.
+      var ca = metroCentroid[g.a], cz = metroCentroid[g.z], best = null;
+      g.ids.forEach(function (cid) {
+        var e = coordsById[cid];
+        if (!e || e.coords.length < 3) return;
+        if (!best || (best.approx && !e.approx) ||
+            (best.approx === e.approx && e.coords.length > best.coords.length)) best = e;
+      });
+      var line, real = false;
+      if (best) {
+        var pts = best.coords.slice();
+        if (dist(pts[0], ca) > dist(pts[pts.length - 1], ca)) pts.reverse();
+        line = [ca].concat(pts, [cz]);
+        real = !best.approx;
+      } else {
+        line = chaikin([ca, midBulge(ca, cz), cz], 2);
+      }
       return { type: "Feature", id: id,
         properties: { id: id, scope: "metro", status: g.anyUp ? "up" : "down",
-          approximate: g.allApprox, weight: weightForCapacity(g.cap),
+          approximate: !real, weight: weightForCapacity(g.cap),
           capacity_bps: g.cap, offset: 0, a_site: g.a, z_site: g.z, nmember: g.members.length },
         geometry: { type: "LineString", coordinates: line } };
     });
@@ -194,11 +218,13 @@
     return {
       cables: fc(cableFeatures), media: fc(mediaFeatures),
       stations: fc(stationFeatures), devices: fc(deviceFeatures),
+      buildings: fc(buildingFeatures),
       metroStations: fc(metroStationFeatures), metroCables: fc(metroCableFeatures)
     };
   }
   function fc(features) { return { type: "FeatureCollection", features: features }; }
   function avg(a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; }
+  function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
   function midBulge(a, z) {
     var mx = (a[0] + z[0]) / 2, my = (a[1] + z[1]) / 2;
     var dx = z[0] - a[0], dy = z[1] - a[1];
@@ -290,6 +316,7 @@
     map.addSource("devices", { type: "geojson", data: src.devices });
     map.addSource("metro-cables", { type: "geojson", data: src.metroCables, promoteId: "id" });
     map.addSource("metro-stations", { type: "geojson", data: src.metroStations });
+    map.addSource("buildings", { type: "geojson", data: src.buildings });
 
     // NB: a zoom `interpolate` must be the OUTERMOST expression — it cannot be
     // nested inside a multiply. So the per-feature property math lives in each
@@ -305,6 +332,19 @@
         16, ["+", ["*", ["get", "weight"], 2.8], add]];
     }
     var widthExpr = widthExprAdd(0);
+
+    // site building footprints — fade in at the device tier as the "box" that
+    // contains the switches (below cables so links route to/over the box)
+    map.addLayer({
+      id: "site-building", type: "fill", source: "buildings",
+      paint: { "fill-color": "#d8d2c2", "fill-outline-color": "#7d7867",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.85] }
+    });
+    map.addLayer({
+      id: "site-building-outline", type: "line", source: "buildings",
+      paint: { "line-color": "#7d7867", "line-width": 1.2,
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
+    });
 
     // casing (dark under-stroke) for inter cables
     map.addLayer({
@@ -362,15 +402,17 @@
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 5, 12, 8, 15, 11],
         "circle-color": "#ffffff", "circle-stroke-color": "#0b3640",
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 15, 3.5],
-        // shrink the metro roundel as devices take over
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM, 1, EXPAND_ZOOM + 1, 0.85]
+        // roundel gives way to the building box + switches at the device tier
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0],
+        "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]
       }
     });
     map.addLayer({
       id: "stations-dot", type: "circle", source: "stations",
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 15, 3.2],
-        "circle-color": "#0b3640"
+        "circle-color": "#0b3640",
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 1, EXPAND_ZOOM + 0.5, 0]
       }
     });
     // devices (fade in when zoomed into a site)
@@ -435,10 +477,14 @@
     var metro = z < METRO_ZOOM;
     setVis(METRO_LAYERS, metro);
     setVis(SITE_LAYERS, !metro);
-    siteMarkers.forEach(function (m) { m.getElement().style.display = metro ? "none" : ""; });
+    // site name shows at the site tier, then hands off to the switch labels once
+    // you're inside the building (avoids site-label / switch-label collisions)
+    var siteLabelsOn = !metro && z < DEVICE_LABEL_ZOOM;
+    siteMarkers.forEach(function (m) { m.getElement().style.display = siteLabelsOn ? "" : "none"; });
     metroMarkers.forEach(function (m) { m.getElement().style.display = metro ? "" : "none"; });
-    var expanded = z >= EXPAND_ZOOM;
-    deviceMarkers.forEach(function (m) { m.getElement().style.display = expanded ? "" : "none"; });
+    // device dots appear with the building box; their labels wait until there's
+    // room so adjacent switch captions don't collide
+    deviceMarkers.forEach(function (m) { m.getElement().style.display = z >= DEVICE_LABEL_ZOOM ? "" : "none"; });
     var showIcao = z >= ICAO_ZOOM;
     airportMarkers.forEach(function (m) { m.getElement().style.display = showIcao ? "" : "none"; });
   }
@@ -475,7 +521,9 @@
         var dd = document.createElement("div");
         dd.className = "nm-label nm-label-device";
         dd.textContent = dev.id.split(".")[0];
-        var dm = new maplibregl.Marker({ element: dd, anchor: "left", offset: [10, 0] })
+        // caption below each switch dot — clears the dot, the intra-link line,
+        // and neighbouring switches in the in-building grid
+        var dm = new maplibregl.Marker({ element: dd, anchor: "top", offset: [0, 7] })
           .setLngLat([dev.dlon, dev.dlat]).addTo(map);
         dm.getElement().style.display = "none";
         deviceMarkers.push(dm);
@@ -555,7 +603,8 @@
     var d = document.createElement("div");
     d.className = "nm-label nm-label-deco";
     d.textContent = f.properties.label;
-    var m = new maplibregl.Marker({ element: d, anchor: "center" })
+    // anchor the caption below the sprite so graphic and text don't overlap
+    var m = new maplibregl.Marker({ element: d, anchor: "top", offset: [0, 24] })
       .setLngLat(f.geometry.coordinates).addTo(map);
     decoTextMarkers.push(m);
   }

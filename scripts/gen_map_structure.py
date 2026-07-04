@@ -232,6 +232,23 @@ def assemble_cables(ports, adj):
             key = ("pair", frozenset([p["site"], p["remote_site"]]), p["provider"].lower())
         groups.setdefault(key, []).append(p)
 
+    # Merge tokenless "pair" groups into a token group when they describe the same
+    # physical link — e.g. one end reads "via Zayo {F22M-0204477}" and the far end
+    # just "via Zayo" (no token). Match on unordered site-pair + provider so the
+    # two ends collapse into one cable instead of a real link + a phantom.
+    def prov0(p):
+        return (p["provider"].split("+")[0].split()[0].lower() if p["provider"] else "")
+    tok_index = {}  # (sitepair, prov0) -> token key
+    for key, members in groups.items():
+        if key[0] != "tok":
+            continue
+        sites = frozenset(s for m in members for s in (m["site"], m["remote_site"]) if s)
+        tok_index[(sites, prov0(members[0]))] = key
+    for key in [k for k in groups if k[0] == "pair"]:
+        tgt = tok_index.get((key[1], (key[2].split("+")[0].split() or [""])[0]))
+        if tgt:
+            groups[tgt].extend(groups.pop(key))
+
     cables = []
     for key, members in groups.items():
         sites = sorted({m["site"] for m in members} |
@@ -288,14 +305,32 @@ def match_atlas(cable, atlas):
 
 
 def device_layout(devices):
-    """Small ring offsets (~metres) around a site point for the device tier."""
+    """Grid of offsets INSIDE the building footprint, sized so device dots, their
+    (below-dot) labels, and the intra-link lines don't overlap. Switches sit
+    within the box at the device tier, not stacked on the site point."""
     import math
     n = len(devices)
     if n <= 1:
         return {devices[0]: (0.0, 0.0)} if devices else {}
-    r = 0.0016
-    return {d: (r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n))
-            for i, d in enumerate(devices)}
+    cols = min(n, 3 if n <= 6 else 4)
+    rows = math.ceil(n / cols)
+    sx, sy = 0.00095, 0.00060  # inside the ~210x200 m box, with label margin
+    out = {}
+    for i, d in enumerate(devices):
+        r, c = divmod(i, cols)
+        x = 0.0 if cols == 1 else (-sx + 2 * sx * c / (cols - 1))
+        y = 0.0 if rows == 1 else (sy - 2 * sy * r / (rows - 1))
+        out[d] = (round(x, 6), round(y, 6))
+    return out
+
+
+def building_rect(lat, lon):
+    """Stylized building footprint (~210x200 m — deliberately larger than the real
+    footprint so the box + switches inside are readable when zoomed in)."""
+    dx, dy = 0.00130, 0.00090
+    return [[round(lon - dx, 6), round(lat - dy, 6)], [round(lon + dx, 6), round(lat - dy, 6)],
+            [round(lon + dx, 6), round(lat + dy, 6)], [round(lon - dx, 6), round(lat + dy, 6)],
+            [round(lon - dx, 6), round(lat - dy, 6)]]
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +364,7 @@ def build(args):
         sites_out[code] = {
             "lat": meta["lat"], "lon": meta["lon"], "name": meta["name"],
             "operator": meta["operator"], "metro": meta["metro"], "address": meta["address"],
+            "building": building_rect(meta["lat"], meta["lon"]),
             "devices": [{"id": d, "dlat": round(meta["lat"] + layout[d][1], 6),
                          "dlon": round(meta["lon"] + layout[d][0], 6)} for d in devs],
         }
