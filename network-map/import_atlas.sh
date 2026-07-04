@@ -55,6 +55,38 @@ python3 "$ROUTE" "$BOLDYN_NET" --a-site fmt01 --z-site sjc02 \
 echo "OK   DF-231-4 (fmt01<->sjc02, BART-routed)"
 rm -f "$OUT/DF-231-4_sjc02-scl05.geojson"  # superseded by the two entries above
 
+# Santa Clara intra-metro hops via the Boldyn DC ring callouts. The CoreSite /
+# OpenColo / DRT cluster is one loop; a larger --stitch joins its ring fragments.
+python3 "$ROUTE" "$BOLDYN_NET" --a-site scl02 --z-site scl04 --stitch 300 \
+  --provider "BIG Fiber" --circuit-id FID-2023-0408 --match 'FID-2023-0408' > "$OUT/FID-2023-0408.geojson"
+echo "OK   FID-2023-0408 (scl02<->scl04, ring-routed)"
+# scl01 (QTS, Mission College) is NOT on the Boldyn ring, so QTS<->CoreSite is the
+# real corridor QTS<->OpenColo (FID-2025-0762) chained with OpenColo<->CoreSite
+# (the ring hop above), joined at OpenColo (scl04).
+python3 - "$OUT" <<'PY'
+import json, sys, math
+OUT = sys.argv[1]
+def load(p):
+    d = json.load(open(f"{OUT}/{p}"))
+    return [c for f in d["features"] for c in f["geometry"]["coordinates"]]
+qo = load("FID-2025-0762.geojson")   # scl01(QTS) <-> scl04(OpenColo)
+oc = load("FID-2023-0408.geojson")   # scl02(CoreSite) <-> scl04(OpenColo)
+def d(a, b): return math.hypot(a[0]-b[0], a[1]-b[1])
+# orient qo as scl01 -> scl04 (join end near oc's scl04 end), oc as scl04 -> scl02
+join = oc[-1] if d(oc[-1], qo[-1]) < d(oc[0], qo[-1]) else oc[0]
+if d(qo[0], join) < d(qo[-1], join): qo = qo[::-1]      # end qo at the join (scl04)
+if d(oc[0], qo[-1]) > d(oc[-1], qo[-1]): oc = oc[::-1]   # start oc at the join
+coords = qo + [c for c in oc if c != qo[-1]]
+fc = {"type": "FeatureCollection",
+      "circuit": {"circuit_id": "FID-2025-0763", "provider": "BIG Fiber",
+                  "a_site": "scl01", "z_site": "scl02", "status": "active",
+                  "geometry": "chained", "match": ["FID-2025-0763"]},
+      "features": [{"type": "Feature", "properties": {"seq": 0, "medium": "underground"},
+                    "geometry": {"type": "LineString", "coordinates": coords}}]}
+json.dump(fc, open(f"{OUT}/FID-2025-0763.geojson", "w"), indent=2)
+print("OK   FID-2025-0763 (scl01<->scl02, chained QTS->OpenColo->CoreSite: %d pts)" % len(coords))
+PY
+
 # --- BIG Fiber (named routes inside multi-route KMZs) ---
 SVROUTES='Coresite to 2805 Lafayette - Final 3-27-25.kmz'
 RING='BIG-SFMIX Proposed 6 Node Bay Ring and Single P2P_10112023.kmz'
