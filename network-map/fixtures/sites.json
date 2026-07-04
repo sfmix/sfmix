@@ -1,0 +1,51 @@
+{
+ "sfo01": {
+  "lat": 37.788971,
+  "lon": -122.390168,
+  "name": "365 Main",
+  "operator": "Digital Realty",
+  "metro": "San Francisco"
+ },
+ "sfo02": {
+  "lat": 37.723214,
+  "lon": -122.398125,
+  "name": "200 Paul",
+  "operator": "Digital Realty",
+  "metro": "San Francisco"
+ },
+ "fmt01": {
+  "lat": 37.47181,
+  "lon": -121.920111,
+  "name": "Hurricane Electric FMT2",
+  "operator": "Hurricane Electric",
+  "metro": "Fremont"
+ },
+ "sjc01": {
+  "lat": 37.242351,
+  "lon": -121.782426,
+  "name": "Equinix SV1",
+  "operator": "Equinix",
+  "metro": "San Jose"
+ },
+ "sjc02": {
+  "lat": 37.334147,
+  "lon": -121.891649,
+  "name": "55 S Market",
+  "operator": "CoreSite",
+  "metro": "San Jose"
+ },
+ "scl02": {
+  "lat": 37.376301,
+  "lon": -121.970597,
+  "name": "CoreSite SV4",
+  "operator": "CoreSite",
+  "metro": "Santa Clara"
+ },
+ "scl05": {
+  "lat": 37.372597,
+  "lon": -121.947955,
+  "name": "Digital Realty SJC31",
+  "operator": "Digital Realty",
+  "metro": "Santa Clara"
+ }
+}
