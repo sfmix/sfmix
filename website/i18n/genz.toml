@@ -43,3 +43,14 @@
 "Participants" = "the squad 🫂"
 "Sponsors" = "the sponsors (real ones) 🙏"
 "Contact" = "slide in 💬"
+
+# Network map
+"Network Map" = "Network Map"
+"Legend" = "Legend"
+"Link utilization" = "How cooked the link is"
+"offline" = "down bad"
+"approximate route" = "approx route"
+"of capacity" = "of capacity"
+"live stats unavailable" = "live stats ghosted us"
+"This interactive map needs JavaScript." = "This map needs JavaScript fr."
+"See the traffic statistics instead." = "Peep the traffic stats instead."
