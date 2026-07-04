@@ -119,3 +119,26 @@
     dest: /etc/nginx/sites-enabled/ixp-portal.conf
     state: link
   notify: Reload nginx
+
+# --- Network map: receive the builder's rsync (structure + private link map) ---
+# The metrics.sfo02 builder (roles/sflow_rt) rsyncs map.json + map-links.json here
+# over SSH, restricted to this directory by rrsync in authorized_keys. nginx
+# serves only map.json (exact-match location); the portal container bind-mounts
+# this dir read-only for the traffic view's opaque-id -> ports lookup.
+- name: "Network map: create receive directory"
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/sfmix-map
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: "Network map: authorize the metrics builder's rsync key (rrsync-restricted)"
+  become: true
+  when: map_builder_rsync_pubkey | default('') | length > 0
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ map_builder_rsync_pubkey }}"
+    key_options: >-
+      command="rrsync -wo /var/lib/sfmix-map",no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding

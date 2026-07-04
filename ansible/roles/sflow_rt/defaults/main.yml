@@ -27,3 +27,11 @@ sflow_rt_netbox_api_token: !vault |
           3162316533663033310a393532383537303266306161393864663838303234386164333066363838
           63303332393031646266653632336538613338373361393466366235353633316666636630376239
           3937363639613134386237663839376565656361396263666465
+
+# Network-map structure builder → portal push target (rrsync root on the portal
+# is /var/lib/sfmix-map). Use the OOB name for internal transfers.
+map_portal_rsync_host: "root@portal.oob.sfo02.sfmix.org"
+map_build_hour: "4"
+# map_builder_rsync_privkey: vault this (ssh private key); the matching public
+#   key goes in the ixp_portal role's map_builder_rsync_pubkey. Until both are
+#   set the build runs but the rsync push is skipped/fails harmlessly.
