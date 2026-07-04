@@ -100,7 +100,8 @@
     });
 
     var cableFeatures = [], mediaFeatures = [], coordsById = {};
-    var STRAND_FRAC = 0.34; // strand spacing as a fraction of the pair spacing
+    var PAIR_STEP = 2.8;    // spacing between DISTINCT circuits on the same pair
+    var STRAND_FRAC = 0.34; // tight spacing between a circuit's own LAG strands
     structure.cables.forEach(function (c) {
       // Smooth PER SEGMENT (chaikin preserves endpoints, so joins stay put) and
       // concatenate. The water-treatment media reuses these same smoothed
@@ -122,7 +123,7 @@
       if (c.scope === "inter") {
         var key = [c.a_site, c.z_site].sort().join("~");
         var n = pairCount[key]; var i = (pairSeen[key] = (pairSeen[key] || 0) + 1) - 1;
-        base = (i - (n - 1) / 2);
+        base = (i - (n - 1) / 2) * PAIR_STEP;
       }
       // A LAG / BiDi shows its member links as closely-spaced parallel strands;
       // distinct circuits between the same pair are spaced a full step apart.
