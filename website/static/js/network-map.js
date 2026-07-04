@@ -493,7 +493,11 @@
     map.addLayer({
       id: "cables-hit", type: "line", source: "cables",
       layout: { "line-cap": "round" },
-      paint: { "line-color": "#000", "line-opacity": 0, "line-offset": offsetExpr, "line-width": 18 }
+      // Fat and forgiving when zoomed out (thin cables are hard to tap); narrows
+      // deep in so each LAG member strand sits in its own hit lane and is
+      // individually selectable (strands are ~5px apart at max zoom).
+      paint: { "line-color": "#000", "line-opacity": 0, "line-offset": offsetExpr,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 18, 13, 15, 15, 8, 16.5, 4.5] }
     });
 
     // selection highlight — the clicked cable's strands drawn bright on top while
@@ -961,7 +965,14 @@
     var props = feat.properties || {};
     DIM_LAYERS[source].forEach(_dim);
     var hl = source === "cables" ? "cables-highlight" : "metro-highlight";
-    map.setFilter(hl, ["==", ["get", "id"], props.id]);
+    // A LAG member strand isolates to just that strand (its siblings dim with the
+    // rest); a single-strand link highlights whole. metro trunks have no strand.
+    if (source === "cables" && props.members > 1 && props.strand != null && props.strand !== "") {
+      map.setFilter(hl, ["all", ["==", ["get", "id"], props.id],
+        ["==", ["get", "strand"], Number(props.strand)]]);
+    } else {
+      map.setFilter(hl, ["==", ["get", "id"], props.id]);
+    }
     // highlight the two endpoint sites; dim the rest
     var ssrc = STATION_SRC[source];
     _setStationDim(ssrc, STATION_KEYS_FOR(source), [props.a_site, props.z_site]);
@@ -991,9 +1002,16 @@
       head = p.a_site.toUpperCase() + " · " + devShort(p.a_device) + " ⇆ " + devShort(p.z_device);
     } else if (p.scope === "metro") head = p.a_site + " ⇆ " + p.z_site;
     var rows = "";
+    var isMember = !isMetro && p.members > 1 && p.strand != null && p.strand !== "";
     if (p.scope === "metro" && p.nmember) rows += row(p.nmember + " circuits", "");
-    if (p.members > 1) rows += row(t(p.scope === "intra" ? "LAG members" : "Member links"), p.members + "×");
-    if (p.capacity_bps > 0) rows += row(t("Capacity"), capLabel(p.capacity_bps));
+    if (isMember) {
+      // a specific physical member of the LAG was clicked
+      rows += row(t("LAG member"), (Number(p.strand) + 1) + " / " + p.members);
+      if (p.capacity_bps > 0) rows += row(t("Member speed"), capLabel(p.capacity_bps / p.members));
+    } else if (p.members > 1) {
+      rows += row(t(p.scope === "intra" ? "LAG members" : "Member links"), p.members + "×");
+    }
+    if (p.capacity_bps > 0) rows += row(isMember ? t("LAG total") : t("Capacity"), capLabel(p.capacity_bps));
     if (p.status === "down") {
       rows += '<div class="nm-pop-row"><span class="nm-chip nm-chip-offline">' + t("link offline") + "</span></div>";
     } else if (tr) {
