@@ -56,9 +56,20 @@ ends live at the same site becomes an intra cable, and parallel physical links
 between the same switch pair collapse into one **LAG** (`members` = physical link
 count, rendered as tightly-spaced parallel strands). Geometry is just the straight
 line between the two switches' in-building positions, so intra links appear only at
-the device zoom tier (inside the building box). Capacity is summed from the member
-ports' `[<Speed>]` description tokens (0 = unknown → the portal skips util colouring).
-No atlas or KMZ is involved.
+the device zoom tier (inside the building box). No atlas or KMZ is involved.
+
+### Link speed
+
+Capacity (inter- *and* intra-site) comes from the **`ifspeed` label** sflow-rt
+exports on every `sflow_ifoutoctets` Prometheus series — the ground-truth speed the
+device negotiates, and the same source the Grafana weathermap trusts
+(`scripts/gen_weathermap.py`). The human-typed `[<Speed>]` description token is only
+a fallback for a port that has no series yet; a stale token never wins over the live
+label. (NetBox is the other candidate source-of-truth, but it is itself fed from
+device ground-truth, so the sflow label and NetBox agree — we prefer the live label.)
+A port with neither yields capacity 0, which the portal treats as "unknown" and
+skips util colouring. `--facts-fixture` stands in for the live series in tests
+(`network-map/fixtures/ifspeed.json`).
 
 ## Adding a circuit
 

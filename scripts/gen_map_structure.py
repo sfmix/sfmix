@@ -39,6 +39,7 @@ ATLAS_DIR = os.path.join(REPO, "network-map", "atlas")
 SITES_JSON = os.path.join(REPO, "network-map", "sites.json")
 
 SFLOW_URL = os.environ.get("SFLOW_URL", "http://127.0.0.1:8008")
+PROM_URL = os.environ.get("PROM_URL", "http://127.0.0.1:9090")
 NETBOX_API = os.environ.get("IXP_NETBOX_API", "")
 NS = uuid.UUID("5f1e9d0c-0000-4000-8000-5f6d6978aabb")
 
@@ -127,6 +128,53 @@ def load_eapi_inventory(args):
     return inv
 
 
+def load_iface_facts(args):
+    """{(short_host, ifname): speed_bps} from the sflow ``ifspeed`` series label.
+
+    This is the ground-truth-derived link speed sflow-rt learns from the devices
+    and exports on every ``sflow_ifoutoctets`` series — the same source the Grafana
+    weathermap (scripts/gen_weathermap.py) trusts. It is authoritative over the
+    human-typed ``[<Speed>]`` description token, which callers use only as a
+    fallback when a port has no series yet. (NetBox is the other candidate
+    source-of-truth; it is itself fed from device ground-truth, so the sflow label
+    and NetBox should agree — we prefer the live label and leave NetBox as a
+    documented alternative.) Returns {} if Prometheus is unreachable."""
+    if args.facts_fixture:
+        raw = json.load(open(args.facts_fixture))
+        out = {}
+        for k, v in raw.items():
+            if "|" not in k:
+                continue  # skip _comment and other metadata keys
+            host, ifn = k.split("|", 1)
+            sp = v.get("speed") if isinstance(v, dict) else v
+            if SPEED_BITS.get(sp):
+                out[(short(host), ifn)] = SPEED_BITS[sp]
+        return out
+    try:
+        import urllib.parse
+        match = urllib.parse.quote('{__name__="sflow_ifoutoctets"}')
+        rows = _get_json("%s/api/v1/series?match[]=%s" % (PROM_URL, match)).get("data", [])
+    except Exception as e:
+        print("warning: ifspeed series fetch failed (%r); falling back to "
+              "description [Speed] tokens" % e, file=sys.stderr)
+        return {}
+    out = {}
+    for s in rows:
+        b = SPEED_BITS.get(s.get("ifspeed"))
+        if b and s.get("host") and s.get("ifname"):
+            out[(short(s["host"]), s["ifname"])] = b
+    return out
+
+
+def port_speed_bps(facts, host, ifname, desc=""):
+    """Authoritative ifspeed label if we have it, else the description token."""
+    b = facts.get((host, ifname))
+    if b:
+        return b
+    m = RE_SPEED.search(desc or "")
+    return speed_to_bps(m.group(1)) if m else 0
+
+
 def load_sites(args):
     override = json.load(open(SITES_JSON)).get("sites", {}) if os.path.exists(SITES_JSON) else {}
     if args.sites_fixture:
@@ -186,8 +234,10 @@ def load_atlas():
 # ---------------------------------------------------------------------------
 # Core-port parsing + cable assembly
 # ---------------------------------------------------------------------------
-def parse_core_ports(inv):
-    """Return list of core-port dicts from interface descriptions."""
+def parse_core_ports(inv, facts):
+    """Return list of core-port dicts from interface descriptions. Port speed comes
+    from the authoritative ifspeed label (``facts``); the ``[<Speed>]`` description
+    token is only a fallback for ports with no series yet."""
     ports = []
     for dev, ifaces in inv.items():
         for ifn, meta in ifaces.items():
@@ -198,14 +248,13 @@ def parse_core_ports(inv):
                 continue  # intra-cabinet cross-connect, not a mapped link
             ms, mp = RE_SITE.search(desc), RE_PROVIDER.search(desc)
             mb, mpt = RE_BTOK.search(desc), RE_PTOK.search(desc)
-            msp = RE_SPEED.search(desc)
             tok = (mb.group(1) if mb else (mpt.group(1) if mpt else ""))
             ports.append({
                 "device": dev, "ifname": ifn, "site": site_of(dev),
                 "remote_site": (ms.group(1).lower() if ms else ""),
                 "provider": (mp.group(1).strip() if mp else ""),
                 "token": tok.strip(), "ntoken": norm_token(tok),
-                "speed_bps": speed_to_bps(msp.group(1) if msp else None),
+                "speed_bps": port_speed_bps(facts, dev, ifn, desc) or 100e9,
                 "oper": meta.get("oper", "down"), "desc": desc,
             })
     return ports
@@ -342,7 +391,8 @@ def build(args):
     sites_meta = load_sites(args)
     atlas = load_atlas()
 
-    ports = parse_core_ports(inv)
+    facts = load_iface_facts(args)
+    ports = parse_core_ports(inv, facts)
     adj = topo_adjacency(topology)
     cables = assemble_cables(ports, adj)
 
@@ -422,13 +472,13 @@ def build(args):
         dc = {d["id"]: [d["dlon"], d["dlat"]] for d in sites_out[site]["devices"]}
         if da not in dc or db not in dc:
             continue
-        # capacity = sum of member-port speeds, parsed from the same interface
-        # descriptions the eAPI inventory carries (0 if a description omits speed;
-        # the portal treats 0 as "unknown" and just skips util colouring).
+        # capacity = sum of member-port speeds from the authoritative ifspeed label
+        # (description [Speed] token as fallback; 0 if neither is known, in which
+        # case the portal treats it as "unknown" and skips util colouring).
         cap = 0
         for h, i in member_ports:
-            m = RE_SPEED.search((inv.get(h, {}).get(i, {}) or {}).get("description", ""))
-            cap += speed_to_bps(m.group(1) if m else None)
+            desc = (inv.get(h, {}).get(i, {}) or {}).get("description", "")
+            cap += port_speed_bps(facts, h, i, desc)
         oid = str(uuid.uuid5(NS, generation + "|intra|" + site + "|" + da + "|" + db))
         cables_out.append({
             "id": oid, "scope": "intra", "a_site": site, "z_site": site,
@@ -470,6 +520,8 @@ def main():
     ap.add_argument("--eapi-fixture")
     ap.add_argument("--topology-fixture")
     ap.add_argument("--sites-fixture")
+    ap.add_argument("--facts-fixture", help='JSON {"host|ifname": {"speed":"100G"}} '
+                    "standing in for the live sflow ifspeed series")
     ap.add_argument("--generation-seed", help="stable seed for opaque ids (default: derived)")
     ap.add_argument("--now", help="override generated_at (for reproducible tests)")
     args = ap.parse_args()
