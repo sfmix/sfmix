@@ -44,6 +44,9 @@ SITE_DC_NAME = {
     "sjc02": "55 South Market", "scl05": "2805 Lafayette", "sjc01": "11 Great Oaks",
     "scl04": "3223 Kenneth", "scl01": "2807",  # best-effort
 }
+# Fallback: route by the real site coordinate (nearest graph node) when the DC
+# has no matching named Point in the KMZ. Same public coords as map_trace_path.
+SITE_COORDS = mtp.SITE_COORDS
 
 
 def meters(a, b):
@@ -197,16 +200,15 @@ def dijkstra(adj, src, dst):
 
 def resolve_dc(points, site, name):
     """Find the datacenter coord: explicit --a-name/--z-name substring, else the
-    site code's known Boldyn DC name."""
+    site code's known Boldyn DC-Point name, else the site's real coordinate."""
     key = (name or SITE_DC_NAME.get(site, "")).lower()
-    if not key:
-        return None
-    if key in points:
-        return points[key]
-    for nm, c in points.items():  # substring match
-        if key in nm:
-            return c
-    return None
+    if key:
+        if key in points:
+            return points[key]
+        for nm, c in points.items():  # substring match
+            if key in nm:
+                return c
+    return SITE_COORDS.get(site)  # fall back to routing by the site coordinate
 
 
 def main():
@@ -222,7 +224,15 @@ def main():
     ap.add_argument("--provider", default="Boldyn")
     ap.add_argument("--match", help="comma-separated match tokens (default: circuit-id)")
     ap.add_argument("--status", default="active", choices=["active", "retired"])
+    ap.add_argument("--stitch", type=float, help="override stitch distance in metres "
+                    "(raise for dense DC clusters whose ring fragments are far apart)")
+    ap.add_argument("--grid", type=float, help="override vertex-snap grid in degrees")
     args = ap.parse_args()
+    global STITCH_M, GRID_DEG
+    if args.stitch:
+        STITCH_M = args.stitch
+    if args.grid:
+        GRID_DEG = args.grid
 
     kml = mtp.read_kml(args.kmz)
     segments, points = parse_kml(kml)
