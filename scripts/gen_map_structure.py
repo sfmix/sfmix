@@ -402,6 +402,45 @@ def build(args):
             "capacity_bps": c["capacity_bps"],
         }
 
+    # intra-site inter-switch links from the LLDP topology: any confirmed link
+    # whose two ends live at the same site. Parallel physical links between the
+    # same switch pair collapse into one LAG (members = physical link count). We
+    # record only the a_device end's port in the private feed so per-link traffic
+    # isn't double-counted across both ends of the same fibre.
+    intra_groups = {}  # (site, (devA, devB)) -> [(host, ifname) on devA end]
+    for l in topology.get("links", {}).values():
+        d1, d2 = short(l["node1"]), short(l["node2"])
+        s1, s2 = site_of(l["node1"]), site_of(l["node2"])
+        if not s1 or s1 != s2 or d1 == d2:
+            continue
+        da, db = sorted([d1, d2])
+        ends = {d1: l["port1"], d2: l["port2"]}
+        intra_groups.setdefault((s1, (da, db)), []).append((da, ends[da]))
+    for (site, (da, db)), member_ports in sorted(intra_groups.items()):
+        if site not in sites_out:
+            continue
+        dc = {d["id"]: [d["dlon"], d["dlat"]] for d in sites_out[site]["devices"]}
+        if da not in dc or db not in dc:
+            continue
+        # capacity = sum of member-port speeds, parsed from the same interface
+        # descriptions the eAPI inventory carries (0 if a description omits speed;
+        # the portal treats 0 as "unknown" and just skips util colouring).
+        cap = 0
+        for h, i in member_ports:
+            m = RE_SPEED.search((inv.get(h, {}).get(i, {}) or {}).get("description", ""))
+            cap += speed_to_bps(m.group(1) if m else None)
+        oid = str(uuid.uuid5(NS, generation + "|intra|" + site + "|" + da + "|" + db))
+        cables_out.append({
+            "id": oid, "scope": "intra", "a_site": site, "z_site": site,
+            "a_device": da, "z_device": db, "capacity_bps": cap,
+            "status": "up", "approximate": False, "members": len(member_ports),
+            "segments": [{"medium": "building", "coordinates": [dc[da], dc[db]]}],
+        })
+        links_private[oid] = {
+            "members": [{"host": h, "ifname": i} for h, i in member_ports],
+            "circuit": [], "provider": "", "capacity_bps": cap, "scope": "intra",
+        }
+
     # atlas entries never seen in topology
     for a in atlas:
         if a["file"] not in matched_files and a["status"] == "active":

@@ -37,6 +37,14 @@
   "Ethernet52/1": {
    "description": "Core: Transport SFO02 via in cabinet cross-x [100Gbps]",
    "oper": "up"
+  },
+  "Ethernet1/1": {
+   "description": "Intra: switch02.sfo02 spine link {po1} [100Gbps]",
+   "oper": "up"
+  },
+  "Ethernet2/1": {
+   "description": "Intra: switch02.sfo02 spine link {po1} [100Gbps]",
+   "oper": "up"
   }
  },
  "switch01.sjc02": {

@@ -109,13 +109,23 @@ SITES = {
 DEVICES = {
     "sfo01": ["switch01.sfo01"],
     "sfo02": ["switch01.sfo02", "switch02.sfo02"],
-    "fmt01": ["switch01.fmt01", "switch03.fmt01"],
-    "sjc01": ["switch01.sjc01"],
+    "fmt01": ["switch01.fmt01", "switch02.fmt01", "switch03.fmt01"],
+    "sjc01": ["switch01.sjc01", "switch02.sjc01"],
     "sjc02": ["switch01.sjc02"],
     "scl01": ["switch01.scl01"],
-    "scl02": ["switch01.scl02"],
+    "scl02": ["switch01.scl02", "switch02.scl02"],
     "scl04": ["switch01.scl04"],
     "scl05": ["switch01.scl05"],
+}
+
+# Intra-site inter-switch links (only visible zoomed into a site). Each entry is
+# (a_device_index, z_device_index, capacity_bps, member_count). member_count > 1
+# renders as a LAG — tightly-spaced parallel strands, like the inter-site LAGs.
+INTRA = {
+    "sfo02": [(0, 1, 800e9, 4)],                              # 4x100G LAG
+    "fmt01": [(0, 1, 800e9, 4), (1, 2, 400e9, 2), (0, 2, 100e9, 1)],  # partial mesh
+    "sjc01": [(0, 1, 200e9, 2)],                              # 2x100G LAG
+    "scl02": [(0, 1, 400e9, 2)],                              # 2x200G LAG
 }
 
 # Inter-site cables: (a_site, z_site, capacity_bps, status, approximate, member_count,
@@ -263,22 +273,22 @@ def build():
             "segments": segments,
         })
 
-    # A couple of intra-site links (only visible zoomed in).
-    for code in ("sfo02", "fmt01"):
-        devs = DEVICES[code]
-        if len(devs) < 2:
-            continue
-        s = sites[code]
-        d0, d1 = s["devices"][0], s["devices"][1]
-        cid = str(uuid.uuid5(NS, "%s|intra|%s" % (GENERATION, code)))
-        cables.append({
-            "id": cid, "scope": "intra",
-            "a_site": code, "z_site": code,
-            "a_device": d0["id"], "z_device": d1["id"],
-            "capacity_bps": 800e9, "status": "up", "approximate": False, "members": 2,
-            "segments": [{"medium": "building", "coordinates": [
-                [d0["dlon"], d0["dlat"]], [d1["dlon"], d1["dlat"]]]}],
-        })
+    # Intra-site inter-switch links / LAGs (only visible zoomed into a site).
+    for code, links in INTRA.items():
+        devs = sites[code]["devices"]
+        for ai, zi, cap, members in links:
+            if ai >= len(devs) or zi >= len(devs):
+                continue
+            d0, d1 = devs[ai], devs[zi]
+            cid = str(uuid.uuid5(NS, "%s|intra|%s|%d|%d" % (GENERATION, code, ai, zi)))
+            cables.append({
+                "id": cid, "scope": "intra",
+                "a_site": code, "z_site": code,
+                "a_device": d0["id"], "z_device": d1["id"],
+                "capacity_bps": cap, "status": "up", "approximate": False, "members": members,
+                "segments": [{"medium": "building", "coordinates": [
+                    [d0["dlon"], d0["dlat"]], [d1["dlon"], d1["dlat"]]]}],
+            })
 
     # tag water-crossing spans as submarine (blue + wave treatment) by testing
     # each vertex against the basemap water polygons
