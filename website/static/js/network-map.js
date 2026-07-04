@@ -36,6 +36,10 @@
   ];
   var UTIL_COLOR_EXPR = ["interpolate", ["linear"], ["coalesce", ["feature-state", "util"], 0],
     0, RAMP[0][1], 20, RAMP[1][1], 40, RAMP[2][1], 60, RAMP[3][1], 80, RAMP[4][1]];
+  // perpendicular offset (px) by the feature's "offset" step — shared by the
+  // cable layers AND the water-treatment layers so they track the same path.
+  var OFFSET_EXPR = ["interpolate", ["linear"], ["zoom"],
+    8, ["*", ["get", "offset"], 2.2], 12, ["*", ["get", "offset"], 5], 15, ["*", ["get", "offset"], 9]];
 
   function fmtBps(b) {
     if (!b || b < 1) return "0";
@@ -98,8 +102,21 @@
     var cableFeatures = [], mediaFeatures = [], coordsById = {};
     var STRAND_FRAC = 0.34; // strand spacing as a fraction of the pair spacing
     structure.cables.forEach(function (c) {
-      var raw = cableCoords(c);
-      var smooth = c.scope === "intra" ? raw : chaikin(raw, 2);
+      // Smooth PER SEGMENT (chaikin preserves endpoints, so joins stay put) and
+      // concatenate. The water-treatment media reuses these same smoothed
+      // per-segment coords, so the underwater band tracks the cable exactly
+      // instead of following a differently-smoothed path (no colour bleed).
+      var segsSmooth = c.segments.map(function (seg) {
+        return { medium: seg.medium,
+          coords: c.scope === "intra" ? seg.coordinates : chaikin(seg.coordinates, 2) };
+      });
+      var smooth = [];
+      segsSmooth.forEach(function (s) {
+        s.coords.forEach(function (p) {
+          var last = smooth[smooth.length - 1];
+          if (!last || last[0] !== p[0] || last[1] !== p[1]) smooth.push(p);
+        });
+      });
       coordsById[c.id] = { coords: smooth, approx: !!c.approximate };
       var base = 0;
       if (c.scope === "inter") {
@@ -123,13 +140,14 @@
           geometry: { type: "LineString", coordinates: smooth }
         });
       }
-      // per-segment media features for water treatment (bridge/submarine)
-      c.segments.forEach(function (seg) {
-        if (seg.medium === "bridge" || seg.medium === "submarine") {
+      // water-treatment media (bridge/submarine), from the SAME smoothed coords
+      // and carrying the cable's base offset so the band centres on the bundle
+      segsSmooth.forEach(function (s) {
+        if (s.medium === "bridge" || s.medium === "submarine") {
           mediaFeatures.push({
             type: "Feature",
-            properties: { medium: seg.medium, id: c.id },
-            geometry: { type: "LineString", coordinates: seg.coordinates }
+            properties: { medium: s.medium, id: c.id, offset: base },
+            geometry: { type: "LineString", coordinates: s.coords }
           });
         }
       });
@@ -352,10 +370,7 @@
     // NB: a zoom `interpolate` must be the OUTERMOST expression — it cannot be
     // nested inside a multiply. So the per-feature property math lives in each
     // zoom stop's output instead.
-    var offsetExpr = ["interpolate", ["linear"], ["zoom"],
-      8, ["*", ["get", "offset"], 2.2],
-      12, ["*", ["get", "offset"], 5],
-      15, ["*", ["get", "offset"], 9]];
+    var offsetExpr = OFFSET_EXPR;
     function widthExprAdd(add) {
       return ["interpolate", ["linear"], ["zoom"],
         8, ["+", ["*", ["get", "weight"], 0.8], add],
@@ -647,14 +662,14 @@
     map.addLayer({
       id: "cable-submarine", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#7ba7b6", "line-opacity": 0.4,
+      paint: { "line-color": "#7ba7b6", "line-opacity": 0.4, "line-offset": OFFSET_EXPR,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 15] }
     }, beforeId);
     // mute the cable's util colour toward the water tone (submerged look)
     map.addLayer({
       id: "cable-water", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#a7c6cf", "line-opacity": 0.45,
+      paint: { "line-color": "#a7c6cf", "line-opacity": 0.45, "line-offset": OFFSET_EXPR,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 7] }
     }, beforeId);
     // ripple texture over the span (matches the bay); replaces the mute layer's
@@ -662,7 +677,7 @@
     map.addLayer({
       id: "cable-ripple", type: "line", source: "cable-media",
       layout: { "line-cap": "butt", "line-join": "round" },
-      paint: { "line-color": "#cfe2e8", "line-opacity": 0.5, "line-width": 2,
+      paint: { "line-color": "#cfe2e8", "line-opacity": 0.5, "line-width": 2, "line-offset": OFFSET_EXPR,
         "line-dasharray": [0.6, 1.8] }
     }, beforeId);
     map.loadImage(SPRITE_BASE + "water-texture.png").then(function (img) {
