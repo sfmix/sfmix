@@ -110,7 +110,7 @@ DEVICES = {
     "sfo01": ["switch01.sfo01"],
     "sfo02": ["switch01.sfo02", "switch02.sfo02"],
     "fmt01": ["switch01.fmt01", "switch02.fmt01", "switch03.fmt01"],
-    "sjc01": ["switch01.sjc01", "switch02.sjc01"],
+    "sjc01": ["switch01.sjc01", "switch02.sjc01", "switch03.sjc01", "switch04.sjc01"],
     "sjc02": ["switch01.sjc02"],
     "scl01": ["switch01.scl01"],
     "scl02": ["switch01.scl02", "switch02.scl02"],
@@ -124,7 +124,9 @@ DEVICES = {
 INTRA = {
     "sfo02": [(0, 1, 800e9, 4)],                              # 4x100G LAG
     "fmt01": [(0, 1, 800e9, 4), (1, 2, 400e9, 2), (0, 2, 100e9, 1)],  # partial mesh
-    "sjc01": [(0, 1, 200e9, 2)],                              # 2x100G LAG
+    # sjc01: a small leaf/spine — spines 01,02 (peer LAG), leaves 03,04 to both spines
+    "sjc01": [(0, 1, 800e9, 4), (2, 0, 400e9, 2), (2, 1, 400e9, 2),
+              (3, 0, 400e9, 2), (3, 1, 400e9, 2)],
     "scl02": [(0, 1, 400e9, 2)],                              # 2x200G LAG
 }
 

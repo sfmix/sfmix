@@ -76,6 +76,41 @@
     return pts;
   }
 
+  // --- building-box geometry: terminate a trunk on the box EDGE (at the angle it
+  // approaches), then a fine line carries it from that edge point to the switch.
+  function rectBounds(ring) {
+    var xs = ring.map(function (p) { return p[0]; }), ys = ring.map(function (p) { return p[1]; });
+    return { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs),
+             minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) };
+  }
+  function inRect(p, b) { return p[0] >= b.minX && p[0] <= b.maxX && p[1] >= b.minY && p[1] <= b.maxY; }
+  function insideRect(p, b) { return p[0] > b.minX && p[0] < b.maxX && p[1] > b.minY && p[1] < b.maxY; }
+  // point where the ray from `center` (inside the box) toward `toward` exits the rect
+  function rectExit(center, toward, b) {
+    var dx = toward[0] - center[0], dy = toward[1] - center[1];
+    if (dx === 0 && dy === 0) return [center[0], b.maxY];  // degenerate: straight up
+    var t = Infinity;
+    if (dx > 0) t = Math.min(t, (b.maxX - center[0]) / dx);
+    else if (dx < 0) t = Math.min(t, (b.minX - center[0]) / dx);
+    if (dy > 0) t = Math.min(t, (b.maxY - center[1]) / dy);
+    else if (dy < 0) t = Math.min(t, (b.minY - center[1]) / dy);
+    return [center[0] + t * dx, center[1] + t * dy];
+  }
+  // Clip a trunk's ends so it stops on each site's box edge (not the centroid).
+  // Returns the clipped line plus the two edge entry points for the fine drops.
+  function clipToBoxes(coords, centerA, bA, centerZ, bZ) {
+    // Keep only the run of points OUTSIDE both endpoint boxes. Filtering (not just
+    // trimming contiguous ends) also drops mid-path points that dip into a box —
+    // a coarsened route can graze its own destination before the final approach.
+    var mid = coords.filter(function (p) {
+      return !(bA && insideRect(p, bA)) && !(bZ && insideRect(p, bZ));
+    });
+    if (!mid.length) mid = [centerA, centerZ];  // pathological: whole line in a box
+    var entryA = bA ? rectExit(centerA, mid[0], bA) : coords[0];
+    var entryZ = bZ ? rectExit(centerZ, mid[mid.length - 1], bZ) : coords[coords.length - 1];
+    return { line: [entryA].concat(mid, [entryZ]), entryA: entryA, entryZ: entryZ };
+  }
+
   function cableCoords(cable) {
     var coords = [];
     cable.segments.forEach(function (seg) {
@@ -100,7 +135,11 @@
       pairCount[key] = (pairCount[key] || 0) + 1;
     });
 
-    var cableFeatures = [], mediaFeatures = [], coordsById = {};
+    var cableFeatures = [], mediaFeatures = [], coordsById = {}, entryById = {};
+    var boxOf = {};  // site code -> axis-aligned building-box bounds (for edge entry)
+    Object.keys(sites).forEach(function (code) {
+      if (sites[code].building) boxOf[code] = rectBounds(sites[code].building);
+    });
     var PAIR_STEP = 2.8;    // spacing between DISTINCT circuits on the same pair
     var STRAND_FRAC = 0.34; // tight spacing between a circuit's own LAG strands
     structure.cables.forEach(function (c) {
@@ -119,13 +158,23 @@
           if (!last || last[0] !== p[0] || last[1] !== p[1]) smooth.push(p);
         });
       });
-      coordsById[c.id] = { coords: smooth, approx: !!c.approximate };
       var base = 0;
       if (c.scope === "inter") {
+        // clip the trunk so it lands on each site's box EDGE (at its approach
+        // angle) rather than knotting on the centroid; remember the edge points
+        // so a fine drop can run from there to the actual switch inside the box.
+        var sA = sites[c.a_site], sZ = sites[c.z_site];
+        if (sA && sZ) {
+          var clip = clipToBoxes(smooth, [sA.lon, sA.lat], boxOf[c.a_site],
+                                 [sZ.lon, sZ.lat], boxOf[c.z_site]);
+          smooth = clip.line;
+          entryById[c.id] = { a: clip.entryA, z: clip.entryZ };
+        }
         var key = [c.a_site, c.z_site].sort().join("~");
         var n = pairCount[key]; var i = (pairSeen[key] = (pairSeen[key] || 0) + 1) - 1;
         base = (i - (n - 1) / 2) * PAIR_STEP;
       }
+      coordsById[c.id] = { coords: smooth, approx: !!c.approximate };
       // A LAG / BiDi shows its member links as closely-spaced parallel strands;
       // distinct circuits between the same pair are spaced a full step apart.
       var strands = Math.max(1, c.members || 1);
@@ -181,21 +230,23 @@
       });
     });
 
-    // ---- device drops: at high zoom a cable terminates on its specific switch.
-    // The trunk still ends at the site centroid; these short stubs fan from the
-    // centroid to the a/z device so multiple cables don't knot on one point.
+    // ---- device drops: the thick trunk now ends on the box EDGE (see clipToBoxes);
+    // these are the *fine* lines carrying it from that edge entry point to the
+    // specific switch inside the box, so it's clear which device a link lands on
+    // without the thick cable clobbering the in-building layout.
     var dropFeatures = [];
     structure.cables.forEach(function (c) {
       if (c.scope !== "inter") return;
-      [["a_site", "a_device"], ["z_site", "z_device"]].forEach(function (pair) {
+      var entry = entryById[c.id];
+      [["a_site", "a_device", "a"], ["z_site", "z_device", "z"]].forEach(function (pair) {
         var s = sites[c[pair[0]]], dc = deviceCoord[c[pair[1]]];
-        if (s && dc) {
-          dropFeatures.push({
-            type: "Feature", id: c.id,
-            properties: { id: c.id, status: c.status, approximate: !!c.approximate },
-            geometry: { type: "LineString", coordinates: [[s.lon, s.lat], dc] }
-          });
-        }
+        if (!s || !dc) return;
+        var from = (entry && entry[pair[2]]) || [s.lon, s.lat];
+        dropFeatures.push({
+          type: "Feature", id: c.id,
+          properties: { id: c.id, status: c.status, approximate: !!c.approximate },
+          geometry: { type: "LineString", coordinates: [from, dc] }
+        });
       });
     });
 
