@@ -11,6 +11,7 @@ urlpatterns = [
     path("participants/", views.participants_list, name="participants_list"),
     path("statistics/", views.ix_statistics, name="ix_statistics"),
     path("statistics/metrics/", views.ix_metrics, name="ix_metrics"),
+    path("statistics/map/traffic", views.ix_map_traffic, name="ix_map_traffic"),
     path("route-servers/", views.route_server_parity, name="route_server_parity"),
     path("participants/<int:asn>/", views.participant_detail, name="participant_detail"),
     path("participants/<int:asn>/metrics/", views.participant_metrics, name="participant_metrics"),

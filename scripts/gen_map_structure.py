@@ -371,10 +371,11 @@ def build(args):
         if a["file"] not in matched_files and a["status"] == "active":
             drift["stale"].append((a["file"], a["a_site"], a["z_site"]))
 
-    mapjson = {"generation": generation,
-               "generated_at": args.now or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    gen_at = args.now or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    mapjson = {"generation": generation, "generated_at": gen_at,
                "sites": sites_out, "cables": cables_out}
-    return mapjson, links_private, drift
+    linksjson = {"generation": generation, "generated_at": gen_at, "links": links_private}
+    return mapjson, linksjson, drift
 
 
 def atomic_write(path, obj):
