@@ -1,0 +1,56 @@
+{
+  "type": "FeatureCollection",
+  "circuit": {
+    "circuit_id": "FID-2025-0762",
+    "provider": "BIG Fiber",
+    "a_site": "scl01",
+    "z_site": "scl04",
+    "status": "active",
+    "geometry": "approx-kmz",
+    "match": [
+      "FID-2025-0762"
+    ]
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "seq": 0,
+        "medium": "underground"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -121.9784,
+            37.3938
+          ],
+          [
+            -121.9717,
+            37.3899
+          ],
+          [
+            -121.9666,
+            37.3889
+          ],
+          [
+            -121.9642,
+            37.3841
+          ],
+          [
+            -121.9624,
+            37.3841
+          ],
+          [
+            -121.9617,
+            37.381
+          ],
+          [
+            -121.9559,
+            37.3788
+          ]
+        ]
+      }
+    }
+  ]
+}

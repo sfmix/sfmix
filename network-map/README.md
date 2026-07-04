@@ -68,6 +68,30 @@ segment. See `atlas/_TEMPLATE.geojson`.
    **poke the builder** (re-run its cron command) and run
    `scripts/gen_map_structure.py --check` until clean.
 
+**Batch import:** `KMZ_DIR=~/Downloads/sfmix ./network-map/import_atlas.sh`
+regenerates all currently-mapped circuits from their KMZs in one pass (a manifest
+of circuit → KMZ file + placemark + sites + match-tokens). Edit it to add circuits.
+
+### KMZ vendor formats (why some circuits still auto-arc)
+
+Provider KMZs vary wildly, which is why not every circuit has traced geometry:
+- **Per-circuit / FID-labeled** (Zayo `Service …`, BIG "Existing and New SV
+  Routes", "6 Node Bay Ring", "QTS↔OpenColo") — one named LineString (sometimes
+  split into segments; `--merge` chains them). These are extracted (9 circuits).
+- **No usable KMZ** — Hurricane Electric (`HE #4757047`, `HE#4490766`) and
+  Digital Realty (`DRT #285322`) circuits: none provided → auto-arc (dashed) or
+  hand-draw. Some BIG circuits (FID-2023-0408, -0742, -0763, FID-2022-0145) lack a
+  clean single-path KMZ too → auto-arc / site-pair-match a neighbouring path.
+- **Master network maps** (`BIG External-Sales`, `Customer Facing Boldyn`,
+  `Boldyn Fiber Route - APs`) — hundreds of segments named by BART line
+  (`RTE100xxx`, "BART R-Line") or unnamed, organized in folders. A specific A↔Z
+  circuit is a *chain of BART-corridor segments*, not one path; recovering it
+  needs graph routing over the segment network (future preprocessing work —
+  `map_trace_path.py --merge` only greedily chains a single file's segments).
+
+The builder falls back to a site-pair match, then a dashed auto-arc, so a circuit
+without atlas geometry still appears — it just doesn't trace its real corridor.
+
 ## Retiring a circuit
 
 Set `"status": "retired"` in the atlas file (or delete it). `--check` reports

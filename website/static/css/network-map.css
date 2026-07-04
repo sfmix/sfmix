@@ -30,7 +30,7 @@
 .nm-label-site { font-size: 13px; }
 .nm-label-site .nm-code { font-weight: 800; }
 .nm-label-site .nm-name { font-weight: 500; opacity: .78; font-size: 11px; }
-.nm-label-device { font-size: 11px; font-weight: 600; opacity: .85; }
+.nm-label-device { font-size: 11px; font-weight: 600; opacity: .9; text-align: center; }
 .nm-label-icao {
   font-size: 9px;
   font-weight: 600;

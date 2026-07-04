@@ -29,8 +29,10 @@ import re
 import sys
 import zipfile
 
-# Coarsening — the privacy-preserving core. ~300 m Douglas–Peucker + ~11 m grid.
-DP_TOLERANCE_DEG = 0.003
+# Coarsening — the privacy-preserving core. ~80 m Douglas–Peucker + ~11 m grid.
+# Enough to keep a route recognizably following its corridor (short intra-metro
+# links keep their bends) while still generalizing away exact conduit positions.
+DP_TOLERANCE_DEG = 0.0008
 ROUND_DECIMALS = 4
 
 # Public site coordinates (lon, lat) — for orienting merged paths A->Z and

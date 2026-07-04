@@ -108,13 +108,30 @@ NS = uuid.UUID("5f1e9d0c-0000-4000-8000-5f6d6978aabb")
 GENERATION = "dev-fixture-g1"
 
 
+def building_rect(lat, lon):
+    """Stylized building footprint (~210x200 m — deliberately larger than the real
+    footprint so the box + switches inside are readable when zoomed in)."""
+    dx, dy = 0.00130, 0.00090
+    return [[round(lon - dx, 6), round(lat - dy, 6)], [round(lon + dx, 6), round(lat - dy, 6)],
+            [round(lon + dx, 6), round(lat + dy, 6)], [round(lon - dx, 6), round(lat + dy, 6)],
+            [round(lon - dx, 6), round(lat - dy, 6)]]
+
+
 def device_offsets(n):
-    """Small metre-scale ring so devices don't stack on the site point."""
+    """Grid of positions INSIDE the building footprint, spaced so dots, labels,
+    and intra-links don't overlap."""
     if n == 1:
         return [(0.0, 0.0)]
-    r = 0.0016  # ~150 m in degrees
-    return [(r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n))
-            for i in range(n)]
+    cols = min(n, 3 if n <= 6 else 4)
+    rows = math.ceil(n / cols)
+    sx, sy = 0.00095, 0.00060
+    out = []
+    for i in range(n):
+        r, c = divmod(i, cols)
+        x = 0.0 if cols == 1 else (-sx + 2 * sx * c / (cols - 1))
+        y = 0.0 if rows == 1 else (sy - 2 * sy * r / (rows - 1))
+        out.append((x, y))
+    return out
 
 
 def bezier_arc(p0, p1, bulge=0.12, steps=16):
@@ -138,6 +155,7 @@ def build():
         sites[code] = {
             "lat": lat, "lon": lon, "metro": metro, "name": name, "operator": op,
             "address": "(synthetic dev fixture)",
+            "building": building_rect(lat, lon),
             "devices": [
                 {"id": d, "dlat": round(lat + oy, 6), "dlon": round(lon + ox, 6)}
                 for d, (ox, oy) in zip(DEVICES[code], offs)

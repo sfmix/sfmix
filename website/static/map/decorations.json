@@ -5,7 +5,7 @@
     {
       "type": "Feature",
       "properties": {"icon": "sea-monster", "size": 1.0, "rotation": -12, "minzoom": 8, "label": "here be packets"},
-      "geometry": {"type": "Point", "coordinates": [-122.06, 37.55]}
+      "geometry": {"type": "Point", "coordinates": [-122.235, 37.605]}
     },
     {
       "type": "Feature",
@@ -20,7 +20,7 @@
     {
       "type": "Feature",
       "properties": {"icon": "scroll", "size": 0.9, "rotation": 0, "minzoom": 9, "label": "Here be latency"},
-      "geometry": {"type": "Point", "coordinates": [-122.62, 37.68]}
+      "geometry": {"type": "Point", "coordinates": [-122.66, 37.58]}
     },
     {
       "type": "Feature",
