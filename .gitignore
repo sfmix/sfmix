@@ -20,3 +20,7 @@ ansible/inventory.json
 
 # Terraform
 terraform/authentik/tfplan
+
+# Network map: NDA'd provider KMZ reference (must never be committed)
+network-map/.kmz-cache/
+*.kmz

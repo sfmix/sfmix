@@ -120,9 +120,14 @@ defaultContentLanguageInSubdir = false
   weight = 3
 
 [[menus.services]]
+  name = "Network Map"
+  url = "/network-map/"
+  weight = 4
+
+[[menus.services]]
   name = "AS40271 IP Network"
   url = "https://ip.sfmix.org/"
-  weight = 4
+  weight = 5
 
 [[menus.main]]
   # Distinct from the "Connect" dropdown category above so the label isn't

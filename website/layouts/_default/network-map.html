@@ -1,0 +1,61 @@
+{{ define "main" }}
+<link rel="stylesheet" href="{{ "vendor/maplibre-gl/maplibre-gl.css" | relURL }}">
+<link rel="stylesheet" href="{{ "css/network-map.css" | relURL }}">
+
+<div class="page-header page-header-video"{{ with .Params.mobile_image }} style="--mobile-bg: url('/{{ . }}')"{{ end }}>
+  {{ with .Params.video }}
+  <video class="page-header-bg" autoplay muted loop playsinline aria-hidden="true">
+    <source src="{{ . | relURL }}" type="video/mp4">
+  </video>
+  {{ end }}
+  <div class="hero-overlay"></div>
+  <div class="container" style="position: relative; z-index: 2;">
+    <h1>{{ .Title }}</h1>
+  </div>
+</div>
+
+<div class="content">
+  <div class="container">
+    {{ .Content }}
+  </div>
+
+  {{/* Data URLs come from the portal (dynamic); basemap + sprites + decorations
+       are static assets on this site. Override portal host via site params. */}}
+  {{ $portal := .Site.Params.map_portal_base | default "https://portal.sfmix.org" }}
+  <div id="network-map"
+       data-structure-url="{{ $portal }}/map/map.json"
+       data-traffic-url="{{ $portal }}/statistics/map/traffic"
+       data-basemap-base="{{ "map/" | relURL }}"
+       data-sprite-base="{{ "map/sprites/" | relURL }}"
+       data-decorations-url="{{ "map/decorations.json" | relURL }}">
+    <div id="nm-status"></div>
+    <div id="nm-legend">
+      <button class="nm-legend-toggle" type="button">{{ partial "T.html" "Legend" }}</button>
+      <div class="nm-legend-body">
+        <h4>{{ partial "T.html" "Link utilization" }}</h4>
+        <div class="nm-ramp"></div>
+        <div class="nm-ramp-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+        <div class="nm-legend-key"><span class="swatch" style="border-top-color:#9aa4aa;border-top-style:dashed"></span> {{ partial "T.html" "offline" }}</div>
+        <div class="nm-legend-key"><span class="swatch" style="border-top-color:#73BF69;border-top-style:dotted"></span> {{ partial "T.html" "approximate route" }}</div>
+        <div class="nm-ts" id="nm-ts"></div>
+      </div>
+    </div>
+    <noscript>
+      <div style="padding:2rem;text-align:center">
+        {{ partial "T.html" "This interactive map needs JavaScript." }}
+        <a href="/statistics/">{{ partial "T.html" "See the traffic statistics instead." }}</a>
+      </div>
+    </noscript>
+  </div>
+
+  {{/* UI strings for the map JS, translated via the T partial. Build one dict
+       and jsonify it once; safeHTML avoids the double JS-escaping Hugo applies
+       to interpolations inside <script>. */}}
+  {{ $keys := slice "In" "Out" "Capacity" "of capacity" "Last updated" "approximate route" "link offline" "live stats unavailable" "underground" "aerial" "submarine" "bridge" "building" }}
+  {{ $i18n := dict }}
+  {{ range $keys }}{{ $i18n = merge $i18n (dict . (partial "T.html" .)) }}{{ end }}
+  <script type="application/json" id="map-i18n">{{ $i18n | jsonify | safeJS }}</script>
+</div>
+<script src="{{ "vendor/maplibre-gl/maplibre-gl.js" | relURL }}"></script>
+<script src="{{ "js/network-map.js" | relURL }}" defer></script>
+{{ end }}

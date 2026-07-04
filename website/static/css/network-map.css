@@ -1,0 +1,119 @@
+/* SFMIX network map — subway-style, paper cartography aesthetic.
+   Loaded by layouts/_default/network-map.html and the dev harness. */
+
+:root {
+  --nm-paper: #f4f1e9;
+  --nm-water: #a7c6cf;
+  --nm-ink: #0b3640;
+  --nm-road: #e4ddcb;
+  --nm-road-casing: #d3c9b0;
+}
+
+#network-map {
+  position: relative;
+  width: 100%;
+  height: 70vh;
+  min-height: 460px;
+  background: var(--nm-paper);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* --- station + device labels (HTML markers; MapLibre has no glyph server) --- */
+.nm-label {
+  font-weight: 600;
+  color: var(--nm-ink);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .9), 0 0 3px rgba(255, 255, 255, .9);
+  transform: translateY(-2px);
+}
+.nm-label-site { font-size: 13px; }
+.nm-label-site .nm-code { font-weight: 800; }
+.nm-label-site .nm-name { font-weight: 500; opacity: .78; font-size: 11px; }
+.nm-label-device { font-size: 11px; font-weight: 600; opacity: .85; }
+.nm-label-deco {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 15px;
+  color: #4a6b74;
+  opacity: .7;
+  letter-spacing: .5px;
+}
+
+/* --- popover --- */
+.maplibregl-popup.nm-popup .maplibregl-popup-content {
+  padding: 0;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(11, 54, 64, .28);
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+}
+.nm-pop { min-width: 208px; }
+.nm-pop-head {
+  background: var(--nm-ink);
+  color: #fff;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nm-pop-body { padding: 10px 12px; font-size: 12.5px; color: #23343a; }
+.nm-pop-row { display: flex; justify-content: space-between; gap: 14px; margin: 3px 0; }
+.nm-pop-row .k { color: #6c7f85; }
+.nm-pop-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.nm-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+.nm-chip-offline { background: #8a949a; }
+.nm-spark { margin-top: 8px; }
+.nm-spark svg { display: block; width: 100%; height: 40px; }
+.nm-badge-approx {
+  font-size: 10.5px; font-weight: 600; color: #7a715a;
+  background: #efe7cf; padding: 1px 6px; border-radius: 8px;
+}
+
+/* --- legend --- */
+#nm-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 3;
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid rgba(11, 54, 64, .15);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--nm-ink);
+  max-width: 240px;
+  box-shadow: 0 2px 10px rgba(11, 54, 64, .12);
+}
+#nm-legend h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.nm-ramp { height: 10px; border-radius: 5px; margin: 4px 0 2px;
+  background: linear-gradient(90deg, #5794F2 0%, #73BF69 25%, #FADE2A 50%, #FF9830 75%, #F2495C 100%); }
+.nm-ramp-labels { display: flex; justify-content: space-between; font-size: 10px; color: #6c7f85; }
+.nm-legend-key { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; }
+.nm-legend-key .swatch { width: 22px; height: 0; border-top-width: 3px; border-top-style: solid; }
+#nm-legend .nm-ts { margin-top: 8px; font-size: 10.5px; color: #85949a; }
+.nm-legend-toggle { display: none; }
+#nm-status {
+  position: absolute; right: 12px; top: 12px; z-index: 3;
+  background: rgba(242, 73, 92, .92); color: #fff;
+  padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  display: none;
+}
+
+@media (max-width: 640px) {
+  #network-map { height: 78vh; }
+  #nm-legend.collapsed .nm-legend-body { display: none; }
+  .nm-legend-toggle {
+    display: inline-block; cursor: pointer; font-weight: 700;
+    background: none; border: none; color: var(--nm-ink); padding: 0; font-size: 12px;
+  }
+}

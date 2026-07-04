@@ -1,0 +1,722 @@
+{
+  "generation": "dev-fixture-g1",
+  "generated_at": "2026-07-04T00:00:00Z",
+  "sites": {
+    "sfo01": {
+      "lat": 37.788971,
+      "lon": -122.390168,
+      "metro": "San Francisco",
+      "name": "365 Main",
+      "operator": "Digital Realty",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.sfo01",
+          "dlat": 37.788971,
+          "dlon": -122.390168
+        }
+      ]
+    },
+    "sfo02": {
+      "lat": 37.723214,
+      "lon": -122.398125,
+      "metro": "San Francisco",
+      "name": "200 Paul",
+      "operator": "Digital Realty",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.sfo02",
+          "dlat": 37.723214,
+          "dlon": -122.396525
+        },
+        {
+          "id": "switch02.sfo02",
+          "dlat": 37.723214,
+          "dlon": -122.399725
+        }
+      ]
+    },
+    "fmt01": {
+      "lat": 37.47181,
+      "lon": -121.920111,
+      "metro": "Fremont",
+      "name": "Hurricane Electric FMT2",
+      "operator": "Hurricane Electric",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.fmt01",
+          "dlat": 37.47181,
+          "dlon": -121.918511
+        },
+        {
+          "id": "switch03.fmt01",
+          "dlat": 37.47181,
+          "dlon": -121.921711
+        }
+      ]
+    },
+    "sjc01": {
+      "lat": 37.242351,
+      "lon": -121.782426,
+      "metro": "San Jose",
+      "name": "Equinix SV1",
+      "operator": "Equinix",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.sjc01",
+          "dlat": 37.242351,
+          "dlon": -121.782426
+        }
+      ]
+    },
+    "sjc02": {
+      "lat": 37.334147,
+      "lon": -121.891649,
+      "metro": "San Jose",
+      "name": "55 S Market",
+      "operator": "CoreSite",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.sjc02",
+          "dlat": 37.334147,
+          "dlon": -121.891649
+        }
+      ]
+    },
+    "scl01": {
+      "lat": 37.393803,
+      "lon": -121.978378,
+      "metro": "Santa Clara",
+      "name": "QTS SC2",
+      "operator": "QTS",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.scl01",
+          "dlat": 37.393803,
+          "dlon": -121.978378
+        }
+      ]
+    },
+    "scl02": {
+      "lat": 37.376301,
+      "lon": -121.970597,
+      "metro": "Santa Clara",
+      "name": "CoreSite SV4",
+      "operator": "CoreSite",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.scl02",
+          "dlat": 37.376301,
+          "dlon": -121.970597
+        }
+      ]
+    },
+    "scl04": {
+      "lat": 37.3788,
+      "lon": -121.95594,
+      "metro": "Santa Clara",
+      "name": "OpenColo SV1",
+      "operator": "OpenColo",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.scl04",
+          "dlat": 37.3788,
+          "dlon": -121.95594
+        }
+      ]
+    },
+    "scl05": {
+      "lat": 37.372597,
+      "lon": -121.947955,
+      "metro": "Santa Clara",
+      "name": "Digital Realty SJC31",
+      "operator": "Digital Realty",
+      "address": "(synthetic dev fixture)",
+      "devices": [
+        {
+          "id": "switch01.scl05",
+          "dlat": 37.372597,
+          "dlon": -121.947955
+        }
+      ]
+    }
+  },
+  "cables": [
+    {
+      "id": "ee90cc46-6a16-5bf1-8faf-e495826558c7",
+      "scope": "inter",
+      "a_site": "sfo02",
+      "z_site": "fmt01",
+      "a_device": "switch01.sfo02",
+      "z_device": "switch01.fmt01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -122.39812,
+              37.72321
+            ],
+            [
+              -122.3,
+              37.7
+            ],
+            [
+              -122.1,
+              37.6
+            ]
+          ]
+        },
+        {
+          "medium": "bridge",
+          "coordinates": [
+            [
+              -122.1,
+              37.6
+            ],
+            [
+              -122.05,
+              37.56
+            ],
+            [
+              -121.98,
+              37.52
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.98,
+              37.52
+            ],
+            [
+              -121.95,
+              37.49
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.95,
+              37.49
+            ],
+            [
+              -121.92011,
+              37.47181
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ed7aafdd-110f-562d-88f0-08e8605dedc9",
+      "scope": "inter",
+      "a_site": "sfo01",
+      "z_site": "sfo02",
+      "a_device": "switch01.sfo01",
+      "z_device": "switch01.sfo02",
+      "capacity_bps": 100000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -122.39017,
+              37.78897
+            ],
+            [
+              -122.395,
+              37.755
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -122.395,
+              37.755
+            ],
+            [
+              -122.39812,
+              37.72321
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5d69ec48-843e-5f4a-8eeb-d18755e1da74",
+      "scope": "inter",
+      "a_site": "fmt01",
+      "z_site": "sjc01",
+      "a_device": "switch01.fmt01",
+      "z_device": "switch01.sjc01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.92011,
+              37.47181
+            ],
+            [
+              -121.88,
+              37.4
+            ],
+            [
+              -121.83,
+              37.32
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.83,
+              37.32
+            ],
+            [
+              -121.78243,
+              37.24235
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d38d8e5d-94cd-5e4b-91a2-ec7c787bb67f",
+      "scope": "inter",
+      "a_site": "scl02",
+      "z_site": "scl01",
+      "a_device": "switch01.scl02",
+      "z_device": "switch01.scl01",
+      "capacity_bps": 100000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.9706,
+              37.3763
+            ],
+            [
+              -121.975,
+              37.385
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.975,
+              37.385
+            ],
+            [
+              -121.97838,
+              37.3938
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9a3ab2c7-a1e2-5fbb-aaed-762bc27ec5ec",
+      "scope": "inter",
+      "a_site": "scl02",
+      "z_site": "scl04",
+      "a_device": "switch01.scl02",
+      "z_device": "switch01.scl04",
+      "capacity_bps": 100000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.9706,
+              37.3763
+            ],
+            [
+              -121.963,
+              37.377
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.963,
+              37.377
+            ],
+            [
+              -121.95594,
+              37.3788
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "98597ff8-2184-509d-9fe8-3be0e2cd688d",
+      "scope": "inter",
+      "a_site": "scl02",
+      "z_site": "scl05",
+      "a_device": "switch01.scl02",
+      "z_device": "switch01.scl05",
+      "capacity_bps": 100000000000.0,
+      "status": "down",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.9706,
+              37.3763
+            ],
+            [
+              -121.959,
+              37.374
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.959,
+              37.374
+            ],
+            [
+              -121.94795,
+              37.3726
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "c3772ac9-f1e0-557e-b819-80662a21cca4",
+      "scope": "inter",
+      "a_site": "scl02",
+      "z_site": "sfo02",
+      "a_device": "switch01.scl02",
+      "z_device": "switch01.sfo02",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.9706,
+              37.3763
+            ],
+            [
+              -121.99,
+              37.5
+            ],
+            [
+              -122.2,
+              37.62
+            ]
+          ]
+        },
+        {
+          "medium": "bridge",
+          "coordinates": [
+            [
+              -122.2,
+              37.62
+            ],
+            [
+              -122.3,
+              37.66
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -122.3,
+              37.66
+            ],
+            [
+              -122.38,
+              37.7
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -122.38,
+              37.7
+            ],
+            [
+              -122.39812,
+              37.72321
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "b187d106-a5b4-5418-a483-206fca3b6b56",
+      "scope": "inter",
+      "a_site": "scl02",
+      "z_site": "sjc01",
+      "a_device": "switch01.scl02",
+      "z_device": "switch01.sjc01",
+      "capacity_bps": 400000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.9706,
+              37.3763
+            ],
+            [
+              -121.9,
+              37.32
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.9,
+              37.32
+            ],
+            [
+              -121.78243,
+              37.24235
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2dbba147-013f-5835-94c0-7ca9dc0955cf",
+      "scope": "inter",
+      "a_site": "fmt01",
+      "z_site": "sfo02",
+      "a_device": "switch01.fmt01",
+      "z_device": "switch01.sfo02",
+      "capacity_bps": 10000000000.0,
+      "status": "up",
+      "approximate": true,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.92011,
+              37.47181
+            ],
+            [
+              -121.95352,
+              37.4808
+            ],
+            [
+              -121.98646,
+              37.49069
+            ],
+            [
+              -122.01893,
+              37.50147
+            ],
+            [
+              -122.05093,
+              37.51315
+            ],
+            [
+              -122.08245,
+              37.52573
+            ],
+            [
+              -122.11351,
+              37.5392
+            ],
+            [
+              -122.14409,
+              37.55357
+            ],
+            [
+              -122.1742,
+              37.56883
+            ],
+            [
+              -122.20384,
+              37.58499
+            ],
+            [
+              -122.23301,
+              37.60205
+            ],
+            [
+              -122.26171,
+              37.62
+            ],
+            [
+              -122.28993,
+              37.63885
+            ],
+            [
+              -122.31769,
+              37.6586
+            ],
+            [
+              -122.34497,
+              37.67924
+            ],
+            [
+              -122.37178,
+              37.70078
+            ],
+            [
+              -122.39812,
+              37.72321
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "87474a89-f068-56bf-b743-12a20a15f171",
+      "scope": "inter",
+      "a_site": "scl05",
+      "z_site": "sjc02",
+      "a_device": "switch01.scl05",
+      "z_device": "switch01.sjc02",
+      "capacity_bps": 100000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 1,
+      "segments": [
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.94795,
+              37.3726
+            ],
+            [
+              -121.92,
+              37.35
+            ]
+          ]
+        },
+        {
+          "medium": "underground",
+          "coordinates": [
+            [
+              -121.92,
+              37.35
+            ],
+            [
+              -121.89165,
+              37.33415
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "c8a92fe3-da57-5fcf-830a-fc05355306fb",
+      "scope": "intra",
+      "a_site": "sfo02",
+      "z_site": "sfo02",
+      "a_device": "switch01.sfo02",
+      "z_device": "switch02.sfo02",
+      "capacity_bps": 800000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -122.396525,
+              37.723214
+            ],
+            [
+              -122.399725,
+              37.723214
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bfa994d1-72e5-51c4-8c99-15fb84feb1b0",
+      "scope": "intra",
+      "a_site": "fmt01",
+      "z_site": "fmt01",
+      "a_device": "switch01.fmt01",
+      "z_device": "switch03.fmt01",
+      "capacity_bps": 800000000000.0,
+      "status": "up",
+      "approximate": false,
+      "members": 2,
+      "segments": [
+        {
+          "medium": "building",
+          "coordinates": [
+            [
+              -121.918511,
+              37.47181
+            ],
+            [
+              -121.921711,
+              37.47181
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}
