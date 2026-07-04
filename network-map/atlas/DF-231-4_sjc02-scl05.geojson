@@ -1,0 +1,70 @@
+{
+  "type": "FeatureCollection",
+  "circuit": {
+    "circuit_id": "DF-231-4",
+    "provider": "Boldyn",
+    "a_site": "sjc02",
+    "z_site": "scl05",
+    "status": "active",
+    "geometry": "approx-kmz",
+    "match": [
+      "DF-231-4-1",
+      "DF-231-4-2",
+      "00000231-0000"
+    ]
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "seq": 0,
+        "medium": "underground"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -121.8916,
+            37.3341
+          ],
+          [
+            -121.9415,
+            37.3668
+          ],
+          [
+            -121.9409,
+            37.3598
+          ],
+          [
+            -121.9346,
+            37.3571
+          ],
+          [
+            -121.9382,
+            37.353
+          ],
+          [
+            -121.9159,
+            37.3389
+          ],
+          [
+            -121.9056,
+            37.3339
+          ],
+          [
+            -121.8917,
+            37.3345
+          ],
+          [
+            -121.9502,
+            37.3663
+          ],
+          [
+            -121.948,
+            37.3726
+          ]
+        ]
+      }
+    }
+  ]
+}
