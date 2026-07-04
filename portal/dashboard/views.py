@@ -1,10 +1,13 @@
 import ipaddress
+import json
 import logging
+import os
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.http import (
@@ -1863,3 +1866,87 @@ def device_cache_status_view(request):
         "lg_error": lg_error,
         "is_ix_admin": True,
     })
+
+
+# ── Network map: public per-link traffic feed ───────────────────────────────
+_MAP_LINKS_CACHE = {"mtime": None, "doc": None}
+
+
+def _load_map_links():
+    """Read the private opaque-id -> member-ports map (rsynced from the metrics
+    builder into a read-only bind mount). Re-read only when the file changes."""
+    path = getattr(settings, "SFMIX_MAP_LINKS_PATH", "/data/map/map-links.json")
+    mtime = os.path.getmtime(path)
+    if _MAP_LINKS_CACHE["mtime"] != mtime:
+        with open(path) as fh:
+            _MAP_LINKS_CACHE["doc"] = json.load(fh)
+        _MAP_LINKS_CACHE["mtime"] = mtime
+    return _MAP_LINKS_CACHE["doc"]
+
+
+def _cors(resp):
+    # Public, non-sensitive aggregates; the static structure is world-readable
+    # too, so a wildcard origin is fine and simplest.
+    resp["Access-Control-Allow-Origin"] = "*"
+    resp["Cache-Control"] = "public, max-age=30"
+    return resp
+
+
+def ix_map_traffic(request):
+    """Public JSON: current bps + 24h series per opaque map cable id.
+
+    The browser loads the static structure (map.json, served by nginx) once, then
+    polls this for colouring. Per-cable throughput is summed over the cable's
+    member ports (from the private map-links map); circuit ids/providers are never
+    returned. The whole response is cached server-side so N visitors cost one
+    Prometheus query burst per TTL — Prometheus is never hit by the browser.
+    """
+    payload = cache.get("map_traffic")
+    if payload is not None:
+        return _cors(JsonResponse(payload))
+
+    try:
+        links_doc = _load_map_links()
+    except (OSError, ValueError):
+        logger.warning("map-links.json unavailable", exc_info=True)
+        return _cors(JsonResponse({"generation": None, "links": {},
+                                   "error": "structure unavailable"}, status=503))
+
+    links = links_doc.get("links", {})
+    window, step = 86400, 1800  # 24h, 48 points
+    end = int(time.time())
+    start = end - window
+    xs = prom_client.build_grid(start, end, step)
+    prom = prom_client.PrometheusClient()
+
+    out_links = {}
+    for cid, meta in links.items():
+        members = [(m["host"], m["ifname"]) for m in meta.get("members", [])]
+        cap = meta.get("capacity_bps") or 0
+        if not members:
+            continue
+        try:
+            in_r = prom.query_range(prom_client.ifcounters_query(members, "in", step), start, end, step)
+            out_r = prom.query_range(prom_client.ifcounters_query(members, "out", step), start, end, step)
+        except Exception:
+            logger.warning("map traffic query failed for a cable", exc_info=True)
+            continue
+        series_in = prom_client.align_single(in_r, xs, start, step)
+        series_out = prom_client.align_single(out_r, xs, start, step)
+        cur_in = next((v for v in reversed(series_in) if v is not None), 0) or 0
+        cur_out = next((v for v in reversed(series_out) if v is not None), 0) or 0
+        util = round(100.0 * max(cur_in, cur_out) / cap, 1) if cap else 0
+        out_links[cid] = {
+            "in_bps": round(cur_in), "out_bps": round(cur_out), "util_pct": util,
+            "series_in": [round(v) if v is not None else None for v in series_in],
+            "series_out": [round(v) if v is not None else None for v in series_out],
+        }
+
+    payload = {
+        "generation": links_doc.get("generation"),
+        "generated_at": links_doc.get("generated_at"),
+        "series": {"step_s": step, "points": len(xs)},
+        "links": out_links,
+    }
+    cache.set("map_traffic", payload, getattr(settings, "SFMIX_MAP_TRAFFIC_TTL", 45))
+    return _cors(JsonResponse(payload))

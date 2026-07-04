@@ -187,6 +187,13 @@ ALICE_LG_URL = os.environ.get("ALICE_LG_URL", "https://alice.sfmix.org")
 # JSON; Prometheus is never exposed to the browser. See dashboard/prom_client.py.
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://metrics.sfo02.sfmix.org:9090")
 
+# --- Network map ---
+# Private opaque-id -> member-ports map, rsynced from the metrics builder into a
+# read-only bind mount. Feeds the public /statistics/map/traffic endpoint. The
+# public structure (map.json) is served separately by nginx as a static file.
+SFMIX_MAP_LINKS_PATH = os.environ.get("SFMIX_MAP_LINKS_PATH", "/data/map/map-links.json")
+SFMIX_MAP_TRAFFIC_TTL = int(os.environ.get("SFMIX_MAP_TRAFFIC_TTL", "45"))
+
 # --- Prometheus metrics ---
 # Networks allowed to scrape /metrics/.  Accepts CIDR notation.
 _trusted_nets = os.environ.get("PROMETHEUS_TRUSTED_NETWORKS", "127.0.0.0/8,::1/128")
