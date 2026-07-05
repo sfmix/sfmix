@@ -1,13 +1,15 @@
 {
   "type": "FeatureCollection",
   "circuit": {
-    "circuit_id": "FBDK-1721530",
+    "circuit_id": "FBDK-1721530-ZFS",
     "provider": "Zayo",
     "a_site": "fmt01",
     "z_site": "sjc01",
-    "status": "active",
+    "status": "decommissioned",
     "geometry": "approx-kmz",
     "match": [
+      "FBDK/1721530/ZFS",
+      "FBDK-1721530-ZFS",
       "FBDK/1721530//ZFS",
       "FBDK-1721530"
     ]

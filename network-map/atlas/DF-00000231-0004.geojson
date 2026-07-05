@@ -1,13 +1,17 @@
 {
   "type": "FeatureCollection",
   "circuit": {
-    "circuit_id": "DF-231-4",
-    "provider": "Boldyn",
+    "circuit_id": "DF-00000231-0004",
+    "provider": "Boldyn Networks",
     "a_site": "fmt01",
     "z_site": "sjc02",
     "status": "active",
     "geometry": "approx-bart",
     "match": [
+      "DF-00000231-0004",
+      "DF-00000231-0004-0001",
+      "DF-00000231-0004-0002",
+      "DF-231-4",
       "DF-231-4-1",
       "DF-231-4-2"
     ]

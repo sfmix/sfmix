@@ -162,9 +162,12 @@ def main():
     active = [c for c in circuits if str(c.status).lower() == "active"]
     active_no_port = [c.cid for c in active if c.cid not in seen_cids]
     active_no_atlas = [c.cid for c in active if norm(c.cid) not in atlas]
-    known_sites = None
-    atlas_no_circuit = [fn for k, fn in atlas.items()
-                        if k not in cid_by_norm and not any(norm(mt) == k for c in circuits for mt in [c.cid])]
+    # per-file: flag only atlas files where NONE of their keys match a circuit cid
+    file_keys = {}
+    for k, fn in atlas.items():
+        file_keys.setdefault(fn, set()).add(k)
+    atlas_no_circuit = sorted(fn for fn, keys in file_keys.items()
+                              if not any(k in cid_by_norm for k in keys))
 
     def show(title, rows, fmt):
         print("\n%s (%d)" % (title, len(rows)))
