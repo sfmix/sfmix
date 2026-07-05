@@ -241,16 +241,13 @@ def build():
         z_ll = (SITES[z][1], SITES[z][0])
         cid = str(uuid.uuid5(NS, "%s|%s|%s|%s" % (GENERATION, a, z, cap)))
         atlas_segs = atlas.get(frozenset([a, z]))
-        if atlas_segs:
-            # A cable with its own surveyed route uses it solid; a route-less
-            # circuit (e.g. the HE/Zayo 10G backup) borrows the pair's known
-            # corridor but stays flagged approximate → drawn dotted, parallel to
-            # the primary, instead of a bezier floating across the map.
+        if atlas_segs and not approx:
+            segments = atlas_segs
             cables.append({
                 "id": cid, "scope": "inter", "a_site": a, "z_site": z,
                 "a_device": DEVICES[a][0], "z_device": DEVICES[z][0],
-                "capacity_bps": cap, "status": status, "approximate": bool(approx),
-                "members": members, "segments": atlas_segs,
+                "capacity_bps": cap, "status": status, "approximate": False,
+                "members": members, "segments": segments,
             })
             continue
         if approx or not segs:
