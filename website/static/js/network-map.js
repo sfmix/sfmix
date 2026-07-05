@@ -85,6 +85,10 @@
   }
   function inRect(p, b) { return p[0] >= b.minX && p[0] <= b.maxX && p[1] >= b.minY && p[1] <= b.maxY; }
   function insideRect(p, b) { return p[0] > b.minX && p[0] < b.maxX && p[1] > b.minY && p[1] < b.maxY; }
+  function metersBetween(a, b) {
+    var dx = (a[0] - b[0]) * 111320 * Math.cos(a[1] * Math.PI / 180), dy = (a[1] - b[1]) * 110540;
+    return Math.hypot(dx, dy);
+  }
   // Segment intersection (returns the crossing point, or null). Used to de-loop.
   function segInt(p1, p2, p3, p4) {
     var d = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0]);
@@ -95,17 +99,24 @@
       return [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])];
     return null;
   }
-  // Remove self-intersections: where the polyline crosses itself, splice the loop
-  // out and stitch the two segments at the crossing point. Coarsened atlas/ring
-  // routes leave little knots near sites; a cable never visually loops, so this is
-  // always the right call. Iterative (each pass removes the first loop found).
+  // Remove SMALL self-intersections: where the polyline crosses itself within a
+  // short span, splice the little knot out and stitch at the crossing point.
+  // Coarsened atlas/ring routes leave such knots near sites. The span cap is
+  // essential: a long backbone route (e.g. sfo02<->scl02 across the bay) can cross
+  // itself once, and excising everything between the crossings would collapse the
+  // whole route to a straight line — so only cut loops shorter than LOOP_MAX_M.
+  var LOOP_MAX_M = 1800;
   function deloop(pts) {
     for (var pass = 0; pass < 40; pass++) {
       var cut = false;
       for (var i = 0; i < pts.length - 1 && !cut; i++) {
         for (var j = i + 2; j < pts.length - 1; j++) {
           var x = segInt(pts[i], pts[i + 1], pts[j], pts[j + 1]);
-          if (x) { pts = pts.slice(0, i + 1).concat([x], pts.slice(j + 1)); cut = true; break; }
+          if (!x) continue;
+          var span = 0;
+          for (var k = i; k < j; k++) span += metersBetween(pts[k], pts[k + 1]);
+          if (span > LOOP_MAX_M) continue;  // large excursion = real routing, keep it
+          pts = pts.slice(0, i + 1).concat([x], pts.slice(j + 1)); cut = true; break;
         }
       }
       if (!cut) break;
