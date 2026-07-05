@@ -44,9 +44,14 @@ python3 "$TRACE" "$ZAYO_F22M" --merge --circuit-id F22M-0204477 --provider Zayo 
 #     the 55 S Market<->2805 Lafayette order (sjc02<->scl05). Match by the order
 #     number only (NOT the DF-231-4 tokens, which are the fmt01<->sjc02 link).
 BOLDYN_ORDER="$(find_kmz '*55 S Market To 2805 Lafayette.kmz')"
-python3 "$TRACE" "$BOLDYN_ORDER" --merge --circuit-id SO-00000231-0000 --provider "Boldyn Networks" \
-  --a-site sjc02 --z-site scl05 --match 'SO-00000231-0000,00000231-0000' --snap > "$OUT/SO-00000231-0000.geojson"
-echo "OK   SO-00000231-0000 (sjc02<->scl05, planned)"
+# Boldyn ids: SO-<cust 231>-<order> is the service ORDER; DF-<cust>-<order>[-<core>] is
+# the dark-fibre CIRCUIT it turns up as. Key the atlas on the DF- circuit id; keep the
+# SO- order + bare order number in --match so it resolves whichever NetBox currently holds.
+python3 "$TRACE" "$BOLDYN_ORDER" --merge --circuit-id DF-00000231-0000 --provider "Boldyn Networks" \
+  --a-site sjc02 --z-site scl05 \
+  --match 'DF-00000231-0000,DF-00000231-0000-0001,DF-00000231-0000-0002,SO-00000231-0000,00000231-0000' \
+  --snap > "$OUT/DF-00000231-0000.geojson"
+echo "OK   DF-00000231-0000 (sjc02<->scl05, planned order SO-00000231-0000)"
 # (b) the customer-facing BART-network KMZ, chained via graph routing between
 #     datacenters. DF-231-4 is the fmt01<->sjc02 core link.
 BOLDYN_NET="$(find_kmz 'Customer Facing Boldyn Fiber Network 11.13.25.kmz')"
