@@ -33,10 +33,29 @@ import sys
 import time
 import uuid
 
+import map_geometry as mg  # shared, IXP-generic render-geometry engine (same dir)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir))
 ATLAS_DIR = os.path.join(REPO, "network-map", "atlas")
 SITES_JSON = os.path.join(REPO, "network-map", "sites.json")
+WATER_JSON = os.path.join(REPO, "website", "static", "map", "basemap-water.json")
+
+
+def load_water_rings():
+    """Water polygon rings from the committed basemap, for submarine-span detection.
+    Returns [] if absent (then no cable gets water treatment — safe)."""
+    try:
+        d = json.load(open(WATER_JSON))
+    except (OSError, ValueError):
+        return []
+    rings = []
+    for f in d.get("features", []):
+        g = f.get("geometry", {})
+        polys = g["coordinates"] if g.get("type") == "MultiPolygon" else [g.get("coordinates", [])]
+        for poly in polys:
+            rings += list(poly)
+    return rings
 
 SFLOW_URL = os.environ.get("SFLOW_URL", "http://127.0.0.1:8008")
 PROM_URL = os.environ.get("PROM_URL", "http://127.0.0.1:9090")
@@ -428,6 +447,12 @@ def build(args):
                          "dlon": round(meta["lon"] + layout[d][0], 6)} for d in devs],
         }
 
+    # geometry inputs for the shared engine
+    water = load_water_rings()
+    box = {code: mg.rect_bounds(sites_out[code]["building"]) for code in sites_out}
+    devll = {code: {d["id"]: [d["dlon"], d["dlat"]] for d in sites_out[code]["devices"]}
+             for code in sites_out}
+
     cables_out, links_private, drift = [], {}, {"missing": [], "stale": [], "retired_live": []}
     matched_files = set()
     for c in cables:
@@ -447,13 +472,16 @@ def build(args):
             segments = [{"medium": "underground", "coordinates": bezier_arc(a_ll, z_ll)}]
             approximate = True
             drift["missing"].append((a, z, c["tokens"] or c["provider"]))
+        a_dev, z_dev = c["members"][0][0], c["members"][-1][0]
+        geom = mg.build_inter_geometry(segments, a_ll, z_ll, box.get(a), box.get(z), water,
+                                       devll.get(a, {}).get(a_dev), devll.get(z, {}).get(z_dev))
         oid = str(uuid.uuid5(NS, generation + "|" + "|".join("%s:%s" % m for m in c["members"])))
         cables_out.append({
             "id": oid, "scope": "inter", "a_site": a, "z_site": z,
-            "a_device": c["members"][0][0], "z_device": c["members"][-1][0],
+            "a_device": a_dev, "z_device": z_dev,
             "capacity_bps": c["capacity_bps"], "status": c["status"],
             "approximate": approximate, "members": len(c["members"]),
-            "segments": segments,
+            "path": geom["path"], "media": geom["media"], "drops": geom["drops"],
         })
         links_private[oid] = {
             "members": [{"host": m[0], "ifname": m[1]} for m in c["members"]],
@@ -493,7 +521,7 @@ def build(args):
             "id": oid, "scope": "intra", "a_site": site, "z_site": site,
             "a_device": da, "z_device": db, "capacity_bps": cap,
             "status": "up", "approximate": False, "members": len(member_ports),
-            "segments": [{"medium": "building", "coordinates": [dc[da], dc[db]]}],
+            "path": [dc[da], dc[db]], "media": [], "drops": [],
         })
         links_private[oid] = {
             "members": [{"host": h, "ifname": i} for h, i in member_ports],
@@ -505,9 +533,24 @@ def build(args):
         if a["file"] not in matched_files and a["status"] == "active":
             drift["stale"].append((a["file"], a["a_site"], a["z_site"]))
 
+    # parallel-lane ordinals + pre-aggregated metro trunks (frontend just draws them)
+    mg.assign_lanes(cables_out)
+    groups = {}
+    for code, s in sites_out.items():
+        g = groups.setdefault(s["metro"] or code, {"lons": [], "lats": [], "codes": []})
+        g["lons"].append(s["lon"]); g["lats"].append(s["lat"]); g["codes"].append(code)
+    metros_out, metro_of, metro_centroid = {}, {}, {}
+    for name, g in groups.items():
+        c = [sum(g["lons"]) / len(g["lons"]), sum(g["lats"]) / len(g["lats"])]
+        metro_centroid[name] = c
+        for code in g["codes"]:
+            metro_of[code] = name
+        metros_out[name] = {"lon": round(c[0], 6), "lat": round(c[1], 6), "codes": g["codes"]}
+    metro_cables = mg.metro_aggregate(cables_out, sites_out, metro_of, metro_centroid)
+
     gen_at = args.now or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    mapjson = {"generation": generation, "generated_at": gen_at,
-               "sites": sites_out, "cables": cables_out}
+    mapjson = {"generation": generation, "generated_at": gen_at, "sites": sites_out,
+               "metros": metros_out, "cables": cables_out, "metro_cables": metro_cables}
     linksjson = {"generation": generation, "generated_at": gen_at, "links": links_private}
     return mapjson, linksjson, drift
 
