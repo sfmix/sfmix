@@ -1,13 +1,16 @@
 {
   "type": "FeatureCollection",
   "circuit": {
-    "circuit_id": "SO-00000231-0000",
+    "circuit_id": "DF-00000231-0000",
     "provider": "Boldyn Networks",
     "a_site": "sjc02",
     "z_site": "scl05",
     "status": "planned",
     "geometry": "approx-kmz",
     "match": [
+      "DF-00000231-0000",
+      "DF-00000231-0000-0001",
+      "DF-00000231-0000-0002",
       "SO-00000231-0000",
       "00000231-0000"
     ]

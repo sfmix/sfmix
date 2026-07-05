@@ -108,6 +108,49 @@ link types and their terminations distinct:
 shows **0 atlas files without a matching circuit**; the only active-circuit-without-atlas
 is `FID-2022-0145` (scl02↔scl03 passive span, not yet drawn).
 
+## Runtime `!!` interface comments = authoritative device→circuit link
+
+The Arista EOS running-config carries `!!` comment lines on each transport interface that
+are the **authoritative** device→dark-fibre linkage — richer and more reliable than the
+`{token}` in the `description`:
+
+```
+interface Ethernet24/1
+   !! PP ODP.A.SHELF.1.SLOT.A Ports 1 & 2 (1st cable bundle - cable id 7 & 8)
+   !! SO:CAS-02800032 CID:FID-2022-0145
+   description Core: Transport SFO02 via BandwidthIG+DRT {FID-2022-0145} [100Gbps]
+```
+
+- **Boldyn id convention (SFMIX = Boldyn customer `00000231`):** `SO-00000231-<order>` is
+  the service **order**; `DF-00000231-<order>[-<core>]` is the dark-fibre **circuit** it
+  turns up as (a duplex order yields cores `-0001`/`-0002`). **Circuit ids are `DF-`;**
+  `SO-` is the order. NetBox today names the *turned-up* circuits `DF-…` (correct) but the
+  *planned* ones `SO-…` — those circuit CIDs should be renamed to `DF-` (or kept `SO-`
+  until turn-up — a policy call). The atlas keys on the `DF-` id and carries the `SO-` +
+  bare-order forms in `match`, so it resolves whichever NetBox holds. `map_circuits --audit`
+  flags `SO-`-named dark-fibre circuits as rename candidates.
+- **`!! SO:<so> CID:<cid>`** — canonical service-order + **circuit id**. Match on THIS,
+  not the `{token}`. The token is decorative and sometimes wrong (Eth24/1's description
+  says `SFO02`, but `CID:FID-2022-0145` is scl02↔scl03 per NetBox — the CID wins).
+- **`!! PP <panel> Port(s) N …`** — the patch-panel/ODF landing (14/32 ifaces have it).
+  This is the switch→ODF hop that completes/validates the trace to the circuit termination
+  — the exact info needed to cable the uncabled ports.
+- **`BiDi #N` vs "Ports A & B / cable id X & Y"** — the fibre model per interface:
+  - two `BiDi #1`/`#2` transceivers on one duplex fibre = **two independent links (two
+    counters) = two drawn strands**; in NetBox that wants **one core-circuit per BiDi
+    link**. This EXPLAINS the earlier "2 switch ports, 1 termination" ambiguity
+    (`FID-2023-0408`, `-0740`, `-0741`, `-0763`).
+  - a `duplex` single link (one transceiver pair, e.g. `FID-2022-0145`, `-0742`, `-0106`)
+    = **one strand**. `-0742`/`-0106` are DWDM (`Ch 21`).
+- **New gap surfaced:** `sfo01/Eth50` comment `CID:DF-00000231-0002-0001` (the sfo01↔oak01
+  passive-site span) is NOT in NetBox (only the planned `SO-00000231-0002`) — add the
+  turned-up circuit.
+
+**Implication for the tool + builder:** read the runtime `!! CID` / `!! PP` (SSH
+`show running-config`, direct — no PTY per the EOS exec-mode gotcha) as the authoritative
+device→circuit signal and patch-target hint, alongside NetBox (the circuit/termination
+source of truth). The description `{token}` demotes to a last-resort fallback.
+
 ## Phase 1 — Manual NetBox cleanup + a gap-detector that prompts a human (NOT auto-cabling)
 
 Decision: **do NOT automate circuit/cable creation.** Circuit terminations change rarely,

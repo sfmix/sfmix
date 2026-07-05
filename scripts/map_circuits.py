@@ -55,6 +55,38 @@ def site_of_device(dev_name):
     return parts[1] if len(parts) > 1 else dev_name
 
 
+def parse_configs(configs_dir):
+    """Parse Arista EOS running-configs (files named cfg.<device>) for the authoritative
+    per-interface transport info in the `!!` comments:
+      !! SO:<so> CID:<cid>          -> canonical circuit id (beats the {token})
+      !! PP <panel> Port(s) N ...   -> patch-panel/ODF landing (the switch->ODF hop)
+      description ... BiDi #N / Ports A & B  -> link type (bidi vs duplex)
+    Returns {(device, ifname): {"cid","so","pp","link"}}. Empty if dir missing."""
+    out = {}
+    if not configs_dir or not os.path.isdir(configs_dir):
+        return out
+    for path in glob.glob(os.path.join(configs_dir, "cfg.*")):
+        dev = os.path.basename(path)[4:]
+        try:
+            rc = open(path).read()
+        except OSError:
+            continue
+        for m in re.finditer(r"(?ms)^interface (Ethernet\S+)\n(.*?)(?=^interface |\Z)", rc):
+            ifn, body = m.group(1), m.group(2)
+            if "Core: Transport" not in body:
+                continue
+            cid = re.search(r"CID:(\S+)", body)
+            so = re.search(r"SO:(\S+)", body)
+            pp = re.search(r"!!\s*(?:PP\s+)+(.+)", body)
+            desc = re.search(r"description (.+)", body)
+            dtext = desc.group(1) if desc else ""
+            link = ("bidi" if re.search(r"BiDi", dtext) else
+                    "duplex" if re.search(r"Ports?\s+\d+\s*&|cable id \d+ & \d+", body) else "?")
+            out[(dev, ifn)] = {"cid": cid.group(1) if cid else "", "so": so.group(1) if so else "",
+                               "pp": pp.group(1).strip() if pp else "", "link": link}
+    return out
+
+
 def atlas_cids():
     out = {}
     for path in glob.glob(os.path.join(ATLAS_DIR, "*.geojson")):
@@ -103,8 +135,10 @@ def trace_terminus(session, ep, iface_id):
     return {"kind": "other", "detail": kind}
 
 
-def gather(nb, sess, ep):
-    """Return (circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas)."""
+def gather(nb, sess, ep, configs):
+    """Return (circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas).
+    `configs` is the parsed EOS `!!` comment data — its `!! CID` is the AUTHORITATIVE
+    interface->circuit key (the description `{token}` is only a fallback)."""
     circuits = list(nb.circuits.circuits.filter(type="dark-fiber"))
     cid_by_norm = {norm(c.cid): c for c in circuits}
     term_sites, term_by_cid_side = {}, {}
@@ -119,12 +153,15 @@ def gather(nb, sess, ep):
     ifaces = list(nb.dcim.interfaces.filter(description__ic="Core: Transport"))
     records = []
     for i in ifaces:
-        d = i.description or ""
-        m = RE_TOKEN.search(d)
-        token = m.group(1) if m else ""
-        circ = cid_by_norm.get(norm(token)) if token else None
+        cfg = configs.get((str(i.device), i.name), {})
+        token = (RE_TOKEN.search(i.description or "") or [None, ""])[1] if RE_TOKEN.search(i.description or "") else ""
+        # authoritative: comment CID; fallback: description token
+        key = cfg.get("cid") or token
+        cid_src = "comment" if cfg.get("cid") else ("token" if token else "")
+        circ = cid_by_norm.get(norm(key)) if key else None
         rec = {"iface": i, "tag": "%s/%s" % (i.device, i.name), "site": site_of_device(str(i.device)),
-               "token": token, "circuit": circ, "trace": None}
+               "token": token, "cid": key, "cid_src": cid_src, "circuit": circ,
+               "pp": cfg.get("pp", ""), "link": cfg.get("link", ""), "trace": None}
         if circ:
             rec["trace"] = ({"kind": "uncabled"} if not getattr(i, "cable", None)
                             else trace_terminus(sess, ep, i.id))
@@ -190,7 +227,8 @@ def cmd_plan(proposals, manual, records):
         elif r["circuit"] and tr.get("kind") == "other":
             print("  - %s -> %s: cabled to another interface (bypasses circuit) — human to reconcile" % (r["tag"], r["circuit"].cid))
         elif not r["circuit"]:
-            print("  - %s: description token {%s} has no NetBox circuit — human" % (r["tag"], r["token"]))
+            id_shown = ("%s (from %s)" % (r["cid"], r["cid_src"])) if r["cid"] else "(no id)"
+            print("  - %s: circuit %s has no NetBox dark-fibre circuit — human to add/attach" % (r["tag"], id_shown))
     print("\nplan: %d auto-proposed cable(s); rerun with --apply --yes to execute." % len(proposals))
 
 
@@ -248,6 +286,12 @@ def cmd_audit(circuits, cid_by_norm, term_sites, records, atlas):
             c.cid, az, str(c.provider)[:13], str(c.status)[:11], at,
             ", ".join(ports) if ports else "(no described port)"))
     active = [c for c in circuits if str(c.status).lower() == "active"]
+    so_named = [c.cid for c in circuits if str(c.cid).upper().startswith("SO-")]
+    if so_named:
+        renames = ", ".join("%s -> DF-%s" % (c, c[3:]) for c in so_named)
+        print("\nCID CONVENTION: %d dark-fibre circuit(s) use the SO- (service-order) prefix; the "
+              "circuit id should be DF- (DF-<cust>-<order>[-<core>]).\n  Rename candidates in NetBox: %s"
+              % (len(so_named), renames))
     print("\nSUMMARY: resolved=%d uncabled=%d dead_end=%d wrong=%d no_cid=%d | active=%d no_port=%d no_atlas=%d" % (
         resolved, uncabled, dead, wrong, nocid, len(active),
         len([c for c in active if c.cid not in seen]),
@@ -261,6 +305,9 @@ def main():
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--yes", action="store_true", help="required with --apply to actually write")
     ap.add_argument("--env-file")
+    ap.add_argument("--configs-dir", help="dir of EOS running-configs (files cfg.<device>) "
+                    "for authoritative !! CID / !! PP comment data. Fetch e.g.: "
+                    "for d in <devs>; do ssh $d.sfmix.org 'show running-config' > cfg.$d; done")
     args = ap.parse_args()
     if args.env_file:
         load_env(args.env_file)
@@ -272,7 +319,10 @@ def main():
     sess = requests.Session()
     sess.headers = {"Authorization": "Token %s" % tok}
 
-    circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas = gather(nb, sess, ep)
+    configs = parse_configs(args.configs_dir)
+    circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas = gather(nb, sess, ep, configs)
+    if configs:
+        print("(using EOS !! comments from %d interfaces as authoritative CID/PP)\n" % len(configs))
     if args.audit:
         cmd_audit(circuits, cid_by_norm, term_sites, records, atlas)
     if args.plan or args.apply:
