@@ -60,182 +60,22 @@
     return 1.1;
   }
 
-  // Chaikin corner-cutting: soft subway curves without moving endpoints much.
-  function chaikin(pts, iters) {
-    for (var k = 0; k < (iters || 2); k++) {
-      if (pts.length < 3) break;
-      var out = [pts[0]];
-      for (var i = 0; i < pts.length - 1; i++) {
-        var p = pts[i], q = pts[i + 1];
-        out.push([p[0] * 0.75 + q[0] * 0.25, p[1] * 0.75 + q[1] * 0.25]);
-        out.push([p[0] * 0.25 + q[0] * 0.75, p[1] * 0.25 + q[1] * 0.75]);
-      }
-      out.push(pts[pts.length - 1]);
-      pts = out;
-    }
-    return pts;
-  }
-
-  // --- building-box geometry: terminate a trunk on the box EDGE (at the angle it
-  // approaches), then a fine line carries it from that edge point to the switch.
-  function rectBounds(ring) {
-    var xs = ring.map(function (p) { return p[0]; }), ys = ring.map(function (p) { return p[1]; });
-    return { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs),
-             minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) };
-  }
-  function inRect(p, b) { return p[0] >= b.minX && p[0] <= b.maxX && p[1] >= b.minY && p[1] <= b.maxY; }
-  function insideRect(p, b) { return p[0] > b.minX && p[0] < b.maxX && p[1] > b.minY && p[1] < b.maxY; }
-  function metersBetween(a, b) {
-    var dx = (a[0] - b[0]) * 111320 * Math.cos(a[1] * Math.PI / 180), dy = (a[1] - b[1]) * 110540;
-    return Math.hypot(dx, dy);
-  }
-  // Segment intersection (returns the crossing point, or null). Used to de-loop.
-  function segInt(p1, p2, p3, p4) {
-    var d = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0]);
-    if (Math.abs(d) < 1e-14) return null;
-    var t = ((p3[0] - p1[0]) * (p4[1] - p3[1]) - (p3[1] - p1[1]) * (p4[0] - p3[0])) / d;
-    var u = ((p3[0] - p1[0]) * (p2[1] - p1[1]) - (p3[1] - p1[1]) * (p2[0] - p1[0])) / d;
-    if (t > 0 && t < 1 && u > 0 && u < 1)
-      return [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])];
-    return null;
-  }
-  // Remove SMALL self-intersections: where the polyline crosses itself within a
-  // short span, splice the little knot out and stitch at the crossing point.
-  // Coarsened atlas/ring routes leave such knots near sites. The span cap is
-  // essential: a long backbone route (e.g. sfo02<->scl02 across the bay) can cross
-  // itself once, and excising everything between the crossings would collapse the
-  // whole route to a straight line — so only cut loops shorter than LOOP_MAX_M.
-  var LOOP_MAX_M = 1800;
-  function deloop(pts) {
-    for (var pass = 0; pass < 40; pass++) {
-      var cut = false;
-      for (var i = 0; i < pts.length - 1 && !cut; i++) {
-        for (var j = i + 2; j < pts.length - 1; j++) {
-          var x = segInt(pts[i], pts[i + 1], pts[j], pts[j + 1]);
-          if (!x) continue;
-          var span = 0;
-          for (var k = i; k < j; k++) span += metersBetween(pts[k], pts[k + 1]);
-          if (span > LOOP_MAX_M) continue;  // large excursion = real routing, keep it
-          pts = pts.slice(0, i + 1).concat([x], pts.slice(j + 1)); cut = true; break;
-        }
-      }
-      if (!cut) break;
-    }
-    return pts;
-  }
-  // point where the ray from `center` (inside the box) toward `toward` exits the rect
-  function rectExit(center, toward, b) {
-    var dx = toward[0] - center[0], dy = toward[1] - center[1];
-    if (dx === 0 && dy === 0) return [center[0], b.maxY];  // degenerate: straight up
-    var t = Infinity;
-    if (dx > 0) t = Math.min(t, (b.maxX - center[0]) / dx);
-    else if (dx < 0) t = Math.min(t, (b.minX - center[0]) / dx);
-    if (dy > 0) t = Math.min(t, (b.maxY - center[1]) / dy);
-    else if (dy < 0) t = Math.min(t, (b.minY - center[1]) / dy);
-    return [center[0] + t * dx, center[1] + t * dy];
-  }
-  // Clip a trunk's ends so it stops on each site's box edge (not the centroid).
-  // Returns the clipped line plus the two edge entry points for the fine drops.
-  var APPROACH_M = 350;  // ignore near-site coarsening jogs within this radius
-  function clipToBoxes(coords, centerA, bA, centerZ, bZ) {
-    // Keep only the run of points OUTSIDE both endpoint boxes. Filtering (not just
-    // trimming contiguous ends) also drops mid-path points that dip into a box —
-    // a coarsened route can graze its own destination before the final approach.
-    var mid = coords.filter(function (p) {
-      return !(bA && insideRect(p, bA)) && !(bZ && insideRect(p, bZ));
-    });
-    if (!mid.length) mid = [centerA, centerZ];  // pathological: whole line in a box
-    // Anchor each end on the first point past APPROACH_M, and drop the near-site
-    // jog before it, so the trunk enters on the side it GENERALLY approaches from
-    // (a coarsened path can jog the wrong way for ~100m and put the entry on the
-    // wrong edge, making the thick cable cross back over the building).
-    var iA = 0;
-    while (iA < mid.length - 1 && metersBetween(mid[iA], centerA) < APPROACH_M) iA++;
-    var iZ = mid.length - 1;
-    while (iZ > 0 && metersBetween(mid[iZ], centerZ) < APPROACH_M) iZ--;
-    if (iZ <= iA) { iA = 0; iZ = mid.length - 1; }  // too short to trim; keep as-is
-    var core = mid.slice(iA, iZ + 1);
-    var entryA = bA ? rectExit(centerA, core[0], bA) : coords[0];
-    var entryZ = bZ ? rectExit(centerZ, core[core.length - 1], bZ) : coords[coords.length - 1];
-    return { line: [entryA].concat(core, [entryZ]), entryA: entryA, entryZ: entryZ };
-  }
-
-  function cableCoords(cable) {
-    var coords = [];
-    cable.segments.forEach(function (seg) {
-      seg.coordinates.forEach(function (c) {
-        // drop exact consecutive dupes at segment joins
-        var last = coords[coords.length - 1];
-        if (!last || last[0] !== c[0] || last[1] !== c[1]) coords.push(c);
-      });
-    });
-    return coords;
-  }
 
   // ---- build GeoJSON from structure --------------------------------------
   function buildSources(structure) {
     var sites = structure.sites;
 
-    // parallel-offset index per unordered site pair
-    var pairCount = {}, pairSeen = {};
-    structure.cables.forEach(function (c) {
-      if (c.scope !== "inter") return;
-      var key = [c.a_site, c.z_site].sort().join("~");
-      pairCount[key] = (pairCount[key] || 0) + 1;
-    });
-
-    var cableFeatures = [], mediaFeatures = [], coordsById = {}, entryById = {};
-    var boxOf = {};  // site code -> axis-aligned building-box bounds (for edge entry)
-    Object.keys(sites).forEach(function (code) {
-      if (sites[code].building) boxOf[code] = rectBounds(sites[code].building);
-    });
-    var PAIR_STEP = 2.8;    // spacing between DISTINCT circuits on the same pair
+    // The backend (scripts/map_geometry.py) has already done ALL geometry prep —
+    // smoothing, a->z orientation, de-looping, box-edge clipping, water spans, and
+    // per-pair lane assignment. Here we only STYLE it: fan a LAG's members into
+    // parallel strands and turn the pre-built geometry into GeoJSON features. The
+    // px spacing of the parallel strands IS a rendering choice, so it lives here.
+    var cableFeatures = [], mediaFeatures = [];
+    var PAIR_STEP = 2.8;    // px-lane spacing between DISTINCT circuits on a pair
     var STRAND_FRAC = 0.34; // tight spacing between a circuit's own LAG strands
     structure.cables.forEach(function (c) {
-      // Smooth PER SEGMENT (chaikin preserves endpoints, so joins stay put) and
-      // concatenate. The water-treatment media reuses these same smoothed
-      // per-segment coords, so the underwater band tracks the cable exactly
-      // instead of following a differently-smoothed path (no colour bleed).
-      var segsSmooth = c.segments.map(function (seg) {
-        return { medium: seg.medium,
-          coords: c.scope === "intra" ? seg.coordinates : chaikin(seg.coordinates, 2) };
-      });
-      var smooth = [];
-      segsSmooth.forEach(function (s) {
-        s.coords.forEach(function (p) {
-          var last = smooth[smooth.length - 1];
-          if (!last || last[0] !== p[0] || last[1] !== p[1]) smooth.push(p);
-        });
-      });
-      var base = 0;
-      if (c.scope === "inter") {
-        var sA = sites[c.a_site], sZ = sites[c.z_site];
-        // Orient the geometry a_site -> z_site. Atlas paths are stored in their own
-        // A/Z order, which may be the reverse of this cable's; the box-edge clip
-        // keys off a_site/z_site, so a reversed path would build a jump from one
-        // end to the other and back (the "sfo->scl then loop back" artifact).
-        if (sA && sZ && smooth.length > 1) {
-          var dSA = Math.hypot(smooth[0][0] - sA.lon, smooth[0][1] - sA.lat);
-          var dSZ = Math.hypot(smooth[0][0] - sZ.lon, smooth[0][1] - sZ.lat);
-          if (dSA > dSZ) smooth.reverse();
-        }
-        smooth = deloop(smooth);  // remove coarsening knots (a cable never loops)
-        // clip the trunk so it lands on each site's box EDGE (at its approach
-        // angle) rather than knotting on the centroid; remember the edge points
-        // so a fine drop can run from there to the actual switch inside the box.
-        if (sA && sZ) {
-          var clip = clipToBoxes(smooth, [sA.lon, sA.lat], boxOf[c.a_site],
-                                 [sZ.lon, sZ.lat], boxOf[c.z_site]);
-          smooth = deloop(clip.line);  // the box-edge entry segment can re-cross; re-clean
-          entryById[c.id] = { a: clip.entryA, z: clip.entryZ };
-        }
-        var key = [c.a_site, c.z_site].sort().join("~");
-        var n = pairCount[key]; var i = (pairSeen[key] = (pairSeen[key] || 0) + 1) - 1;
-        base = (i - (n - 1) / 2) * PAIR_STEP;
-      }
-      coordsById[c.id] = { coords: smooth, approx: !!c.approximate };
-      // A LAG / BiDi shows its member links as closely-spaced parallel strands;
-      // distinct circuits between the same pair are spaced a full step apart.
+      var laneCount = c.lane_count || 1;
+      var base = ((c.lane || 0) - (laneCount - 1) / 2) * PAIR_STEP;
       var strands = Math.max(1, c.members || 1);
       for (var st = 0; st < strands; st++) {
         var strandOff = strands > 1 ? (st - (strands - 1) / 2) * STRAND_FRAC : 0;
@@ -248,26 +88,23 @@
             members: strands, strand: st, a_site: c.a_site, z_site: c.z_site,
             a_device: c.a_device || "", z_device: c.z_device || ""
           },
-          geometry: { type: "LineString", coordinates: smooth }
+          geometry: { type: "LineString", coordinates: c.path }
         });
       }
-      // water-treatment media (bridge/submarine), from the SAME smoothed coords
-      // and carrying the cable's base offset so the band centres on the bundle
-      segsSmooth.forEach(function (s) {
-        if (s.medium === "bridge" || s.medium === "submarine") {
-          mediaFeatures.push({
-            type: "Feature",
-            properties: { medium: s.medium, id: c.id, offset: base },
-            geometry: { type: "LineString", coordinates: s.coords }
-          });
-        }
+      // water-crossing spans (pre-computed sub-spans of the path) get the submerged
+      // treatment; carry the cable's base offset so the band centres on the bundle
+      (c.media || []).forEach(function (m) {
+        mediaFeatures.push({
+          type: "Feature",
+          properties: { medium: m.medium, id: c.id, offset: base },
+          geometry: { type: "LineString", coordinates: m.coordinates }
+        });
       });
     });
 
-    var stationFeatures = [], deviceFeatures = [], buildingFeatures = [], deviceCoord = {};
+    var stationFeatures = [], deviceFeatures = [], buildingFeatures = [];
     Object.keys(sites).forEach(function (code) {
       var s = sites[code];
-      (s.devices || []).forEach(function (d) { deviceCoord[d.id] = [d.dlon, d.dlat]; });
       stationFeatures.push({
         type: "Feature",
         properties: { code: code, name: s.name || code, operator: s.operator || "",
@@ -289,87 +126,37 @@
       });
     });
 
-    // ---- device drops: the thick trunk now ends on the box EDGE (see clipToBoxes);
-    // these are the *fine* lines carrying it from that edge entry point to the
-    // specific switch inside the box, so it's clear which device a link lands on
-    // without the thick cable clobbering the in-building layout.
+    // ---- device drops: the pre-built fine lines carrying each trunk from its
+    // box-edge entry point to the specific switch inside (built on the backend).
     var dropFeatures = [];
     structure.cables.forEach(function (c) {
-      if (c.scope !== "inter") return;
-      var entry = entryById[c.id];
-      [["a_site", "a_device", "a"], ["z_site", "z_device", "z"]].forEach(function (pair) {
-        var s = sites[c[pair[0]]], dc = deviceCoord[c[pair[1]]];
-        if (!s || !dc) return;
-        var from = (entry && entry[pair[2]]) || [s.lon, s.lat];
+      (c.drops || []).forEach(function (seg) {
         dropFeatures.push({
           type: "Feature", id: c.id,
           properties: { id: c.id, status: c.status, approximate: !!c.approximate },
-          geometry: { type: "LineString", coordinates: [from, dc] }
+          geometry: { type: "LineString", coordinates: seg }
         });
       });
     });
 
-    // ---- metro tier: group sites by metro, collapse cables to metro trunks ----
-    var metros = {}; // name -> {lats,lons,codes}
-    Object.keys(sites).forEach(function (code) {
-      var s = sites[code], name = s.metro || code;
-      (metros[name] = metros[name] || { lats: [], lons: [], codes: [] });
-      metros[name].lats.push(s.lat); metros[name].lons.push(s.lon); metros[name].codes.push(code);
-    });
-    var metroOf = {}, metroCentroid = {};
-    Object.keys(metros).forEach(function (name) {
-      var m = metros[name];
-      metroCentroid[name] = [avg(m.lons), avg(m.lats)];
-      m.codes.forEach(function (c) { metroOf[c] = name; });
-    });
+    // ---- metro tier: metro nodes + pre-aggregated metro trunks from the backend.
+    var metros = structure.metros || {};
     var metroStationFeatures = Object.keys(metros).map(function (name) {
+      var m = metros[name];
       return { type: "Feature",
-        properties: { metro: name, nsite: metros[name].codes.length,
-          codes: metros[name].codes.join(", ") },
-        geometry: { type: "Point", coordinates: metroCentroid[name] } };
+        properties: { metro: name, nsite: (m.codes || []).length,
+          codes: (m.codes || []).join(", ") },
+        geometry: { type: "Point", coordinates: [m.lon, m.lat] } };
     });
-
-    // aggregate inter-metro cables (drop intra-metro; those appear at site tier)
-    var mGroups = {}; // key -> {a,z,cap,members[],anyUp,allApprox,count}
     METRO_MEMBERS = {};
-    structure.cables.forEach(function (c) {
-      if (c.scope !== "inter") return;
-      var ma = metroOf[c.a_site], mz = metroOf[c.z_site];
-      if (!ma || !mz || ma === mz) return; // intra-metro link, not a trunk
-      var key = [ma, mz].sort().join("~");
-      var g = mGroups[key] || (mGroups[key] = { a: ma, z: mz, cap: 0, members: [], anyUp: false, allApprox: true, ids: [] });
-      g.cap += c.capacity_bps; g.members.push(c.id); g.ids.push(c.id);
-      if (c.status !== "down") g.anyUp = true;
-      if (!c.approximate) g.allApprox = false;
-    });
-    var metroCableFeatures = Object.keys(mGroups).map(function (key) {
-      var g = mGroups[key];
-      var id = "metro:" + key;
-      METRO_MEMBERS[id] = g.ids; METRO_CAP[id] = g.cap;
-      // Trace the trunk along its richest real member cable (prefer non-approx,
-      // then most points) so it follows a real corridor instead of floating; run
-      // it centroid -> real path -> centroid so it meets the metro roundels.
-      var ca = metroCentroid[g.a], cz = metroCentroid[g.z], best = null;
-      g.ids.forEach(function (cid) {
-        var e = coordsById[cid];
-        if (!e || e.coords.length < 3) return;
-        if (!best || (best.approx && !e.approx) ||
-            (best.approx === e.approx && e.coords.length > best.coords.length)) best = e;
-      });
-      var line, real = false;
-      if (best) {
-        var pts = best.coords.slice();
-        if (dist(pts[0], ca) > dist(pts[pts.length - 1], ca)) pts.reverse();
-        line = [ca].concat(pts, [cz]);
-        real = !best.approx;
-      } else {
-        line = chaikin([ca, midBulge(ca, cz), cz], 2);
-      }
-      return { type: "Feature", id: id,
-        properties: { id: id, scope: "metro", status: g.anyUp ? "up" : "down",
-          approximate: !real, weight: weightForCapacity(g.cap),
-          capacity_bps: g.cap, offset: 0, a_site: g.a, z_site: g.z, nmember: g.members.length },
-        geometry: { type: "LineString", coordinates: line } };
+    var metroCableFeatures = (structure.metro_cables || []).map(function (g) {
+      METRO_MEMBERS[g.id] = g.member_ids; METRO_CAP[g.id] = g.capacity_bps;
+      return { type: "Feature", id: g.id,
+        properties: { id: g.id, scope: "metro", status: g.status,
+          approximate: !!g.approximate, weight: weightForCapacity(g.capacity_bps),
+          capacity_bps: g.capacity_bps, offset: 0,
+          a_site: g.a_metro, z_site: g.z_metro, nmember: g.members },
+        geometry: { type: "LineString", coordinates: g.path } };
     });
 
     return {
@@ -381,12 +168,6 @@
   }
   function fc(features) { return { type: "FeatureCollection", features: features }; }
   function avg(a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; }
-  function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  function midBulge(a, z) {
-    var mx = (a[0] + z[0]) / 2, my = (a[1] + z[1]) / 2;
-    var dx = z[0] - a[0], dy = z[1] - a[1];
-    return [mx - dy * 0.08, my + dx * 0.08];
-  }
   var METRO_MEMBERS = {}, METRO_CAP = {}, METRO_STATS = {};
   var STATION_KEYS = [], METRO_KEYS = [];
 

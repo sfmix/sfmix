@@ -12,12 +12,16 @@ eAPI/topology/atlas data; this file only mirrors that JSON *shape*.
 import json
 import math
 import os
+import sys
 import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, os.pardir, "fixtures", "map.json")
 ATLAS_DIR = os.path.join(HERE, os.pardir, "atlas")
 WATER_JSON = os.path.join(HERE, os.pardir, os.pardir, "website", "static", "map", "basemap-water.json")
+
+sys.path.insert(0, os.path.join(HERE, os.pardir, os.pardir, "scripts"))
+import map_geometry as mg  # shared, IXP-generic render-geometry engine
 
 
 def _water_rings():
@@ -222,61 +226,54 @@ def bezier_arc(p0, p1, bulge=0.12, steps=16):
 
 
 def build():
-    sites = {}
+    sites, dev_ll = {}, {}
     for code, (lat, lon, metro, name, op) in SITES.items():
         offs = device_offsets(len(DEVICES[code]))
+        devs = []
+        for d, (ox, oy) in zip(DEVICES[code], offs):
+            dlat, dlon = round(lat + oy, 6), round(lon + ox, 6)
+            devs.append({"id": d, "dlat": dlat, "dlon": dlon})
+            dev_ll[d] = [dlon, dlat]
         sites[code] = {
             "lat": lat, "lon": lon, "metro": metro, "name": name, "operator": op,
             "address": "(synthetic dev fixture)",
             "building": building_rect(lat, lon),
-            "devices": [
-                {"id": d, "dlat": round(lat + oy, 6), "dlon": round(lon + ox, 6)}
-                for d, (ox, oy) in zip(DEVICES[code], offs)
-            ],
+            "devices": devs,
         }
+    box = {code: mg.rect_bounds(sites[code]["building"]) for code in sites}
 
     atlas = load_atlas()
     cables = []
     for a, z, cap, status, approx, members, segs in CABLES:
-        a_ll = (SITES[a][1], SITES[a][0])
-        z_ll = (SITES[z][1], SITES[z][0])
+        a_ll = [SITES[a][1], SITES[a][0]]
+        z_ll = [SITES[z][1], SITES[z][0]]
         cid = str(uuid.uuid5(NS, "%s|%s|%s|%s" % (GENERATION, a, z, cap)))
         atlas_segs = atlas.get(frozenset([a, z]))
+        # assemble raw segments (atlas geometry, a synthetic bezier, or hand
+        # waypoints) — then hand off to the shared engine for ALL cleanup/prep.
         if atlas_segs and not approx:
             segments = atlas_segs
-            cables.append({
-                "id": cid, "scope": "inter", "a_site": a, "z_site": z,
-                "a_device": DEVICES[a][0], "z_device": DEVICES[z][0],
-                "capacity_bps": cap, "status": status, "approximate": False,
-                "members": members, "segments": segments,
-            })
-            continue
-        if approx or not segs:
+        elif approx or not segs:
             segments = [{"medium": "underground", "coordinates": bezier_arc(a_ll, z_ll)}]
         else:
-            # stitch: a_site -> segment waypoints... -> z_site, splitting media
-            segments = []
-            cursor = [round(a_ll[0], 5), round(a_ll[1], 5)]
-            flat = [(m, [round(x, 5) for x in [wx, wy]]) for m, wps in segs for wx, wy in wps]
-            # group consecutive waypoints by medium into segments
-            i = 0
-            prev_pt = cursor
+            segments, prev_pt = [], [round(a_ll[0], 5), round(a_ll[1], 5)]
             for m, wps in segs:
                 coords = [prev_pt] + [[round(wx, 5), round(wy, 5)] for wx, wy in wps]
                 segments.append({"medium": m, "coordinates": coords})
                 prev_pt = coords[-1]
-            # final leg into z
-            segments.append({"medium": segs[-1][0], "coordinates": [prev_pt, [round(z_ll[0], 5), round(z_ll[1], 5)]]})
+            segments.append({"medium": segs[-1][0],
+                             "coordinates": [prev_pt, [round(z_ll[0], 5), round(z_ll[1], 5)]]})
+        a_dev, z_dev = DEVICES[a][0], DEVICES[z][0]
+        geom = mg.build_inter_geometry(segments, a_ll, z_ll, box[a], box[z], _WATER,
+                                       dev_ll.get(a_dev), dev_ll.get(z_dev))
         cables.append({
-            "id": cid, "scope": "inter",
-            "a_site": a, "z_site": z,
-            "a_device": DEVICES[a][0], "z_device": DEVICES[z][0],
-            "capacity_bps": cap, "status": status, "approximate": approx,
-            "members": members,
-            "segments": segments,
+            "id": cid, "scope": "inter", "a_site": a, "z_site": z,
+            "a_device": a_dev, "z_device": z_dev,
+            "capacity_bps": cap, "status": status, "approximate": approx, "members": members,
+            "path": geom["path"], "media": geom["media"], "drops": geom["drops"],
         })
 
-    # Intra-site inter-switch links / LAGs (only visible zoomed into a site).
+    # Intra-site inter-switch links / LAGs: straight device->device inside the box.
     for code, links in INTRA.items():
         devs = sites[code]["devices"]
         for ai, zi, cap, members in links:
@@ -285,33 +282,36 @@ def build():
             d0, d1 = devs[ai], devs[zi]
             cid = str(uuid.uuid5(NS, "%s|intra|%s|%d|%d" % (GENERATION, code, ai, zi)))
             cables.append({
-                "id": cid, "scope": "intra",
-                "a_site": code, "z_site": code,
+                "id": cid, "scope": "intra", "a_site": code, "z_site": code,
                 "a_device": d0["id"], "z_device": d1["id"],
                 "capacity_bps": cap, "status": "up", "approximate": False, "members": members,
-                "segments": [{"medium": "building", "coordinates": [
-                    [d0["dlon"], d0["dlat"]], [d1["dlon"], d1["dlat"]]]}],
+                "path": [[d0["dlon"], d0["dlat"]], [d1["dlon"], d1["dlat"]]],
+                "media": [], "drops": [],
             })
 
-    # tag water-crossing spans as submarine (blue + wave treatment) by testing
-    # each vertex against the basemap water polygons
-    for c in cables:
-        if c["scope"] != "inter":
-            continue
-        coords = []
-        for seg in c["segments"]:
-            for p in seg["coordinates"]:
-                if not coords or coords[-1] != p:
-                    coords.append(p)
-        resegged = reseg_by_water(coords)
-        if any(s["medium"] == "submarine" for s in resegged):
-            c["segments"] = resegged
+    mg.assign_lanes(cables)
+
+    # metros + pre-aggregated metro trunks (frontend just draws them)
+    groups = {}
+    for code, s in sites.items():
+        g = groups.setdefault(s["metro"], {"lons": [], "lats": [], "codes": []})
+        g["lons"].append(s["lon"]); g["lats"].append(s["lat"]); g["codes"].append(code)
+    metros_out, metro_of, metro_centroid = {}, {}, {}
+    for name, g in groups.items():
+        c = [sum(g["lons"]) / len(g["lons"]), sum(g["lats"]) / len(g["lats"])]
+        metro_centroid[name] = c
+        for code in g["codes"]:
+            metro_of[code] = name
+        metros_out[name] = {"lon": round(c[0], 6), "lat": round(c[1], 6), "codes": g["codes"]}
+    metro_cables = mg.metro_aggregate(cables, sites, metro_of, metro_centroid)
 
     return {
         "generation": GENERATION,
         "generated_at": "2026-07-04T00:00:00Z",
         "sites": sites,
+        "metros": metros_out,
         "cables": cables,
+        "metro_cables": metro_cables,
     }
 
 
