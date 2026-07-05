@@ -5,8 +5,10 @@ dark-fibre circuit is *delivered* → the NetBox circuit must exist, be **Active
 near-side termination must be **cabled** (through patch panels) to that switch interface.
 The interface's `!! CID:` comment is the canonical circuit id; `!! PP` is the ODF landing.
 
-Derived from the live running-configs of the reachable switches (2026-07-04) cross-referenced
-with NetBox. `switch01.scl04` was unreachable — re-run for `FID-2025-0762`/`-0741` scl04 ends.
+Derived from the live running-configs of all transport switches (2026-07-04) cross-referenced
+with NetBox. Note: `switch01.scl04`'s transport ports carry only the `{token}` in the
+description — they lack the `!! CID`/`!! PP` comments the other sites use (device-side gap,
+Step 6).
 
 Legend: ✔=matches reality · ✎=change NetBox · ⚑=needs a decision · 🖧=device-side fix.
 
@@ -55,14 +57,17 @@ last hop; the rest need the full patch entered from the PP.)
 | `FID-2023-0407` | sjc01 | switch03 Eth35/1 | (no PP) | 🖧 add PP, then cable |
 | `FID-2023-0407` | fmt01 | switch03 Eth33/1 | (no PP) | 🖧 add PP, then cable |
 | `F22M-0204477` | sfo01 | Eth54/1 | (no PP; trace demarc D.04.05.08.44/14) | ✎ cable |
-| `FID-2025-0762` | scl04 | (scl04 unreachable) | — | re-run scl04 |
+| `FID-2025-0762` | scl04 | Eth29/1, Eth30/1 (BiDi pair) | (no PP — comment missing) | 🖧 add PP, then cable (Step 4) |
+| `FID-2025-0762` | scl01 | (scl01 has no observed port) | — | ⚑ verify scl01 end |
+| `FID-2025-0741` | scl04 | Eth31/1, Eth32/1 (BiDi pair) | (no PP — comment missing) | 🖧 add PP, then cable (Step 4) |
 
 ## Step 4 — Model BiDi-vs-duplex correctly ⚑ (decision)
 
 The `!! ` comments distinguish two lit patterns on a 2-fibre span:
 - **Duplex, one link** (`FID-2022-0145`, `-0742`, `-0106`, `-0409`, `F22M`): one transceiver
   pair, one interface, one counter → one circuit, one termination per side. ✔ current model.
-- **Two BiDi links** (`FID-2025-0740` #1/#2, `FID-2025-0763` #1/#2, `FID-2023-0408` #1/#2):
+- **Two BiDi links** (`FID-2025-0740` #1/#2, `-0763` #1/#2, `-0741` scl04 Eth31/32,
+  `-0762` scl04 Eth29/30, `FID-2023-0408` #1/#2):
   two BiDi transceivers, **two interfaces / two counters** on the two cores of one BIG circuit.
   NetBox has these as **one** circuit with **one** termination per side, but there are **two**
   switch ports per side. Decide the representation:
@@ -97,6 +102,9 @@ Rename each to `DF-…` only when its ports come up. The atlas already matches b
   `switch03.fmt01/Eth16/1`, `switch04.sjc01/Eth24/1` (this one has the FBDK token but no CID).
   Until described, the map/audit can't tie them to a circuit. (Some may be intra-site or LAG
   member ports, not inter-site transport — confirm per port.)
+- `switch01.scl04/Eth29–32` (FID-2025-0762, -0741): up and token-described but carry **no
+  `!! CID`/`!! PP` comments** at all — add them so scl04 matches the other sites' annotation
+  standard (and so PP-guided cabling is possible).
 - Add missing `!! PP` comments where noted in Step 3 (fmt01/sjc01 ends, scl05/Eth52).
 
 ## Step 7 — Retirements
