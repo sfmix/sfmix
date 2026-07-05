@@ -136,6 +136,7 @@
   }
   // Clip a trunk's ends so it stops on each site's box edge (not the centroid).
   // Returns the clipped line plus the two edge entry points for the fine drops.
+  var APPROACH_M = 350;  // ignore near-site coarsening jogs within this radius
   function clipToBoxes(coords, centerA, bA, centerZ, bZ) {
     // Keep only the run of points OUTSIDE both endpoint boxes. Filtering (not just
     // trimming contiguous ends) also drops mid-path points that dip into a box —
@@ -144,9 +145,19 @@
       return !(bA && insideRect(p, bA)) && !(bZ && insideRect(p, bZ));
     });
     if (!mid.length) mid = [centerA, centerZ];  // pathological: whole line in a box
-    var entryA = bA ? rectExit(centerA, mid[0], bA) : coords[0];
-    var entryZ = bZ ? rectExit(centerZ, mid[mid.length - 1], bZ) : coords[coords.length - 1];
-    return { line: [entryA].concat(mid, [entryZ]), entryA: entryA, entryZ: entryZ };
+    // Anchor each end on the first point past APPROACH_M, and drop the near-site
+    // jog before it, so the trunk enters on the side it GENERALLY approaches from
+    // (a coarsened path can jog the wrong way for ~100m and put the entry on the
+    // wrong edge, making the thick cable cross back over the building).
+    var iA = 0;
+    while (iA < mid.length - 1 && metersBetween(mid[iA], centerA) < APPROACH_M) iA++;
+    var iZ = mid.length - 1;
+    while (iZ > 0 && metersBetween(mid[iZ], centerZ) < APPROACH_M) iZ--;
+    if (iZ <= iA) { iA = 0; iZ = mid.length - 1; }  // too short to trim; keep as-is
+    var core = mid.slice(iA, iZ + 1);
+    var entryA = bA ? rectExit(centerA, core[0], bA) : coords[0];
+    var entryZ = bZ ? rectExit(centerZ, core[core.length - 1], bZ) : coords[coords.length - 1];
+    return { line: [entryA].concat(core, [entryZ]), entryA: entryA, entryZ: entryZ };
   }
 
   function cableCoords(cable) {
