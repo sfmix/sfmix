@@ -169,7 +169,8 @@ CABLES = [
     ("scl02", "sjc01", 400e9, "up", False, 1, [
         ("underground", [(-121.90, 37.32)]),
     ]),
-    ("fmt01", "sfo02", 10e9, "up", True, 1, []),  # approximate (auto arc, no atlas)
+    # (HE.net 10G backup fmt01<->sfo02 intentionally omitted — see EXCLUDE in
+    #  gen_map_structure.py; it's being retired and can't be routed nicely.)
     ("fmt01", "sjc02", 100e9, "up", False, 1, []),  # Boldyn DF-231-4 (BART-routed atlas)
     ("scl05", "sjc02", 100e9, "up", False, 1, [
         ("underground", [(-121.92, 37.35)]),
