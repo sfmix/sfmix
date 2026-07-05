@@ -85,6 +85,33 @@
   }
   function inRect(p, b) { return p[0] >= b.minX && p[0] <= b.maxX && p[1] >= b.minY && p[1] <= b.maxY; }
   function insideRect(p, b) { return p[0] > b.minX && p[0] < b.maxX && p[1] > b.minY && p[1] < b.maxY; }
+  // Segment intersection (returns the crossing point, or null). Used to de-loop.
+  function segInt(p1, p2, p3, p4) {
+    var d = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0]);
+    if (Math.abs(d) < 1e-14) return null;
+    var t = ((p3[0] - p1[0]) * (p4[1] - p3[1]) - (p3[1] - p1[1]) * (p4[0] - p3[0])) / d;
+    var u = ((p3[0] - p1[0]) * (p2[1] - p1[1]) - (p3[1] - p1[1]) * (p2[0] - p1[0])) / d;
+    if (t > 0 && t < 1 && u > 0 && u < 1)
+      return [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])];
+    return null;
+  }
+  // Remove self-intersections: where the polyline crosses itself, splice the loop
+  // out and stitch the two segments at the crossing point. Coarsened atlas/ring
+  // routes leave little knots near sites; a cable never visually loops, so this is
+  // always the right call. Iterative (each pass removes the first loop found).
+  function deloop(pts) {
+    for (var pass = 0; pass < 40; pass++) {
+      var cut = false;
+      for (var i = 0; i < pts.length - 1 && !cut; i++) {
+        for (var j = i + 2; j < pts.length - 1; j++) {
+          var x = segInt(pts[i], pts[i + 1], pts[j], pts[j + 1]);
+          if (x) { pts = pts.slice(0, i + 1).concat([x], pts.slice(j + 1)); cut = true; break; }
+        }
+      }
+      if (!cut) break;
+    }
+    return pts;
+  }
   // point where the ray from `center` (inside the box) toward `toward` exits the rect
   function rectExit(center, toward, b) {
     var dx = toward[0] - center[0], dy = toward[1] - center[1];
@@ -160,6 +187,7 @@
       });
       var base = 0;
       if (c.scope === "inter") {
+        smooth = deloop(smooth);  // remove coarsening knots (a cable never loops)
         // clip the trunk so it lands on each site's box EDGE (at its approach
         // angle) rather than knotting on the centroid; remember the edge points
         // so a fine drop can run from there to the actual switch inside the box.
@@ -167,7 +195,7 @@
         if (sA && sZ) {
           var clip = clipToBoxes(smooth, [sA.lon, sA.lat], boxOf[c.a_site],
                                  [sZ.lon, sZ.lat], boxOf[c.z_site]);
-          smooth = clip.line;
+          smooth = deloop(clip.line);  // the box-edge entry segment can re-cross; re-clean
           entryById[c.id] = { a: clip.entryA, z: clip.entryZ };
         }
         var key = [c.a_site, c.z_site].sort().join("~");
