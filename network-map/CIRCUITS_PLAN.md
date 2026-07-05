@@ -80,17 +80,27 @@ Confirmed against the carriers' service-order / LOA / OTDR files in the KMZ bund
   (e.g. `SO-00000231-0000` = sjc02↔scl05). A turned-up duplex span exposes its **two
   cores** as separate circuits `DF-00000231-0004-0001` / `-0002` (fmt01↔sjc02).
 
-**Fibre model the builder must handle** (per your note):
-- **BiDi** transceiver = **one core** = one circuit = one drawn cable.
-- **Duplex** = two cores. BIG models that as one circuit; Boldyn as two core circuits
-  (`…-0001/-0002`) that **share one physical path**. The map must **collapse cores of
-  the same span into a single drawn cable** (they share one atlas geometry) — this is
-  distinct from **LAG** bundling (N independent logical links on one port-channel).
+**Fibre model — draw per LOGICAL LINK, don't collapse cores.** The unit the map draws
+is a **logical link = a transceiver / switch interface with its own traffic counter**,
+NOT a core and NOT a circuit. The physical fibre (cores) and NetBox circuits are the
+*substrate* that supplies geometry and validates the path. The data model keeps both
+link types and their terminations distinct:
+- **BiDi** transceiver = one core = **one** logical link = one drawn strand.
+- **Duplex** = two cores. Either:
+  - used as **one** bidirectional link (one transceiver pair, one interface, one
+    counter) → **one** drawn strand; or
+  - lit with **two BiDi transceivers, one per core** → **two** independent links (two
+    interfaces, two counters) → **two** distinct drawn strands.
+  So a duplex span can be one or two strands depending on how it's lit — the map keys
+  off interfaces/counters, not core count. NetBox already exposes cores as separate
+  circuits (`…-0001/-0002`); which interface(s) terminate on them decides the strands.
+- **LAG** = N logical links bonded on one port-channel → N strands, grouped, spaced
+  (as today). Distinct links on the same span (2× BiDi, or hot+standby) are also
+  separate spaced strands.
 - **Passive-site spans:** a logical A↔Z can be **two spliced dark spans through a
   passive site** — e.g. Boldyn `-0002` (365 Main→720 2nd) + `-0003` (720 2nd→48233
-  Warm Springs) build sfo01↔fmt01 via the passive **720 2nd (oak01)** site. The builder
-  should chain such spans end-to-end into one drawn corridor. `scl03` is a similar
-  passive location we ride through.
+  Warm Springs) build sfo01↔fmt01 via the passive **720 2nd (oak01)** site; `scl03` is
+  similar. The builder chains the spliced spans into one drawn corridor for that link.
 
 **Atlas alignment done** (this pass): renamed/keyed to the authoritative CIDs —
 `DF-231-4`→`DF-00000231-0004` (match carries both cores + legacy tokens),
@@ -98,30 +108,27 @@ Confirmed against the carriers' service-order / LOA / OTDR files in the KMZ bund
 shows **0 atlas files without a matching circuit**; the only active-circuit-without-atlas
 is `FID-2022-0145` (scl02↔scl03 passive span, not yet drawn).
 
-## Phase 1 — Extend `discovery.py` to bootstrap circuits (dry-run first)
+## Phase 1 — Manual NetBox cleanup + a gap-detector that prompts a human (NOT auto-cabling)
 
-Add a `discover_transport_circuits()` capability that fits the existing plan/apply
-pattern (`dry_run=True` logs "[DRY-RUN] Would …", `--apply` writes). It runs per device
-or once globally, reconciling idempotently. Signals it fuses to bootstrap:
+Decision: **do NOT automate circuit/cable creation.** Circuit terminations change rarely,
+and physical patching is human knowledge; automating it is complex and risky for little
+benefit. Instead:
 
-1. **`core_port`-tagged interfaces** (discovery already maintains this tag) + their
-   descriptions → parse remote site, provider, circuit token, speed.
-2. **LLDP topology** (sflow-rt) → confirm the far device:port, hence the far site, so
-   we never invent a termination from a typo'd description alone.
-3. **Existing NetBox cabling** → if the interface already traces to a CircuitTermination,
-   VALIDATE/enrich (never clobber human-entered patch-panel cabling).
+- **Humans manually clean up NetBox** — cable the terminations (through patch panels),
+  add the missing circuit (`DF-231-2`), backfill empty `{…}` description tokens, mark
+  lifecycle, etc. NetBox is the source of truth and is curated by hand.
+- **The tool's only job is to DETECT clear gaps and prompt** — no `--apply`, no writes.
+  It runs periodically (or in the discovery-bot) and surfaces, in human terms:
+  - a transport interface whose cable **trace dead-ends** (patch chain incomplete), or
+    has **no cable** at all → "patch `switch01.scl02/Eth20` through to its circuit";
+  - a transport link between two sites/locations with **no corresponding dark-fibre
+    circuit** in NetBox between them → "create/attach the circuit for this span";
+  - a trace that reaches a **different** circuit than the description claims → data error.
+  This is exactly `map_circuits.py --audit` (Phase 2) — it *is* the gap prompt. Optionally
+  wire its output into the discovery-bot so new/edited patches get flagged for a human.
 
-Reconciliation rules (idempotent):
-- Ensure Provider + CircuitType exist.
-- Ensure a `Circuit(cid)` exists with provider/type/`map_atlas_id`.
-- Ensure two CircuitTerminations at the two confirmed sites (A/Z by sorted slug).
-- Cabling: if the interface is **directly** cable-able to the termination (no patch
-  panel), propose the cable; if a **patch-panel path** exists, only validate the trace
-  resolves to this circuit and flag mismatches for a human (we can't invent physical
-  patch cabling). Emit a clear "needs cabling" report for the gaps.
-
-Everything is proposal-only until reviewed — this rides the existing discovery-bot
-approve-to-apply flow.
+No `discover_transport_circuits()` write path is built. The audit stays strictly
+read-only.
 
 ## Phase 2 — Validation / audit tooling (read-only)
 
@@ -139,11 +146,17 @@ This is the tool we run repeatedly until the dataset is clean.
 
 `gen_map_structure.py` gains a NetBox-circuits path (kept behind a flag during
 migration so we can diff it against the description parser):
-- Enumerate `circuits.circuits` of type Dark Fiber; for each, read A/Z terminations →
-  sites, and **trace each termination to its switch interface** (through patch panels)
-  → `a_device`/`z_device` + the member ports for the private traffic feed.
-- Group by switch LAG interface → `members`; capacity = Σ member `interface.speed`.
-- Geometry: atlas match by `map_atlas_id`/cid (exact, no token guessing).
+- Start from the **switch transport interfaces** (the logical links / traffic counters)
+  and **trace each through patch panels to its dark-fibre circuit** (source of truth for
+  the span it rides). One drawn strand per interface — so a duplex lit as one link is
+  one strand, a duplex lit with two BiDi transceivers is two strands (two interfaces),
+  and cores are never collapsed. `a_device`/`z_device` + member ports come from the
+  interfaces at each end.
+- Group strands by switch **port-channel** → LAG `members`; capacity = Σ member
+  `interface.speed`. Non-bonded links on the same span (2× BiDi, hot+standby) render as
+  separate spaced strands.
+- Geometry: from the circuit/span the trace lands on, atlas-matched by cid (exact, no
+  token guessing); chain passive-site spliced spans into one corridor.
 - Live status/util: unchanged (LLDP + Prometheus by the traced member ports).
 - The description parser (`parse_core_ports`) demotes to a **bootstrap-only** helper for
   `discovery.py`; the map no longer depends on it.
