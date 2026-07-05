@@ -52,23 +52,30 @@ def _dist(a, b):
 
 def chain_segments(segs):
     """Greedily order+orient LineString segments into one connected path by
-    joining nearest endpoints. Approximate — fine for a coarsened atlas."""
+    joining nearest endpoints. Grows from BOTH ends of the path, so the starting
+    segment can be a middle piece — extending only the tail (as a naive chain does)
+    folds the route back on itself when the KMZ lists segments out of path order
+    (e.g. [middle, spur, start] -> a big back-and-forth loop). Approximate but
+    connected — fine for a coarsened atlas."""
     segs = [s[:] for s in segs if len(s) >= 2]
     if not segs:
         return []
     path = segs.pop(0)
     while segs:
-        tail = path[-1]
-        best_i, best_rev, best_d = 0, False, float("inf")
+        head, tail = path[0], path[-1]
+        best = None  # (dist, index, where, oriented_segment)
         for i, s in enumerate(segs):
-            for rev, end in ((False, s[0]), (True, s[-1])):
-                d = _dist(tail, end)
-                if d < best_d:
-                    best_i, best_rev, best_d = i, rev, d
-        nxt = segs.pop(best_i)
-        if best_rev:
-            nxt = nxt[::-1]
-        path.extend(nxt)
+            for d, where, seg in (
+                (_dist(tail, s[0]), "tail", s),          # append, seg start meets tail
+                (_dist(tail, s[-1]), "tail", s[::-1]),   # append reversed
+                (_dist(head, s[-1]), "head", s),         # prepend, seg end meets head
+                (_dist(head, s[0]), "head", s[::-1]),    # prepend reversed
+            ):
+                if best is None or d < best[0]:
+                    best = (d, i, where, seg)
+        _, i, where, seg = best
+        segs.pop(i)
+        path = (path + seg) if where == "tail" else (seg + path)
     return path
 
 
