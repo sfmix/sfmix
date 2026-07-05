@@ -198,11 +198,20 @@
       });
       var base = 0;
       if (c.scope === "inter") {
+        var sA = sites[c.a_site], sZ = sites[c.z_site];
+        // Orient the geometry a_site -> z_site. Atlas paths are stored in their own
+        // A/Z order, which may be the reverse of this cable's; the box-edge clip
+        // keys off a_site/z_site, so a reversed path would build a jump from one
+        // end to the other and back (the "sfo->scl then loop back" artifact).
+        if (sA && sZ && smooth.length > 1) {
+          var dSA = Math.hypot(smooth[0][0] - sA.lon, smooth[0][1] - sA.lat);
+          var dSZ = Math.hypot(smooth[0][0] - sZ.lon, smooth[0][1] - sZ.lat);
+          if (dSA > dSZ) smooth.reverse();
+        }
         smooth = deloop(smooth);  // remove coarsening knots (a cable never loops)
         // clip the trunk so it lands on each site's box EDGE (at its approach
         // angle) rather than knotting on the centroid; remember the edge points
         // so a fine drop can run from there to the actual switch inside the box.
-        var sA = sites[c.a_site], sZ = sites[c.z_site];
         if (sA && sZ) {
           var clip = clipToBoxes(smooth, [sA.lon, sA.lat], boxOf[c.a_site],
                                  [sZ.lon, sZ.lat], boxOf[c.z_site]);
