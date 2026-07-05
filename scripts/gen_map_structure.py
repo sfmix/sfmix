@@ -48,6 +48,12 @@ SPEED_BITS = {"1G": 1e9, "10G": 10e9, "25G": 25e9, "40G": 40e9,
               "1Gbps": 1e9, "10Gbps": 10e9, "25Gbps": 25e9, "40Gbps": 40e9,
               "100Gbps": 100e9, "400Gbps": 400e9, "800Gbps": 800e9}
 
+# Circuits deliberately kept OFF the map: matched as case-insensitive substrings
+# against the interface description. The HE.net 10G backup (fmt01<->sfo02, circuits
+# #4757047 / #4490766) rides Zayo on a corridor we can't trace and is being retired,
+# so we can't render it nicely — drop it rather than draw a bogus arc.
+EXCLUDE_DESC = ["4757047", "4490766"]
+
 # Description grammar: "Core: Transport <SITE> via <Provider> {<TOKEN>} [<Speed>]"
 # Parsed with separate anchored searches (one combined regex mis-greeds provider).
 RE_SITE = re.compile(r"Transport\s+(?:to\s+)?([A-Za-z]{3}\d{2})", re.I)
@@ -246,6 +252,9 @@ def parse_core_ports(inv, facts):
                 continue
             if "cross-x" in desc or "in cab" in desc.lower():
                 continue  # intra-cabinet cross-connect, not a mapped link
+            dl = desc.lower()
+            if any(x.lower() in dl for x in EXCLUDE_DESC):
+                continue  # deliberately excluded (e.g. HE.net 10G backup, retiring)
             ms, mp = RE_SITE.search(desc), RE_PROVIDER.search(desc)
             mb, mpt = RE_BTOK.search(desc), RE_PTOK.search(desc)
             tok = (mb.group(1) if mb else (mpt.group(1) if mpt else ""))
