@@ -342,15 +342,20 @@ def bezier_arc(p0, p1, bulge=0.1, steps=18):
 
 
 def match_atlas(cable, atlas):
+    """Return (atlas_entry, exact). A token match is this circuit's own surveyed
+    route (exact=True → solid). A pair-only match means the circuit has no route of
+    its own (e.g. an HE/Zayo backup whose KMZ we lack) and is borrowing the site
+    pair's known corridor (exact=False → drawn approximate/dotted, parallel to the
+    circuit that does own it) — better than a bare auto-arc, honestly flagged."""
     toks = set(cable["tokens"])
     for a in atlas:
         if toks & set(a["match"]):
-            return a
+            return a, True
     pair = frozenset([cable["a_site"], cable["z_site"]])
     for a in atlas:
         if frozenset([a["a_site"], a["z_site"]]) == pair:
-            return a
-    return None
+            return a, False
+    return None, False
 
 
 def device_layout(devices):
@@ -419,7 +424,8 @@ def build(args):
                          "dlon": round(meta["lon"] + layout[d][0], 6)} for d in devs],
         }
 
-    cables_out, links_private, drift = [], {}, {"missing": [], "stale": [], "retired_live": []}
+    cables_out, links_private, drift = [], {}, {"missing": [], "stale": [],
+                                                 "retired_live": [], "borrowed": []}
     matched_files = set()
     for c in cables:
         a, z = c["a_site"], c["z_site"]
@@ -427,11 +433,15 @@ def build(args):
             continue
         a_ll = [sites_out[a]["lon"], sites_out[a]["lat"]]
         z_ll = [sites_out[z]["lon"], sites_out[z]["lat"]]
-        atlas_hit = match_atlas(c, atlas)
+        atlas_hit, exact = match_atlas(c, atlas)
         if atlas_hit:
             matched_files.add(atlas_hit["file"])
             segments = atlas_hit["segments"]
-            approximate = False
+            # pair-only match = this circuit has no route of its own; borrow the
+            # pair's corridor but flag approximate so it draws dotted (see match_atlas)
+            approximate = not exact
+            if not exact:
+                drift["borrowed"].append((a, z, c["tokens"] or c["provider"], atlas_hit["file"]))
             if atlas_hit["status"] == "retired":
                 drift["retired_live"].append((atlas_hit["file"], a, z))
         else:
@@ -529,11 +539,14 @@ def main():
     mapjson, links, drift = build(args)
 
     if args.check:
-        n = sum(len(v) for v in drift.values())
+        # "borrowed" is an intended fallback (route-less circuit riding the pair's
+        # corridor, drawn dotted), not drift — report it but don't fail on it.
+        n = len(drift["missing"]) + len(drift["stale"]) + len(drift["retired_live"])
         print("cables: %d   sites: %d" % (len(mapjson["cables"]), len(mapjson["sites"])))
         print("\nMISSING atlas (live link -> auto-arc): %s" % (drift["missing"] or "none"))
         print("STALE atlas (active, not in topology):  %s" % (drift["stale"] or "none"))
         print("RETIRED-but-live:                       %s" % (drift["retired_live"] or "none"))
+        print("BORROWED corridor (pair-only, dotted):  %s" % (drift["borrowed"] or "none"))
         print("\n" + ("DRIFT DETECTED" if n else "atlas in sync"))
         return 1 if n else 0
 
