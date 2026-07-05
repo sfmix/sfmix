@@ -68,6 +68,36 @@ This sharpens the phases below: Phase 1 is mostly **completing termination cabli
 Phase 2's audit is the work-list generator; Phase 3 keys the builder off the CID the
 description already carries.
 
+## Authoritative circuit-ID formats & fibre model (from the turn-up docs)
+
+Confirmed against the carriers' service-order / LOA / OTDR files in the KMZ bundles:
+
+- **BIG Fiber:** `FID-YYYY-NNNN` (e.g. `FID-2025-0742`). A 2-fibre **duplex** span is
+  **one** circuit (docs are "2-F", bidirectional-OTDR). Already matches NetBox + atlas.
+- **Zayo:** `F22M-0204477` (matches); `FBDK-1721530-ZFS` (folder) == NetBox
+  `FBDK/1721530/ZFS` (slashes) — Decommissioned.
+- **Boldyn:** service order **#00000231**; ordered sub-items are `SO-00000231-000X`
+  (e.g. `SO-00000231-0000` = sjc02↔scl05). A turned-up duplex span exposes its **two
+  cores** as separate circuits `DF-00000231-0004-0001` / `-0002` (fmt01↔sjc02).
+
+**Fibre model the builder must handle** (per your note):
+- **BiDi** transceiver = **one core** = one circuit = one drawn cable.
+- **Duplex** = two cores. BIG models that as one circuit; Boldyn as two core circuits
+  (`…-0001/-0002`) that **share one physical path**. The map must **collapse cores of
+  the same span into a single drawn cable** (they share one atlas geometry) — this is
+  distinct from **LAG** bundling (N independent logical links on one port-channel).
+- **Passive-site spans:** a logical A↔Z can be **two spliced dark spans through a
+  passive site** — e.g. Boldyn `-0002` (365 Main→720 2nd) + `-0003` (720 2nd→48233
+  Warm Springs) build sfo01↔fmt01 via the passive **720 2nd (oak01)** site. The builder
+  should chain such spans end-to-end into one drawn corridor. `scl03` is a similar
+  passive location we ride through.
+
+**Atlas alignment done** (this pass): renamed/keyed to the authoritative CIDs —
+`DF-231-4`→`DF-00000231-0004` (match carries both cores + legacy tokens),
+`Boldyn-00000231-0000`→`SO-00000231-0000`, `FBDK-1721530`→`FBDK-1721530-ZFS`. Audit now
+shows **0 atlas files without a matching circuit**; the only active-circuit-without-atlas
+is `FID-2022-0145` (scl02↔scl03 passive span, not yet drawn).
+
 ## Phase 1 — Extend `discovery.py` to bootstrap circuits (dry-run first)
 
 Add a `discover_transport_circuits()` capability that fits the existing plan/apply

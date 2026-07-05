@@ -32,8 +32,9 @@ emit() {
 
 # --- Zayo (single-route KMZs: merge all segments) ---
 ZAYO_FBDK="$(find_kmz 'Service 576058*FBDK-1721530*.kmz')"
-python3 "$TRACE" "$ZAYO_FBDK" --merge --circuit-id FBDK-1721530 --provider Zayo \
-  --a-site fmt01 --z-site sjc01 --match 'FBDK/1721530//ZFS,FBDK-1721530' --snap > "$OUT/FBDK-1721530.geojson"; echo "OK   FBDK-1721530"
+# circuit-id is the authoritative Zayo id (NetBox: FBDK/1721530/ZFS; folder: FBDK-1721530-ZFS)
+python3 "$TRACE" "$ZAYO_FBDK" --merge --circuit-id FBDK-1721530-ZFS --provider Zayo \
+  --a-site fmt01 --z-site sjc01 --match 'FBDK/1721530/ZFS,FBDK/1721530//ZFS,FBDK-1721530-ZFS,FBDK-1721530' --snap > "$OUT/FBDK-1721530-ZFS.geojson"; echo "OK   FBDK-1721530-ZFS"
 ZAYO_F22M="$(find_kmz 'Service 701967*FBDK-2172250*.kmz')"
 python3 "$TRACE" "$ZAYO_F22M" --merge --circuit-id F22M-0204477 --provider Zayo \
   --a-site sfo01 --z-site sfo02 --match 'F22M-0204477' --snap > "$OUT/F22M-0204477.geojson"; echo "OK   F22M-0204477"
@@ -43,17 +44,20 @@ python3 "$TRACE" "$ZAYO_F22M" --merge --circuit-id F22M-0204477 --provider Zayo 
 #     the 55 S Market<->2805 Lafayette order (sjc02<->scl05). Match by the order
 #     number only (NOT the DF-231-4 tokens, which are the fmt01<->sjc02 link).
 BOLDYN_ORDER="$(find_kmz '*55 S Market To 2805 Lafayette.kmz')"
-python3 "$TRACE" "$BOLDYN_ORDER" --merge --circuit-id Boldyn-00000231-0000 --provider Boldyn \
-  --a-site sjc02 --z-site scl05 --match '00000231-0000' --snap > "$OUT/Boldyn-00000231-0000.geojson"
-echo "OK   Boldyn 00000231-0000 (sjc02<->scl05)"
+python3 "$TRACE" "$BOLDYN_ORDER" --merge --circuit-id SO-00000231-0000 --provider "Boldyn Networks" \
+  --a-site sjc02 --z-site scl05 --match 'SO-00000231-0000,00000231-0000' --snap > "$OUT/SO-00000231-0000.geojson"
+echo "OK   SO-00000231-0000 (sjc02<->scl05, planned)"
 # (b) the customer-facing BART-network KMZ, chained via graph routing between
 #     datacenters. DF-231-4 is the fmt01<->sjc02 core link.
 BOLDYN_NET="$(find_kmz 'Customer Facing Boldyn Fiber Network 11.13.25.kmz')"
 ROUTE="$HERE/../scripts/map_boldyn_route.py"
 python3 "$ROUTE" "$BOLDYN_NET" --a-site fmt01 --z-site sjc02 \
-  --circuit-id DF-231-4 --match 'DF-231-4-1,DF-231-4-2' > "$OUT/DF-231-4.geojson"
-echo "OK   DF-231-4 (fmt01<->sjc02, BART-routed)"
-rm -f "$OUT/DF-231-4_sjc02-scl05.geojson"  # superseded by the two entries above
+  --circuit-id DF-00000231-0004 --provider "Boldyn Networks" \
+  --match 'DF-00000231-0004,DF-00000231-0004-0001,DF-00000231-0004-0002,DF-231-4-1,DF-231-4-2' \
+  > "$OUT/DF-00000231-0004.geojson"
+# NetBox models this duplex span as two core circuits (-0001/-0002) sharing this one
+# geometry; the map collapses them to a single drawn cable (see CIRCUITS_PLAN.md).
+echo "OK   DF-00000231-0004 (fmt01<->sjc02 duplex, BART-routed)"
 
 # Santa Clara intra-metro hops via the Boldyn DC ring callouts. The CoreSite /
 # OpenColo / DRT cluster is one loop; a larger --stitch joins its ring fragments.
