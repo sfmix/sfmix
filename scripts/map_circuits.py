@@ -131,6 +131,7 @@ def main():
     # --- reconcile per transport interface ---
     no_cid, uncabled, dead_end, resolved, wrong, other = [], [], [], [], [], []
     seen_cids = set()
+    by_circuit = {}   # cid -> list of "iface(state)"
     for i in ifaces:
         d = i.description or ""
         m = RE_TOKEN.search(d)
@@ -143,17 +144,19 @@ def main():
         seen_cids.add(circ.cid)
         if not getattr(i, "cable", None):
             uncabled.append((tag, circ.cid))
-            continue
-        kind, detail = trace_terminus(sess, ep, i.id)
-        if kind == "circuittermination":
-            if detail and norm(detail) != norm(circ.cid):
-                wrong.append((tag, circ.cid, detail))
-            else:
-                resolved.append((tag, circ.cid))
-        elif kind == "dead-end":
-            dead_end.append((tag, circ.cid, detail))
+            state = "uncabled"
         else:
-            other.append((tag, circ.cid, "%s:%s" % (kind, detail)))
+            kind, detail = trace_terminus(sess, ep, i.id)
+            if kind == "circuittermination":
+                if detail and norm(detail) != norm(circ.cid):
+                    wrong.append((tag, circ.cid, detail)); state = "WRONG->%s" % detail
+                else:
+                    resolved.append((tag, circ.cid)); state = "resolved"
+            elif kind == "dead-end":
+                dead_end.append((tag, circ.cid, detail)); state = "dead-end@%s" % detail
+            else:
+                other.append((tag, circ.cid, "%s:%s" % (kind, detail))); state = "%s:%s" % (kind, detail)
+        by_circuit.setdefault(circ.cid, []).append("%s(%s)" % (tag, state))
 
     # --- circuit + atlas coverage ---
     active = [c for c in circuits if str(c.status).lower() == "active"]
@@ -165,10 +168,22 @@ def main():
 
     def show(title, rows, fmt):
         print("\n%s (%d)" % (title, len(rows)))
-        for r in rows[:40]:
+        for r in rows:
             print("   " + fmt(r))
 
-    print("== transport reconciliation: %d Core:Transport ifaces, %d dark-fibre circuits ==" % (len(ifaces), len(circuits)))
+    # --- per-circuit inventory (does NetBox match reality?) ---
+    print("== dark-fibre circuit inventory (%d) ==" % len(circuits))
+    print("   %-22s %-10s %-14s %-11s %-9s ports" % ("CID", "A/Z sites", "provider", "status", "atlas"))
+    for c in sorted(circuits, key=lambda c: (str(c.status), c.cid)):
+        ts = term_sites.get(c.cid, {})
+        az = "%s-%s" % (ts.get("A", "?"), ts.get("Z", "?"))
+        at = "yes" if norm(c.cid) in atlas else "NO"
+        ports = by_circuit.get(c.cid, [])
+        print("   %-22s %-10s %-14s %-11s %-9s %s" % (
+            c.cid, az, str(c.provider)[:14], str(c.status)[:11], at,
+            ", ".join(ports) if ports else "(no described port)"))
+
+    print("\n== transport reconciliation: %d Core:Transport ifaces, %d dark-fibre circuits ==" % (len(ifaces), len(circuits)))
     show("RESOLVED (iface traces to its circuit termination)", resolved, lambda r: "%s -> %s" % r)
     show("UNCABLED transport iface (no cable at all)", uncabled, lambda r: "%s -> %s" % r)
     show("CABLED BUT DEAD-ENDS before the circuit termination (last patch-panel hop missing)", dead_end,
