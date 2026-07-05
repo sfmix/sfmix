@@ -38,6 +38,36 @@ circuits.CircuitTermination  A -> Site(sfo02), Z -> Site(scl02)   (A/Z by sorted
 - **Geometry** still comes from the coarsened atlas; the match key is now the circuit's
   `map_atlas_id` / cid from NetBox instead of a parsed `{token}`.
 
+## Discovered reality (live NetBox, 2026-07-04)
+
+A survey of production NetBox shows the model is **already substantially there** — this
+is more "validate & complete + wire the builder" than "bootstrap from scratch":
+
+- `circuits.CircuitType` **`dark-fiber` exists**; **19 dark-fibre circuits** across 5
+  providers, **39 terminations**, with real lifecycle status (Active / Deprovisioning
+  `FID-2023-0408` / Decommissioned `FBDK/1721530/ZFS` / Planned `SO-*` + `oak01`/`scl03`
+  spans the map doesn't know yet). NetBox already models `DF-231-4` correctly as **two**
+  circuits (`DF-00000231-0004-0001/0002`) — richer than the atlas's single file.
+- The map-transport ports are the **`switch01.<site>` interfaces with
+  `Core: Transport … {TOKEN}` descriptions** (36 of them). The `{TOKEN}` **equals the
+  NetBox circuit CID** for the BIG `FID-*` circuits (exact match). Zayo/Boldyn need
+  CID normalization (`FBDK-1721530` ↔ `FBDK/1721530/ZFS`, `DF-231-4` ↔ `DF-00000231-0004-*`).
+- **17/36 transport interfaces are already cabled through patch panels.** A live trace,
+  e.g. `switch01.scl02/Ethernet20/1 → front CAB.0126 → rear → IDF2.01 → front ODP.C/02C7 →
+  (dead end)`, shows the ODF chain is built but **stops before the CircuitTermination**.
+  So the concrete gap is the **last hop**: cabling each patch-panel demarc to its
+  `CircuitTermination`, after which the interface traces cleanly to its circuit.
+- The `core_port` **tag** is a *different* thing (it's on `ar1/cr1.*.transit` routers,
+  empty descriptions) — do NOT use it to select map-transport ports. Use the
+  `Core: Transport` description (bootstrap signal) → NetBox circuit (source of truth).
+- `pynetbox` `CircuitTermination` has no `.trace()`; use the REST
+  `/api/dcim/interfaces/{id}/trace/` (or `/circuit-terminations/{id}/trace/`).
+
+This sharpens the phases below: Phase 1 is mostly **completing termination cabling**
+(the last patch-panel hop) for circuits whose switch ports are already described/cabled;
+Phase 2's audit is the work-list generator; Phase 3 keys the builder off the CID the
+description already carries.
+
 ## Phase 1 — Extend `discovery.py` to bootstrap circuits (dry-run first)
 
 Add a `discover_transport_circuits()` capability that fits the existing plan/apply
