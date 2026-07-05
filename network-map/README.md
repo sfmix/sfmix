@@ -103,9 +103,20 @@ Provider KMZs vary wildly, which is why not every circuit has traced geometry:
   Routes", "6 Node Bay Ring", "QTS↔OpenColo") — one named LineString (sometimes
   split into segments; `--merge` chains them). These are extracted (9 circuits).
 - **No usable KMZ** — Hurricane Electric (`HE #4757047`, `HE#4490766`) and
-  Digital Realty (`DRT #285322`) circuits: none provided → auto-arc (dashed) or
-  hand-draw. Some BIG circuits (FID-2023-0408, -0742, -0763, FID-2022-0145) lack a
-  clean single-path KMZ too → auto-arc / site-pair-match a neighbouring path.
+  Digital Realty (`DRT #285322`) circuits: none provided. The HE 10G backup rides
+  Zayo, but our two Zayo KMZs are single-service (`FBDK-1721530` sjc01↔fmt01,
+  `F22M-0204477` within-SF) — neither covers the fmt01↔sfo02 corridor the backup
+  needs. So it **borrows the site-pair's known corridor** (the BIG primary
+  `FID-2023-0409`, same fmt01↔sfo02 buildings) drawn *dotted/approximate* parallel
+  to the primary, instead of a bezier floating across open water. For HE's true
+  (diverse) path, pull the Zayo service KMZ for `#4757047`/`#4490766` by service
+  number. Some BIG circuits (FID-2023-0408, -0742, -0763, FID-2022-0145) similarly
+  ride a neighbouring path via the site-pair fallback.
+
+  **Match precedence** (`match_atlas`): circuit-token match → the circuit's own
+  surveyed route (solid); site-pair-only match → borrowed corridor (dotted,
+  `approximate`); no match → dashed auto-arc. `--check` lists BORROWED corridors
+  separately (informational, not drift).
 - **Boldyn BART-corridor network** (`Customer Facing Boldyn Fiber Network …`) —
   Boldyn's fiber rides BART/public rights-of-way, so the KMZ is a *layered
   network*, not per-circuit paths. Its folder tree is:
