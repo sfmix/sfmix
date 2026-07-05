@@ -122,7 +122,7 @@ DEVICES = {
 # (a_device_index, z_device_index, capacity_bps, member_count). member_count > 1
 # renders as a LAG — tightly-spaced parallel strands, like the inter-site LAGs.
 INTRA = {
-    "sfo02": [(0, 1, 800e9, 4)],                              # 4x100G LAG
+    "sfo02": [(0, 1, 200e9, 2)],                              # 2x100G LAG
     "fmt01": [(0, 1, 800e9, 4), (1, 2, 400e9, 2), (0, 2, 100e9, 1)],  # partial mesh
     # sjc01: a small leaf/spine — spines 01,02 (peer LAG), leaves 03,04 to both spines
     "sjc01": [(0, 1, 800e9, 4), (2, 0, 400e9, 2), (2, 1, 400e9, 2),

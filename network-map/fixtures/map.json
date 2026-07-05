@@ -2222,10 +2222,10 @@
       "z_site": "sfo02",
       "a_device": "switch01.sfo02",
       "z_device": "switch02.sfo02",
-      "capacity_bps": 800000000000.0,
+      "capacity_bps": 200000000000.0,
       "status": "up",
       "approximate": false,
-      "members": 4,
+      "members": 2,
       "segments": [
         {
           "medium": "building",
