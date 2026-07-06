@@ -670,9 +670,9 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--source", choices=["description", "netbox"], default="description",
-                    help="inter-site cable source: legacy interface-description parsing "
-                         "(default) or NetBox circuits as source-of-truth")
+    ap.add_argument("--source", choices=["description", "netbox"], default="netbox",
+                    help="inter-site cable source: NetBox circuits as source-of-truth "
+                         "(default) or legacy interface-description parsing")
     ap.add_argument("--out", default="/var/www/sfmix-map/map.json")
     ap.add_argument("--links-out", default="/var/lib/sfmix-map/map-links.json")
     ap.add_argument("--eapi-fixture")
