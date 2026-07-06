@@ -24,3 +24,6 @@ terraform/authentik/tfplan
 # Network map: NDA'd provider KMZ reference (must never be committed)
 network-map/.kmz-cache/
 *.kmz
+# NDA'd exact per-circuit paths mined from KMZ (Tier 1 output). NEVER commit:
+# only the coarsened network-map/atlas/*.geojson (Tier 2) is safe to publish.
+network-map/atlas_precise/
