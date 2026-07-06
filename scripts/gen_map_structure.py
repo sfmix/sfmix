@@ -411,6 +411,94 @@ def building_rect(lat, lon):
 
 
 # ---------------------------------------------------------------------------
+# NetBox as source-of-truth for inter-site transport cables (--source=netbox)
+# ---------------------------------------------------------------------------
+def _netbox_client():
+    """pynetbox api from the builder's creds, with dev/test fallbacks."""
+    import pynetbox
+    url, tok = os.environ.get("NETBOX_API_ENDPOINT"), os.environ.get("NETBOX_API_TOKEN")
+    if url and tok:
+        return pynetbox.api(url, token=tok)
+    cfg = os.environ.get("SFMIX_OPERATOR_CONFIG_FILE", "/opt/sfmix/operator_config.yaml")
+    if os.path.exists(cfg):
+        import yaml
+        c = yaml.safe_load(open(cfg))
+        return pynetbox.api(c["netbox_api_endpoint"], token=c["netbox_api_key"])
+    if NETBOX_API:
+        t = open(os.path.expanduser("~/.netbox_api_token")).read().strip()
+        return pynetbox.api(NETBOX_API, token=t)
+    raise SystemExit("--source=netbox needs NetBox creds "
+                     "(NETBOX_API_ENDPOINT/NETBOX_API_TOKEN, operator_config, or IXP_NETBOX_API)")
+
+
+def netbox_cables(facts):
+    """Inter-site transport cables derived from NetBox (source of truth), the
+    trace-based twin of netbox_backbone_lint: one cable per LEASED circuit (BiDi
+    cores grouped by geom stem); members are the peering-switch interfaces whose
+    NetBox cable-trace reaches that circuit; geometry matches the atlas by the
+    circuit's CID tokens. map_exclude circuits are dropped; status comes from the
+    circuit lifecycle (active->up, planned->planned, else down)."""
+    import requests
+    import map_kmz_mine as mine
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    nb = _netbox_client()
+    hints = mine.circuit_hints(nb)
+    bycid = {h["cid"]: h for h in hints}
+    gc_hint = {h["geom_cid"]: h for h in hints}
+    exclude = {c.cid for c in nb.circuits.circuits.filter(tag="map_exclude")}
+    api = nb.base_url.rstrip("/")  # already includes /api
+    S = requests.Session()
+    S.headers = {"Authorization": "Token %s" % nb.token, "Accept": "application/json"}
+    S.verify = False
+
+    def paged(path, **kw):
+        kw["limit"] = 200
+        url, out = api + path, []
+        while url:
+            j = S.get(url, params=kw, timeout=60).json()
+            out += j["results"]
+            url, kw = j.get("next"), {}
+        return out
+
+    def traced_cid(iid):
+        tr = S.get("%s/dcim/interfaces/%d/trace/" % (api, iid), timeout=40).json()
+        for hop in tr:
+            for side in (hop[0], hop[2]):
+                for nd in side or []:
+                    if isinstance(nd.get("circuit"), dict):
+                        return nd["circuit"]["cid"]
+        return None
+
+    members = {}  # geom_cid -> {(short_dev, ifname): speed_bps}
+    for i in paged("/dcim/interfaces/", role="peering_switch", cabled="true"):
+        cid = traced_cid(i["id"])
+        if not cid or cid not in bycid or cid in exclude:
+            continue
+        gc = bycid[cid]["geom_cid"]
+        dev, ifn = short(i["device"]["name"]), i["name"]
+        spd = facts.get((dev, ifn)) or (i["speed"] * 1000 if i.get("speed") else 100e9)
+        members.setdefault(gc, {})[(dev, ifn)] = spd
+
+    cables = []
+    for gc, mem in members.items():
+        h = gc_hint[gc]
+        a, z = h["a_site"], h["z_site"]
+        if not (a and z):
+            continue
+        mlist = sorted(mem)
+        cap = sum(s for (d, _i), s in mem.items() if site_of(d) == a) or (sum(mem.values()) / 2)
+        st = h.get("status")
+        status = "up" if st == "active" else ("planned" if st == "planned" else "down")
+        cables.append({
+            "key": ("nb", gc), "a_site": a, "z_site": z, "members": mlist,
+            "tokens": sorted({norm_token(t) for t in h.get("match", [])}),
+            "provider": h.get("provider") or "", "capacity_bps": cap, "status": status,
+        })
+    return cables
+
+
+# ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
 def build(args):
@@ -420,9 +508,12 @@ def build(args):
     atlas = load_atlas()
 
     facts = load_iface_facts(args)
-    ports = parse_core_ports(inv, facts)
-    adj = topo_adjacency(topology)
-    cables = assemble_cables(ports, adj)
+    if getattr(args, "source", "description") == "netbox":
+        cables = netbox_cables(facts)
+    else:
+        ports = parse_core_ports(inv, facts)
+        adj = topo_adjacency(topology)
+        cables = assemble_cables(ports, adj)
 
     # devices per site (from topology nodes + inventory)
     devs_by_site = {}
@@ -567,6 +658,9 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--source", choices=["description", "netbox"], default="description",
+                    help="inter-site cable source: legacy interface-description parsing "
+                         "(default) or NetBox circuits as source-of-truth")
     ap.add_argument("--out", default="/var/www/sfmix-map/map.json")
     ap.add_argument("--links-out", default="/var/lib/sfmix-map/map-links.json")
     ap.add_argument("--eapi-fixture")
