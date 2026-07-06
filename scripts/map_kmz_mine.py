@@ -125,25 +125,17 @@ def _assign_geom_groups(hints):
 # ---------------------------------------------------------------------------
 # Provider extraction profiles (KMZ -> exact path). Anchored on NetBox coords.
 # ---------------------------------------------------------------------------
-def _nearest_end(pts_list, anchor):
-    """Of many (name,desc,pts), the one whose either end is closest to anchor."""
-    best = None
-    for item in pts_list:
-        pts = item[-1]
-        d = min(K.dist(pts[0], anchor), K.dist(pts[-1], anchor))
-        if best is None or d < best[0]:
-            best = (d, item)
-    return best[1] if best else None
+ENDPOINT_TOL_M = 2000  # an endpoint must land within ~2 km of the NetBox site
 
 
-def profile_merge(lss, hint):
-    """Zayo-style single-service KMZ: every LineString is part of the one path;
-    chain them all, anchored/oriented by the NetBox endpoints."""
-    path = K.chain_segments([pts for _, _, pts in lss])
-    return K.orient_a_to_z(path, hint["a_coords"], hint["z_coords"])
-
-
-ENDPOINT_TOL_M = 2000  # a linestring end must land within ~2 km of the NetBox site
+def _load_lss(files):
+    lss = []
+    for f in files:
+        try:
+            lss += K.linestrings(K.read_kml(f))
+        except Exception as e:
+            print("  ! %s: %s" % (os.path.basename(f), e), file=sys.stderr)
+    return lss
 
 
 def _span_score(pts, a, z):
@@ -153,37 +145,77 @@ def _span_score(pts, a, z):
                K.meters_between(e1, a) + K.meters_between(e0, z))
 
 
-def profile_named(lss, hint):
+def profile_merge(files, hint):
+    """Zayo-style single-service KMZ: every LineString is part of the one path;
+    chain them all, anchored/oriented by the NetBox endpoints."""
+    lss = _load_lss(files)
+    if not lss:
+        return None
+    path = K.chain_segments([pts for _, _, pts in lss])
+    return K.orient_a_to_z(path, hint["a_coords"], hint["z_coords"])
+
+
+def profile_named(files, hint):
     """BIG-style multi-route KMZ: pick the route for THIS circuit. Prefer a
     LineString whose name/description carries the CID token; otherwise pick the
-    single LineString that best spans both NetBox endpoints (A and Z), and only
-    accept it if both ends land within tolerance — so we never grab an unrelated
-    route from a shared regional map."""
+    single LineString that best spans both NetBox endpoints — accept only if both
+    ends land within tolerance, so we never grab an unrelated regional route."""
     a, z = hint["a_coords"], hint["z_coords"]
     if not (a and z):
+        return None
+    lss = _load_lss(files)
+    if not lss:
         return None
     toks = [t.lower() for t in hint.get("match", []) if t]
     named = [(n, d, p) for (n, d, p) in lss
              if any(t in (n + " " + d).lower() for t in toks)]
-    # Pick the SINGLE best-spanning candidate (prefer CID-named ones). Never
-    # chain: the same route is often duplicated across a provider's maps, and
-    # chaining duplicates welds a route back on itself.
+    # SINGLE best-spanning candidate (prefer CID-named). Never chain: the same
+    # route is often duplicated across a provider's maps.
     pool = named or lss
     best = min(pool, key=lambda it: _span_score(it[2], a, z))
     if _span_score(best[2], a, z) <= 2 * ENDPOINT_TOL_M:
         return K.orient_a_to_z(best[2], a, z)
-    return None  # no route in these maps spans this circuit's endpoints
+    return None
 
 
-# graph-stitch (Boldyn BART right-of-way) lives in map_boldyn_route.py; the miner
-# shells to / imports it for provider_slug == 'boldyn-networks'. Wired as a TODO
-# so the exact-path step is validated against the real KMZ on the laptop.
+def profile_boldyn(files, hint):
+    """Boldyn rides BART rights-of-way: the KMZ is a network of segments, not a
+    per-circuit path. Build the shared snap-graph (map_boldyn_route), then Dijkstra
+    between the graph nodes nearest the NetBox A/Z coords. Reject if either endpoint
+    isn't on the network (planned spans not built yet) or the route is disconnected."""
+    import map_boldyn_route as B
+    a, z = hint["a_coords"], hint["z_coords"]
+    if not (a and z):
+        return None
+    segs = []
+    for f in files:
+        try:
+            s, _pts = B.parse_kml(B.mtp.read_kml(f))
+            segs += s
+        except Exception as e:
+            print("  ! %s: %s" % (os.path.basename(f), e), file=sys.stderr)
+    if not segs:
+        return None
+    node_xy, adj, _emeta = B.build_graph(segs)
+    sa, da = B.nearest_node(node_xy, a)
+    sz, dz = B.nearest_node(node_xy, z)
+    if da > ENDPOINT_TOL_M or dz > ENDPOINT_TOL_M:
+        print("  ! boldyn: endpoint off-network (a=%.0fm z=%.0fm) for %s" % (da, dz, hint["cid"]),
+              file=sys.stderr)
+        return None
+    path, _cost = B.dijkstra(adj, sa, sz)
+    if not path:
+        print("  ! boldyn: no connected BART route for %s" % hint["cid"], file=sys.stderr)
+        return None
+    return [a] + [node_xy[s] for s in path] + [z]
+
+
 PROFILES = {
     "zayo": profile_merge,
     "big_fiber": profile_named,
     "digital-realty": profile_named,
     "hurricane-electric": profile_named,
-    # 'boldyn-networks': graph-stitch (see map_boldyn_route.py) — TODO integrate
+    "boldyn-networks": profile_boldyn,
 }
 
 
@@ -229,6 +261,19 @@ def _file_provider_ok(path, slug):
     return bool(sub) and sub.lower() in path.lower()
 
 
+def _boldyn_graph_files(files):
+    """The Boldyn BART network graph: prefer the newest 'Customer Facing Boldyn
+    Fiber Network <M.D.YY>' map; else the access-points map; else whatever's given."""
+    net = [f for f in files if "customer facing boldyn fiber network" in f.lower()]
+    if net:
+        def datekey(f):
+            m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{2})", os.path.basename(f))
+            return (int(m.group(3)), int(m.group(1)), int(m.group(2))) if m else (0, 0, 0)
+        return [max(net, key=datekey)]
+    ap = [f for f in files if "boldyn fiber route" in f.lower()]
+    return ap or files
+
+
 def mine_circuit(hint, kmz_files):
     """Return (path, used_files, matched_by_path) for one circuit."""
     prof = PROFILES.get(hint["provider_slug"])
@@ -249,17 +294,14 @@ def mine_circuit(hint, kmz_files):
     by_path = bool(cand)
     if not cand:
         cand = [f for f in kmz_files if _file_provider_ok(f, hint["provider_slug"])]
+    # Boldyn without a dedicated route KMZ routes over the shared BART network graph.
+    if hint["provider_slug"] == "boldyn-networks" and not by_path:
+        cand = _boldyn_graph_files(cand)
     if not cand:
         print("  ! no KMZ for %s (%s) — wave/hand-draw?" % (hint["cid"], hint["provider_slug"]),
               file=sys.stderr)
         return None, [], False
-    lss = []
-    for f in cand:
-        try:
-            lss += K.linestrings(K.read_kml(f))
-        except Exception as e:
-            print("  ! %s: %s" % (os.path.basename(f), e), file=sys.stderr)
-    path = prof(lss, hint) if lss else None
+    path = prof(cand, hint)
     if not path:
         print("  ! %s: no route in %d %s map(s) spans %s->%s"
               % (hint["cid"], len(cand), hint["provider_slug"], hint["a_site"], hint["z_site"]),
