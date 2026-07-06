@@ -17,13 +17,18 @@ Cross-check the live inter-site backbone topology against NetBox.
 
 Ground truth is the switches' own LLDP: every link between two `peering_switch`
 devices that sit in *different* sites is a backbone transport link and MUST
-resolve to a complete end-to-end path in NetBox -- either a single cabled
-transport circuit whose trace reaches the far switch interface, or a chain of
-circuits meeting at a passive splice site (e.g. a dark-fibre span + a carrier
-wave handing off in a passive building).
+resolve to a complete end-to-end path in NetBox -- the NetBox cable trace from
+one switch interface must reach the far switch interface. A link that rides
+multiple circuits through a passive splice site (e.g. a dark-fibre span + a
+carrier wave handing off in a passive building) still traces continuously,
+*provided the passive cross-connect is itself modelled as a cable* (termination
+to termination). We deliberately do NOT guess a chain from two circuits landing
+at the same site -- if the trace doesn't complete, that's a real gap to model,
+not something to infer.
 
 This catches the gaps NetBox can't see on its own: a physical link that exists
-on the wire but whose circuit is un-cabled, half-cabled, mis-cabled, or missing.
+on the wire but whose circuit is un-cabled, half-cabled, mis-cabled, missing, or
+whose passive-site cross-connect hasn't been modelled.
 """
 
 EAPI_NETRC_HOST = "sfmix.org"
@@ -144,7 +149,7 @@ def check_backbone_transport_paths(
         r.raise_for_status()
         return r.json()
 
-    full = chained = excluded = 0
+    full = excluded = 0
     findings: List[str] = []
     for lk in links:
         (da, ia), (db, ib) = sorted(lk)
@@ -159,23 +164,28 @@ def check_backbone_transport_paths(
         if (ca | cb) & exclude_cids:
             excluded += 1  # rides a map_exclude circuit -> intentionally out-of-scope
             continue
+        # A complete link: the NetBox trace runs all the way to the far switch
+        # interface -- through however many circuits/cross-connects. No guessing.
         if ka == "interfaces" and fa == id_b:
-            full += 1  # single circuit, cabled both ends, traces end-to-end
-        elif ka == "sites" and kb == "sites" and fa == fb and ca and cb:
-            chained += 1  # circuits chain at a passive splice site
+            full += 1
         else:
             if not ca and not cb:
-                why = "no NetBox circuit on either end (unmodelled / excluded)"
+                why = "no NetBox circuit on either end (unmodelled)"
             elif ca == cb:
-                why = f"circuit {'/'.join(sorted(ca))} not cabled end-to-end (a:{ka} b:{kb})"
+                why = f"circuit {'/'.join(sorted(ca))} not traced end-to-end (a:{ka} b:{kb})"
             else:
-                why = f"a:[{'/'.join(sorted(ca)) or '-'} ->{ka}] b:[{'/'.join(sorted(cb)) or '-'} ->{kb}]"
+                why = (
+                    f"trace does not reach far switch -- "
+                    f"a:[{'/'.join(sorted(ca)) or '-'} ->{ka}] "
+                    f"b:[{'/'.join(sorted(cb)) or '-'} ->{kb}] "
+                    f"(passive-site cross-connect un-modelled?)"
+                )
             findings.append(f"{da} {ia} <-> {db} {ib}: {why}")
 
     for f in sorted(findings):
         print("  INCOMPLETE backbone path:", f)
     print(
-        f"     summary: {full} full + {chained} chained end-to-end, "
+        f"     summary: {full} full end-to-end, "
         f"{excluded} excluded (map-out-of-scope), "
         f"{len(findings)} incomplete (of {len(links)} inter-site links)"
     )
