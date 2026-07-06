@@ -369,6 +369,68 @@ def bezier_arc(p0, p1, bulge=0.1, steps=18):
     return out
 
 
+# Infrastructure-following route for links with no KMZ geometry: fibre follows
+# rights-of-way, so route over the basemap's transport network (Dijkstra) instead
+# of flying a straight arc. Preference by class (lower cost = preferred): rail,
+# bridge, pipeline, then highways. Only 'motorway'/'trunk' exist in the basemap
+# today; rail/bridge/pipeline weights are ready for when those layers are added.
+_INFRA_CLASS_COST = {"railway": 0.7, "bridge": 0.75, "pipeline": 0.8,
+                     "motorway": 1.0, "trunk": 1.4}
+_ROAD_GRAPH = {}
+_ROAD_GRID = 0.0015  # ~150 m vertex-snap (highways are long; keeps the graph small)
+
+
+def _road_graph():
+    if _ROAD_GRAPH:
+        return _ROAD_GRAPH
+    import map_boldyn_route as B
+    fn = os.path.join(REPO, "website", "static", "map", "basemap-roads.json")
+    node_xy, adj = {}, {}
+
+    def snap(p):
+        return (round(p[0] / _ROAD_GRID), round(p[1] / _ROAD_GRID))
+
+    def add(u, v, w):
+        d = adj.setdefault(u, {})
+        if v not in d or w < d[v]:
+            d[v] = w
+    try:
+        feats = json.load(open(fn)).get("features", [])
+    except Exception:
+        feats = []
+    for f in feats:
+        mult = _INFRA_CLASS_COST.get((f.get("properties") or {}).get("class"), 2.0)
+        prev = None
+        for p in f["geometry"]["coordinates"]:
+            s = snap(p)
+            node_xy[s] = p
+            if prev is not None and s != prev:
+                dm = B.meters(node_xy[prev], node_xy[s]) * mult
+                add(prev, s, dm)
+                add(s, prev, dm)
+            prev = s
+    _ROAD_GRAPH.update({"xy": node_xy, "adj": adj, "B": B})
+    return _ROAD_GRAPH
+
+
+def infra_route(a_ll, z_ll, max_off_m=4000.0):
+    """Route a_ll->z_ll over the basemap transport network; None if no endpoint is
+    near it or the graph is disconnected (caller falls back to a straight arc)."""
+    g = _road_graph()
+    if not g.get("adj"):
+        return None
+    B = g["B"]
+    sa, da = B.nearest_node(g["xy"], a_ll)
+    sz, dz = B.nearest_node(g["xy"], z_ll)
+    if da > max_off_m or dz > max_off_m:
+        return None
+    path, _cost = B.dijkstra(g["adj"], sa, sz)
+    if not path or len(path) < 2:
+        return None
+    verts = [a_ll] + [g["xy"][s] for s in path] + [z_ll]
+    return g["B"].mtp.coarsen(verts)
+
+
 def match_atlas(cable, atlas):
     toks = set(cable["tokens"])
     for a in atlas:
@@ -572,7 +634,9 @@ def build(args):
             if atlas_hit["status"] == "retired":
                 drift["retired_live"].append((atlas_hit["file"], a, z))
         else:
-            segments = [{"medium": "underground", "coordinates": bezier_arc(a_ll, z_ll)}]
+            routed = infra_route(a_ll, z_ll)  # follow rail/highway rights-of-way if we can
+            segments = [{"medium": "underground",
+                         "coordinates": routed or bezier_arc(a_ll, z_ll)}]
             approximate = True
             drift["missing"].append((a, z, c["tokens"] or c["provider"]))
         a_dev, z_dev = c["members"][0][0], c["members"][-1][0]
