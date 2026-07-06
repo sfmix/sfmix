@@ -751,6 +751,10 @@ def build(args):
             metro_of[code] = name
         metros_out[name] = {"lon": round(c[0], 6), "lat": round(c[1], 6), "codes": g["codes"]}
     metro_cables = mg.metro_aggregate(cables_out, sites_out, metro_of, metro_centroid)
+    # metro trunks get their own water-crossing spans so the submarine treatment
+    # (blue veil + waves) also applies at the zoomed-out inter-metro tier.
+    for mc in metro_cables:
+        mc["media"] = mg.water_spans(mc.get("path", []), water)
 
     gen_at = args.now or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     mapjson = {"generation": generation, "generated_at": gen_at, "sites": sites_out,

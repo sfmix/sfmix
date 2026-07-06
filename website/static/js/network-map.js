@@ -149,8 +149,13 @@
         geometry: { type: "Point", coordinates: [m.lon, m.lat] } };
     });
     METRO_MEMBERS = {};
+    var metroMediaFeatures = [];
     var metroCableFeatures = (structure.metro_cables || []).map(function (g) {
       METRO_MEMBERS[g.id] = g.member_ids; METRO_CAP[g.id] = g.capacity_bps;
+      (g.media || []).forEach(function (m) {
+        metroMediaFeatures.push({ type: "Feature", properties: { id: g.id, medium: m.medium },
+          geometry: { type: "LineString", coordinates: m.coordinates } });
+      });
       return { type: "Feature", id: g.id,
         properties: { id: g.id, scope: "metro", status: g.status,
           approximate: !!g.approximate, weight: weightForCapacity(g.capacity_bps),
@@ -163,7 +168,8 @@
       cables: fc(cableFeatures), media: fc(mediaFeatures),
       stations: fc(stationFeatures), devices: fc(deviceFeatures),
       buildings: fc(buildingFeatures), drops: fc(dropFeatures),
-      metroStations: fc(metroStationFeatures), metroCables: fc(metroCableFeatures)
+      metroStations: fc(metroStationFeatures), metroCables: fc(metroCableFeatures),
+      metroMedia: fc(metroMediaFeatures)
     };
   }
   function fc(features) { return { type: "FeatureCollection", features: features }; }
@@ -255,6 +261,7 @@
     map.addSource("stations", { type: "geojson", data: src.stations, promoteId: "code" });
     map.addSource("devices", { type: "geojson", data: src.devices });
     map.addSource("metro-cables", { type: "geojson", data: src.metroCables, promoteId: "id" });
+    map.addSource("metro-cable-media", { type: "geojson", data: src.metroMedia });
     map.addSource("metro-stations", { type: "geojson", data: src.metroStations, promoteId: "metro" });
     STATION_KEYS = Object.keys(structure.sites);
     METRO_KEYS = src.metroStations.features.map(function (f) { return f.properties.metro; });
@@ -589,7 +596,27 @@
       paint: { "line-color": "#cfe2e8", "line-opacity": 0.8, "line-width": 2, "line-offset": OFFSET_EXPR,
         "line-dasharray": [0.6, 1.8] }
     }, beforeId);
+    // METRO tier: the same submerged veil + waves over metro trunks that cross the
+    // bay, so the zoomed-out inter-metro view also reads submarine (no per-cable
+    // media at that tier otherwise). Sits over metro-line, below metro stations.
+    var metroBefore = map.getLayer("metro-stations-ring") ? "metro-stations-ring" : undefined;
+    map.addLayer({
+      id: "metro-water", type: "line", source: "metro-cable-media",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#9cc0cb", "line-opacity": 0.72,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 10.6, 12] }
+    }, metroBefore);
+    map.addLayer({
+      id: "metro-ripple", type: "line", source: "metro-cable-media",
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: { "line-color": "#cfe2e8", "line-opacity": 0.8, "line-width": 6 }
+    }, metroBefore);
     map.loadImage(SPRITE_BASE + "water-texture.png").then(function (img) {
+      if (map.getLayer("metro-ripple")) {
+        map.setPaintProperty("metro-ripple", "line-pattern", "water-texture");
+        map.setPaintProperty("metro-ripple", "line-width",
+          ["interpolate", ["linear"], ["zoom"], 8, 9, 10.6, 16]);
+      }
       if (!map.hasImage("water-texture")) map.addImage("water-texture", img.data);
       // ripples on the cable span
       map.setPaintProperty("cable-ripple", "line-pattern", "water-texture");
@@ -728,6 +755,7 @@
         map.getSource("stations").setData(src.stations);
         map.getSource("devices").setData(src.devices);
         map.getSource("metro-cables").setData(src.metroCables);
+        if (map.getSource("metro-cable-media")) map.getSource("metro-cable-media").setData(src.metroMedia);
         map.getSource("metro-stations").setData(src.metroStations);
         map.getSource("buildings").setData(src.buildings);
         map.getSource("drops").setData(src.drops);
