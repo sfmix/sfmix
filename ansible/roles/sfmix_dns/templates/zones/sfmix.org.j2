@@ -25,7 +25,7 @@ $TTL 3600
 @			IN	MX	10 ALT4.ASPMX.L.GOOGLE.COM.
 @			IN	TXT	"v=spf1 include:_spf.google.com ~all"
 mail			IN	CNAME	ghs.googlehosted.com.
-_dmarc			IN	TXT	"v=DMARC1; p=none; sp=none; rf=afrf; pct=100; ri=86400"
+_dmarc			IN	TXT	"v=DMARC1; p=quarantine; rf=afrf; pct=100; ri=86400"
 googlea994b6d001486007	IN	CNAME	google.com.
 google._domainkey	IN	TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArUPk9h1MpfIlTVsIV6DbB" "bw2TkIbR1OCxFY4lBqLB1fv1i0+086g9CNAwVK+mqeNC6OdCoem0tHNVg3PmMuYhnwAwCAYhO0l4qf5Ew44LPZYBAXYwAEN4TQ0P/Y0Z" "zAU6Cz3VP/Y1S52VIwVKEhfFsJh3++8TBL7zePmoUtdZZgpkWbaWE1W7OzlyxhgWF0EoaQ32VPL8K6QmWye6nSmJJ1KqRWGp6jsl4v" "pP0F02mYYKgCHK12SpvgQ03CFwOfxlGoEGdhQE6YSIrvvZCag474WIkI2R4BenGYctDHoY8XhL1TxUnPYIjE8J+QcpszOlXyHwBJMD2T/aVMQmGIN5QIDAQAB"
 
@@ -49,7 +49,7 @@ ip			IN	CNAME	sfmix.github.io.
 ; Mailman3 hosted listserv
 lists			IN	A	162.55.168.13
 lists			IN	MX	1 lists.sfmix.org.
-lists			IN	TXT	"v=spf1 a mx include:mail.mailman3.com ?all"
+lists			IN	TXT	"v=spf1 a mx include:mail.mailman3.com ~all"
 mail._domainkey.lists	IN	TXT	"v=DKIM1; h=sha256; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvd8e91qus7okF77rhJRwaXMajP6cSS5bKbSNYg5wsY5ROhzN3ibhui0iHLqVyuyu1AYxdNTx2Jllk2TbY6n0KsO8/qysaeR4YnMOODGtPGp3jxQ5yzyQDVk3wmQArAS2Ph0HJ" "Al6Zd3Vo6cc0CZrwVX6oeqQu0pdUcHq8mdjW43N5i0hW/5caw/gdhM3Z9W7kvtLwAo4wNHO/kUjF2J09290zk0wrFFEhP8yB9XGn7WqpOfn7Li/gyarVynDQ5AsR30O9z+/oz3f4/6e9dXgkQkKwq0dkLpqIt5klVh6jnXzcWo13FqdLHHOcTSgkLZAQd35IPEjeP43fDxUbutVgQIDAQAB"
 api.lists		IN	A	162.55.168.13
 logs.lists		IN	A	162.55.168.13
