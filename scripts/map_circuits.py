@@ -2,24 +2,26 @@
 """Reconcile inter-site transport circuits between the switch fabric and NetBox.
 
 NetBox is the intended source-of-truth for the map's transport links (see
-network-map/CIRCUITS_PLAN.md). This tool cross-references three signals —
+network-map/CIRCUITS_PLAN.md). Device *link state* is authoritative for delivery: a
+transport port that is `connected` (light) means its dark-fibre circuit is delivered and
+its NetBox termination must be cabled to that interface. Signals fused:
 
-  1. Switch transport ports  — interfaces described `Core: Transport <SITE> via
-     <Provider> {<TOKEN>} [<Speed>]`.
-  2. NetBox dark-fibre circuits — circuits.Circuit(type=dark-fiber) + terminations,
-     and the cable trace from each switch interface through patch panels.
-  3. Cable atlas — network-map/atlas/*.geojson (coarsened geometry, keyed by cid).
+  1. `show running-config` `!! CID:` (canonical circuit id) + `!! PP` (ODF landing) + BiDi/duplex.
+  2. `show interfaces status` linkStatus (connected|notconnect|disabled) — delivery truth.
+  3. NetBox dark-fibre circuits + terminations + the cable trace through patch panels.
+  4. network-map/atlas/*.geojson (geometry, keyed by cid).
 
-Modes:
-  --audit   read-only: report reconciliation gaps (the human gap-prompt).
-  --plan    read-only: print the concrete, HIGH-CONFIDENCE NetBox changes that would
-            sync the model to reality (completing the last patch-panel hop to a circuit
-            termination), plus the items that need a human. Writes nothing.
-  --apply   EXECUTE the --plan proposals (requires --yes). Idempotent, conservative.
+Configs/status are read from --configs-dir (files `cfg.<device>` and `st.<device>.json`).
+Fetch e.g.:
+  for d in <devs>; do ssh $d.sfmix.org 'show running-config' > cfg.$d
+                      ssh $d.sfmix.org 'show interfaces status | json' > st.$d.json; done
 
-  scripts/map_circuits.py --audit --env-file scripts/.env
-  scripts/map_circuits.py --plan  --env-file scripts/.env
-  scripts/map_circuits.py --apply --yes --env-file scripts/.env
+Modes (all read-only except --apply):
+  --audit   reconciliation summary (per-circuit inventory + gap buckets).
+  --plan    per-logical-circuit cabling change plan: for each DELIVERED circuit, the exact
+            NetBox cable(s) to create (switch->ODF->termination), as ready API requests,
+            with a cable-trace URL per interface. Nothing is written.
+  --apply   execute the concrete last-hop cable proposals from --plan (requires --yes).
 """
 import argparse
 import glob
@@ -34,7 +36,6 @@ import requests
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir))
 ATLAS_DIR = os.path.join(REPO, "network-map", "atlas")
-
 RE_TOKEN = re.compile(r"\{([^}]+)\}")
 
 
@@ -50,18 +51,13 @@ def load_env(path):
             os.environ.setdefault(k, v.strip().strip('"').strip("'"))
 
 
-def site_of_device(dev_name):
-    parts = dev_name.split(".")
-    return parts[1] if len(parts) > 1 else dev_name
+def site_of_device(dev):
+    p = dev.split(".")
+    return p[1] if len(p) > 1 else dev
 
 
 def parse_configs(configs_dir):
-    """Parse Arista EOS running-configs (files named cfg.<device>) for the authoritative
-    per-interface transport info in the `!!` comments:
-      !! SO:<so> CID:<cid>          -> canonical circuit id (beats the {token})
-      !! PP <panel> Port(s) N ...   -> patch-panel/ODF landing (the switch->ODF hop)
-      description ... BiDi #N / Ports A & B  -> link type (bidi vs duplex)
-    Returns {(device, ifname): {"cid","so","pp","link"}}. Empty if dir missing."""
+    """{(device, ifname): {cid, so, pp, link, token}} from EOS `!!` comments + description."""
     out = {}
     if not configs_dir or not os.path.isdir(configs_dir):
         return out
@@ -76,14 +72,30 @@ def parse_configs(configs_dir):
             if "Core: Transport" not in body:
                 continue
             cid = re.search(r"CID:(\S+)", body)
-            so = re.search(r"SO:(\S+)", body)
             pp = re.search(r"!!\s*(?:PP\s+)+(.+)", body)
             desc = re.search(r"description (.+)", body)
             dtext = desc.group(1) if desc else ""
+            tok = re.search(r"\{([^}]+)\}", dtext)
             link = ("bidi" if re.search(r"BiDi", dtext) else
                     "duplex" if re.search(r"Ports?\s+\d+\s*&|cable id \d+ & \d+", body) else "?")
-            out[(dev, ifn)] = {"cid": cid.group(1) if cid else "", "so": so.group(1) if so else "",
-                               "pp": pp.group(1).strip() if pp else "", "link": link}
+            out[(dev, ifn)] = {"cid": cid.group(1) if cid else "", "pp": pp.group(1).strip() if pp else "",
+                               "link": link, "token": tok.group(1) if tok else ""}
+    return out
+
+
+def parse_link_state(configs_dir):
+    """{(device, ifname): linkStatus} from `show interfaces status | json` (st.<device>.json)."""
+    out = {}
+    if not configs_dir:
+        return out
+    for path in glob.glob(os.path.join(configs_dir, "st.*.json")):
+        dev = os.path.basename(path)[3:-5]
+        try:
+            d = json.load(open(path))
+        except Exception:
+            continue
+        for ifn, info in (d.get("interfaceStatuses") or d.get("interfaces") or {}).items():
+            out[(dev, ifn)] = info.get("linkStatus") or info.get("lineProtocolStatus") or "?"
     return out
 
 
@@ -103,11 +115,7 @@ def atlas_cids():
 
 
 def trace_terminus(session, ep, iface_id):
-    """Follow /trace/. Returns a dict:
-      kind: uncabled | dead-end | circuittermination | other | error
-      detail: circuit cid (for circuittermination) or a label
-      port: {object_type, object_id, device, name}  (for dead-end — the demarc port)
-    """
+    """{kind: uncabled|dead-end|circuittermination|other|error, detail, port:{object_type,object_id,label}}."""
     try:
         hops = session.get("%s/api/dcim/interfaces/%d/trace/" % (ep, iface_id), timeout=30).json()
     except Exception as e:
@@ -116,29 +124,21 @@ def trace_terminus(session, ep, iface_id):
         return {"kind": "uncabled"}
     far = hops[-1][2]
     if not far:
-        near = hops[-1][0]
-        n = (near[0] if isinstance(near, list) else near) or {}
+        n = (hops[-1][0][0] if isinstance(hops[-1][0], list) else hops[-1][0]) or {}
         url = n.get("url", "")
-        otype = ("dcim.frontport" if "front-ports" in url else
-                 "dcim.rearport" if "rear-ports" in url else
-                 "dcim.interface" if "interfaces" in url else "?")
-        return {"kind": "dead-end",
-                "detail": "%s %s" % ((n.get("device") or {}).get("name", ""), n.get("name", "")),
+        otype = ("dcim.frontport" if "front-ports" in url else "dcim.rearport" if "rear-ports" in url
+                 else "dcim.interface" if "interfaces" in url else "?")
+        return {"kind": "dead-end", "detail": "%s %s" % ((n.get("device") or {}).get("name", ""), n.get("name", "")),
                 "port": {"object_type": otype, "object_id": n.get("id"),
-                         "device": (n.get("device") or {}).get("name", ""), "name": n.get("name", "")}}
+                         "label": "%s %s" % ((n.get("device") or {}).get("name", ""), n.get("name", ""))}}
     f = far[0] if isinstance(far, list) else far
     url = f.get("url", "")
     if "circuit-termination" in url or "circuittermination" in url:
-        cid = f.get("circuit", {}).get("cid") if isinstance(f.get("circuit"), dict) else None
-        return {"kind": "circuittermination", "detail": cid}
-    kind = url.split("/api/")[1].split("/")[1] if "/api/" in url else "?"
-    return {"kind": "other", "detail": kind}
+        return {"kind": "circuittermination", "detail": f.get("circuit", {}).get("cid") if isinstance(f.get("circuit"), dict) else None}
+    return {"kind": "other", "detail": url.split("/api/")[1].split("/")[1] if "/api/" in url else "?"}
 
 
-def gather(nb, sess, ep, configs):
-    """Return (circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas).
-    `configs` is the parsed EOS `!!` comment data — its `!! CID` is the AUTHORITATIVE
-    interface->circuit key (the description `{token}` is only a fallback)."""
+def gather(nb, sess, ep, configs, links):
     circuits = list(nb.circuits.circuits.filter(type="dark-fiber"))
     cid_by_norm = {norm(c.cid): c for c in circuits}
     term_sites, term_by_cid_side = {}, {}
@@ -149,153 +149,117 @@ def gather(nb, sess, ep, configs):
         term = getattr(t, "termination", None)
         site = term.slug if term and hasattr(term, "slug") else (str(term) if term else "?")
         term_sites.setdefault(c.cid, {})[t.term_side] = site
-        term_by_cid_side.setdefault(c.cid, {})[site] = {"id": t.id, "cabled": bool(getattr(t, "cable", None))}
-    ifaces = list(nb.dcim.interfaces.filter(description__ic="Core: Transport"))
+        term_by_cid_side.setdefault(c.cid, {})[site] = {"id": t.id, "side": t.term_side, "cabled": bool(getattr(t, "cable", None))}
     records = []
-    for i in ifaces:
+    for i in nb.dcim.interfaces.filter(description__ic="Core: Transport"):
         cfg = configs.get((str(i.device), i.name), {})
-        token = (RE_TOKEN.search(i.description or "") or [None, ""])[1] if RE_TOKEN.search(i.description or "") else ""
-        # authoritative: comment CID; fallback: description token
-        key = cfg.get("cid") or token
-        cid_src = "comment" if cfg.get("cid") else ("token" if token else "")
+        tok = (RE_TOKEN.search(i.description or "") or [None, ""])[1] if RE_TOKEN.search(i.description or "") else ""
+        key = cfg.get("cid") or tok
         circ = cid_by_norm.get(norm(key)) if key else None
-        rec = {"iface": i, "tag": "%s/%s" % (i.device, i.name), "site": site_of_device(str(i.device)),
-               "token": token, "cid": key, "cid_src": cid_src, "circuit": circ,
-               "pp": cfg.get("pp", ""), "link": cfg.get("link", ""), "trace": None}
+        rec = {"iface": i, "id": i.id, "tag": "%s/%s" % (i.device, i.name), "site": site_of_device(str(i.device)),
+               "cid": key, "cid_src": "comment" if cfg.get("cid") else ("token" if tok else ""),
+               "circuit": circ, "pp": cfg.get("pp", ""), "linktype": cfg.get("link", ""),
+               "link_state": links.get((str(i.device), i.name), "?"), "trace": None}
         if circ:
-            rec["trace"] = ({"kind": "uncabled"} if not getattr(i, "cable", None)
-                            else trace_terminus(sess, ep, i.id))
+            rec["trace"] = trace_terminus(sess, ep, i.id)
         records.append(rec)
     return circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas_cids()
 
 
-def build_proposals(records, term_by_cid_side):
-    """HIGH-CONFIDENCE proposals: a dead-end trace whose (circuit, site) is unique and
-    whose near-side termination exists and is uncabled -> cable demarc port <-> termination.
-    Ambiguous cases (>1 port per circuit-side, no port, etc.) are returned as 'manual'."""
-    # group ALL matched ports by (circuit cid, site) — a termination is a single point,
-    # so ANY sibling port on the same circuit-side (dead-end, bypass, or uncabled) makes
-    # it ambiguous (likely a LAG that needs one core-circuit per link). Only a clean 1:1
-    # dead-end is auto-proposable.
-    groups = {}
+def cmd_audit(circuits, term_sites, records, atlas):
+    by_circuit = {}
     for r in records:
         if r["circuit"]:
-            groups.setdefault((r["circuit"].cid, r["site"]), []).append(r)
-    proposals, manual = [], []
-    for (cid, site), rs in groups.items():
-        if not any((r.get("trace") or {}).get("kind") == "dead-end" for r in rs):
-            continue  # nothing to complete here; other buckets handle it
-        term = term_by_cid_side.get(cid, {}).get(site)
-        if len(rs) != 1:
-            manual.append("circuit %s @ %s has %d switch ports but one termination — model as %d core-circuits or a LAG (human)"
-                          % (cid, site, len(rs), len(rs)))
-            continue
-        r = rs[0]
-        if not term:
-            manual.append("%s -> %s: no NetBox termination at %s (human: add termination)" % (r["tag"], cid, site))
-            continue
-        if term["cabled"]:
-            manual.append("%s -> %s: termination @ %s already cabled elsewhere (human: verify)" % (r["tag"], cid, site))
-            continue
-        port = r["trace"]["port"]
-        if port["object_type"] not in ("dcim.frontport", "dcim.rearport"):
-            manual.append("%s -> %s: demarc is a %s, not a patch port (human)" % (r["tag"], cid, port["object_type"]))
-            continue
-        proposals.append({"iface": r["tag"], "cid": cid, "site": site,
-                          "port": port, "term_id": term["id"]})
-    return proposals, manual
-
-
-def cmd_plan(proposals, manual, records):
-    print("== PROPOSED NetBox changes (high-confidence, 1:1 last-hop cabling) ==")
-    if not proposals:
-        print("  (none)")
-    for p in proposals:
-        print("  CABLE  %s %s  <->  circuit %s termination @ %s"
-              % (p["port"]["device"], p["port"]["name"], p["cid"], p["site"]))
-        print("         (completes the trace from %s to its dark-fibre circuit)" % p["iface"])
-    print("\n== NEEDS A HUMAN (not auto-proposed) ==")
-    seen = set()
-    for m in manual:
-        if m not in seen:
-            print("  - " + m); seen.add(m)
-    # uncabled / other / no-cid from records
-    for r in records:
-        tr = r.get("trace") or {}
-        if r["circuit"] and tr.get("kind") == "uncabled":
-            print("  - %s -> %s: NO cable at all — human to patch switch->ODF->circuit" % (r["tag"], r["circuit"].cid))
-        elif r["circuit"] and tr.get("kind") == "other":
-            print("  - %s -> %s: cabled to another interface (bypasses circuit) — human to reconcile" % (r["tag"], r["circuit"].cid))
-        elif not r["circuit"]:
-            id_shown = ("%s (from %s)" % (r["cid"], r["cid_src"])) if r["cid"] else "(no id)"
-            print("  - %s: circuit %s has no NetBox dark-fibre circuit — human to add/attach" % (r["tag"], id_shown))
-    print("\nplan: %d auto-proposed cable(s); rerun with --apply --yes to execute." % len(proposals))
-
-
-def cmd_apply(nb, proposals, assume_yes):
-    if not assume_yes:
-        sys.exit("refusing to write without --yes")
-    print("== APPLYING %d cable(s) to NetBox ==" % len(proposals))
-    for p in proposals:
-        # re-check the termination is still uncabled (idempotent / safe)
-        t = nb.circuits.circuit_terminations.get(p["term_id"])
-        if t is None or getattr(t, "cable", None):
-            print("  SKIP  %s termination @ %s already cabled" % (p["cid"], p["site"]))
-            continue
-        cable = nb.dcim.cables.create(
-            a_terminations=[{"object_type": p["port"]["object_type"], "object_id": p["port"]["object_id"]}],
-            b_terminations=[{"object_type": "circuits.circuittermination", "object_id": p["term_id"]}],
-            status="connected", type="smf",
-            label="map-sync %s" % p["cid"],
-        )
-        print("  CABLED %s %s <-> %s @ %s  (cable #%s)"
-              % (p["port"]["device"], p["port"]["name"], p["cid"], p["site"], cable.id))
-
-
-def cmd_audit(circuits, cid_by_norm, term_sites, records, atlas):
-    by_circuit = {}
-    resolved = uncabled = dead = wrong = other = nocid = 0
-    seen = set()
-    for r in records:
-        c = r["circuit"]
-        if not c:
-            nocid += 1
-            continue
-        seen.add(c.cid)
-        tr = r.get("trace") or {}
-        k = tr.get("kind")
-        if k == "uncabled":
-            state = "uncabled"; uncabled += 1
-        elif k == "dead-end":
-            state = "dead-end@%s" % tr.get("detail"); dead += 1
-        elif k == "circuittermination":
-            if tr.get("detail") and norm(tr["detail"]) != norm(c.cid):
-                state = "WRONG->%s" % tr["detail"]; wrong += 1
-            else:
-                state = "resolved"; resolved += 1
-        else:
-            state = "%s:%s" % (k, tr.get("detail")); other += 1
-        by_circuit.setdefault(c.cid, []).append("%s(%s)" % (r["tag"], state))
+            tr = r.get("trace") or {}
+            by_circuit.setdefault(r["circuit"].cid, []).append(
+                "%s[%s,%s]" % (r["tag"], r["link_state"], tr.get("kind")))
     print("== dark-fibre circuit inventory (%d) ==" % len(circuits))
     for c in sorted(circuits, key=lambda c: (str(c.status), c.cid)):
         ts = term_sites.get(c.cid, {})
-        az = "%s-%s" % (ts.get("A", "?"), ts.get("Z", "?"))
-        at = "yes" if norm(c.cid) in atlas else "NO"
-        ports = by_circuit.get(c.cid, [])
-        print("   %-22s %-11s %-13s %-11s atlas=%-3s %s" % (
-            c.cid, az, str(c.provider)[:13], str(c.status)[:11], at,
-            ", ".join(ports) if ports else "(no described port)"))
-    active = [c for c in circuits if str(c.status).lower() == "active"]
-    so_named = [c.cid for c in circuits if str(c.cid).upper().startswith("SO-")]
-    if so_named:
-        renames = ", ".join("%s -> DF-%s" % (c, c[3:]) for c in so_named)
-        print("\nCID CONVENTION: %d dark-fibre circuit(s) use the SO- (service-order) prefix; the "
-              "circuit id should be DF- (DF-<cust>-<order>[-<core>]).\n  Rename candidates in NetBox: %s"
-              % (len(so_named), renames))
-    print("\nSUMMARY: resolved=%d uncabled=%d dead_end=%d wrong=%d no_cid=%d | active=%d no_port=%d no_atlas=%d" % (
-        resolved, uncabled, dead, wrong, nocid, len(active),
-        len([c for c in active if c.cid not in seen]),
-        len([c for c in active if norm(c.cid) not in atlas])))
+        print("   %-22s %-11s %-11s atlas=%-3s %s" % (
+            c.cid, "%s-%s" % (ts.get("A", "?"), ts.get("Z", "?")), str(c.status)[:11],
+            "yes" if norm(c.cid) in atlas else "NO", ", ".join(by_circuit.get(c.cid, [])) or "(no port)"))
+    so = [c.cid for c in circuits if str(c.cid).upper().startswith("SO-")]
+    if so:
+        print("\nCID CONVENTION: rename when delivered -> " + ", ".join("%s->DF-%s" % (c, c[3:]) for c in so))
+
+
+def build_and_plan(circuits, records, term_by_cid_side, web):
+    """Per-logical-circuit cabling plan. Returns (proposals) and prints the change plan with
+    ready API requests + a trace URL per interface. Only DELIVERED (connected) circuits."""
+    by_cid = {}
+    for r in records:
+        if r["circuit"]:
+            by_cid.setdefault(r["circuit"].cid, []).append(r)
+    proposals = []
+    for c in sorted(circuits, key=lambda c: c.cid):
+        rs = by_cid.get(c.cid, [])
+        delivered = any(r["link_state"] == "connected" for r in rs)
+        if not delivered:
+            continue
+        ts = term_by_cid_side.get(c.cid, {})
+        print("\n=== %s  (%s, %s)  terminations: %s ===" % (
+            c.cid, c.provider, c.status,
+            " ".join("%s@%s%s" % (v["side"], s, "*cabled" if v["cabled"] else "") for s, v in ts.items())))
+        # group this circuit's ports by site (end)
+        ends = {}
+        for r in rs:
+            ends.setdefault(r["site"], []).append(r)
+        for site, ers in sorted(ends.items()):
+            conn = [r for r in ers if r["link_state"] == "connected"]
+            term = ts.get(site)
+            print("  END %s  (%d connected port%s, linktype=%s):" % (
+                site, len(conn), "s" if len(conn) != 1 else "", conn[0]["linktype"] if conn else "?"))
+            for r in ers:
+                tr = r.get("trace") or {}
+                print("    %-26s link=%-10s netbox-cabling=%s" % (r["tag"], r["link_state"], tr.get("kind")))
+                print("      trace: %s/dcim/interfaces/%d/trace/" % (web, r["id"]))
+                if r["pp"]:
+                    print("      !! PP: %s" % r["pp"][:60])
+            if not term:
+                print("      ACTION: no NetBox termination at %s — create CircuitTermination, then cable. (human)" % site)
+                continue
+            if term["cabled"]:
+                print("      OK: termination %s@%s already cabled." % (term["side"], site))
+                continue
+            if len(conn) > 1:
+                print("      ACTION (⚑ Step 2): %d BiDi links share one circuit/termination — model one core-"
+                      "circuit per link first, then cable each. Not auto-proposed." % len(conn))
+                continue
+            r = conn[0]
+            tr = r.get("trace") or {}
+            if tr.get("kind") == "dead-end" and tr.get("port", {}).get("object_type") in ("dcim.frontport", "dcim.rearport"):
+                p = tr["port"]
+                proposals.append({"cid": c.cid, "site": site, "iface": r["tag"], "iface_id": r["id"],
+                                  "port": p, "term_id": term["id"]})
+                print("      PROPOSE cable  %s  <->  %s termination %s@%s" % (p["label"], c.cid, term["side"], site))
+                print("        POST %s/api/dcim/cables/ " % web + json.dumps({
+                    "a_terminations": [{"object_type": p["object_type"], "object_id": p["object_id"]}],
+                    "b_terminations": [{"object_type": "circuits.circuittermination", "object_id": term["id"]}],
+                    "status": "connected", "type": "smf", "label": "map-sync %s" % c.cid}))
+            elif tr.get("kind") == "uncabled":
+                print("      ACTION: switch port is delivered but has NO NetBox cable. Enter the physical patch "
+                      "per !! PP above (switch->ODF), then the last hop to termination %s becomes auto-proposable. (human)" % term["id"])
+            elif tr.get("kind") == "circuittermination":
+                print("      OK: already traces to a circuit termination.")
+            else:
+                print("      ACTION: traces to %s (not a circuit termination) — reconcile physically. (human)" % tr.get("detail"))
+    return proposals
+
+
+def cmd_apply(nb, proposals, yes):
+    if not yes:
+        sys.exit("refusing to write without --yes")
+    print("== APPLYING %d cable(s) ==" % len(proposals))
+    for p in proposals:
+        t = nb.circuits.circuit_terminations.get(p["term_id"])
+        if t is None or getattr(t, "cable", None):
+            print("  SKIP %s@%s termination already cabled" % (p["cid"], p["site"])); continue
+        cable = nb.dcim.cables.create(
+            a_terminations=[{"object_type": p["port"]["object_type"], "object_id": p["port"]["object_id"]}],
+            b_terminations=[{"object_type": "circuits.circuittermination", "object_id": p["term_id"]}],
+            status="connected", type="smf", label="map-sync %s" % p["cid"])
+        print("  CABLED %s <-> %s@%s (cable #%s)" % (p["port"]["label"], p["cid"], p["site"], cable.id))
 
 
 def main():
@@ -303,11 +267,9 @@ def main():
     ap.add_argument("--audit", action="store_true")
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--apply", action="store_true")
-    ap.add_argument("--yes", action="store_true", help="required with --apply to actually write")
+    ap.add_argument("--yes", action="store_true")
     ap.add_argument("--env-file")
-    ap.add_argument("--configs-dir", help="dir of EOS running-configs (files cfg.<device>) "
-                    "for authoritative !! CID / !! PP comment data. Fetch e.g.: "
-                    "for d in <devs>; do ssh $d.sfmix.org 'show running-config' > cfg.$d; done")
+    ap.add_argument("--configs-dir", help="dir of cfg.<device> + st.<device>.json")
     args = ap.parse_args()
     if args.env_file:
         load_env(args.env_file)
@@ -315,22 +277,27 @@ def main():
     tok = os.environ.get("NETBOX_API_TOKEN", "")
     if not ep or not tok:
         sys.exit("set NETBOX_API_ENDPOINT and NETBOX_API_TOKEN (or --env-file)")
+    web = re.sub(r"/api/?$", "", ep)
     nb = pynetbox.api(ep, token=tok)
-    sess = requests.Session()
-    sess.headers = {"Authorization": "Token %s" % tok}
-
-    configs = parse_configs(args.configs_dir)
-    circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas = gather(nb, sess, ep, configs)
-    if configs:
-        print("(using EOS !! comments from %d interfaces as authoritative CID/PP)\n" % len(configs))
+    sess = requests.Session(); sess.headers = {"Authorization": "Token %s" % tok}
+    configs, links = parse_configs(args.configs_dir), parse_link_state(args.configs_dir)
+    if configs or links:
+        print("(device signals: %d !! comments, %d link states)\n" % (len(configs), len(links)))
+    try:
+        circuits, cid_by_norm, term_sites, term_by_cid_side, records, atlas = gather(nb, sess, ep, configs, links)
+    except pynetbox.core.query.RequestError as e:
+        if "403" in str(e) or "expired" in str(e).lower():
+            sys.exit("NetBox auth failed (%s). Refresh NETBOX_API_TOKEN in your env/.env." % str(e)[:80])
+        raise
     if args.audit:
-        cmd_audit(circuits, cid_by_norm, term_sites, records, atlas)
+        cmd_audit(circuits, term_sites, records, atlas)
     if args.plan or args.apply:
-        proposals, manual = build_proposals(records, term_by_cid_side)
+        proposals = build_and_plan(circuits, records, term_by_cid_side, web)
+        print("\n%d concrete last-hop cable(s) proposed." % len(proposals))
         if args.apply:
             cmd_apply(nb, proposals, args.yes)
         else:
-            cmd_plan(proposals, manual, records)
+            print("Review above, then: --apply --yes to create the concrete cables.")
     if not (args.audit or args.plan or args.apply):
         sys.exit("choose --audit | --plan | --apply")
     return 0
