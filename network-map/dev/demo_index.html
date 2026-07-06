@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SFMIX Network Map — demo</title>
+<link rel="stylesheet" href="vendor/maplibre-gl/maplibre-gl.css">
+<link rel="stylesheet" href="css/network-map.css">
+<style>
+ html,body{margin:0;height:100%;background:#f4f1e9;font-family:system-ui,-apple-system,sans-serif}
+ #wrap{position:absolute;inset:0;display:flex;flex-direction:column}
+ header.demo{flex:none;padding:9px 16px;background:#0b3640;color:#fff;font-size:14px;
+   display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+ header.demo b{font-weight:600}header.demo span{opacity:.75;font-size:12.5px}
+ #network-map{position:relative;flex:1;min-height:0}
+</style></head>
+<body>
+<div id="wrap">
+ <header class="demo"><b>SFMIX Network Map</b>
+   <span>demo snapshot — built from NetBox (topology &amp; fibre geometry); with sample (synthetic) traffic overlay</span></header>
+ <div id="network-map"
+   data-structure-url="map.json"
+   data-traffic-url="traffic.json"
+   data-basemap-base="map/"
+   data-sprite-base="map/sprites/"
+   data-decorations-url="map/decorations.json">
+   <div id="nm-status"></div>
+   <div id="nm-legend">
+     <button class="nm-legend-toggle" type="button">Legend</button>
+     <div class="nm-legend-body">
+       <h4>Link utilization</h4>
+       <div class="nm-ramp"></div>
+       <div class="nm-ramp-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+       <div class="nm-legend-key"><span class="swatch" style="border-top-color:#9aa4aa;border-top-style:dashed"></span> offline</div>
+       <div class="nm-legend-key"><span class="swatch" style="border-top-color:#73BF69;border-top-style:dotted"></span> approximate route</div>
+       <div class="nm-ts" id="nm-ts"></div>
+     </div>
+   </div>
+ </div>
+</div>
+<script type="application/json" id="map-i18n">{"Capacity":"Capacity","In":"In","Last updated":"Last updated","Out":"Out","aerial":"aerial","approximate route":"approximate route","bridge":"bridge","building":"building","link offline":"link offline","live stats unavailable":"live stats unavailable","of capacity":"of capacity","submarine":"submarine","underground":"underground"}</script>
+<script src="vendor/maplibre-gl/maplibre-gl.js"></script>
+<script src="js/network-map.js" defer></script>
+</body></html>
