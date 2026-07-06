@@ -431,13 +431,15 @@ def _netbox_client():
                      "(NETBOX_API_ENDPOINT/NETBOX_API_TOKEN, operator_config, or IXP_NETBOX_API)")
 
 
-def netbox_cables(facts):
+def netbox_cables(topology, facts):
     """Inter-site transport cables derived from NetBox (source of truth), the
     trace-based twin of netbox_backbone_lint: one cable per LEASED circuit (BiDi
-    cores grouped by geom stem); members are the peering-switch interfaces whose
-    NetBox cable-trace reaches that circuit; geometry matches the atlas by the
-    circuit's CID tokens. map_exclude circuits are dropped; status comes from the
-    circuit lifecycle (active->up, planned->planned, else down)."""
+    cores grouped by geom stem). We scope to the transport ports via the inter-site
+    LLDP links (both ends), trace each interface to its NetBox transport circuit,
+    and group by leased stem — so each interface attributes to its OWN circuit
+    (a passive-site chain like scl02->scl03 + sfo02->scl03 stays two segments).
+    Geometry matches the atlas by CID tokens; map_exclude circuits are dropped;
+    status from the circuit lifecycle (active->up, planned->planned, else down)."""
     import requests
     import map_kmz_mine as mine
     import urllib3
@@ -452,14 +454,16 @@ def netbox_cables(facts):
     S.headers = {"Authorization": "Token %s" % nb.token, "Accept": "application/json"}
     S.verify = False
 
-    def paged(path, **kw):
-        kw["limit"] = 200
-        url, out = api + path, []
-        while url:
-            j = S.get(url, params=kw, timeout=60).json()
-            out += j["results"]
-            url, kw = j.get("next"), {}
-        return out
+    if_cache = {}  # (dev, ifn) -> (id, netbox_speed_bps)
+
+    def iface_info(dev, ifn):
+        key = (dev, ifn)
+        if key not in if_cache:
+            r = S.get(api + "/dcim/interfaces/", params={"device": dev, "name": ifn}, timeout=40).json()
+            res = r.get("results") or []
+            if_cache[key] = (res[0]["id"], (res[0]["speed"] * 1000 if res[0].get("speed") else None)) \
+                if res else (None, None)
+        return if_cache[key]
 
     def traced_cid(iid):
         tr = S.get("%s/dcim/interfaces/%d/trace/" % (api, iid), timeout=40).json()
@@ -471,14 +475,22 @@ def netbox_cables(facts):
         return None
 
     members = {}  # geom_cid -> {(short_dev, ifname): speed_bps}
-    for i in paged("/dcim/interfaces/", role="peering_switch", cabled="true"):
-        cid = traced_cid(i["id"])
-        if not cid or cid not in bycid or cid in exclude:
-            continue
-        gc = bycid[cid]["geom_cid"]
-        dev, ifn = short(i["device"]["name"]), i["name"]
-        spd = facts.get((dev, ifn)) or (i["speed"] * 1000 if i.get("speed") else 100e9)
-        members.setdefault(gc, {})[(dev, ifn)] = spd
+    for l in topology.get("links", {}).values():
+        ends = [(short(l["node1"]), l["port1"], site_of(l["node1"])),
+                (short(l["node2"]), l["port2"], site_of(l["node2"]))]
+        s1, s2 = ends[0][2], ends[1][2]
+        if not s1 or not s2 or s1 == s2:
+            continue  # inter-site transport only
+        for dev, ifn, _s in ends:
+            iid, nb_spd = iface_info(dev, ifn)
+            if not iid:
+                continue
+            cid = traced_cid(iid)
+            if not cid or cid not in bycid or cid in exclude:
+                continue
+            gc = bycid[cid]["geom_cid"]
+            spd = facts.get((dev, ifn)) or nb_spd or 100e9
+            members.setdefault(gc, {})[(dev, ifn)] = spd
 
     cables = []
     for gc, mem in members.items():
@@ -509,7 +521,7 @@ def build(args):
 
     facts = load_iface_facts(args)
     if getattr(args, "source", "description") == "netbox":
-        cables = netbox_cables(facts)
+        cables = netbox_cables(topology, facts)
     else:
         ports = parse_core_ports(inv, facts)
         adj = topo_adjacency(topology)
