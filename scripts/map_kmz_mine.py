@@ -143,22 +143,36 @@ def profile_merge(lss, hint):
     return K.orient_a_to_z(path, hint["a_coords"], hint["z_coords"])
 
 
+ENDPOINT_TOL_M = 2000  # a linestring end must land within ~2 km of the NetBox site
+
+
+def _span_score(pts, a, z):
+    """Best (A-end + Z-end) fit of a linestring to the circuit's endpoints, meters."""
+    e0, e1 = pts[0], pts[-1]
+    return min(K.meters_between(e0, a) + K.meters_between(e1, z),
+               K.meters_between(e1, a) + K.meters_between(e0, z))
+
+
 def profile_named(lss, hint):
-    """BIG-style multi-route KMZ: pick the LineString(s) whose name/description
-    carries a match token, else the one geometrically anchored on the endpoints."""
+    """BIG-style multi-route KMZ: pick the route for THIS circuit. Prefer a
+    LineString whose name/description carries the CID token; otherwise pick the
+    single LineString that best spans both NetBox endpoints (A and Z), and only
+    accept it if both ends land within tolerance — so we never grab an unrelated
+    route from a shared regional map."""
+    a, z = hint["a_coords"], hint["z_coords"]
+    if not (a and z):
+        return None
     toks = [t.lower() for t in hint.get("match", []) if t]
-    cand = [(n, d, p) for (n, d, p) in lss
-            if any(t in (n + " " + d).lower() for t in toks)]
-    if cand:
-        path = K.chain_segments([p for _, _, p in cand]) if len(cand) > 1 else cand[0][2]
-    else:
-        # fall back to geometry: the linestring anchored on the A endpoint
-        anchor = hint["a_coords"] or hint["z_coords"]
-        if not anchor:
-            return None
-        item = _nearest_end(lss, anchor)
-        path = item[-1] if item else None
-    return K.orient_a_to_z(path, hint["a_coords"], hint["z_coords"]) if path else None
+    named = [(n, d, p) for (n, d, p) in lss
+             if any(t in (n + " " + d).lower() for t in toks)]
+    # Pick the SINGLE best-spanning candidate (prefer CID-named ones). Never
+    # chain: the same route is often duplicated across a provider's maps, and
+    # chaining duplicates welds a route back on itself.
+    pool = named or lss
+    best = min(pool, key=lambda it: _span_score(it[2], a, z))
+    if _span_score(best[2], a, z) <= 2 * ENDPOINT_TOL_M:
+        return K.orient_a_to_z(best[2], a, z)
+    return None  # no route in these maps spans this circuit's endpoints
 
 
 # graph-stitch (Boldyn BART right-of-way) lives in map_boldyn_route.py; the miner
@@ -173,27 +187,85 @@ PROFILES = {
 }
 
 
-def mine_circuit(hint, kmz_dir):
-    """Return an exact path (list of (lon,lat)) for one circuit, or None."""
+def _norm(s):
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _digits(s):
+    return re.sub(r"\D", "", s or "")
+
+
+def discover_kmz(kmz_dir):
+    return sorted(glob.glob(os.path.join(kmz_dir, "**", "*.kmz"), recursive=True)
+                  + glob.glob(os.path.join(kmz_dir, "**", "*.kml"), recursive=True))
+
+
+def _path_matches(path, hint):
+    """True if the KMZ file path carries the circuit's CID/order token. Provider
+    folders here are named by circuit, so the path is the most reliable selector.
+    Matches on alnum-normalized token OR a >=6-digit run (handles FBDK/1721530/ZFS
+    vs FBDK-1721530-ZFS, and SO-00000231-0000 vs a '00000231-0000' folder)."""
+    np, dp = _norm(path), _digits(path)
+    for tok in hint.get("match", []):
+        if not tok:
+            continue
+        if _norm(tok) and _norm(tok) in np:
+            return True
+        dt = _digits(tok)
+        if len(dt) >= 6 and dt in dp:
+            return True
+    return False
+
+
+# provider_slug -> substring identifying that provider's KMZ folder. Used to
+# scope the same-provider fallback so we never mine across unrelated providers.
+PROVIDER_FOLDER = {
+    "big_fiber": "BIG Fiber", "zayo": "Zayo", "boldyn-networks": "Boldyn",
+}
+
+
+def _file_provider_ok(path, slug):
+    sub = PROVIDER_FOLDER.get(slug)
+    return bool(sub) and sub.lower() in path.lower()
+
+
+def mine_circuit(hint, kmz_files):
+    """Return (path, used_files, matched_by_path) for one circuit."""
     prof = PROFILES.get(hint["provider_slug"])
     if not prof:
-        print("  ! no extraction profile for provider %r (cid %s) — "
-              "Boldyn uses map_boldyn_route.py graph-stitch" % (hint["provider_slug"], hint["cid"]),
+        print("  ! no extraction profile for provider %r (cid %s) — Boldyn graph-stitch TODO"
+              % (hint["provider_slug"], hint["cid"]), file=sys.stderr)
+        return None, [], False
+    if not (hint["a_coords"] and hint["z_coords"]):
+        print("  ! %s: missing A/Z site geo in NetBox — cannot anchor, skip" % hint["cid"],
               file=sys.stderr)
-        return None
-    # Locating the exact KMZ file for a provider/circuit is operator knowledge
-    # (filenames aren't in NetBox); scan the dir and let the profile filter.
-    kmzs = glob.glob(os.path.join(kmz_dir, "*.kmz")) + glob.glob(os.path.join(kmz_dir, "*.kml"))
+        return None, [], False
+    # First choice: KMZ files whose PATH carries the CID (provider folders are
+    # named by circuit). Fallback: any same-provider map (the route may be a
+    # placemark inside another circuit's folder / a shared regional map) — the
+    # profile's both-endpoint scoring picks the right route and rejects if none
+    # spans this circuit. Never fall across providers (that fabricates garbage).
+    cand = [f for f in kmz_files if _path_matches(f, hint)]
+    by_path = bool(cand)
+    if not cand:
+        cand = [f for f in kmz_files if _file_provider_ok(f, hint["provider_slug"])]
+    if not cand:
+        print("  ! no KMZ for %s (%s) — wave/hand-draw?" % (hint["cid"], hint["provider_slug"]),
+              file=sys.stderr)
+        return None, [], False
     lss = []
-    for f in kmzs:
+    for f in cand:
         try:
             lss += K.linestrings(K.read_kml(f))
         except Exception as e:
             print("  ! %s: %s" % (os.path.basename(f), e), file=sys.stderr)
-    if not lss:
-        print("  ! no LineStrings under %s" % kmz_dir, file=sys.stderr)
-        return None
-    return prof(lss, hint)
+    path = prof(lss, hint) if lss else None
+    if not path:
+        print("  ! %s: no route in %d %s map(s) spans %s->%s"
+              % (hint["cid"], len(cand), hint["provider_slug"], hint["a_site"], hint["z_site"]),
+              file=sys.stderr)
+        return None, cand, by_path
+    return path, cand, by_path
 
 
 def main():
@@ -218,6 +290,8 @@ def main():
                 ",".join(h["match"])))
         return 0
 
+    kmz_files = discover_kmz(args.kmz_dir)
+    print("found %d KMZ/KML under %s" % (len(kmz_files), args.kmz_dir), file=sys.stderr)
     os.makedirs(PRECISE_DIR, exist_ok=True)
     # one geometry per leased-fibre group; mine using any core's hint
     by_group = {}
@@ -225,16 +299,23 @@ def main():
         by_group.setdefault(h["geom_cid"], h)
     n = 0
     for geom_cid, h in sorted(by_group.items()):
-        path = mine_circuit(h, args.kmz_dir)
+        path, used, by_path = mine_circuit(h, kmz_files)
         if not path:
             print("SKIP %s (no path mined)" % geom_cid)
             continue
         fc = K.atlas_fc(geom_cid, h["provider"], h["a_site"], h["z_site"],
                         [[lon, lat] for lon, lat in path], match=h["match"],
                         status=h["status"], geometry="exact-kmz")
-        out = os.path.join(PRECISE_DIR, "%s.geojson" % geom_cid)
+        safe = re.sub(r"[^A-Za-z0-9._-]", "-", geom_cid)  # FBDK/1721530/ZFS -> FBDK-1721530-ZFS
+        out = os.path.join(PRECISE_DIR, "%s.geojson" % safe)
         json.dump(fc, open(out, "w"), indent=2)
-        print("MINED %s -> %s (%d pts, exact) [gitignored]" % (geom_cid, out, len(path)))
+        src = ("path-matched:" + ";".join(os.path.basename(f) for f in used)) if by_path \
+            else ("same-provider across %d files" % len(used))
+        da = K.meters_between(path[0], h["a_coords"])
+        dz = K.meters_between(path[-1], h["z_coords"])
+        warn = "  !! ENDPOINTS OFF A=%.0fm Z=%.0fm" % (da, dz) if (da > 1500 or dz > 1500) else ""
+        print("MINED %-22s %d pts exact -> %s  [%s]%s"
+              % (geom_cid, len(path), os.path.basename(out), src, warn))
         n += 1
     print("\n%d exact path(s) written to %s. Next: map_coarsen.py -> committed atlas." % (n, PRECISE_DIR))
     return 0
