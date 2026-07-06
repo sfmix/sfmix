@@ -384,7 +384,11 @@ def _road_graph():
     if _ROAD_GRAPH:
         return _ROAD_GRAPH
     import map_boldyn_route as B
-    fn = os.path.join(REPO, "website", "static", "map", "basemap-roads.json")
+    # highways (also a display layer) + rail/pipeline rights-of-way (build-time only,
+    # NOT served/drawn). Rail is preferred over highways in the cost model — fibre
+    # follows rail. See network-map/basemap/fetch_rights_of_way.py.
+    sources = [os.path.join(REPO, "website", "static", "map", "basemap-roads.json"),
+               os.path.join(REPO, "network-map", "basemap", "rights-of-way.json")]
     node_xy, adj = {}, {}
 
     def snap(p):
@@ -394,21 +398,22 @@ def _road_graph():
         d = adj.setdefault(u, {})
         if v not in d or w < d[v]:
             d[v] = w
-    try:
-        feats = json.load(open(fn)).get("features", [])
-    except Exception:
-        feats = []
-    for f in feats:
-        mult = _INFRA_CLASS_COST.get((f.get("properties") or {}).get("class"), 2.0)
-        prev = None
-        for p in f["geometry"]["coordinates"]:
-            s = snap(p)
-            node_xy[s] = p
-            if prev is not None and s != prev:
-                dm = B.meters(node_xy[prev], node_xy[s]) * mult
-                add(prev, s, dm)
-                add(s, prev, dm)
-            prev = s
+    for fn in sources:
+        try:
+            feats = json.load(open(fn)).get("features", [])
+        except Exception:
+            continue
+        for f in feats:
+            mult = _INFRA_CLASS_COST.get((f.get("properties") or {}).get("class"), 2.0)
+            prev = None
+            for p in f["geometry"]["coordinates"]:
+                s = snap(p)
+                node_xy[s] = p
+                if prev is not None and s != prev:
+                    dm = B.meters(node_xy[prev], node_xy[s]) * mult
+                    add(prev, s, dm)
+                    add(s, prev, dm)
+                prev = s
     _ROAD_GRAPH.update({"xy": node_xy, "adj": adj, "B": B})
     return _ROAD_GRAPH
 
