@@ -66,7 +66,9 @@ def main():
         coarse = coarsen_fc(fc)
         before = sum(len(ft["geometry"]["coordinates"]) for ft in fc["features"])
         after = sum(len(ft["geometry"]["coordinates"]) for ft in coarse["features"])
-        out = os.path.join(args.atlas_dir, "%s.geojson" % cid)
+        # reuse the precise file's (already slash-sanitized) basename; the real
+        # circuit_id (which may contain '/') stays intact inside the FeatureCollection
+        out = os.path.join(args.atlas_dir, os.path.basename(f))
         json.dump(coarse, open(out, "w"), indent=2)
         print("COARSENED %-22s %d -> %d pts -> %s" % (cid, before, after, out))
         n += 1
