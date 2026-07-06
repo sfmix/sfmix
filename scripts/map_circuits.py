@@ -236,7 +236,7 @@ def build_and_plan(circuits, records, term_by_cid_side, web):
                 print("        POST %s/api/dcim/cables/ " % web + json.dumps({
                     "a_terminations": [{"object_type": p["object_type"], "object_id": p["object_id"]}],
                     "b_terminations": [{"object_type": "circuits.circuittermination", "object_id": term["id"]}],
-                    "status": "connected", "type": "smf", "label": "map-sync %s" % c.cid}))
+                    "status": "connected", "type": "smf", "label": "Cross-Connect: %s" % c.cid}))
             elif tr.get("kind") == "uncabled":
                 print("      ACTION: switch port is delivered but has NO NetBox cable. Enter the physical patch "
                       "per !! PP above (switch->ODF), then the last hop to termination %s becomes auto-proposable. (human)" % term["id"])
@@ -258,7 +258,7 @@ def cmd_apply(nb, proposals, yes):
         cable = nb.dcim.cables.create(
             a_terminations=[{"object_type": p["port"]["object_type"], "object_id": p["port"]["object_id"]}],
             b_terminations=[{"object_type": "circuits.circuittermination", "object_id": p["term_id"]}],
-            status="connected", type="smf", label="map-sync %s" % p["cid"])
+            status="connected", type="smf", label="Cross-Connect: %s" % p["cid"])
         print("  CABLED %s <-> %s@%s (cable #%s)" % (p["port"]["label"], p["cid"], p["site"], cable.id))
 
 
