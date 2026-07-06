@@ -700,6 +700,38 @@ def build(args):
             "circuit": [], "provider": "", "capacity_bps": cap, "scope": "intra",
         }
 
+    # passive-site cross-connects: at a switchless site (e.g. scl03, a DRT splice),
+    # the inter-site cables land on the building-box edge but there's no device to
+    # drop to. Draw the through-patch as a plain segment between the box-edge landing
+    # points, so the site reads as a full box with a cross-connect, not a dead end.
+    # (If a switch is ever added there, this falls away — the ends drop to it instead.)
+    for code, s in sites_out.items():
+        if s["devices"]:
+            continue  # has a switch — normal edge->device drops apply
+        ends = []
+        for c in cables_out:
+            if c["scope"] != "inter" or not c["path"]:
+                continue
+            if c["a_site"] == code:
+                ends.append(c["path"][0])
+            elif c["z_site"] == code:
+                ends.append(c["path"][-1])
+        if len(ends) < 2:
+            continue
+        if len(ends) == 2:
+            segs = [ends]
+        else:  # >2 landings: star them through the box centroid
+            cx = [round(sum(e[0] for e in ends) / len(ends), 6),
+                  round(sum(e[1] for e in ends) / len(ends), 6)]
+            segs = [[e, cx] for e in ends]
+        for k, seg in enumerate(segs):
+            oid = str(uuid.uuid5(NS, generation + "|xc|" + code + "|" + str(k)))
+            cables_out.append({
+                "id": oid, "scope": "crossconnect", "a_site": code, "z_site": code,
+                "a_device": "", "z_device": "", "capacity_bps": 0, "status": "up",
+                "approximate": False, "members": 0, "path": seg, "media": [], "drops": [],
+            })
+
     # atlas entries never seen in topology
     for a in atlas:
         if a["file"] not in matched_files and a["status"] == "active":

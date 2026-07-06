@@ -285,6 +285,16 @@
       paint: { "line-color": "#7d7867", "line-width": 1.2,
         "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
     });
+    // passive-site cross-connect: at a switchless site the inter cables land on the
+    // box edge and this bridges them across the box (no device to drop to). Drawn
+    // over the box, fading in with it.
+    map.addLayer({
+      id: "cable-crossconnect", type: "line", source: "cables",
+      filter: ["==", ["get", "scope"], "crossconnect"],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#0b3640", "line-width": 2, "line-dasharray": [1, 1.2],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
+    });
 
     // casing (dark under-stroke) for inter cables
     map.addLayer({
@@ -560,22 +570,23 @@
     map.addLayer({
       id: "cable-submarine", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#7ba7b6", "line-opacity": 0.4, "line-offset": OFFSET_EXPR,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 15] }
+      paint: { "line-color": "#7ba7b6", "line-opacity": 0.55, "line-offset": OFFSET_EXPR,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 6, 14, 18] }
     }, beforeId);
-    // mute the cable's util colour toward the water tone (submerged look)
+    // mute the cable's util colour toward the water tone (submerged look) — the
+    // blue veil sits OVER the cable so the crossing clearly reads as under water
     map.addLayer({
       id: "cable-water", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#a7c6cf", "line-opacity": 0.45, "line-offset": OFFSET_EXPR,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 7] }
+      paint: { "line-color": "#9cc0cb", "line-opacity": 0.72, "line-offset": OFFSET_EXPR,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 9] }
     }, beforeId);
     // ripple texture over the span (matches the bay); replaces the mute layer's
     // flat look with the same wave texture the water fill uses
     map.addLayer({
       id: "cable-ripple", type: "line", source: "cable-media",
       layout: { "line-cap": "butt", "line-join": "round" },
-      paint: { "line-color": "#cfe2e8", "line-opacity": 0.5, "line-width": 2, "line-offset": OFFSET_EXPR,
+      paint: { "line-color": "#cfe2e8", "line-opacity": 0.8, "line-width": 2, "line-offset": OFFSET_EXPR,
         "line-dasharray": [0.6, 1.8] }
     }, beforeId);
     map.loadImage(SPRITE_BASE + "water-texture.png").then(function (img) {
