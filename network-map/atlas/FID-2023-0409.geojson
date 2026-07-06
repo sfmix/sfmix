@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "circuit": {
     "circuit_id": "FID-2023-0409",
-    "provider": "BIG Fiber",
+    "provider": "BIG Fiber (fka BandwidthIG)",
     "a_site": "sfo02",
     "z_site": "fmt01",
     "status": "active",
@@ -22,8 +22,8 @@
         "type": "LineString",
         "coordinates": [
           [
-            -122.3981,
-            37.7232
+            -122.398,
+            37.7229
           ],
           [
             -122.3918,
@@ -254,8 +254,8 @@
             37.4727
           ],
           [
-            -121.9201,
-            37.4718
+            -121.9202,
+            37.4725
           ]
         ]
       }
