@@ -115,8 +115,10 @@ def check_backbone_transport_paths(
     for d in netbox.dcim.devices.filter(role="peering_switch", status="active"):
         devs[d.name] = d.site.slug
 
-    # 2) live LLDP -> inter-site links (both ends peering switches, different sites)
+    # 2) live LLDP -> inter-site links (different sites) + intra-site inter-switch
+    #    links (same site) — both must resolve to NetBox cabling.
     links: Dict[frozenset, None] = {}
+    intra_links: Dict[frozenset, None] = {}
     unreachable: List[str] = []
     for name in sorted(devs):
         try:
@@ -128,8 +130,12 @@ def check_backbone_transport_paths(
             for n in entry.get("lldpNeighborInfo", []):
                 far = n.get("systemName", "").replace(".sfmix.org", "")
                 fifn = n.get("neighborInterfaceInfo", {}).get("interfaceId", "").strip('"')
-                if far in devs and devs[far] != devs[name]:
+                if far not in devs or far == name:
+                    continue
+                if devs[far] != devs[name]:
                     links[frozenset([(name, ifn), (far, fifn)])] = None
+                else:
+                    intra_links[frozenset([(name, ifn), (far, fifn)])] = None
     if unreachable:
         print(f"     (note: no eAPI/LLDP from {', '.join(unreachable)} -- skipped)")
 
@@ -189,7 +195,31 @@ def check_backbone_transport_paths(
         f"{excluded} excluded (map-out-of-scope), "
         f"{len(findings)} incomplete (of {len(links)} inter-site links)"
     )
-    return len(findings)
+
+    # intra-site inter-switch links (LAGs): each LLDP-observed same-site link must
+    # be cabled in NetBox — i.e. one switch port's trace reaches the other. Missing
+    # ones are the intra-cabling gap to close so the map builder can source intra
+    # links from NetBox (no live LLDP).
+    print("[!!] Checking that intra-site inter-switch links (LLDP) are cabled in NetBox")
+    intra_ok = 0
+    intra_missing: List[str] = []
+    for lk in intra_links:
+        (da, ia), (db, ib) = sorted(lk)
+        id_a, id_b = ifid(da, ia), ifid(db, ib)
+        if not id_a or not id_b:
+            intra_missing.append(f"{da} {ia} <-> {db} {ib}: interface missing in NetBox")
+            continue
+        _c, ka, fa = analyze_trace(trace(id_a))
+        if ka == "interfaces" and fa == id_b:
+            intra_ok += 1
+        else:
+            intra_missing.append(f"{da} {ia} <-> {db} {ib}: not cabled in NetBox (trace ->{ka})")
+    for f in sorted(intra_missing):
+        print("  MISSING intra-site cable:", f)
+    print(f"     summary: {intra_ok} cabled, {len(intra_missing)} missing "
+          f"(of {len(intra_links)} intra-site links)")
+
+    return len(findings) + len(intra_missing)
 
 
 def netbox_client(operator_config) -> pynetbox.core.api.Api:
