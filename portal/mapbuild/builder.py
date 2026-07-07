@@ -405,7 +405,16 @@ def build(generation_seed=None, now=None):
                          "coordinates": routed or bezier_arc(a_ll, z_ll)}]
             approximate = True
             drift["missing"].append((a, z, c["tokens"] or c["provider"]))
-        a_dev, z_dev = c["members"][0][0], c["members"][-1][0]
+        # Represent the link by ONE end (a-side preferred): a point-to-point link's
+        # two ends mirror each other, so counting both would double the LAG strand
+        # count AND double-count traffic (summing in-octets over both ends = both
+        # directions, forcing in==out). Passive-splice segments have only one real
+        # end. capacity_bps is already the a-side sum, so this stays consistent.
+        a_ports = [m for m in c["members"] if site_of(m[0]) == a]
+        z_ports = [m for m in c["members"] if site_of(m[0]) == z]
+        rep = a_ports or z_ports or c["members"]
+        a_dev = a_ports[0][0] if a_ports else ""
+        z_dev = z_ports[0][0] if z_ports else ""
         geom = mg.build_inter_geometry(segments, a_ll, z_ll, box.get(a), box.get(z), water,
                                        devll.get(a, {}).get(a_dev), devll.get(z, {}).get(z_dev))
         oid = str(uuid.uuid5(NS, generation + "|" + "|".join("%s:%s" % m for m in c["members"])))
@@ -413,11 +422,11 @@ def build(generation_seed=None, now=None):
             "id": oid, "scope": "inter", "a_site": a, "z_site": z,
             "a_device": a_dev, "z_device": z_dev,
             "capacity_bps": c["capacity_bps"], "status": c["status"],
-            "approximate": approximate, "members": len(c["members"]),
+            "approximate": approximate, "members": len(rep),
             "path": geom["path"], "media": geom["media"], "drops": geom["drops"],
         })
         links_private[oid] = {
-            "members": [{"host": traffic_host(m[0]), "ifname": m[1]} for m in c["members"]],
+            "members": [{"host": traffic_host(m[0]), "ifname": m[1]} for m in rep],
             "circuit": c["tokens"], "provider": c["provider"],
             "capacity_bps": c["capacity_bps"],
         }
