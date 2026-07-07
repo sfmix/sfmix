@@ -68,7 +68,7 @@ extracts. Both are distilled into small committed artifacts.
 | Tier 1 — mine | `scripts/map_kmz_mine.py` | private KMZs + NetBox circuit hints | `network-map/atlas_precise/*.geojson` **(gitignored)** |
 | Tier 2 — coarsen | `scripts/map_coarsen.py` | `atlas_precise/` | `portal/mapbuild/data/atlas/*.geojson` **(committed)** |
 | Rights-of-way | `network-map/basemap/fetch_rights_of_way.py` | OSM Overpass | `portal/mapbuild/data/rights-of-way.json` **(committed)** |
-| Basemap | `network-map/basemap/fetch_basemap.py` | OSM Overpass | `website/static/map/basemap-*.json` **(committed)** |
+| Basemap | `network-map/basemap/fetch_basemap.py` | OSM Overpass | `website/static/map/basemap-*.json` **(committed)** + mirrors water/roads → `portal/mapbuild/data/` |
 
 Route-tracing helpers used only during mining (`scripts/map_trace_path.py`,
 `scripts/map_boldyn_route.py`) stay here too. So do the NetBox reconcilers/lint
@@ -181,9 +181,13 @@ portal/mapbuild/          self-contained builder app (production)
   data/atlas/*.geojson    COMMITTED  coarse cable geometry (image-baked)
   data/rights-of-way.json COMMITTED  rail/pipeline routing corridors
   data/sites.json         COMMITTED  site name/operator/metro overrides
-  geometry.py             render-geometry engine
+  data/basemap-*.json     COMMITTED  water rings + road corridors (build inputs)
+  geometry.py             render-geometry engine (was scripts/map_geometry.py)
+  routing.py              infra-following Dijkstra over rights-of-way
+  circuits.py             NetBox circuit geometry-hints (own copy; see miner)
   builder.py              NetBox + geometry → map.json / map-links.json
-  tasks.py, views.py      Django-Q2 task + admin status viewer
+  tasks.py, views.py      Django-Q2 task + admin status + public map.json
+  management/commands/build_map.py   standalone/manual build runner
 website/static/
   js/network-map.js       frontend (consumes map.json v2)
   map/basemap-*.json       COMMITTED  basemap water/roads (served + build input)
