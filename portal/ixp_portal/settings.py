@@ -41,7 +41,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.staticfiles",
     "mozilla_django_oidc",
+    "django_q",
     "dashboard.apps.DashboardConfig",
+    "mapbuild.apps.MapbuildConfig",
 ]
 
 MIDDLEWARE = [
@@ -216,5 +218,33 @@ LOGGING = {
         "django.security.DisallowedHost": {"handlers": [], "level": "CRITICAL", "propagate": False},
         "mozilla_django_oidc": {"handlers": ["console"], "level": "WARNING", "propagate": False},
         "dashboard": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "mapbuild": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
+}
+
+# --- Network map build (mapbuild app) ---
+# map.json is PUBLIC (served, CORS); map-links.json is PRIVATE (keys the per-link
+# traffic overlay, never served). Both live on the writable `db` volume so the
+# qcluster worker that builds them and the web workers that serve them share one
+# location. The builder sources everything from NetBox + the committed geometry
+# baked into mapbuild/data/ (see network-map/ARCHITECTURE.md).
+MAP_OUTPUT = os.environ.get("MAP_OUTPUT", str(BASE_DIR / "db" / "map" / "map.json"))
+MAP_LINKS_OUTPUT = os.environ.get("MAP_LINKS_OUTPUT", str(BASE_DIR / "db" / "map" / "map-links.json"))
+# Daily rebuild time (UTC, HH:MM); the schedule is created idempotently on startup.
+MAP_BUILD_CRON_UTC = os.environ.get("MAP_BUILD_CRON_UTC", "09:17")
+
+# --- Django-Q2 background jobs ---
+# DB-backed ORM broker (no Redis): tasks + schedules ride the existing SQLite DB
+# on the `db` volume, shared with the qcluster worker service. The map build is
+# the marquee job (daily + on-demand); results feed the admin status viewer.
+Q_CLUSTER = {
+    "name": "sfmix-portal",
+    "orm": "default",          # use the default DB as the broker
+    "workers": 1,              # one build at a time is plenty
+    "timeout": 600,            # a full NetBox build runs ~3 min; leave headroom
+    "retry": 720,              # must exceed timeout
+    "max_attempts": 1,         # don't hammer NetBox retrying; the next run recovers
+    "catch_up": False,         # skip missed schedules after downtime (don't backfill)
+    "save_limit": 200,         # retain recent successes for the status viewer
+    "label": "Background jobs",
 }

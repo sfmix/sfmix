@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Network Map Build" %} – SFMIX Portal{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
+</div>
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="page-title text-2xl font-bold">{% translate "Network Map Build" %}</h1>
+  <form action="{% url 'mapbuild:rebuild' %}" method="post">
+    {% csrf_token %}
+    <button type="submit"
+            class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      {% translate "Rebuild now" %}
+    </button>
+  </form>
+</div>
+
+{% if q_error %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
+  {% translate "Background-job tables unavailable (run migrations?):" %} {{ q_error }}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+  <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">{% translate "Current map.json" %}</div>
+    {% if current %}
+      <div class="text-lg font-semibold">{{ current.cables }} {% translate "cables" %} · {{ current.sites }} {% translate "sites" %}</div>
+      <div class="text-xs text-gray-500 font-mono mt-1">{{ current.generation }}</div>
+      <div class="text-xs text-gray-500 mt-1">{% translate "generated" %} {{ current.generated_at }}</div>
+    {% else %}
+      <div class="text-sm text-gray-400">{% translate "not built yet" %}</div>
+    {% endif %}
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">{% translate "Next scheduled build" %}</div>
+    {% if schedule %}
+      <div class="text-lg font-semibold">{{ schedule.next_run|date:"Y-m-d H:i" }} UTC</div>
+      <div class="text-xs text-gray-500 mt-1">{% translate "daily" %}</div>
+    {% else %}
+      <div class="text-sm text-gray-400">{% translate "no schedule" %}</div>
+    {% endif %}
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">{% translate "Queued now" %}</div>
+    <div class="text-lg font-semibold">{{ queued }}</div>
+  </div>
+</div>
+
+<h2 class="text-base font-semibold mb-3">{% translate "Recent successful builds" %}</h2>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden mb-8">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+      <tr>
+        <th class="text-left px-4 py-2">{% translate "Finished" %}</th>
+        <th class="text-left px-4 py-2">{% translate "Generation" %}</th>
+        <th class="text-right px-4 py-2">{% translate "Cables" %}</th>
+        <th class="text-left px-4 py-2">{% translate "Drift" %}</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for s in successes %}
+      <tr>
+        <td class="px-4 py-2 whitespace-nowrap">{{ s.stopped|date:"Y-m-d H:i:s" }}</td>
+        <td class="px-4 py-2 font-mono text-xs">{{ s.result.generation|default:"—" }}</td>
+        <td class="px-4 py-2 text-right">{{ s.result.cables|default:"—" }}</td>
+        <td class="px-4 py-2 text-xs text-gray-500">{{ s.result.drift|default:"" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">{% translate "No successful builds recorded yet." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if failures %}
+<h2 class="text-base font-semibold mb-3 text-red-700">{% translate "Recent failures" %}</h2>
+<div class="space-y-3 mb-8">
+  {% for f in failures %}
+  <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+    <div class="text-xs text-red-800 mb-2">{{ f.stopped|date:"Y-m-d H:i:s" }}</div>
+    <pre class="text-xs text-red-700 whitespace-pre-wrap break-all overflow-x-auto">{{ f.result }}</pre>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

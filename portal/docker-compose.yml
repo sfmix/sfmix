@@ -1,29 +1,62 @@
+# The portal now BUILDS the network map itself (mapbuild app + Django-Q2), so the
+# public map.json + private map-links.json are produced into the shared `db`
+# volume — no external rsync from the metrics builder. Three services share one
+# image + env: a one-shot `migrate`, the `portal` web server, and the `qcluster`
+# background worker that runs the (scheduled + on-demand) map build.
+x-portal-env: &portal-env
+  DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY}"
+  DJANGO_DEBUG: "false"
+  DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-portal.sfmix.org,localhost}"
+  OIDC_RP_CLIENT_ID: "${OIDC_RP_CLIENT_ID:-portal}"
+  OIDC_RP_CLIENT_SECRET: "${OIDC_RP_CLIENT_SECRET}"
+  OIDC_PROVIDER_URL: "${OIDC_PROVIDER_URL:-https://login.sfmix.org/application/o/portal}"
+  IXP_LOOKING_GLASS_URL: "${IXP_LOOKING_GLASS_URL:-https://lg.sfmix.org:8081}"
+  PROMETHEUS_URL: "${PROMETHEUS_URL:-http://metrics.sfo02.sfmix.org:9090}"
+  PROMETHEUS_TRUSTED_NETWORKS: "${PROMETHEUS_TRUSTED_NETWORKS:-127.0.0.0/8,::1/128}"
+  # NetBox is the builder's source of truth (world-reachable; public IP only is fine)
+  NETBOX_API_ENDPOINT: "${NETBOX_API_ENDPOINT:-https://netbox.sfmix.org/api}"
+  NETBOX_API_TOKEN: "${NETBOX_API_TOKEN}"
+  # map build outputs on the shared db volume; the traffic feed reads the links file
+  MAP_OUTPUT: "/app/db/map/map.json"
+  MAP_LINKS_OUTPUT: "/app/db/map/map-links.json"
+  SFMIX_MAP_LINKS_PATH: "/app/db/map/map-links.json"
+
 services:
+  migrate:
+    build: .
+    command: python manage.py migrate --noinput
+    environment: *portal-env
+    volumes:
+      - db:/app/db
+    restart: "no"
+
   portal:
     build: .
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:8000:8000"
-    environment:
-      DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY}"
-      DJANGO_DEBUG: "false"
-      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-portal.sfmix.org,localhost}"
-      OIDC_RP_CLIENT_ID: "${OIDC_RP_CLIENT_ID:-portal}"
-      OIDC_RP_CLIENT_SECRET: "${OIDC_RP_CLIENT_SECRET}"
-      OIDC_PROVIDER_URL: "${OIDC_PROVIDER_URL:-https://login.sfmix.org/application/o/portal}"
-      IXP_LOOKING_GLASS_URL: "${IXP_LOOKING_GLASS_URL:-https://lg.sfmix.org:8081}"
-      PROMETHEUS_URL: "${PROMETHEUS_URL:-http://metrics.sfo02.sfmix.org:9090}"
-      PROMETHEUS_TRUSTED_NETWORKS: "${PROMETHEUS_TRUSTED_NETWORKS:-127.0.0.0/8,::1/128}"
-      SFMIX_MAP_LINKS_PATH: "${SFMIX_MAP_LINKS_PATH:-/data/map/map-links.json}"
+    environment: *portal-env
     volumes:
       - db:/app/db
-      # private opaque-id -> member-ports map, rsynced from the metrics builder
-      - /var/lib/sfmix-map:/data/map:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/login/')"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  qcluster:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: python manage.py qcluster
+    environment: *portal-env
+    volumes:
+      - db:/app/db
 
 volumes:
   db:
