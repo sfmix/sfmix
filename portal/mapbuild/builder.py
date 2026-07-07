@@ -36,6 +36,16 @@ WATER_JSON = os.path.join(DATA_DIR, "basemap-water.json")
 # uuid5 namespace for opaque per-generation cable ids (stable within a generation)
 NS = uuid.UUID("5f1e9d0c-0000-4000-8000-5f6d6978aabb")
 
+# The sflow/Prometheus traffic series label hosts by FQDN (e.g.
+# switch01.sfo02.sfmix.org), while NetBox device names are bare hostnames
+# (switch01.sfo02). The PRIVATE map-links member host is the Prometheus join key,
+# so emit it as the FQDN; map.json's display device ids stay the bare name.
+DEVICE_DOMAIN = os.environ.get("MAP_DEVICE_DOMAIN", "sfmix.org")
+
+
+def traffic_host(dev):
+    return "%s.%s" % (dev, DEVICE_DOMAIN) if dev and not dev.endswith("." + DEVICE_DOMAIN) else dev
+
 SPEED_BITS = {"1G": 1e9, "10G": 10e9, "25G": 25e9, "40G": 40e9,
               "100G": 100e9, "400G": 400e9, "800G": 800e9,
               "1Gbps": 1e9, "10Gbps": 10e9, "25Gbps": 25e9, "40Gbps": 40e9,
@@ -407,7 +417,7 @@ def build(generation_seed=None, now=None):
             "path": geom["path"], "media": geom["media"], "drops": geom["drops"],
         })
         links_private[oid] = {
-            "members": [{"host": m[0], "ifname": m[1]} for m in c["members"]],
+            "members": [{"host": traffic_host(m[0]), "ifname": m[1]} for m in c["members"]],
             "circuit": c["tokens"], "provider": c["provider"],
             "capacity_bps": c["capacity_bps"],
         }
@@ -441,7 +451,7 @@ def build(generation_seed=None, now=None):
             "path": [dc[da], dc[db]], "media": [], "drops": [],
         })
         links_private[oid] = {
-            "members": [{"host": h, "ifname": i} for h, i in member_ports],
+            "members": [{"host": traffic_host(h), "ifname": i} for h, i in member_ports],
             "circuit": [], "provider": "", "capacity_bps": cap, "scope": "intra",
         }
 
