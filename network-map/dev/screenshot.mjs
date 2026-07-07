@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Headless screenshot of the network map for visual verification.
 //
-//   node network-map/dev/screenshot.mjs <url> <out.png> [waitExpr]
+//   node network-map/dev/screenshot.mjs <url> <out.png> [waitExpr] [WxH]
+//
+// WxH (e.g. 2504x1170) sets the viewport — for checking how the map fills
+// very large windows. Default 900x650.
 //
 // Launches headless Chrome (SwiftShader WebGL, throwaway profile), navigates
 // to <url>, polls <waitExpr> in the page until truthy (default: the MapLibre
@@ -24,9 +27,9 @@ import { writeFileSync, mkdtempSync } from "fs";
 import { spawn } from "child_process";
 import { tmpdir } from "os";
 
-const [url, out, waitExpr = "!!(window.__map && window.__map.getLayer('decorations'))"] = process.argv.slice(2);
-if (!url || !out) {
-  console.error("usage: node screenshot.mjs <url> <out.png> [waitExpr]");
+const [url, out, waitExpr = "!!(window.__map && window.__map.getLayer('decorations'))", size = "900x650"] = process.argv.slice(2);
+if (!url || !out || !/^\d+x\d+$/.test(size)) {
+  console.error("usage: node screenshot.mjs <url> <out.png> [waitExpr] [WxH]");
   process.exit(2);
 }
 const port = 9334;
@@ -34,7 +37,7 @@ const profile = mkdtempSync(tmpdir() + "/map-shot-");
 const chrome = spawn("google-chrome", ["--headless=new", "--use-angle=swiftshader",
   "--enable-unsafe-swiftshader", "--remote-debugging-port=" + port,
   "--user-data-dir=" + profile, "--no-first-run", "--disable-extensions",
-  "--window-size=900,650", "--hide-scrollbars", "about:blank"], { stdio: "ignore" });
+  "--window-size=" + size.replace("x", ","), "--hide-scrollbars", "about:blank"], { stdio: "ignore" });
 process.on("exit", () => chrome.kill());
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
