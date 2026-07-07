@@ -17,7 +17,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-BBOX = [-122.95, 36.95, -121.40, 38.25]  # minlon, minlat, maxlon, maxlat
+BBOX = [-124.0, 36.2, -120.3, 39.0]  # minlon, minlat, maxlon, maxlat
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir, "website", "static", "map"))
 # Full-resolution assembled coastline->water polygons (~900 MB) — gives a smooth,

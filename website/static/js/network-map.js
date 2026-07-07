@@ -274,7 +274,7 @@
     // splits, tolerance/buffer) don't help; revisit on a MapLibre upgrade.
     minZoom: 9,
     maxZoom: 16.5,  // deep enough to inspect intra-site switch links / LAG strands
-    maxBounds: [[-123.15, 36.8], [-121.2, 38.4]],
+    maxBounds: [[-124.2, 36.0], [-120.1, 39.2]],
     attributionControl: false
   });
   window.__nmmap = map; // exposed for dev/screenshot tooling
@@ -639,41 +639,50 @@
           }
           return l;
         }
-        function midpoint(f) {
-          var c = f.geometry.coordinates;
-          return c[Math.floor(c.length / 2)];
-        }
-        var shieldFeatures = [];
+        // Shields are POINTS sampled every STEP degrees of cumulative length
+        // along a route's segments (longest first), deduped by proximity across
+        // the whole route. Line-placement per segment misses fragmented routes
+        // entirely (US 101 is 1100+ short carriageway pieces, none long enough
+        // to earn a shield) and doubles up on parallel carriageways.
+        var STEP = 0.12, MIN_APART = 0.10, PER_REF_CAP = 24;
+        var shieldPoints = [];
         Object.keys(byRef).forEach(function (ref) {
           var name = "shield-" + ref;
           if (!map.hasImage(name)) map.addImage(name, shieldImage(ref), { pixelRatio: SHIELD_RES });
           byRef[ref].sort(function (a, b) { return segLen(b) - segLen(a); });
-          // longest first, then only segments well away from ones already kept —
-          // parallel carriageways of the same route otherwise pair every shield
           var kept = [];
+          // acc carries ACROSS segments: fragmented routes (US 101 is 1100+
+          // short carriageway pieces) would otherwise never accumulate a STEP
+          var acc = STEP / 2;
           byRef[ref].forEach(function (f) {
-            if (kept.length >= 4) return;
-            var m = midpoint(f);
-            var clear = kept.every(function (k) {
-              return Math.abs(k[0] - m[0]) + Math.abs(k[1] - m[1]) > 0.09;
-            });
-            if (clear) { kept.push(m); shieldFeatures.push(f); }
+            if (kept.length >= PER_REF_CAP) return;
+            var c = f.geometry.coordinates;
+            for (var i = 1; i < c.length && kept.length < PER_REF_CAP; i++) {
+              var dx = c[i][0] - c[i - 1][0], dy = c[i][1] - c[i - 1][1];
+              acc += Math.sqrt(dx * dx + dy * dy);
+              if (acc < STEP) continue;
+              acc = 0;
+              var p = c[i];
+              var clear = kept.every(function (k) {
+                return Math.abs(k[0] - p[0]) + Math.abs(k[1] - p[1]) > MIN_APART;
+              });
+              if (clear) {
+                kept.push(p);
+                shieldPoints.push({ type: "Feature", properties: { ref: ref },
+                  geometry: { type: "Point", coordinates: p } });
+              }
+            }
           });
         });
         map.addSource("shield-roads", { type: "geojson",
-          data: { type: "FeatureCollection", features: shieldFeatures } });
+          data: { type: "FeatureCollection", features: shieldPoints } });
         map.addLayer({
           id: "road-shields", type: "symbol", source: "shield-roads", minzoom: 10,
           layout: {
-            "symbol-placement": "line",
-            // sparse on purpose: one shield per long stretch of freeway, not a
-            // breadcrumb trail (parallel carriageways each place their own)
-            "symbol-spacing": 1100,
             "icon-image": ["concat", "shield-", ["get", "ref"]],
-            // shields stay upright (viewport-aligned) rather than riding the line
-            "icon-rotation-alignment": "viewport",
-            "icon-pitch-alignment": "viewport",
             "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 12.5, 1]
+            // default point placement, viewport-aligned; collision thins any
+            // remaining bunching against other shields
           },
           paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0, 10.8, 0.85] }
         }, map.getLayer("site-building") ? "site-building" : undefined);
@@ -747,11 +756,13 @@
   // it, so it blends into the water instead of contrasting with it.
   function addWaterTreatment() {
     var beforeId = map.getLayer("stations-ring") ? "stations-ring" : undefined;
-    // depth shade: slightly deeper water tone over the crossing (very soft)
+    // depth shade: slightly deeper water tone over the crossing (very soft) —
+    // all three treatment tones are keyed to the night water (#12324e): the
+    // shade sits a step darker, the veil a step lighter, crests lighter still
     map.addLayer({
       id: "cable-submarine", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#7ba7b6", "line-opacity": 0.55, "line-offset": OFFSET_EXPR,
+      paint: { "line-color": "#0b2138", "line-opacity": 0.6, "line-offset": OFFSET_EXPR,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 6, 14, 18] }
     }, beforeId);
     // mute the cable's util colour toward the water tone (submerged look) — the
@@ -759,7 +770,7 @@
     map.addLayer({
       id: "cable-water", type: "line", source: "cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#9cc0cb", "line-opacity": 0.72, "line-offset": OFFSET_EXPR,
+      paint: { "line-color": "#2c5478", "line-opacity": 0.7, "line-offset": OFFSET_EXPR,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 9] }
     }, beforeId);
     // ripple texture over the span (matches the bay); replaces the mute layer's
@@ -767,7 +778,7 @@
     map.addLayer({
       id: "cable-ripple", type: "line", source: "cable-media",
       layout: { "line-cap": "butt", "line-join": "round" },
-      paint: { "line-color": "#cfe2e8", "line-opacity": 0.8, "line-width": 2, "line-offset": OFFSET_EXPR,
+      paint: { "line-color": "#8fb4d0", "line-opacity": 0.7, "line-width": 2, "line-offset": OFFSET_EXPR,
         "line-dasharray": [0.6, 1.8] }
     }, beforeId);
     // METRO tier: the same submerged veil + waves over metro trunks that cross the
@@ -777,13 +788,13 @@
     map.addLayer({
       id: "metro-water", type: "line", source: "metro-cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#9cc0cb", "line-opacity": 0.72,
+      paint: { "line-color": "#2c5478", "line-opacity": 0.7,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 10.6, 12] }
     }, metroBefore);
     map.addLayer({
       id: "metro-ripple", type: "line", source: "metro-cable-media",
       layout: { "line-cap": "butt", "line-join": "round" },
-      paint: { "line-color": "#cfe2e8", "line-opacity": 0.8, "line-width": 6 }
+      paint: { "line-color": "#8fb4d0", "line-opacity": 0.7, "line-width": 6 }
     }, metroBefore);
     loadSvgImage("water-texture", 176).then(function (sp) {
       if (!map.hasImage("water-texture")) map.addImage("water-texture", sp.image, { pixelRatio: sp.pixelRatio });
