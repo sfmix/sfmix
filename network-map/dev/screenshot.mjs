@@ -15,13 +15,16 @@
 // Gotchas this encodes: --user-data-dir + --disable-extensions (else Chrome
 // loads the desktop profile and the first devtools target is some extension's
 // background page), type === "page" target selection, and waiting on the
-// map's own loaded() state instead of a fixed timeout (SwiftShader is slow
-// and fixed timeouts race the render).
+// map's own layer state instead of a fixed timeout (SwiftShader is slow and
+// fixed timeouts race the render). NB the wait can't use map.loaded(): the
+// animated fog canvas source keeps the map perpetually repainting, so
+// loaded() never settles true; the decorations layer existing is the last
+// async setup step, plus the post-wait paint delay below.
 import { writeFileSync, mkdtempSync } from "fs";
 import { spawn } from "child_process";
 import { tmpdir } from "os";
 
-const [url, out, waitExpr = "!!(window.__map && window.__map.loaded() && window.__map.getLayer('decorations'))"] = process.argv.slice(2);
+const [url, out, waitExpr = "!!(window.__map && window.__map.getLayer('decorations'))"] = process.argv.slice(2);
 if (!url || !out) {
   console.error("usage: node screenshot.mjs <url> <out.png> [waitExpr]");
   process.exit(2);

@@ -3,8 +3,8 @@
    Loaded by layouts/_default/network-map.html and the dev harness. */
 
 :root {
-  --nm-paper: #1e2c38;   /* land */
-  --nm-water: #0e1c28;
+  --nm-paper: #242c33;   /* land — neutral slate so the blue water reads */
+  --nm-water: #12324e;
   --nm-ink: #0b3640;     /* popover header chrome (kept from the light theme) */
   --nm-road: #384956;
   --nm-road-casing: #17232d;

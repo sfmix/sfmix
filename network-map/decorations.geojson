@@ -1,25 +1,25 @@
 {
   "type": "FeatureCollection",
-  "_comment": "Whimsy layer. Point features render as sprite icons (icon = PNG basename in website/static/map/sprites/). The single 'fog' feature with kind='image-overlay' is drawn as a MapLibre image source over its 4-corner quad. Published alongside map.json; contains no network data.",
+  "_comment": "Whimsy layer. Point features render as sprite icons (icon = SVG basename in website/static/map/sprites/, rasterized in-browser). The single 'fog' feature with kind='image-overlay' is drawn as an animated MapLibre canvas source over its 4-corner quad. Published alongside map.json; contains no network data.",
   "features": [
     {
       "type": "Feature",
-      "properties": {"icon": "sea-monster", "size": 1.0, "rotation": -12, "minzoom": 8, "label": "here be packets"},
-      "geometry": {"type": "Point", "coordinates": [-122.235, 37.605]}
+      "properties": {"icon": "sea-monster", "size": 0.85, "rotation": -12, "minzoom": 8, "label": "here be packets"},
+      "geometry": {"type": "Point", "coordinates": [-122.315, 37.742]}
     },
     {
       "type": "Feature",
-      "properties": {"icon": "sea-lion", "size": 0.8, "rotation": 0, "minzoom": 10},
+      "properties": {"icon": "sea-lion", "size": 0.34, "rotation": 0, "minzoom": 10},
       "geometry": {"type": "Point", "coordinates": [-122.4103, 37.8087]}
     },
     {
       "type": "Feature",
-      "properties": {"icon": "sea-lion", "size": 0.7, "rotation": 20, "minzoom": 11},
+      "properties": {"icon": "sea-lion", "size": 0.28, "rotation": 20, "minzoom": 11},
       "geometry": {"type": "Point", "coordinates": [-122.4118, 37.8092]}
     },
     {
       "type": "Feature",
-      "properties": {"icon": "sea-lion-chonker", "size": 1.1, "rotation": -6, "minzoom": 10},
+      "properties": {"icon": "sea-lion-chonker", "size": 0.42, "rotation": -6, "minzoom": 10},
       "geometry": {"type": "Point", "coordinates": [-122.4088, 37.8082]}
     },
     {
