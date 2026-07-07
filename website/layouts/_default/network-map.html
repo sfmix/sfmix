@@ -2,25 +2,11 @@
 <link rel="stylesheet" href="{{ "vendor/maplibre-gl/maplibre-gl.css" | relURL }}">
 <link rel="stylesheet" href="{{ "css/network-map.css" | relURL }}">
 
-<div class="page-header page-header-video"{{ with .Params.mobile_image }} style="--mobile-bg: url('/{{ . }}')"{{ end }}>
-  {{ with .Params.video }}
-  <video class="page-header-bg" autoplay muted loop playsinline aria-hidden="true">
-    <source src="{{ . | relURL }}" type="video/mp4">
-  </video>
-  {{ end }}
-  <div class="hero-overlay"></div>
-  <div class="container" style="position: relative; z-index: 2;">
-    <h1>{{ .Title }}</h1>
-  </div>
-</div>
-
-<div class="content">
-  <div class="container">
-    {{ .Content }}
-  </div>
-
-  {{/* Data URLs come from the portal (dynamic); basemap + sprites + decorations
-       are static assets on this site. Override portal host via site params. */}}
+{{/* No hero, no prose: the map IS the page — full viewport below the site
+     header. Data URLs come from the portal (dynamic); basemap + sprites +
+     decorations are static assets on this site. Override portal host via
+     site params. */}}
+<div class="nm-page">
   {{ $portal := .Site.Params.map_portal_base | default "https://portal.sfmix.org" }}
   <div id="network-map"
        data-structure-url="{{ $portal }}/statistics/map/map.json"
