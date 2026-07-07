@@ -6,5 +6,6 @@ urlpatterns = [
     # stores it in the django_language cookie, and redirects back. Powers the
     # in-nav language picker.
     path("i18n/", include("django.conf.urls.i18n")),
+    path("", include("mapbuild.urls")),
     path("", include("dashboard.urls")),
 ]
