@@ -6,7 +6,7 @@ invents cable shapes, device layouts, and opaque ids — it never touches the
 NDA'd KMZ atlas. The dev harness (dev/serve.py) serves the result and fabricates
 matching live traffic, so the whole frontend can be built and demoed offline.
 
-The real production equivalent is scripts/gen_map_structure.py, which joins live
+The real production equivalent is portal/mapbuild/builder.py, which joins live
 eAPI/topology/atlas data; this file only mirrors that JSON *shape*.
 """
 import json
@@ -17,11 +17,12 @@ import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, os.pardir, "fixtures", "map.json")
-ATLAS_DIR = os.path.join(HERE, os.pardir, "atlas")
-WATER_JSON = os.path.join(HERE, os.pardir, os.pardir, "website", "static", "map", "basemap-water.json")
+_DATA = os.path.join(HERE, os.pardir, os.pardir, "portal", "mapbuild", "data")
+ATLAS_DIR = os.path.join(_DATA, "atlas")
+WATER_JSON = os.path.join(_DATA, "basemap-water.json")
 
-sys.path.insert(0, os.path.join(HERE, os.pardir, os.pardir, "scripts"))
-import map_geometry as mg  # shared, IXP-generic render-geometry engine
+sys.path.insert(0, os.path.join(HERE, os.pardir, os.pardir, "portal"))
+from mapbuild import geometry as mg  # self-contained render-geometry engine (portal/mapbuild)
 
 
 def _water_rings():

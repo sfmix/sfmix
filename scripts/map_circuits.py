@@ -35,7 +35,7 @@ import requests
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir))
-ATLAS_DIR = os.path.join(REPO, "network-map", "atlas")
+ATLAS_DIR = os.path.join(REPO, "portal", "mapbuild", "data", "atlas")
 RE_TOKEN = re.compile(r"\{([^}]+)\}")
 
 

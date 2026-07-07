@@ -23,7 +23,7 @@ import map_kmz as K
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRECISE_DIR = os.path.join(ROOT, "network-map", "atlas_precise")
-ATLAS_DIR = os.path.join(ROOT, "network-map", "atlas")
+ATLAS_DIR = os.path.join(ROOT, "portal", "mapbuild", "data", "atlas")
 
 
 def coarsen_fc(precise_fc):

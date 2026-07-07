@@ -65,7 +65,7 @@
   function buildSources(structure) {
     var sites = structure.sites;
 
-    // The backend (scripts/map_geometry.py) has already done ALL geometry prep —
+    // The backend (portal/mapbuild) has already done ALL geometry prep —
     // smoothing, a->z orientation, de-looping, box-edge clipping, water spans, and
     // per-pair lane assignment. Here we only STYLE it: fan a LAG's members into
     // parallel strands and turn the pre-built geometry into GeoJSON features. The
