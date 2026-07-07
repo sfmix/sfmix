@@ -235,6 +235,15 @@
     container: "network-map",
     style: {
       version: 8,
+      // No paint-property transitions: the barber-pole ticker steps
+      // line-dasharray every 90ms, and the default 300ms transition made each
+      // step schedule ~18 further frames — overlapping ticks pinned the map at
+      // a constant 60fps (~1 CPU core + GPU, with every frame re-draping the
+      // whole scene onto the 3D terrain). With transitions off a dash step
+      // costs ONE frame, so animation renders at the ticker rate (~11fps).
+      // Selection dim/highlight snap instead of fading; nothing else here
+      // relied on transitions.
+      transition: { duration: 0, delay: 0 },
       sources: {
         water: { type: "geojson", data: BASEMAP_BASE + "basemap-water.json" },
         land: { type: "geojson", data: BASEMAP_BASE + "basemap-land.json" },
@@ -311,6 +320,12 @@
             "fill-extrusion-opacity": 0.95 } }
       ]
     },
+    // fadeDuration 0 works with the style's transition:0 above: a dasharray
+    // step schedules extra frames through BOTH the paint transition AND the
+    // 300ms symbol/pattern cross-fade — each alone keeps the 60fps loop.
+    // Cost: collision-culled symbols (road shields) pop in/out instead of
+    // fading — barely noticeable on this map.
+    fadeDuration: 0,
     center: [-122.05, 37.6],
     zoom: 9.1,
     // load already tilted (looking north-ish across the terrain) so the 3D —
@@ -609,7 +624,11 @@
       });
     });
   }
+  // ONE shared animation clock (barber pole + fog): every animated mutation
+  // happens inside the same tick, so they all share a single repaint and the
+  // map renders at ~11fps while animating instead of a continuous 60fps.
   var flowPhase = 0;
+  var FOG_TICK = null; // registered by addFog, driven by this same clock
   setInterval(function () {
     if (document.hidden) return;
     flowPhase = (flowPhase + 1) % FLOW_SEQ.length;
@@ -618,6 +637,7 @@
       .forEach(function (p) {
         if (map.getLayer(p[0])) map.setPaintProperty(p[0], "line-dasharray", p[1]);
       });
+    if (FOG_TICK) FOG_TICK();
   }, 90);
 
   // Toggle metro / site / device tiers by zoom (layer visibility + markers).
@@ -1046,19 +1066,26 @@
     var canvas = document.createElement("canvas");
     canvas.width = FOG_W; canvas.height = FOG_H;
     drawFog(canvas, 0);
-    // canvas source (animate: true) — the marine layer flows in off the ocean,
-    // each puff drifting west->east and wrapping back around independently
+    // canvas source — the marine layer flows in off the ocean, each puff
+    // drifting west->east and wrapping back around independently. It must NOT
+    // stay in animate mode: an animated canvas source re-uploads and repaints
+    // on every frame (a continuous 60fps). Instead it idles paused and the
+    // shared animation clock redraws the canvas, then plays it for exactly one
+    // frame so the new texture uploads with that tick's repaint.
     map.addSource("fog", { type: "canvas", canvas: canvas, animate: true,
       coordinates: [[w, n], [e, n], [e, s], [w, s]] });
     map.addLayer({ id: "fog", type: "raster", source: "fog",
       paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 9,
         (f.properties.max_opacity || 0.35), 13, (f.properties.min_opacity || 0.1)],
         "raster-fade-duration": 0 } });
+    var src = map.getSource("fog");
+    src.pause();
     var t0 = performance.now();
-    setInterval(function () {
-      if (document.hidden) return;
+    FOG_TICK = function () {
       drawFog(canvas, (performance.now() - t0) / 1000);
-    }, 66); // ~15 fps is plenty for fog
+      src.play();
+      requestAnimationFrame(function () { src.pause(); });
+    };
   }
   var FOG_W = 512, FOG_H = 256;
   var FOG_DRIFT = 0.012; // unit-widths per second — a slow oceanic crawl
