@@ -881,7 +881,11 @@
   // the water tone and the SAME ripple texture that styles the bay is laid over
   // it, so it blends into the water instead of contrasting with it.
   function addWaterTreatment() {
-    var beforeId = map.getLayer("stations-ring") ? "stations-ring" : undefined;
+    // the veil sits over the cable body (submerged read) but UNDER the barber-
+    // pole stripes — at close zoom the veil grows to ~9-18px and would swallow
+    // the flow animation entirely if it were painted on top
+    var beforeId = map.getLayer("flow-fwd") ? "flow-fwd"
+      : map.getLayer("stations-ring") ? "stations-ring" : undefined;
     // depth shade: slightly deeper water tone over the crossing (very soft) —
     // all three treatment tones are keyed to the night water (#12324e): the
     // shade sits a step darker, the veil a step lighter, crests lighter still
