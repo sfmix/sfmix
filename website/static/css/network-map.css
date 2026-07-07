@@ -1,30 +1,34 @@
-/* SFMIX network map — subway-style, paper cartography aesthetic.
+/* SFMIX network map — subway-style night chart.
+   Dark by design: Karl the Fog and the glowing links want a dark ground.
    Loaded by layouts/_default/network-map.html and the dev harness. */
 
 :root {
-  --nm-paper: #f4f1e9;
-  --nm-water: #a7c6cf;
-  --nm-ink: #0b3640;
-  --nm-road: #e4ddcb;
-  --nm-road-casing: #d3c9b0;
+  --nm-paper: #1e2c38;   /* land */
+  --nm-water: #0e1c28;
+  --nm-ink: #0b3640;     /* popover header chrome (kept from the light theme) */
+  --nm-road: #384956;
+  --nm-road-casing: #17232d;
+  --nm-text: #dfe9ef;
+  --nm-panel: rgba(16, 27, 36, .92);
 }
 
+/* The map IS the page: fill everything under the sticky site header. */
 #network-map {
   position: relative;
   width: 100%;
-  height: 70vh;
+  height: calc(100vh - var(--header-height, 64px));
   min-height: 460px;
-  background: var(--nm-paper);
+  background: var(--nm-water);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 /* --- station + device labels (HTML markers; MapLibre has no glyph server) --- */
 .nm-label {
   font-weight: 600;
-  color: var(--nm-ink);
+  color: var(--nm-text);
   white-space: nowrap;
   pointer-events: none;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .9), 0 0 3px rgba(255, 255, 255, .9);
+  text-shadow: 0 1px 0 rgba(8, 17, 24, .95), 0 0 4px rgba(8, 17, 24, .9);
   transform: translateY(-2px);
 }
 .nm-label-site { font-size: 13px; }
@@ -32,32 +36,32 @@
 .nm-label-site .nm-name { font-weight: 500; opacity: .78; font-size: 11px; }
 .nm-label-device { font-size: 11px; font-weight: 600; opacity: .9; text-align: center; }
 .nm-label-box {
-  background: rgba(255, 255, 255, .82);
+  background: rgba(18, 30, 40, .85);
   padding: 1px 7px;
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(11, 54, 64, .18);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
 }
 .nm-label-icao {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: .5px;
-  color: #8f8b7f;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .8);
+  color: #64798a;
+  text-shadow: 0 1px 0 rgba(8, 17, 24, .8);
 }
 .nm-label-deco {
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
   font-size: 15px;
-  color: #4a6b74;
-  opacity: .7;
+  color: #8fb4c4;
+  opacity: .75;
   letter-spacing: .5px;
 }
 
-/* --- popover --- */
+/* --- popover (stays a light card — readable against the dark chart) --- */
 .maplibregl-popup.nm-popup .maplibregl-popup-content {
   padding: 0;
   border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(11, 54, 64, .28);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .5);
   overflow: hidden;
   font-family: system-ui, sans-serif;
 }
@@ -98,22 +102,22 @@
   left: 12px;
   bottom: 12px;
   z-index: 3;
-  background: rgba(255, 255, 255, .92);
-  border: 1px solid rgba(11, 54, 64, .15);
+  background: var(--nm-panel);
+  border: 1px solid rgba(255, 255, 255, .12);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 12px;
-  color: var(--nm-ink);
+  color: var(--nm-text);
   max-width: 240px;
-  box-shadow: 0 2px 10px rgba(11, 54, 64, .12);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
 }
 #nm-legend h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
 .nm-ramp { height: 10px; border-radius: 5px; margin: 4px 0 2px;
   background: linear-gradient(90deg, #5794F2 0%, #73BF69 25%, #FADE2A 50%, #FF9830 75%, #F2495C 100%); }
-.nm-ramp-labels { display: flex; justify-content: space-between; font-size: 10px; color: #6c7f85; }
+.nm-ramp-labels { display: flex; justify-content: space-between; font-size: 10px; color: #93a6b0; }
 .nm-legend-key { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; }
 .nm-legend-key .swatch { width: 22px; height: 0; border-top-width: 3px; border-top-style: solid; }
-#nm-legend .nm-ts { margin-top: 8px; font-size: 10.5px; color: #85949a; }
+#nm-legend .nm-ts { margin-top: 8px; font-size: 10.5px; color: #7c909b; }
 .nm-legend-toggle { display: none; }
 #nm-status {
   position: absolute; right: 12px; top: 12px; z-index: 3;
@@ -123,10 +127,9 @@
 }
 
 @media (max-width: 640px) {
-  #network-map { height: 78vh; }
   #nm-legend.collapsed .nm-legend-body { display: none; }
   .nm-legend-toggle {
     display: inline-block; cursor: pointer; font-weight: 700;
-    background: none; border: none; color: var(--nm-ink); padding: 0; font-size: 12px;
+    background: none; border: none; color: var(--nm-text); padding: 0; font-size: 12px;
   }
 }

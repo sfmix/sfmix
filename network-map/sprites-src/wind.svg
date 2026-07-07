@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Ocean wind/fog gusts for the "Here be latency" cartouche: streaming
+       gust lines with curled tips over a low fog puff. Light blue-grey to
+       read against the dark water. -->
+  <g fill="none" stroke="#a9c3d2" stroke-linecap="round">
+    <path d="M10 42 h58 c10 0, 16 -7, 12 -14 c-3 -6, -12 -6, -14 0" stroke-width="6"/>
+    <path d="M18 62 h74 c11 0, 17 8, 13 15 c-4 7, -14 6, -16 0" stroke-width="6"/>
+    <path d="M10 82 h44 c8 0, 13 -6, 10 -12 c-2 -5, -10 -5, -12 0" stroke-width="5" opacity="0.8"/>
+  </g>
+  <!-- low fog puff drifting under the gusts -->
+  <g fill="#a9c3d2" opacity="0.5" stroke="none">
+    <ellipse cx="44" cy="102" rx="26" ry="8"/>
+    <ellipse cx="74" cy="106" rx="20" ry="6"/>
+    <ellipse cx="26" cy="108" rx="14" ry="5"/>
+  </g>
+</svg>

@@ -188,42 +188,45 @@
         airports: { type: "geojson", data: BASEMAP_BASE + "basemap-airports.json" },
         roads: { type: "geojson", data: BASEMAP_BASE + "basemap-roads.json", tolerance: 0.5 }
       },
+      // Night chart: dark ground so the fog banks and utilization colours glow.
       layers: [
-        { id: "bg", type: "background", paint: { "background-color": "#f4f1e9" } },
-        { id: "land", type: "fill", source: "land", paint: { "fill-color": "#f4f1e9" } },
+        // bg = water, not land: beyond the basemap bbox it's almost all ocean,
+        // and a land-coloured bg leaves a visible seam at the water polygon edge
+        { id: "bg", type: "background", paint: { "background-color": "#0e1c28" } },
+        { id: "land", type: "fill", source: "land", paint: { "fill-color": "#1e2c38" } },
         { id: "water", type: "fill", source: "water",
-          paint: { "fill-color": "#a7c6cf", "fill-outline-color": "#8fb2bd" } },
+          paint: { "fill-color": "#0e1c28", "fill-outline-color": "#25394a" } },
         // airports — runway/terminal hints (no clutter; ICAO labels via markers)
         { id: "airport-terminal", type: "fill", source: "airports",
           filter: ["==", ["get", "kind"], "terminal"],
-          paint: { "fill-color": "#cfc9ba", "fill-opacity": 0.7 } },
+          paint: { "fill-color": "#2c3b48", "fill-opacity": 0.7 } },
         { id: "airport-runway-fill", type: "fill", source: "airports",
           filter: ["==", ["get", "kind"], "runway"],
-          paint: { "fill-color": "#b7b3a7" } },
+          paint: { "fill-color": "#34434f" } },
         { id: "airport-runway", type: "line", source: "airports",
           filter: ["==", ["get", "kind"], "runway_line"],
           layout: { "line-cap": "butt" },
-          paint: { "line-color": "#b0aca0",
+          paint: { "line-color": "#3c4c59",
             "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 12, 3, 15, 9] } },
         { id: "trunk-casing", type: "line", source: "roads", minzoom: 9.5,
           filter: ["==", ["get", "class"], "trunk"],
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#dfd6bf", "line-opacity": ["interpolate", ["linear"], ["zoom"], 9.5, 0, 11, 1],
+          paint: { "line-color": "#141f28", "line-opacity": ["interpolate", ["linear"], ["zoom"], 9.5, 0, 11, 1],
             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 16, 4] } },
         { id: "trunk", type: "line", source: "roads", minzoom: 9.5,
           filter: ["==", ["get", "class"], "trunk"],
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#f1ebda", "line-opacity": ["interpolate", ["linear"], ["zoom"], 9.5, 0, 11, 1],
+          paint: { "line-color": "#33434f", "line-opacity": ["interpolate", ["linear"], ["zoom"], 9.5, 0, 11, 1],
             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 2.6] } },
         { id: "roads-casing", type: "line", source: "roads",
           filter: ["==", ["get", "class"], "motorway"],
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#d3c9b0",
+          paint: { "line-color": "#141f28",
             "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1.2, 12, 3.2, 16, 7] } },
         { id: "roads", type: "line", source: "roads",
           filter: ["==", ["get", "class"], "motorway"],
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#efe8d6",
+          paint: { "line-color": "#3d4f5d",
             "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1.8, 16, 4.5] } }
       ]
     },
@@ -284,12 +287,12 @@
     // contains the switches (below cables so links route to/over the box)
     map.addLayer({
       id: "site-building", type: "fill", source: "buildings",
-      paint: { "fill-color": "#d8d2c2", "fill-outline-color": "#7d7867",
+      paint: { "fill-color": "#2a3a47", "fill-outline-color": "#4d6375",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.85] }
     });
     map.addLayer({
       id: "site-building-outline", type: "line", source: "buildings",
-      paint: { "line-color": "#7d7867", "line-width": 1.2,
+      paint: { "line-color": "#4d6375", "line-width": 1.2,
         "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
     });
     // passive-site cross-connect: at a switchless site the inter cables land on the
@@ -299,7 +302,7 @@
       id: "cable-crossconnect", type: "line", source: "cables",
       filter: ["==", ["get", "scope"], "crossconnect"],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#0b3640", "line-width": 2, "line-dasharray": [1, 1.2],
+      paint: { "line-color": "#9fb8c6", "line-width": 2, "line-dasharray": [1, 1.2],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
     });
 
@@ -689,6 +692,10 @@
           DECO_SIZE_STOPS[1][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[1][1]],
           DECO_SIZE_STOPS[2][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[2][1]]],
         "icon-rotate": ["coalesce", ["get", "rotation"], 0],
+        // registered to the ground: critters keep their heading when the map
+        // rotates/pitches instead of always pointing screen-up
+        "icon-rotation-alignment": "map",
+        "icon-pitch-alignment": "map",
         "icon-allow-overlap": true, "icon-ignore-placement": true
       },
       // fade the critters once device-level detail matters, so a giant
