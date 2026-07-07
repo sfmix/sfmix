@@ -40,7 +40,10 @@
   padding: 1px 7px;
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  pointer-events: auto;   /* clickable (overrides .nm-label) — opens site detail */
+  cursor: pointer;
 }
+.nm-label-box:hover { background: rgba(30, 46, 60, .95); }
 .nm-label-icao {
   font-size: 9px;
   font-weight: 600;
@@ -187,6 +190,22 @@
 .nm-info-detail-body .nm-pop-row { display: flex; justify-content: space-between; gap: 14px; margin: 3px 0; }
 .nm-info-detail-body .nm-pop-row .k { color: #8ea6b3; }
 .nm-info-detail-body .nm-pop-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* operator badge: monogram base + logo layered on top (logo hides on error) */
+.nm-info-logo { position: relative; display: inline-block; width: 40px; height: 40px; margin: 2px 0 8px; }
+.nm-info-mono {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 8px;
+  color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .5px;
+}
+.nm-info-logo-img {
+  position: absolute; left: 0; top: 0; height: 40px; max-width: 200px;
+  background: #fff; border-radius: 8px; padding: 5px 8px; box-sizing: border-box;
+  object-fit: contain;
+}
+.nm-info-operator { margin: 0 0 6px; font-weight: 700; }
+.nm-info-operator a, .nm-info-pdb a { color: #7cc5e6; text-decoration: none; }
+.nm-info-operator a:hover, .nm-info-pdb a:hover { text-decoration: underline; }
+.nm-info-pdb { margin-top: 8px; font-size: 11.5px; }
 
 /* --- legend --- */
 #nm-legend {

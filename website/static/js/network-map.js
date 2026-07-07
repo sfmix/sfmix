@@ -55,6 +55,18 @@
   }
   function capLabel(b) { return fmtBps(b).replace("bps", "b/s"); }
 
+  // Flat GeoJSON props for a site — shared by the station roundel, the building
+  // footprint, and the clickable title bubble so all three open the same detail.
+  // Only scalars (MapLibre stringifies nested values); PeeringDB fields are
+  // present only when the backend enriched the site.
+  function siteProps(code, s) {
+    return { code: code, name: s.name || code, operator: s.operator || "",
+      metro: s.metro || "", address: s.address || "", ndev: (s.devices || []).length,
+      logo: s.logo || "", operator_website: s.operator_website || "",
+      pdb_url: s.pdb_url || "", city: s.city || "", state: s.state || "",
+      net_count: s.net_count || 0, ix_count: s.ix_count || 0 };
+  }
+
   function weightForCapacity(bps) {
     var g = bps / 1e9;
     if (g >= 800) return 5.0;
@@ -153,13 +165,14 @@
       var s = sites[code];
       stationFeatures.push({
         type: "Feature",
-        properties: { code: code, name: s.name || code, operator: s.operator || "",
-          metro: s.metro || "", address: s.address || "", ndev: (s.devices || []).length },
+        properties: siteProps(code, s),
         geometry: { type: "Point", coordinates: [s.lon, s.lat] }
       });
       if (s.building) {
+        // the building box carries the same site props so clicking the footprint
+        // (added to PICK_LAYERS) opens the same detail as the roundel/label.
         buildingFeatures.push({
-          type: "Feature", properties: { code: code },
+          type: "Feature", properties: siteProps(code, s),
           geometry: { type: "Polygon", coordinates: [s.building] }
         });
       }
@@ -708,6 +721,16 @@
       b.className = "nm-label nm-label-site nm-label-box";
       b.innerHTML = '<span class="nm-code">' + code + '</span> ' +
         '<span class="nm-name">' + (s.name || "") + "</span>";
+      // the title bubble is clickable (CSS re-enables pointer events on it) —
+      // opens the same site detail as the building footprint / roundel.
+      (function (code, s) {
+        b.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          clearSelection();
+          var d = siteDetailFromProps(siteProps(code, s));
+          if (d) infoPane.showDetail(d.title, d.body);
+        });
+      })(code, s);
       var bm = new maplibregl.Marker({ element: b, anchor: "bottom", offset: [0, -26] })
         .setLngLat([s.lon, s.lat]).addTo(map);
       bm.getElement().style.display = "none";
@@ -1262,8 +1285,10 @@
   var hoverable = window.matchMedia && window.matchMedia("(hover: hover)").matches;
 
   // Priority order for picking what a click/hover targets (topmost intent first).
+  // site-building last: at close zoom (roundel faded) the box footprint is the
+  // site's hit target; devices/cables render above it so they still win on overlap.
   var PICK_LAYERS = ["metro-stations-ring", "metro-line", "devices-dot",
-    "stations-ring", "cables-hit"];
+    "stations-ring", "cables-hit", "site-building"];
   function pick(point) {
     var layers = PICK_LAYERS.filter(function (l) { return map.getLayer(l); });
     var f = map.queryRenderedFeatures(point, { layers: layers });
@@ -1396,17 +1421,68 @@
 
   function stationDetail(e) {
     var f = e.features && e.features[0]; if (!f) return null;
-    var p = f.properties;
+    return siteDetailFromProps(f.properties);
+  }
+
+  // Base path for repo-local operator logos (curated fallback when PeeringDB has
+  // no org logo); filename is the operator slug, e.g. /img/operators/equinix.svg
+  var OPLOGO_BASE = "/img/operators/";
+  function slug(s) { return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  // Operator badge: a coloured initials monogram is always drawn as the base; a
+  // logo <img> is layered on top and hides itself on error, walking PeeringDB
+  // logo -> repo-local curated logo -> (monogram shows through).
+  function monogramHtml(op) {
+    var init = (op || "?").split(/\s+/).map(function (w) { return w.charAt(0); }).join("").slice(0, 2).toUpperCase() || "?";
+    var hue = 0; for (var i = 0; i < (op || "").length; i++) hue = (hue * 31 + op.charCodeAt(i)) % 360;
+    return '<span class="nm-info-mono" style="background:hsl(' + hue + ',45%,42%)">' + esc(init) + "</span>";
+  }
+  function operatorLogoHtml(p) {
+    var mono = monogramHtml(p.operator);
+    var pdb = p.logo || "";
+    var local = p.operator ? OPLOGO_BASE + slug(p.operator) + ".svg" : "";
+    var first = pdb || local;
+    if (!first) return '<div class="nm-info-logo">' + mono + "</div>";
+    var second = (pdb && local) ? local : "";
+    var onerr = second
+      ? "this.onerror=function(){this.style.display='none'};this.src='" + second + "'"
+      : "this.onerror=null;this.style.display='none'";
+    return '<div class="nm-info-logo">' + mono +
+      '<img class="nm-info-logo-img" alt="' + esc(p.operator) + '" src="' + esc(first) + '" onerror="' + onerr + '"></div>';
+  }
+
+  function siteDetailFromProps(p) {
+    var isDevice = p.id && !p.code;   // device feature: {id, site}, no code
     var code = p.code || (p.id ? p.id.split(".").slice(1).join(".") : "");
     var name = p.name || p.id || "";
+    if (isDevice) { name = p.id.split(".")[0]; code = p.site || ""; }
     var body = "";
-    if (p.operator) body += row("", p.operator);
-    if (p.metro) body += row("", p.metro);
-    if (p.address && p.address.indexOf("synthetic") < 0) body += '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + p.address + "</span></div>";
-    if (p.id && !p.code) { name = p.id.split(".")[0]; code = p.site || ""; }
-    var title = (code ? code.toUpperCase() + " · " : "") + name;
+    if (!isDevice) {
+      body += operatorLogoHtml(p);
+      if (p.operator) {
+        body += p.operator_website
+          ? '<div class="nm-info-operator"><a href="' + esc(p.operator_website) + '" target="_blank" rel="noopener">' + esc(p.operator) + " ↗</a></div>"
+          : '<div class="nm-info-operator">' + esc(p.operator) + "</div>";
+      }
+    } else if (p.operator) {
+      body += row("", esc(p.operator));
+    }
+    if (p.metro) body += row("", esc(p.metro));
+    var hasAddr = p.address && p.address.indexOf("synthetic") < 0;
+    if (hasAddr) body += '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + esc(p.address) + "</span></div>";
+    else if (p.city) body += row(t("Location"), esc(p.city) + (p.state ? ", " + esc(p.state) : ""));
+    // PeeringDB rich rows (only when the site was enriched)
+    if (p.net_count) body += row(t("Networks"), p.net_count);
+    if (p.ix_count) body += row(t("Exchanges"), p.ix_count);
+    if (p.pdb_url) body += '<div class="nm-info-pdb"><a href="' + esc(p.pdb_url) + '" target="_blank" rel="noopener">' + t("View on PeeringDB") + " ↗</a></div>";
+    var title = (code ? code.toUpperCase() + " · " : "") + name;  // rendered via textContent
     return { title: title, body: body };
   }
+  window.__nmSiteDetail = siteDetailFromProps;   // exposed for dev/screenshot tooling
 
   function row(k, v) {
     return '<div class="nm-pop-row"><span class="k">' + k + '</span><span class="v">' + v + "</span></div>";

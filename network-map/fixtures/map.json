@@ -37,7 +37,15 @@
           "dlat": 37.788971,
           "dlon": -122.390168
         }
-      ]
+      ],
+      "operator_website": "https://www.digitalrealty.com/",
+      "pdb_url": "https://www.peeringdb.com/fac/547",
+      "city": "San Francisco",
+      "state": "CA",
+      "country": "US",
+      "net_count": 52,
+      "ix_count": 4,
+      "logo": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='40'><rect width='150' height='40' fill='%230a66c2'/><text x='10' y='26' font-family='sans-serif' font-size='16' fill='white'>Digital Realty</text></svg>"
     },
     "sfo02": {
       "lat": 37.723214,
@@ -178,7 +186,14 @@
           "dlat": 37.241751,
           "dlon": -121.783376
         }
-      ]
+      ],
+      "operator_website": "https://www.equinix.com/",
+      "pdb_url": "https://www.peeringdb.com/fac/2",
+      "city": "San Jose",
+      "state": "CA",
+      "country": "US",
+      "net_count": 88,
+      "ix_count": 6
     },
     "sjc02": {
       "lat": 37.334147,
