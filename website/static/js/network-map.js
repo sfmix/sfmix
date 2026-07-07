@@ -642,10 +642,13 @@
 
   // Toggle metro / site / device tiers by zoom (layer visibility + markers).
   var SITE_LAYERS = ["cables-casing", "cables-down", "cables-approx", "cables-line",
-    "cables-hit", "cable-water", "cable-drops", "stations-ring", "stations-dot",
-    "flow-fwd", "flow-rev"];
+    "cables-hit", "cable-water", "cable-submarine", "cable-ripple", "cable-drops",
+    "stations-ring", "stations-dot", "flow-fwd", "flow-rev"];
+  // the metro water veil MUST toggle with its tier: it's wider than the site-tier
+  // veil and sits above the site flow stripes, so left visible it drowns the
+  // barber pole over water crossings at close zoom
   var METRO_LAYERS = ["metro-casing", "metro-line", "metro-stations-ring", "metro-stations-dot",
-    "metro-flow-fwd", "metro-flow-rev"];
+    "metro-flow-fwd", "metro-flow-rev", "metro-submarine", "metro-water", "metro-ripple"];
   function setVis(ids, on) {
     ids.forEach(function (id) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
   }
