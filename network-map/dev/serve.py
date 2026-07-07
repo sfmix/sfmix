@@ -97,6 +97,29 @@ DEV_SHELL = """<!doctype html>
      data-sprite-base="/map/sprites/"
      data-decorations-url="/map/decorations.json">
   <div id="nm-status"></div>
+  <div id="nm-info" class="collapsed">
+    <button class="nm-info-toggle" type="button" aria-expanded="false" aria-controls="nm-info-body">
+      <span class="nm-info-icon" aria-hidden="true">i</span>
+      <span class="nm-info-title">About this map</span>
+      <span class="nm-info-chevron" aria-hidden="true"></span>
+    </button>
+    <div class="nm-info-body" id="nm-info-body">
+      <div class="nm-info-about">
+        <p>A live subway-style map of the SFMIX backbone across the Bay Area. Stations are datacenters; the coloured lines are dark-fiber circuits, shaded by how busy each link is right now.</p>
+        <p class="nm-info-hint">Tap any link or station for details.</p>
+        <ul class="nm-info-links">
+          <li><a href="/statistics/">Traffic statistics</a></li>
+          <li><a href="/route-servers/">Route servers</a></li>
+          <li><a href="/connection-guide/">Connect to SFMIX</a></li>
+          <li><a href="/about/">About SFMIX</a></li>
+        </ul>
+      </div>
+      <div class="nm-info-detail" hidden>
+        <button class="nm-info-back" type="button">Back to map info</button>
+        <div class="nm-info-detail-body"></div>
+      </div>
+    </div>
+  </div>
   <div id="nm-legend">
     <button class="nm-legend-toggle" type="button">Legend</button>
     <div class="nm-legend-body">

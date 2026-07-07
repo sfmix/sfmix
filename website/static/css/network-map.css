@@ -96,6 +96,109 @@
   background: #efe7cf; padding: 1px 6px; border-radius: 8px;
 }
 
+/* --- info pane (top-left): idle blurb + links, and the landing spot for a
+   clicked feature's details (replaces the popover-over-the-click). --- */
+#nm-info {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 4;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: var(--nm-panel);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 10px;
+  color: var(--nm-text);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .4);
+  overflow: hidden;
+  font-size: 12.5px;
+}
+.nm-info-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: 0;
+  color: var(--nm-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+.nm-info-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2b7fb0;
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+.nm-info-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nm-info-chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);   /* points down = expanded */
+  opacity: .7;
+  transition: transform .15s ease;
+}
+#nm-info.collapsed .nm-info-chevron { transform: rotate(-45deg); } /* points up */
+#nm-info.collapsed .nm-info-body { display: none; }
+#nm-info.collapsed { width: auto; }   /* pill hugs its label when idle */
+.nm-info-body {
+  padding: 0 12px 12px;
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+}
+.nm-info-about p { margin: 0 0 8px; line-height: 1.45; color: #c6d3db; }
+.nm-info-about .nm-info-hint { color: #8ea6b3; font-size: 11.5px; }
+.nm-info-links {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.nm-info-links a {
+  color: #7cc5e6;
+  text-decoration: none;
+  font-weight: 600;
+}
+.nm-info-links a:hover { text-decoration: underline; }
+.nm-info-back {
+  background: none;
+  border: 0;
+  color: #8ea6b3;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 0 0 6px;
+  cursor: pointer;
+}
+.nm-info-back::before { content: "\2190\00a0"; }  /* ← */
+.nm-info-back:hover { color: var(--nm-text); }
+/* detail rows reuse the popover's row markup, restyled for the dark pane */
+.nm-info-detail-body .nm-pop-row { display: flex; justify-content: space-between; gap: 14px; margin: 3px 0; }
+.nm-info-detail-body .nm-pop-row .k { color: #8ea6b3; }
+.nm-info-detail-body .nm-pop-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+
 /* --- legend --- */
 #nm-legend {
   position: absolute;
