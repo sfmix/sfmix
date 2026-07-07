@@ -188,6 +188,163 @@
     {
       "type": "Feature",
       "properties": {
+        "icon": "cow",
+        "size": 0.32,
+        "rotation": 0,
+        "minzoom": 9,
+        "label": "here be cows",
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.66,
+          36.98
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "cow",
+        "size": 0.28,
+        "rotation": 0,
+        "minzoom": 9,
+        "roam": true,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.692,
+          36.965
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "cow",
+        "size": 0.3,
+        "rotation": -4,
+        "minzoom": 9,
+        "roam": true,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.632,
+          36.992
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "cow",
+        "size": 0.26,
+        "rotation": 6,
+        "minzoom": 9,
+        "roam": 0.009,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.651,
+          36.955
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "grass",
+        "size": 0.42,
+        "rotation": 0,
+        "minzoom": 9,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.674,
+          36.972
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "grass",
+        "size": 0.34,
+        "rotation": 0,
+        "minzoom": 9,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.644,
+          36.978
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "grass",
+        "size": 0.46,
+        "rotation": 0,
+        "minzoom": 9,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.662,
+          36.958
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "grass",
+        "size": 0.3,
+        "rotation": 0,
+        "minzoom": 9,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.702,
+          36.986
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "grass",
+        "size": 0.38,
+        "rotation": 0,
+        "minzoom": 9,
+        "billboard": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.62,
+          36.968
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "icon": "fog",
         "kind": "image-overlay",
         "min_opacity": 0.15,

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Central Valley pasture: a tuft of grass blades. Two greens so the clump
+       has depth against the dark ground; outline-free (soft edges read better
+       small). Sits low in the frame so it looks rooted in the ground. -->
+  <g fill="#4f7a37">
+    <path d="M18 116 C 14 96, 12 78, 16 66 C 18 80, 22 98, 26 116 Z"/>
+    <path d="M104 116 C 108 94, 112 76, 110 62 C 106 78, 100 98, 96 116 Z"/>
+    <path d="M40 116 C 34 92, 32 72, 40 56 C 40 78, 46 98, 50 116 Z"/>
+  </g>
+  <g fill="#6f9a4a">
+    <path d="M30 116 C 26 90, 26 68, 34 50 C 34 74, 40 96, 42 116 Z"/>
+    <path d="M62 116 C 58 86, 60 60, 70 42 C 68 70, 72 96, 74 116 Z"/>
+    <path d="M84 116 C 82 90, 84 66, 94 50 C 90 74, 94 98, 96 116 Z"/>
+    <path d="M50 116 C 48 92, 52 70, 60 56 C 58 78, 60 98, 62 116 Z"/>
+  </g>
+  <g fill="#87b45e">
+    <path d="M46 116 C 44 88, 48 62, 58 46 C 54 72, 56 98, 58 116 Z"/>
+    <path d="M74 116 C 72 92, 76 68, 84 54 C 80 78, 82 98, 84 116 Z"/>
+  </g>
+</svg>
