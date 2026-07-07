@@ -700,12 +700,45 @@
         "raster-fade-duration": 0 } });
   }
   function makeFogDataURL() {
-    var c = document.createElement("canvas"); c.width = c.height = 64;
+    // Marine layer: overlapping soft elliptical puffs arranged in drifting
+    // horizontal banks, denser toward the bottom, feathered to nothing at the
+    // edges so the overlay quad has no visible border.
+    var W = 512, H = 256;
+    var c = document.createElement("canvas"); c.width = W; c.height = H;
     var g = c.getContext("2d");
-    var grd = g.createRadialGradient(32, 32, 4, 32, 32, 34);
-    grd.addColorStop(0, "rgba(255,255,255,0.9)");
-    grd.addColorStop(1, "rgba(255,255,255,0.0)");
-    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+    // deterministic layout — same fog every load
+    var puffs = [
+      // [cx, cy, rx, ry, alpha] in unit coords
+      [0.10, 0.72, 0.16, 0.10, 0.50], [0.24, 0.66, 0.20, 0.12, 0.55],
+      [0.42, 0.74, 0.22, 0.11, 0.60], [0.60, 0.68, 0.20, 0.12, 0.55],
+      [0.78, 0.73, 0.19, 0.10, 0.50], [0.92, 0.66, 0.15, 0.10, 0.45],
+      [0.16, 0.48, 0.14, 0.08, 0.35], [0.35, 0.42, 0.18, 0.09, 0.40],
+      [0.55, 0.46, 0.17, 0.08, 0.38], [0.74, 0.40, 0.16, 0.09, 0.35],
+      [0.30, 0.24, 0.13, 0.06, 0.22], [0.52, 0.20, 0.15, 0.07, 0.25],
+      [0.70, 0.26, 0.12, 0.06, 0.20]
+    ];
+    puffs.forEach(function (p) {
+      var cx = p[0] * W, cy = p[1] * H, rx = p[2] * W, ry = p[3] * H;
+      g.save();
+      g.translate(cx, cy); g.scale(1, ry / rx);
+      var grd = g.createRadialGradient(0, 0, rx * 0.15, 0, 0, rx);
+      grd.addColorStop(0, "rgba(255,255,255," + p[4] + ")");
+      grd.addColorStop(0.7, "rgba(255,255,255," + (p[4] * 0.45).toFixed(3) + ")");
+      grd.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(0, 0, rx, 0, Math.PI * 2); g.fill();
+      g.restore();
+    });
+    // feather all four edges so the quad boundary never shows
+    g.globalCompositeOperation = "destination-in";
+    var fx = g.createLinearGradient(0, 0, W, 0);
+    fx.addColorStop(0, "rgba(0,0,0,0)"); fx.addColorStop(0.15, "rgba(0,0,0,1)");
+    fx.addColorStop(0.85, "rgba(0,0,0,1)"); fx.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = fx; g.fillRect(0, 0, W, H);
+    var fy = g.createLinearGradient(0, 0, 0, H);
+    fy.addColorStop(0, "rgba(0,0,0,0)"); fy.addColorStop(0.2, "rgba(0,0,0,1)");
+    fy.addColorStop(0.85, "rgba(0,0,0,1)"); fy.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = fy; g.fillRect(0, 0, W, H);
     return c.toDataURL();
   }
 

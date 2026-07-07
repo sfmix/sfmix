@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Chonkers: the unit of measure for Pier 39. Maximally round, deeply content. -->
+  <g stroke="#6b503a" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- rear flipper poking out from under the chonk -->
+    <path d="M22 94 C 12 94, 6 90, 3 83 C 10 85, 16 83, 20 79 C 21 85, 25 89, 31 90 Z"
+          fill="#8a6a4f"/>
+    <!-- the chonk: one enormous round body, tiny raised head at top right -->
+    <path d="M20 94 C 12 84, 12 66, 24 54 C 36 42, 58 36, 76 40
+             C 84 41, 90 38, 93 31 C 95 26, 100 23, 105 25
+             C 110 27, 114 30, 117 33 C 119 35, 119 38, 116 38
+             C 111 38, 106 39, 102 42 C 100 48, 100 54, 102 60
+             C 106 72, 104 84, 96 94 Z"
+          fill="#8a6a4f"/>
+    <!-- belly crease: the fold that certifies the chonk -->
+    <path d="M34 92 C 30 82, 32 70, 42 62" fill="none" stroke-width="3" opacity="0.55"/>
+    <!-- front flipper resting on the belly -->
+    <path d="M62 94 C 56 86, 58 76, 68 72 C 66 80, 70 88, 78 94 Z"
+          fill="#6b503a"/>
+  </g>
+  <!-- blissful closed eye, nose -->
+  <path d="M99 30 q3 3 6 0" stroke="#241a12" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <circle cx="115" cy="34" r="2" fill="#241a12"/>
+  <!-- whiskers -->
+  <g stroke="#241a12" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.7">
+    <path d="M111 37 q6 2 10 6"/>
+    <path d="M110 39 q5 4 7 9"/>
+  </g>
+</svg>

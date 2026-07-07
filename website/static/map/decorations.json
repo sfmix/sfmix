@@ -19,6 +19,11 @@
     },
     {
       "type": "Feature",
+      "properties": {"icon": "sea-lion-chonker", "size": 1.1, "rotation": -6, "minzoom": 10, "label": "Chonkers"},
+      "geometry": {"type": "Point", "coordinates": [-122.4088, 37.8082]}
+    },
+    {
+      "type": "Feature",
       "properties": {"icon": "scroll", "size": 0.9, "rotation": 0, "minzoom": 9, "label": "Here be latency"},
       "geometry": {"type": "Point", "coordinates": [-122.66, 37.58]}
     },
