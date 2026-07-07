@@ -1,5 +1,11 @@
 # Firming up the transport data model: NetBox Circuits as source-of-truth
 
+> **Status: SHIPPED (2026-07).** This plan is realized — the builder
+> (`portal/mapbuild/builder.py`) is fully NetBox-sourced (devices, circuits,
+> cabling, speeds); the interface-description string-parsing path described below
+> is retired, and the builder runs in the portal (not metrics.sfo02). Kept for
+> historical context / rationale. See `ARCHITECTURE.md` for the current design.
+
 ## Problem
 
 Today the map's inter-site transport links are derived by **string-parsing interface
