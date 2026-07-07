@@ -594,6 +594,7 @@
     if (DECOR_URL) addDecorations();
     wireInteractions();
     wireLegend();
+    infoPane.init();
     setTier();
     map.on("zoom", setTier);
 
@@ -1257,9 +1258,7 @@
     try { return new Date(iso).toLocaleTimeString(); } catch (e) { return iso; }
   }
 
-  // ---- interactions (popovers) -------------------------------------------
-  var popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true,
-    className: "nm-popup", maxWidth: "280px", offset: 12 });
+  // ---- interactions --------------------------------------------------------
   var hoverable = window.matchMedia && window.matchMedia("(hover: hover)").matches;
 
   // Priority order for picking what a click/hover targets (topmost intent first).
@@ -1276,13 +1275,15 @@
     // hit line) — opens the popover and, for a cable/trunk, isolates it.
     map.on("click", function (e) {
       var f = pick(e.point);
-      if (!f) { clearSelection(); return; }
+      if (!f) { clearSelection(); infoPane.showAbout(); return; }
       var ev = { features: [f], lngLat: e.lngLat };
       var layer = f.layer.id;
-      if (layer === "cables-hit") { selectFeature("cables", f); showCablePopup(ev); }
-      else if (layer === "metro-line") { selectFeature("metro", f); showCablePopup(ev, true); }
-      else if (layer === "metro-stations-ring") { clearSelection(); showMetroPopup(ev); }
-      else { clearSelection(); showStationPopup(ev); }  // stations / devices
+      var d;
+      if (layer === "cables-hit") { selectFeature("cables", f); d = cableDetail(ev); }
+      else if (layer === "metro-line") { selectFeature("metro", f); d = cableDetail(ev, true); }
+      else if (layer === "metro-stations-ring") { clearSelection(); d = metroDetail(ev); }
+      else { clearSelection(); d = stationDetail(ev); }  // stations / devices
+      if (d) infoPane.showDetail(d.title, d.body);
     });
     if (hoverable) {
       map.on("mousemove", function (e) {
@@ -1351,21 +1352,20 @@
   window.__nmSelect = selectFeature;       // exposed for dev/screenshot tooling
   window.__nmClearSelect = clearSelection;
 
-  function showMetroPopup(e) {
-    var f = e.features && e.features[0]; if (!f) return;
+  // The three detail builders each return {title, body} — the click dispatcher
+  // renders them into the info pane (instead of a popover anchored to the click).
+  function metroDetail(e) {
+    var f = e.features && e.features[0]; if (!f) return null;
     var p = f.properties;
-    popup.setLngLat(e.lngLat).setHTML(
-      '<div class="nm-pop"><div class="nm-pop-head">' + p.metro + '</div><div class="nm-pop-body">' +
-      row(p.nsite + (p.nsite == 1 ? " site" : " sites"), "") +
-      '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + p.codes + "</span></div>" +
-      "</div></div>").addTo(map);
+    var body = row(p.nsite + (p.nsite == 1 ? " site" : " sites"), "") +
+      '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + p.codes + "</span></div>";
+    return { title: p.metro, body: body };
   }
 
-  function showCablePopup(e, isMetro) {
-    var f = e.features && e.features[0]; if (!f) return;
+  function cableDetail(e, isMetro) {
+    var f = e.features && e.features[0]; if (!f) return null;
     var p = f.properties, id = p.id;
     var tr = isMetro ? METRO_STATS[id] : LAST_TRAFFIC[id];
-    map.getCanvas().style.cursor = "pointer";
     var devShort = function (d) { return (d || "").split(".")[0]; };
     var head = p.a_site.toUpperCase() + " ⇆ " + p.z_site.toUpperCase();
     if (p.scope === "intra") {
@@ -1391,13 +1391,11 @@
       rows += sparkline(tr, p.capacity_bps);
     }
     if (p.approximate) rows += '<div style="margin-top:6px"><span class="nm-badge-approx">' + t("approximate route") + "</span></div>";
-    popup.setLngLat(e.lngLat).setHTML(
-      '<div class="nm-pop"><div class="nm-pop-head">' + head + '</div><div class="nm-pop-body">' + rows + "</div></div>"
-    ).addTo(map);
+    return { title: head, body: rows };
   }
 
-  function showStationPopup(e) {
-    var f = e.features && e.features[0]; if (!f) return;
+  function stationDetail(e) {
+    var f = e.features && e.features[0]; if (!f) return null;
     var p = f.properties;
     var code = p.code || (p.id ? p.id.split(".").slice(1).join(".") : "");
     var name = p.name || p.id || "";
@@ -1406,10 +1404,8 @@
     if (p.metro) body += row("", p.metro);
     if (p.address && p.address.indexOf("synthetic") < 0) body += '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + p.address + "</span></div>";
     if (p.id && !p.code) { name = p.id.split(".")[0]; code = p.site || ""; }
-    popup.setLngLat(e.lngLat).setHTML(
-      '<div class="nm-pop"><div class="nm-pop-head">' + (code ? code.toUpperCase() + " · " : "") + name +
-      '</div><div class="nm-pop-body">' + body + "</div></div>"
-    ).addTo(map);
+    var title = (code ? code.toUpperCase() + " · " : "") + name;
+    return { title: title, body: body };
   }
 
   function row(k, v) {
@@ -1434,6 +1430,54 @@
       '<path d="' + path(si) + '" fill="none" stroke="#00cf00" stroke-width="1.6"/>' +
       "</svg></div>";
   }
+
+  // ---- info pane (top-left) ----------------------------------------------
+  // Holds the "about this map" blurb + links when idle, and a clicked feature's
+  // details when something is selected. Small/collapsed when not needed.
+  var infoPane = (function () {
+    var root, toggle, titleEl, aboutEl, detailEl, detailBody;
+    var defaultTitle = "";
+    function expanded() { return root && !root.classList.contains("collapsed"); }
+    function setCollapsed(collapsed) {
+      if (!root) return;
+      root.classList.toggle("collapsed", collapsed);
+      if (toggle) toggle.setAttribute("aria-expanded", String(!collapsed));
+    }
+    function setTitle(s) { if (titleEl) titleEl.textContent = s; }
+    function showAbout() {
+      if (!root) return;
+      if (detailEl) detailEl.hidden = true;
+      if (aboutEl) aboutEl.hidden = false;
+      setTitle(defaultTitle);
+    }
+    function showDetail(title, bodyHtml) {
+      if (!root) return;
+      if (aboutEl) aboutEl.hidden = true;
+      if (detailEl) detailEl.hidden = false;
+      if (detailBody) detailBody.innerHTML = bodyHtml || "";
+      setTitle(title || defaultTitle);
+      setCollapsed(false);              // a selection always reveals the pane
+      if (root.querySelector(".nm-info-body")) root.querySelector(".nm-info-body").scrollTop = 0;
+    }
+    function init() {
+      root = document.getElementById("nm-info");
+      if (!root) return;
+      toggle = root.querySelector(".nm-info-toggle");
+      titleEl = root.querySelector(".nm-info-title");
+      aboutEl = root.querySelector(".nm-info-about");
+      detailEl = root.querySelector(".nm-info-detail");
+      detailBody = root.querySelector(".nm-info-detail-body");
+      defaultTitle = titleEl ? titleEl.textContent : "";
+      if (toggle) toggle.addEventListener("click", function () { setCollapsed(expanded()); });
+      var back = root.querySelector(".nm-info-back");
+      if (back) back.addEventListener("click", function () { showAbout(); });
+      // Roomy screens: open to the blurb; phones: stay a compact pill until asked.
+      var narrow = window.matchMedia && window.matchMedia("(max-width: 640px)").matches;
+      setCollapsed(narrow);
+    }
+    return { init: init, showAbout: showAbout, showDetail: showDetail };
+  })();
+  window.__nmInfo = infoPane;               // exposed for dev/screenshot tooling
 
   // ---- legend collapse (mobile) ------------------------------------------
   function wireLegend() {
