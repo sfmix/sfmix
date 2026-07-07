@@ -118,6 +118,14 @@ DEV_SHELL = """<!doctype html>
   "live stats unavailable": "live stats unavailable"
 }</script>
 <script src="/vendor/maplibre-gl/maplibre-gl.js"></script>
+<script>
+  // expose the map instance for dev tooling (dev/screenshot.mjs waits on it)
+  (function () {
+    var RealMap = maplibregl.Map;
+    maplibregl.Map = function (o) { var m = new RealMap(o); window.__map = m; return m; };
+    maplibregl.Map.prototype = RealMap.prototype;
+  })();
+</script>
 <script src="/js/network-map.js" defer></script>
 </body></html>
 """
