@@ -184,15 +184,24 @@ def netbox_topology(nb, S, api):
             speeds[(dev, i["name"])] = i["speed"] * 1000  # NetBox kbps -> bps
 
     id_iface = {}  # interface id -> (device, ifname), cached across traces
+    cids = {}      # (dev, ifn) -> traced transport-circuit cid (netbox_cables reuses this)
 
-    def far_iface(iid):
+    def _far_and_cid(iid):
+        """One trace call → (far (dev, ifn) | None, first circuit cid on the path).
+        Doing both here means netbox_cables never has to re-trace the same port."""
         tr = S.get("%s/dcim/interfaces/%d/trace/" % (api, iid), timeout=40).json()
         if not tr:
-            return None
+            return None, None
+        cid = None
+        for hop in tr:
+            for side in (hop[0], hop[2]):
+                for nd in side or []:
+                    if cid is None and isinstance(nd.get("circuit"), dict):
+                        cid = nd["circuit"]["cid"]
         far = tr[-1][2]
         node = far[0] if far else None
         if not node or "/dcim/interfaces/" not in (node.get("url") or ""):
-            return None
+            return None, cid
         fid = node.get("id")
         if fid not in id_iface:
             r = S.get("%s/dcim/interfaces/%d/" % (api, fid), timeout=40).json()
@@ -202,11 +211,13 @@ def netbox_topology(nb, S, api):
             # bundle carries core_port — so they'd miss the tagged-query speed pass.
             if r.get("speed"):
                 speeds[(r["device"]["name"], r["name"])] = r["speed"] * 1000
-        return id_iface[fid]
+        return id_iface[fid], cid
 
     links, seen = {}, set()
     for dev, ifn, iid in ports:
-        far = far_iface(iid)
+        far, cid = _far_and_cid(iid)
+        if cid:
+            cids[(dev, ifn)] = cid
         if not far:
             continue
         fdev, fifn = far
@@ -218,41 +229,22 @@ def netbox_topology(nb, S, api):
         seen.add(key)
         links["%s:%s|%s:%s" % (dev, ifn, fdev, fifn)] = {
             "node1": dev, "port1": ifn, "node2": fdev, "port2": fifn}
-    return {"nodes": {n: {"ports": {}} for n in devs}, "links": links}, speeds
+    return {"nodes": {n: {"ports": {}} for n in devs}, "links": links}, speeds, cids
 
 
-def netbox_cables(topology, facts, nb, S, api):
+def netbox_cables(topology, facts, cids, nb):
     """Inter-site transport cables from NetBox (source of truth): one cable per
-    LEASED circuit (BiDi cores grouped by geom stem). We scope to transport ports
-    via the inter-site links, trace each interface to its NetBox transport circuit,
-    and group by leased stem — so each interface attributes to its OWN circuit (a
-    passive-site chain like scl02->scl03 + sfo02->scl03 stays two segments).
-    Geometry matches the atlas by CID tokens; map_exclude circuits are dropped;
-    status from the circuit lifecycle (active->up, planned->planned, else down)."""
+    LEASED circuit (BiDi cores grouped by geom stem). Scoped to the inter-site
+    links; each transport port's circuit cid was already captured during the
+    topology trace (``cids``), so we group by leased stem here without re-tracing —
+    each interface attributes to its OWN circuit (a passive-site chain like
+    scl02->scl03 + sfo02->scl03 stays two segments). Geometry matches the atlas by
+    CID tokens; map_exclude circuits are dropped; status from the circuit lifecycle
+    (active->up, planned->planned, else down)."""
     hints = circ.circuit_hints(nb)
     bycid = {h["cid"]: h for h in hints}
     gc_hint = {h["geom_cid"]: h for h in hints}
     exclude = {c.cid for c in nb.circuits.circuits.filter(tag="map_exclude")}
-
-    if_cache = {}  # (dev, ifn) -> (id, netbox_speed_bps)
-
-    def iface_info(dev, ifn):
-        key = (dev, ifn)
-        if key not in if_cache:
-            r = S.get(api + "/dcim/interfaces/", params={"device": dev, "name": ifn}, timeout=40).json()
-            res = r.get("results") or []
-            if_cache[key] = (res[0]["id"], (res[0]["speed"] * 1000 if res[0].get("speed") else None)) \
-                if res else (None, None)
-        return if_cache[key]
-
-    def traced_cid(iid):
-        tr = S.get("%s/dcim/interfaces/%d/trace/" % (api, iid), timeout=40).json()
-        for hop in tr:
-            for side in (hop[0], hop[2]):
-                for nd in side or []:
-                    if isinstance(nd.get("circuit"), dict):
-                        return nd["circuit"]["cid"]
-        return None
 
     members = {}  # geom_cid -> {(dev, ifname): speed_bps}
     for l in topology.get("links", {}).values():
@@ -262,14 +254,11 @@ def netbox_cables(topology, facts, nb, S, api):
         if not s1 or not s2 or s1 == s2:
             continue  # inter-site transport only
         for dev, ifn, _s in ends:
-            iid, nb_spd = iface_info(dev, ifn)
-            if not iid:
-                continue
-            cid = traced_cid(iid)
+            cid = cids.get((dev, ifn))
             if not cid or cid not in bycid or cid in exclude:
                 continue
             gc = bycid[cid]["geom_cid"]
-            spd = facts.get((dev, ifn)) or nb_spd or 100e9
+            spd = facts.get((dev, ifn)) or 100e9  # NetBox speed already in facts
             members.setdefault(gc, {})[(dev, ifn)] = spd
 
     cables = []
@@ -352,8 +341,8 @@ def build(generation_seed=None, now=None):
     """Assemble the public map + private links structures. Returns
     (map_dict, links_dict, drift_dict)."""
     nb, S, api = _netbox_session()
-    topology, facts = netbox_topology(nb, S, api)  # capacity straight from NetBox
-    cables = netbox_cables(topology, facts, nb, S, api)
+    topology, facts, cids = netbox_topology(nb, S, api)  # capacity + circuit cids from NetBox
+    cables = netbox_cables(topology, facts, cids, nb)
     sites_meta = load_sites(nb)
     atlas = load_atlas()
 
