@@ -1,5 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <path d="M30 92 q6 -34 40 -34 q26 0 30 -22 q6 6 4 18 q10 4 12 14 q-2 8 -14 8 q4 8 -2 14 q-10 2 -14 -8 q-30 6 -56 4 q-8 -1 -0 -6z" fill="#8a6a4f" stroke="#6b503a" stroke-width="3"/>
-  <circle cx="104" cy="52" r="3.5" fill="#241a12"/>
-  <circle cx="112" cy="56" r="2" fill="#241a12"/>
+  <!-- Pier-39 sea lion, sitting up with head raised. body #8a6a4f, outline #6b503a. -->
+  <g stroke="#6b503a" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- rear flipper, flat on the dock behind -->
+    <path d="M30 96 C 20 96, 12 92, 8 85 C 15 87, 21 85, 25 81 C 26 87, 30 91, 36 92 Z"
+          fill="#8a6a4f"/>
+    <!-- body: haunch at left, chest rising, neck up to head and snout at top right -->
+    <path d="M26 96 C 22 88, 24 78, 32 72 C 40 56, 54 46, 66 42
+             C 74 39, 80 33, 84 26 C 87 21, 92 18, 97 20
+             C 102 22, 106 25, 109 28 C 111 30, 111 33, 108 33
+             C 103 33, 98 34, 94 37 C 91 44, 90 52, 87 60
+             C 83 71, 80 82, 81 96 Z"
+          fill="#8a6a4f"/>
+    <!-- front flipper, propping the chest up -->
+    <path d="M58 96 C 54 84, 58 74, 68 70 C 66 78, 68 88, 74 96 Z"
+          fill="#6b503a"/>
+  </g>
+  <!-- eye, nose -->
+  <circle cx="93" cy="26" r="2.6" fill="#241a12"/>
+  <circle cx="107" cy="29" r="2" fill="#241a12"/>
+  <!-- whiskers -->
+  <g stroke="#241a12" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.7">
+    <path d="M103 32 q6 2 10 6"/>
+    <path d="M102 34 q5 4 7 9"/>
+  </g>
 </svg>
