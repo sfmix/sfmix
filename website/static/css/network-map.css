@@ -166,22 +166,11 @@
   overflow-y: auto;
 }
 .nm-info-about p { margin: 0 0 8px; line-height: 1.45; color: #c6d3db; }
+.nm-info-about p:last-child { margin-bottom: 0; }
+.nm-info-about a { color: #7cc5e6; text-decoration: none; font-weight: 600; }
+.nm-info-about a:hover { text-decoration: underline; }
+.nm-info-about .nm-info-algos { margin-top: -2px; font-size: 11.5px; color: #8ea6b3; }
 .nm-info-about .nm-info-hint { color: #8ea6b3; font-size: 11.5px; }
-.nm-info-links {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 8px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, .1);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-}
-.nm-info-links a {
-  color: #7cc5e6;
-  text-decoration: none;
-  font-weight: 600;
-}
-.nm-info-links a:hover { text-decoration: underline; }
 .nm-info-back {
   background: none;
   border: 0;

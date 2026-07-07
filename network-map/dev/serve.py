@@ -105,14 +105,11 @@ DEV_SHELL = """<!doctype html>
     </button>
     <div class="nm-info-body" id="nm-info-body">
       <div class="nm-info-about">
-        <p>A live subway-style map of the SFMIX backbone across the Bay Area. Stations are datacenters; the coloured lines are dark-fiber circuits, shaded by how busy each link is right now.</p>
+        <p>A live subway-style map of the SFMIX backbone across the Bay Area.</p>
+        <p>Routes are approximate: they trace real transport corridors, not the exact fiber path on the ground. Links without surveyed geometry are routed along rights-of-way and then coarsened for display.</p>
+        <p class="nm-info-algos">Path-finding: <a href="https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm" target="_blank" rel="noopener">Dijkstra</a> · <a href="https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm" target="_blank" rel="noopener">Ramer–Douglas–Peucker</a></p>
+        <p>Some locations shown aren't open for peering yet — including pending sites and passive, cross-connect-only facilities.</p>
         <p class="nm-info-hint">Tap any link or station for details.</p>
-        <ul class="nm-info-links">
-          <li><a href="/statistics/">Traffic statistics</a></li>
-          <li><a href="/route-servers/">Route servers</a></li>
-          <li><a href="/connection-guide/">Connect to SFMIX</a></li>
-          <li><a href="/about/">About SFMIX</a></li>
-        </ul>
       </div>
       <div class="nm-info-detail" hidden>
         <button class="nm-info-back" type="button">Back to map info</button>
