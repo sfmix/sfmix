@@ -135,6 +135,8 @@ DEV_SHELL = """<!doctype html>
   "link offline": "link offline", "Capacity": "Capacity",
   "underground": "underground", "aerial": "aerial", "submarine": "submarine",
   "bridge": "bridge", "building": "building",
+  "Location": "Location", "Networks": "Networks", "Exchanges": "Exchanges",
+  "View on PeeringDB": "View on PeeringDB",
   "live stats unavailable": "live stats unavailable"
 }</script>
 <script src="/vendor/maplibre-gl/maplibre-gl.js"></script>

@@ -122,7 +122,9 @@ def load_atlas():
 
 def load_sites(nb):
     """Site lat/lon/name/address from NetBox, with name/operator/metro overrides
-    from the committed data/sites.json."""
+    from the committed data/sites.json. Also carries the PeeringDB facility id
+    (NetBox custom field `peeringdb_facility`, or a sites.json override) so the
+    build can enrich the site with public PeeringDB metadata."""
     override = json.load(open(SITES_JSON)).get("sites", {}) if os.path.exists(SITES_JSON) else {}
     base = {}
     for s in nb.dcim.sites.all():
@@ -131,6 +133,7 @@ def load_sites(nb):
             "lon": float(s.longitude) if s.longitude is not None else None,
             "name": s.facility or s.name,
             "address": (s.physical_address or "").replace("\r\n", ", "),
+            "pdb_fac": (s.custom_fields or {}).get("peeringdb_facility"),
         }
     sites = {}
     for code in set(list(base) + list(override)):
@@ -142,8 +145,47 @@ def load_sites(nb):
             "operator": o.get("operator") or b.get("operator") or "",
             "metro": o.get("metro") or b.get("metro") or "",
             "address": b.get("address", ""),
+            "pdb_fac": o.get("peeringdb_facility") or b.get("pdb_fac"),
         }
     return sites
+
+
+def _peeringdb_api_key():
+    """Optional PeeringDB API key from the operator config (raises the rate
+    limit; the fac/org endpoints read fine without it). None if unset."""
+    cfg_file = os.environ.get("SFMIX_OPERATOR_CONFIG_FILE", "/opt/sfmix/operator_config.yaml")
+    if os.path.exists(cfg_file):
+        try:
+            import yaml
+            return (yaml.safe_load(open(cfg_file)) or {}).get("peeringdb_api_key")
+        except Exception:
+            return None
+    return os.environ.get("PEERINGDB_API_KEY")
+
+
+# public PeeringDB fields threaded from load/enrich into the emitted site
+PDB_SITE_FIELDS = ("pdb_fac", "pdb_url", "operator_website", "city", "state",
+                   "country", "net_count", "ix_count", "logo")
+
+
+def enrich_peeringdb(sites):
+    """Merge public PeeringDB facility metadata into sites that carry a facility
+    id. Best-effort and offline-safe: if the PeeringDB client can't be built or a
+    lookup fails, the affected site is simply left unenriched."""
+    fac_ids = {c: s["pdb_fac"] for c, s in sites.items() if s.get("pdb_fac")}
+    if not fac_ids:
+        return
+    try:
+        from .peeringdb import PeeringDBClient
+        client = PeeringDBClient(api_key=_peeringdb_api_key())
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("PeeringDB enrichment skipped: %s", e)
+        return
+    for code, fac_id in fac_ids.items():
+        meta = client.facility_meta(fac_id)
+        if meta:
+            sites[code].update(meta)
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +386,7 @@ def build(generation_seed=None, now=None):
     topology, facts, cids = netbox_topology(nb, S, api)  # capacity + circuit cids from NetBox
     cables = netbox_cables(topology, facts, cids, nb)
     sites_meta = load_sites(nb)
+    enrich_peeringdb(sites_meta)
     atlas = load_atlas()
 
     # devices per site (from the NetBox topology nodes)
@@ -366,6 +409,10 @@ def build(generation_seed=None, now=None):
             "devices": [{"id": d, "dlat": round(meta["lat"] + layout[d][1], 6),
                          "dlon": round(meta["lon"] + layout[d][0], 6)} for d in devs],
         }
+        # public PeeringDB metadata, when the site carries a facility id
+        for k in PDB_SITE_FIELDS:
+            if meta.get(k):
+                sites_out[code][k] = meta[k]
 
     water = load_water_rings()
     box = {code: mg.rect_bounds(sites_out[code]["building"]) for code in sites_out}
