@@ -565,6 +565,11 @@ def netbox_topology(nb, S, api):
         if fid not in id_iface:
             r = S.get("%s/dcim/interfaces/%d/" % (api, fid), timeout=40).json()
             id_iface[fid] = (r["device"]["name"], r["name"])
+            # capture the far port's speed too: a transit router's physical member
+            # ports (e.g. Juniper xe-0/0/13) are often untagged — only the LAG
+            # bundle carries `core_port` — so they'd miss the tagged-query speed pass.
+            if r.get("speed"):
+                speeds[(r["device"]["name"], r["name"])] = r["speed"] * 1000
         return id_iface[fid]
 
     links, seen = {}, set()
