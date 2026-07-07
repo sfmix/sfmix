@@ -177,7 +177,7 @@ network-map/
   ARCHITECTURE.md            offline pipeline ↔ in-portal builder boundary
   DEPLOY.md                  deploy runbook
   atlas_precise/             GITIGNORED  full-res mined geometry (NDA)
-  basemap/                   fetch_basemap.py / fetch_rights_of_way.py + README
+  basemap/                   fetch_basemap.py / fetch_dem.py / gen_sutro_tower.py / fetch_rights_of_way.py + README
   sprites-src/               vector sprite art (shipped as SVG, rasterized in-browser)
   fixtures/map.json          synthetic structure for dev (generated)
   dev/make_fixture.py        regenerates fixtures/map.json

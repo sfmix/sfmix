@@ -100,13 +100,24 @@
     // per-pair lane assignment. Here we only STYLE it: fan a LAG's members into
     // parallel strands and turn the pre-built geometry into GeoJSON features. The
     // px spacing of the parallel strands IS a rendering choice, so it lives here.
-    var cableFeatures = [], mediaFeatures = [];
+    var cableFeatures = [], mediaFeatures = [], flowFeatures = [];
     var PAIR_STEP = 2.8;    // px-lane spacing between DISTINCT circuits on a pair
     var STRAND_FRAC = 0.34; // tight spacing between a circuit's own LAG strands
     structure.cables.forEach(function (c) {
       var laneCount = c.lane_count || 1;
       var base = ((c.lane || 0) - (laneCount - 1) / 2) * PAIR_STEP;
       var strands = Math.max(1, c.members || 1);
+      // one flow feature per inter cable (rides the bundle's lane): the barber-
+      // pole stripe animated toward the dominant traffic direction (dir set on
+      // each traffic poll; 0 = unknown/idle = hidden)
+      if (c.scope === "inter" && c.status !== "down") {
+        flowFeatures.push({
+          type: "Feature", id: c.id,
+          properties: { id: c.id, weight: weightForCapacity(c.capacity_bps),
+            offset: base, dir: 0 },
+          geometry: { type: "LineString", coordinates: c.path }
+        });
+      }
       for (var st = 0; st < strands; st++) {
         var strandOff = strands > 1 ? (st - (strands - 1) / 2) * STRAND_FRAC : 0;
         cableFeatures.push({
@@ -179,13 +190,19 @@
         geometry: { type: "Point", coordinates: [m.lon, m.lat] } };
     });
     METRO_MEMBERS = {};
-    var metroMediaFeatures = [];
+    var metroMediaFeatures = [], metroFlowFeatures = [];
     var metroCableFeatures = (structure.metro_cables || []).map(function (g) {
       METRO_MEMBERS[g.id] = g.member_ids; METRO_CAP[g.id] = g.capacity_bps;
       (g.media || []).forEach(function (m) {
         metroMediaFeatures.push({ type: "Feature", properties: { id: g.id, medium: m.medium },
           geometry: { type: "LineString", coordinates: m.coordinates } });
       });
+      if (g.status !== "down") {
+        metroFlowFeatures.push({ type: "Feature", id: g.id,
+          properties: { id: g.id, weight: weightForCapacity(g.capacity_bps),
+            offset: 0, dir: 0 },
+          geometry: { type: "LineString", coordinates: g.path } });
+      }
       return { type: "Feature", id: g.id,
         properties: { id: g.id, scope: "metro", status: g.status,
           approximate: !!g.approximate, weight: weightForCapacity(g.capacity_bps),
@@ -199,7 +216,8 @@
       stations: fc(stationFeatures), devices: fc(deviceFeatures),
       buildings: fc(buildingFeatures), drops: fc(dropFeatures),
       metroStations: fc(metroStationFeatures), metroCables: fc(metroCableFeatures),
-      metroMedia: fc(metroMediaFeatures)
+      metroMedia: fc(metroMediaFeatures),
+      flows: fc(flowFeatures), metroFlows: fc(metroFlowFeatures)
     };
   }
   function fc(features) { return { type: "FeatureCollection", features: features }; }
@@ -216,7 +234,14 @@
         water: { type: "geojson", data: BASEMAP_BASE + "basemap-water.json" },
         land: { type: "geojson", data: BASEMAP_BASE + "basemap-land.json" },
         airports: { type: "geojson", data: BASEMAP_BASE + "basemap-airports.json" },
-        roads: { type: "geojson", data: BASEMAP_BASE + "basemap-roads.json", tolerance: 0.5 }
+        roads: { type: "geojson", data: BASEMAP_BASE + "basemap-roads.json", tolerance: 0.5 },
+        // committed terrarium DEM pyramid (z8-10, fetch_dem.py) — hillshade +
+        // gentle 3D terrain. 256px tiles are fetched at map-zoom+1 and the
+        // source under/overzooms outside 8..10.
+        dem: { type: "raster-dem", tiles: [BASEMAP_BASE + "dem/{z}/{x}/{y}.png"],
+          tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 10,
+          bounds: [-124.0, 36.2, -120.3, 39.0] },
+        sutro: { type: "geojson", data: BASEMAP_BASE + "sutro.json" }
       },
       // Night chart: dark ground so the fog banks and utilization colours glow.
       // Water keeps a clearly BLUE (if deep) tone against neutral-slate land, so
@@ -226,6 +251,13 @@
         // and a land-coloured bg leaves a visible seam at the water polygon edge
         { id: "bg", type: "background", paint: { "background-color": "#12324e" } },
         { id: "land", type: "fill", source: "land", paint: { "fill-color": "#242c33" } },
+        // topography: hillshade relief over the land, under everything else;
+        // strongest at the metro tiers, fading as street-level detail takes over
+        { id: "hillshade", type: "hillshade", source: "dem",
+          paint: { "hillshade-shadow-color": "#0a1016",
+            "hillshade-highlight-color": "#46545f",
+            "hillshade-exaggeration": ["interpolate", ["linear"], ["zoom"],
+              9, 0.5, 12, 0.35, 13.5, 0.12] } },
         // airports — runway/terminal hints (no clutter; ICAO labels via markers).
         // NB deliberately BELOW water: a fill layer rendered under the airport
         // fills gets its low-zoom tile stencil corrupted (the z8 south-bay tile
@@ -263,7 +295,15 @@
           filter: ["==", ["get", "class"], "motorway"],
           layout: { "line-cap": "round", "line-join": "round" },
           paint: { "line-color": "#3d4f5d",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1.8, 16, 4.5] } }
+            "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1.8, 16, 4.5] } },
+        // Sutro Tower, comically large 3D (pieces from gen_sutro_tower.py) —
+        // tilt the map (right-drag / the compass control) to see it stand up
+        { id: "sutro-tower", type: "fill-extrusion", source: "sutro",
+          paint: {
+            "fill-extrusion-color": ["get", "color"],
+            "fill-extrusion-base": ["get", "base"],
+            "fill-extrusion-height": ["get", "height"],
+            "fill-extrusion-opacity": 0.95 } }
       ]
     },
     center: [-122.05, 37.6],
@@ -278,10 +318,16 @@
     attributionControl: false
   });
   window.__nmmap = map; // exposed for dev/screenshot tooling
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  // compass shown (with pitch visualization): tilting is how you meet the tower
+  map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
   map.addControl(new maplibregl.AttributionControl({
-    customAttribution: "Basemap © OpenStreetMap contributors · SFMIX"
+    customAttribution: "Basemap © OpenStreetMap contributors · Terrain © Mapzen/AWS · SFMIX"
   }), "bottom-right");
+  // gentle 3D terrain from the same DEM — puts the hills under the hillshade
+  // (and Sutro Tower on an actual Mount Sutro) once the map is pitched
+  map.on("load", function () {
+    map.setTerrain({ source: "dem", exaggeration: 1.3 });
+  });
 
   var siteMarkers = [], deviceMarkers = [], decoTextMarkers = [], metroMarkers = [],
     airportMarkers = [], siteBoxMarkers = [];
@@ -298,6 +344,7 @@
   function init(structure) {
     STATE.generation = structure.generation;
     var src = buildSources(structure);
+    STATE.flows = src.flows; STATE.metroFlows = src.metroFlows;
 
 
     map.addSource("cables", { type: "geojson", data: src.cables, promoteId: "id" });
@@ -381,6 +428,15 @@
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-offset": offsetExpr, "line-width": widthExpr }
     });
+    // barber-pole flow stripes: an animated dash riding each live link toward
+    // its dominant traffic direction (see addFlowLayers / the ticker below)
+    map.addSource("flows", { type: "geojson", data: src.flows });
+    addFlowLayers("flows", "flow", function (add) {
+      return ["interpolate", ["linear"], ["zoom"],
+        8, ["+", ["*", ["get", "weight"], 0.3], add],
+        12, ["+", ["*", ["get", "weight"], 0.55], add],
+        16, ["+", ["*", ["get", "weight"], 1.0], add]];
+    }, offsetExpr);
     // intra-site links (only visible zoomed in)
     map.addLayer({
       id: "cables-intra", type: "line", source: "cables",
@@ -480,6 +536,12 @@
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidthAdd(0) }
     });
+    map.addSource("metro-flows", { type: "geojson", data: src.metroFlows });
+    addFlowLayers("metro-flows", "metro-flow", function (add) {
+      return ["interpolate", ["linear"], ["zoom"],
+        8, ["+", ["*", ["get", "weight"], 0.5], add],
+        10.6, ["+", ["*", ["get", "weight"], 0.7], add]];
+    }, 0);
     map.addLayer({
       id: "metro-highlight", type: "line", source: "metro-cables",
       filter: ["==", ["get", "id"], "__none__"],
@@ -516,10 +578,46 @@
     setInterval(pollTraffic, POLL_MS);
   }
 
+  // ---- barber-pole traffic flow -------------------------------------------
+  // A pale dashed stripe rides each live link, animated stepwise through
+  // FLOW_SEQ so the dashes crawl along the line — toward the line's a->z end
+  // on the forward layer, backwards on the reverse layer. Which layer a link
+  // lands on comes from its traffic (dir: 1 = a->z dominates = out>=in on the
+  // a side, -1 = z->a). line-dasharray can't be data-driven, hence two layers.
+  var FLOW_SEQ = [
+    [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
+    [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2],
+    [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]
+  ];
+  function addFlowLayers(source, idBase, widthFn, offsetExpr) {
+    [1, -1].forEach(function (dir) {
+      map.addLayer({
+        id: idBase + (dir === 1 ? "-fwd" : "-rev"), type: "line", source: source,
+        filter: ["==", ["get", "dir"], dir],
+        layout: { "line-cap": "butt", "line-join": "round" },
+        paint: { "line-color": "#eef4f8", "line-opacity": 0.5,
+          "line-offset": offsetExpr, "line-width": widthFn(0.4),
+          "line-dasharray": FLOW_SEQ[0] }
+      });
+    });
+  }
+  var flowPhase = 0;
+  setInterval(function () {
+    if (document.hidden) return;
+    flowPhase = (flowPhase + 1) % FLOW_SEQ.length;
+    var fwd = FLOW_SEQ[flowPhase], rev = FLOW_SEQ[FLOW_SEQ.length - 1 - flowPhase];
+    [["flow-fwd", fwd], ["flow-rev", rev], ["metro-flow-fwd", fwd], ["metro-flow-rev", rev]]
+      .forEach(function (p) {
+        if (map.getLayer(p[0])) map.setPaintProperty(p[0], "line-dasharray", p[1]);
+      });
+  }, 90);
+
   // Toggle metro / site / device tiers by zoom (layer visibility + markers).
   var SITE_LAYERS = ["cables-casing", "cables-down", "cables-approx", "cables-line",
-    "cables-hit", "cable-water", "cable-drops", "stations-ring", "stations-dot"];
-  var METRO_LAYERS = ["metro-casing", "metro-line", "metro-stations-ring", "metro-stations-dot"];
+    "cables-hit", "cable-water", "cable-drops", "stations-ring", "stations-dot",
+    "flow-fwd", "flow-rev"];
+  var METRO_LAYERS = ["metro-casing", "metro-line", "metro-stations-ring", "metro-stations-dot",
+    "metro-flow-fwd", "metro-flow-rev"];
   function setVis(ids, on) {
     ids.forEach(function (id) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
   }
@@ -785,11 +883,20 @@
     // bay, so the zoomed-out inter-metro view also reads submarine (no per-cable
     // media at that tier otherwise). Sits over metro-line, below metro stations.
     var metroBefore = map.getLayer("metro-stations-ring") ? "metro-stations-ring" : undefined;
+    // depth shade for the metro tier too — without it (and with the veil
+    // narrower than the fat metro trunk) the util colour bled around the veil
+    // edges and the crossing read painted-on rather than submerged
+    map.addLayer({
+      id: "metro-submarine", type: "line", source: "metro-cable-media",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#0b2138", "line-opacity": 0.6,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 14, 10.6, 22] }
+    }, metroBefore);
     map.addLayer({
       id: "metro-water", type: "line", source: "metro-cable-media",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": "#2c5478", "line-opacity": 0.7,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 10.6, 12] }
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 10, 10.6, 16] }
     }, metroBefore);
     map.addLayer({
       id: "metro-ripple", type: "line", source: "metro-cable-media",
@@ -1016,14 +1123,30 @@
       METRO_STATS[mid] = { in_bps: inb, out_bps: outb, util_pct: Math.round(util * 10) / 10 };
       map.setFeatureState({ source: "metro-cables", id: mid }, { util: util });
     });
+    // steer the barber-pole stripes toward each link's dominant direction
+    updateFlowDirs(STATE.flows, "flows", LAST_TRAFFIC);
+    updateFlowDirs(STATE.metroFlows, "metro-flows", METRO_STATS);
     var ts = document.getElementById("nm-ts");
     if (ts && traffic.generated_at) ts.textContent = t("Last updated") + ": " + fmtTime(traffic.generated_at);
+  }
+  function updateFlowDirs(geo, sourceId, stats) {
+    if (!geo) return;
+    var changed = false;
+    geo.features.forEach(function (f) {
+      var tr = stats[f.properties.id];
+      var dir = tr && (tr.in_bps || tr.out_bps) ? (tr.out_bps >= tr.in_bps ? 1 : -1) : 0;
+      if (f.properties.dir !== dir) { f.properties.dir = dir; changed = true; }
+    });
+    if (changed && map.getSource(sourceId)) map.getSource(sourceId).setData(geo);
   }
   function refetchStructure() {
     fetch(STRUCTURE_URL, { mode: "cors" }).then(function (r) { return r.json(); })
       .then(function (structure) {
         STATE.generation = structure.generation;
         var src = buildSources(structure);
+        STATE.flows = src.flows; STATE.metroFlows = src.metroFlows;
+        if (map.getSource("flows")) map.getSource("flows").setData(src.flows);
+        if (map.getSource("metro-flows")) map.getSource("metro-flows").setData(src.metroFlows);
         map.getSource("cables").setData(src.cables);
         map.getSource("cable-media").setData(src.media);
         map.getSource("stations").setData(src.stations);
@@ -1078,8 +1201,9 @@
   // ---- click-to-isolate: highlight one cable, dim the rest ----------------
   var DIM_LAYERS = {
     cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
-      "cables-intra", "cable-drops", "cable-water", "cable-submarine", "cable-ripple"],
-    metro: ["metro-casing", "metro-line"]
+      "cables-intra", "cable-drops", "cable-water", "cable-submarine", "cable-ripple",
+      "flow-fwd", "flow-rev"],
+    metro: ["metro-casing", "metro-line", "metro-flow-fwd", "metro-flow-rev"]
   };
   // which station source + key list pairs with each cable source
   var STATION_SRC = { cables: "stations", metro: "metro-stations" };
