@@ -498,28 +498,108 @@ def _netbox_client():
                      "(NETBOX_API_ENDPOINT/NETBOX_API_TOKEN, operator_config, or IXP_NETBOX_API)")
 
 
-def netbox_cables(topology, facts):
-    """Inter-site transport cables derived from NetBox (source of truth), the
-    trace-based twin of netbox_backbone_lint: one cable per LEASED circuit (BiDi
-    cores grouped by geom stem). We scope to the transport ports via the inter-site
-    LLDP links (both ends), trace each interface to its NetBox transport circuit,
-    and group by leased stem — so each interface attributes to its OWN circuit
-    (a passive-site chain like scl02->scl03 + sfo02->scl03 stays two segments).
-    Geometry matches the atlas by CID tokens; map_exclude circuits are dropped;
-    status from the circuit lifecycle (active->up, planned->planned, else down)."""
+def _netbox_session():
+    """(pynetbox api, requests.Session, api_base) sharing the builder's creds, so
+    the NetBox topology + cable passes reuse one authenticated session."""
     import requests
-    import map_kmz_mine as mine
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     nb = _netbox_client()
-    hints = mine.circuit_hints(nb)
-    bycid = {h["cid"]: h for h in hints}
-    gc_hint = {h["geom_cid"]: h for h in hints}
-    exclude = {c.cid for c in nb.circuits.circuits.filter(tag="map_exclude")}
     api = nb.base_url.rstrip("/")  # already includes /api
     S = requests.Session()
     S.headers = {"Authorization": "Token %s" % nb.token, "Accept": "application/json"}
     S.verify = False
+    return nb, S, api
+
+
+def netbox_topology(nb, S, api):
+    """Reconstruct an sflow-shaped ``{nodes, links}`` topology purely from NetBox,
+    plus a ``{(device, ifname): speed_bps}`` map — the portal-viable replacement
+    for sflow-rt /topology/json + Arista eAPI (the portal has no internal network).
+
+    Scope is the interfaces tagged ``core_port`` on active ``peering_switch``
+    devices (transit routers already carry that role in NetBox). Each such cabled
+    interface is traced to its terminal far interface; if the far end is another
+    mapped device's interface, that pair is one link. Node names are the FULL
+    NetBox device names, so interface lookups and ``site_of()`` both work directly
+    (no ``short()`` — which would mangle 3-part transit-router names like
+    ``ar1.scl02.transit``). Only links whose far end lands on a mapped device
+    resolve — a core port cabled to a patch panel with no onward path is skipped,
+    the same gap ``netbox_backbone_lint`` reports."""
+    devs = {}  # NetBox device name -> site slug
+    for d in nb.dcim.devices.filter(role="peering_switch", status="active"):
+        if d.name.lower().startswith("old-"):
+            continue  # decommissioned kit kept in NetBox for history
+        devs[d.name] = d.site.slug if d.site else ""
+
+    def nbget(path, **params):
+        params["limit"] = 500
+        url, out = api + path, []
+        while url:
+            j = S.get(url, params=params, timeout=60).json()
+            out += j.get("results", [])
+            url, params = j.get("next"), {}
+        return out
+
+    # core_port interfaces on our devices (single tagged query) + their NetBox speeds
+    speeds, ports = {}, []
+    for i in nbget("/dcim/interfaces/", tag="core_port"):
+        dev = i["device"]["name"]
+        if dev not in devs or not i.get("cable"):
+            continue
+        ports.append((dev, i["name"], i["id"]))
+        if i.get("speed"):
+            speeds[(dev, i["name"])] = i["speed"] * 1000  # NetBox kbps -> bps
+
+    id_iface = {}  # interface id -> (device, ifname), cached across traces
+
+    def far_iface(iid):
+        tr = S.get("%s/dcim/interfaces/%d/trace/" % (api, iid), timeout=40).json()
+        if not tr:
+            return None
+        far = tr[-1][2]
+        node = far[0] if far else None
+        if not node or "/dcim/interfaces/" not in (node.get("url") or ""):
+            return None
+        fid = node.get("id")
+        if fid not in id_iface:
+            r = S.get("%s/dcim/interfaces/%d/" % (api, fid), timeout=40).json()
+            id_iface[fid] = (r["device"]["name"], r["name"])
+        return id_iface[fid]
+
+    links, seen = {}, set()
+    for dev, ifn, iid in ports:
+        far = far_iface(iid)
+        if not far:
+            continue
+        fdev, fifn = far
+        if fdev not in devs or (fdev == dev and fifn == ifn):
+            continue  # far end is unmapped kit, or a self-loop
+        key = frozenset([(dev, ifn), (fdev, fifn)])
+        if key in seen:
+            continue
+        seen.add(key)
+        links["%s:%s|%s:%s" % (dev, ifn, fdev, fifn)] = {
+            "node1": dev, "port1": ifn, "node2": fdev, "port2": fifn}
+    return {"nodes": {n: {"ports": {}} for n in devs}, "links": links}, speeds
+
+
+def netbox_cables(topology, facts, nb, S, api, dev_name):
+    """Inter-site transport cables derived from NetBox (source of truth), the
+    trace-based twin of netbox_backbone_lint: one cable per LEASED circuit (BiDi
+    cores grouped by geom stem). We scope to the transport ports via the inter-site
+    links (both ends), trace each interface to its NetBox transport circuit,
+    and group by leased stem — so each interface attributes to its OWN circuit
+    (a passive-site chain like scl02->scl03 + sfo02->scl03 stays two segments).
+    Geometry matches the atlas by CID tokens; map_exclude circuits are dropped;
+    status from the circuit lifecycle (active->up, planned->planned, else down).
+    ``dev_name`` maps a topology node id to its NetBox device name (identity for
+    the live NetBox topology; ``short`` for legacy sflow/eAPI fixtures)."""
+    import map_kmz_mine as mine
+    hints = mine.circuit_hints(nb)
+    bycid = {h["cid"]: h for h in hints}
+    gc_hint = {h["geom_cid"]: h for h in hints}
+    exclude = {c.cid for c in nb.circuits.circuits.filter(tag="map_exclude")}
 
     if_cache = {}  # (dev, ifn) -> (id, netbox_speed_bps)
 
@@ -543,8 +623,8 @@ def netbox_cables(topology, facts):
 
     members = {}  # geom_cid -> {(short_dev, ifname): speed_bps}
     for l in topology.get("links", {}).values():
-        ends = [(short(l["node1"]), l["port1"], site_of(l["node1"])),
-                (short(l["node2"]), l["port2"], site_of(l["node2"]))]
+        ends = [(dev_name(l["node1"]), l["port1"], site_of(l["node1"])),
+                (dev_name(l["node2"]), l["port2"], site_of(l["node2"]))]
         s1, s2 = ends[0][2], ends[1][2]
         if not s1 or not s2 or s1 == s2:
             continue  # inter-site transport only
@@ -581,23 +661,33 @@ def netbox_cables(topology, facts):
 # Build
 # ---------------------------------------------------------------------------
 def build(args):
-    topology = load_topology(args)
-    inv = load_eapi_inventory(args)
-    sites_meta = load_sites(args)
-    atlas = load_atlas()
-
-    facts = load_iface_facts(args)
-    if getattr(args, "source", "description") == "netbox":
-        cables = netbox_cables(topology, facts)
+    source = getattr(args, "source", "netbox")
+    facts = load_iface_facts(args)  # live sflow ifspeed series; {} if unreachable
+    if source == "netbox":
+        nb, S, api = _netbox_session()
+        if args.topology_fixture:
+            # legacy/offline path: an sflow/eAPI topology snapshot (FQDN node names)
+            topology, inv, dev_name = load_topology(args), {}, short
+        else:
+            # portal-viable path: topology straight from NetBox (no sflow, no eAPI)
+            topology, nb_speeds = netbox_topology(nb, S, api)
+            inv, dev_name = {}, (lambda n: n)
+            facts = {**nb_speeds, **facts}  # prefer live ifspeed, fall back to NetBox
+        cables = netbox_cables(topology, facts, nb, S, api, dev_name)
     else:
+        topology = load_topology(args)
+        inv = load_eapi_inventory(args)
+        dev_name = short
         ports = parse_core_ports(inv, facts)
         adj = topo_adjacency(topology)
         cables = assemble_cables(ports, adj)
+    sites_meta = load_sites(args)
+    atlas = load_atlas()
 
     # devices per site (from topology nodes + inventory)
     devs_by_site = {}
     for node in topology.get("nodes", {}):
-        devs_by_site.setdefault(site_of(node), set()).add(short(node))
+        devs_by_site.setdefault(site_of(node), set()).add(dev_name(node))
     for dev in inv:
         devs_by_site.setdefault(site_of(dev), set()).add(dev)
 
@@ -668,7 +758,7 @@ def build(args):
     # isn't double-counted across both ends of the same fibre.
     intra_groups = {}  # (site, (devA, devB)) -> [(host, ifname) on devA end]
     for l in topology.get("links", {}).values():
-        d1, d2 = short(l["node1"]), short(l["node2"])
+        d1, d2 = dev_name(l["node1"]), dev_name(l["node2"])
         s1, s2 = site_of(l["node1"]), site_of(l["node2"])
         if not s1 or s1 != s2 or d1 == d2:
             continue
