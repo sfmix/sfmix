@@ -60,6 +60,36 @@
     return 1.1;
   }
 
+  // ---- vector sprites ------------------------------------------------------
+  // All sprite art ships as SVG (network-map/sprites-src, served from
+  // /map/sprites/). MapLibre only takes bitmaps, so each is rasterized here at
+  // SPRITE_RES× its logical size; pixelRatio keeps the icon-size math unchanged
+  // while the extra pixels keep critters crisp at the ground-anchored zoom
+  // growth (they reach ~2× logical size at z14).
+  var SPRITE_RES = 4;
+  function loadSvgImage(name, logicalPx) {
+    return fetch(SPRITE_BASE + name + ".svg").then(function (r) {
+      if (!r.ok) throw new Error("sprite " + name + ": " + r.status);
+      return r.text();
+    }).then(function (svg) {
+      return new Promise(function (resolve, reject) {
+        var url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+        var img = new Image();
+        img.onload = function () {
+          URL.revokeObjectURL(url);
+          var w = Math.round(logicalPx * SPRITE_RES);
+          var h = Math.round(w * img.height / img.width);
+          var c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          var g = c.getContext("2d");
+          g.drawImage(img, 0, 0, w, h);
+          resolve({ image: g.getImageData(0, 0, w, h), pixelRatio: SPRITE_RES });
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("sprite " + name)); };
+        img.src = url;
+      });
+    });
+  }
 
   // ---- build GeoJSON from structure --------------------------------------
   function buildSources(structure) {
@@ -189,14 +219,18 @@
         roads: { type: "geojson", data: BASEMAP_BASE + "basemap-roads.json", tolerance: 0.5 }
       },
       // Night chart: dark ground so the fog banks and utilization colours glow.
+      // Water keeps a clearly BLUE (if deep) tone against neutral-slate land, so
+      // the shoreline reads at a glance and the submarine veil blends into water.
       layers: [
         // bg = water, not land: beyond the basemap bbox it's almost all ocean,
         // and a land-coloured bg leaves a visible seam at the water polygon edge
-        { id: "bg", type: "background", paint: { "background-color": "#0e1c28" } },
-        { id: "land", type: "fill", source: "land", paint: { "fill-color": "#1e2c38" } },
-        { id: "water", type: "fill", source: "water",
-          paint: { "fill-color": "#0e1c28", "fill-outline-color": "#25394a" } },
-        // airports — runway/terminal hints (no clutter; ICAO labels via markers)
+        { id: "bg", type: "background", paint: { "background-color": "#12324e" } },
+        { id: "land", type: "fill", source: "land", paint: { "fill-color": "#242c33" } },
+        // airports — runway/terminal hints (no clutter; ICAO labels via markers).
+        // NB deliberately BELOW water: a fill layer rendered under the airport
+        // fills gets its low-zoom tile stencil corrupted (the z8 south-bay tile
+        // paints parity-inverted: ponds fill, bay doesn't). Airports are all on
+        // land, so water-over-airports is visually identical — and renders.
         { id: "airport-terminal", type: "fill", source: "airports",
           filter: ["==", ["get", "kind"], "terminal"],
           paint: { "fill-color": "#2c3b48", "fill-opacity": 0.7 } },
@@ -208,6 +242,8 @@
           layout: { "line-cap": "butt" },
           paint: { "line-color": "#3c4c59",
             "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 12, 3, 15, 9] } },
+        { id: "water", type: "fill", source: "water",
+          paint: { "fill-color": "#12324e", "fill-outline-color": "#2e5273" } },
         { id: "trunk-casing", type: "line", source: "roads", minzoom: 9.5,
           filter: ["==", ["get", "class"], "trunk"],
           layout: { "line-cap": "round", "line-join": "round" },
@@ -232,9 +268,13 @@
     },
     center: [-122.05, 37.6],
     zoom: 9.1,
-    minZoom: 8,
+    // NOT lower: at z8 the vendored MapLibre (5.6.0) mis-tessellates the tile
+    // holding the south bay — fill parity inverts and the bay paints as land
+    // (ponds fill, water doesn't). Data-side fixes (validity repair, grid
+    // splits, tolerance/buffer) don't help; revisit on a MapLibre upgrade.
+    minZoom: 9,
     maxZoom: 16.5,  // deep enough to inspect intra-site switch links / LAG strands
-    maxBounds: [[-122.95, 37.0], [-121.4, 38.2]],
+    maxBounds: [[-123.15, 36.8], [-121.2, 38.4]],
     attributionControl: false
   });
   window.__nmmap = map; // exposed for dev/screenshot tooling
@@ -258,6 +298,7 @@
   function init(structure) {
     STATE.generation = structure.generation;
     var src = buildSources(structure);
+
 
     map.addSource("cables", { type: "geojson", data: src.cables, promoteId: "id" });
     map.addSource("cable-media", { type: "geojson", data: src.media });
@@ -463,6 +504,7 @@
 
     addLabels(structure);
     addAirportLabels();
+    addRoadShields();
     addWaterTreatment();
     if (DECOR_URL) addDecorations();
     wireInteractions();
@@ -570,6 +612,135 @@
       }).catch(function () {});
   }
 
+  // ---- highway shields ------------------------------------------------------
+  // Small route badges (I/US/CA) drawn with canvas text — no glyph server
+  // needed — and placed ALONG the road lines as a symbol layer, so MapLibre's
+  // collision engine spaces them out and drops any that would overlap other
+  // symbols. Positioning is therefore fully dynamic with zoom/pan.
+  function addRoadShields() {
+    fetch(BASEMAP_BASE + "basemap-roads.json").then(function (r) { return r.json(); })
+      .then(function (fc) {
+        // Only the few LONGEST segments per route get a shield: freeways come as
+        // hundreds of short parallel-carriageway fragments, and labelling each
+        // one reads as a breadcrumb trail (880 especially).
+        var byRef = {};
+        fc.features.forEach(function (f) {
+          var ref = (f.properties.ref || "").trim();
+          // mainline routes only — "I 205 Bus" / "US 101 Spur" / detours would
+          // mint duplicate shields in odd places
+          if (!/^(I|US|CA) \d+$/.test(ref)) return;
+          (byRef[ref] = byRef[ref] || []).push(f);
+        });
+        function segLen(f) {
+          var c = f.geometry.coordinates, l = 0;
+          for (var i = 1; i < c.length; i++) {
+            var dx = c[i][0] - c[i - 1][0], dy = c[i][1] - c[i - 1][1];
+            l += Math.sqrt(dx * dx + dy * dy);
+          }
+          return l;
+        }
+        function midpoint(f) {
+          var c = f.geometry.coordinates;
+          return c[Math.floor(c.length / 2)];
+        }
+        var shieldFeatures = [];
+        Object.keys(byRef).forEach(function (ref) {
+          var name = "shield-" + ref;
+          if (!map.hasImage(name)) map.addImage(name, shieldImage(ref), { pixelRatio: SHIELD_RES });
+          byRef[ref].sort(function (a, b) { return segLen(b) - segLen(a); });
+          // longest first, then only segments well away from ones already kept —
+          // parallel carriageways of the same route otherwise pair every shield
+          var kept = [];
+          byRef[ref].forEach(function (f) {
+            if (kept.length >= 4) return;
+            var m = midpoint(f);
+            var clear = kept.every(function (k) {
+              return Math.abs(k[0] - m[0]) + Math.abs(k[1] - m[1]) > 0.09;
+            });
+            if (clear) { kept.push(m); shieldFeatures.push(f); }
+          });
+        });
+        map.addSource("shield-roads", { type: "geojson",
+          data: { type: "FeatureCollection", features: shieldFeatures } });
+        map.addLayer({
+          id: "road-shields", type: "symbol", source: "shield-roads", minzoom: 10,
+          layout: {
+            "symbol-placement": "line",
+            // sparse on purpose: one shield per long stretch of freeway, not a
+            // breadcrumb trail (parallel carriageways each place their own)
+            "symbol-spacing": 1100,
+            "icon-image": ["concat", "shield-", ["get", "ref"]],
+            // shields stay upright (viewport-aligned) rather than riding the line
+            "icon-rotation-alignment": "viewport",
+            "icon-pitch-alignment": "viewport",
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 12.5, 1]
+          },
+          paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0, 10.8, 0.85] }
+        }, map.getLayer("site-building") ? "site-building" : undefined);
+      }).catch(function () {});
+  }
+  // Shield badges follow the real sign shapes — Interstate shield with the red
+  // chief, US-route white badge, California's green miner's-spade — in muted
+  // night-theme takes on the official palettes.
+  var SHIELD_RES = 3;
+  function shieldImage(ref) {
+    var parts = ref.split(/\s+/), sys = parts[0], num = parts[1] || parts[0];
+    var S = SHIELD_RES;
+    var probe = document.createElement("canvas").getContext("2d");
+    var font = "700 " + (num.length >= 3 ? 8 : 9.5) * S + "px system-ui, sans-serif";
+    probe.font = font;
+    var W = Math.round(Math.max(19 * S, probe.measureText(num).width + 8 * S));
+    var H = 20 * S;
+    var c = document.createElement("canvas"); c.width = W; c.height = H;
+    var g = c.getContext("2d");
+    g.lineJoin = "round";
+    function px(x, y) { return [x * W, y * H]; }
+    function trace(pts) {
+      // pts: ["M",x,y] | ["C",x1,y1,x2,y2,x,y] | ["Q",x1,y1,x,y] in unit coords
+      g.beginPath();
+      pts.forEach(function (p) {
+        if (p[0] === "M") g.moveTo.apply(g, px(p[1], p[2]));
+        else if (p[0] === "Q") g.quadraticCurveTo.apply(g, px(p[1], p[2]).concat(px(p[3], p[4])));
+        else g.bezierCurveTo.apply(g, px(p[1], p[2]).concat(px(p[3], p[4]), px(p[5], p[6])));
+      });
+      g.closePath();
+    }
+    var textY;
+    if (sys === "I") {
+      // interstate: shield, red chief over blue field, white rim
+      trace([["M", 0.07, 0.10], ["Q", 0.5, 0.01, 0.93, 0.10],
+        ["C", 1.03, 0.34, 0.90, 0.74, 0.5, 0.98],
+        ["C", 0.10, 0.74, -0.03, 0.34, 0.07, 0.10]]);
+      g.fillStyle = "#2a4a70"; g.fill();
+      g.save(); g.clip();
+      g.fillStyle = "#7d3540"; g.fillRect(0, 0, W, 0.30 * H);
+      g.restore();
+      g.lineWidth = 1.3 * S; g.strokeStyle = "#c3cfda"; g.stroke();
+      g.fillStyle = "#e8eef4"; textY = 0.63 * H;
+    } else if (sys === "CA") {
+      // california: green spade, handle notch at the top
+      trace([["M", 0.10, 0.13], ["Q", 0.34, 0.17, 0.5, 0.26], ["Q", 0.66, 0.17, 0.90, 0.13],
+        ["C", 1.02, 0.44, 0.87, 0.78, 0.5, 0.98],
+        ["C", 0.13, 0.78, -0.02, 0.44, 0.10, 0.13]]);
+      g.fillStyle = "#1f4a3a"; g.fill();
+      g.lineWidth = 1.3 * S; g.strokeStyle = "#6b9c81"; g.stroke();
+      g.fillStyle = "#e8eef4"; textY = 0.62 * H;
+    } else {
+      // US route: the white cut-corner badge, dark numerals
+      trace([["M", 0.10, 0.06], ["Q", 0.5, 0.12, 0.90, 0.06],
+        ["C", 1.0, 0.16, 0.98, 0.38, 0.90, 0.52],
+        ["C", 0.80, 0.72, 0.66, 0.88, 0.5, 0.97],
+        ["C", 0.34, 0.88, 0.20, 0.72, 0.10, 0.52],
+        ["C", 0.02, 0.38, 0.0, 0.16, 0.10, 0.06]]);
+      g.fillStyle = "#c8d1d7"; g.fill();
+      g.lineWidth = 1.1 * S; g.strokeStyle = "#7f8b94"; g.stroke();
+      g.fillStyle = "#232c33"; textY = 0.52 * H;
+    }
+    g.font = font; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(num, W / 2, textY);
+    return g.getImageData(0, 0, W, H);
+  }
+
   // ---- water: a subtle ripple texture on the bay, reused over undersea cable --
   // A submarine cable span reads as "submerged": the util colour is muted toward
   // the water tone and the SAME ripple texture that styles the bay is laid over
@@ -614,23 +785,24 @@
       layout: { "line-cap": "butt", "line-join": "round" },
       paint: { "line-color": "#cfe2e8", "line-opacity": 0.8, "line-width": 6 }
     }, metroBefore);
-    map.loadImage(SPRITE_BASE + "water-texture.png").then(function (img) {
+    loadSvgImage("water-texture", 176).then(function (sp) {
+      if (!map.hasImage("water-texture")) map.addImage("water-texture", sp.image, { pixelRatio: sp.pixelRatio });
       if (map.getLayer("metro-ripple")) {
         map.setPaintProperty("metro-ripple", "line-pattern", "water-texture");
         map.setPaintProperty("metro-ripple", "line-width",
           ["interpolate", ["linear"], ["zoom"], 8, 9, 10.6, 16]);
       }
-      if (!map.hasImage("water-texture")) map.addImage("water-texture", img.data);
       // ripples on the cable span
       map.setPaintProperty("cable-ripple", "line-pattern", "water-texture");
       map.setPaintProperty("cable-ripple", "line-width",
         ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 14]);
-      // texture the bay itself (subtle), just above the flat water fill
+      // texture the bay itself (subtle), just above the flat water fill (which
+      // itself sits above the airports — see the layer-order note in the style)
       if (!map.getLayer("water-texture")) {
         map.addLayer({
           id: "water-texture", type: "fill", source: "water",
           paint: { "fill-pattern": "water-texture", "fill-opacity": 0.75 }
-        }, map.getLayer("airport-terminal") ? "airport-terminal" : beforeId);
+        }, map.getLayer("trunk-casing") ? "trunk-casing" : beforeId);
       }
     }).catch(function () {});
   }
@@ -654,8 +826,8 @@
         var loaded = 0, want = Object.keys(icons).length;
         if (!want) return;
         Object.keys(icons).forEach(function (name) {
-          map.loadImage(SPRITE_BASE + name + ".png").then(function (img) {
-            if (!map.hasImage(name)) map.addImage(name, img.data);
+          loadSvgImage(name, DECO_SPRITE_PX).then(function (sp) {
+            if (!map.hasImage(name)) map.addImage(name, sp.image, { pixelRatio: sp.pixelRatio });
             if (++loaded === want) addDecoLayer();
           }).catch(function () { if (++loaded === want) addDecoLayer(); });
         });
@@ -729,22 +901,34 @@
     var lons = ring.map(function (c) { return c[0]; }), lats = ring.map(function (c) { return c[1]; });
     var w = Math.min.apply(null, lons), e = Math.max.apply(null, lons);
     var s = Math.min.apply(null, lats), n = Math.max.apply(null, lats);
-    var fog = makeFogDataURL();
-    map.addSource("fog", { type: "image", url: fog,
+    var canvas = document.createElement("canvas");
+    canvas.width = FOG_W; canvas.height = FOG_H;
+    drawFog(canvas, 0);
+    // canvas source (animate: true) — the marine layer flows in off the ocean,
+    // each puff drifting west->east and wrapping back around independently
+    map.addSource("fog", { type: "canvas", canvas: canvas, animate: true,
       coordinates: [[w, n], [e, n], [e, s], [w, s]] });
     map.addLayer({ id: "fog", type: "raster", source: "fog",
       paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 9,
         (f.properties.max_opacity || 0.35), 13, (f.properties.min_opacity || 0.1)],
         "raster-fade-duration": 0 } });
+    var t0 = performance.now();
+    setInterval(function () {
+      if (document.hidden) return;
+      drawFog(canvas, (performance.now() - t0) / 1000);
+    }, 66); // ~15 fps is plenty for fog
   }
-  function makeFogDataURL() {
+  var FOG_W = 512, FOG_H = 256;
+  var FOG_DRIFT = 0.012; // unit-widths per second — a slow oceanic crawl
+  function drawFog(canvas, t) {
     // Marine layer: overlapping soft elliptical puffs arranged in drifting
     // horizontal banks, denser toward the bottom, feathered to nothing at the
     // edges so the overlay quad has no visible border.
-    var W = 512, H = 256;
-    var c = document.createElement("canvas"); c.width = W; c.height = H;
-    var g = c.getContext("2d");
-    // deterministic layout — same fog every load
+    var W = FOG_W, H = FOG_H;
+    var g = canvas.getContext("2d");
+    g.globalCompositeOperation = "source-over";
+    g.clearRect(0, 0, W, H);
+    // deterministic layout — same fog bank, animated only by the drift phase
     var puffs = [
       // [cx, cy, rx, ry, alpha] in unit coords; alphas run hot because the
       // raster layer's zoom-faded opacity multiplies them back down
@@ -758,8 +942,14 @@
       [0.30, 0.76, 0.13, 0.06, 0.38], [0.52, 0.80, 0.15, 0.07, 0.42],
       [0.70, 0.74, 0.12, 0.06, 0.35]
     ];
-    puffs.forEach(function (p) {
-      var cx = p[0] * W, cy = p[1] * H, rx = p[2] * W, ry = p[3] * H;
+    puffs.forEach(function (p, i) {
+      // drift west->east; each puff wraps around independently (with a lane
+      // wide enough that it fully leaves before re-entering) and rows move at
+      // slightly different speeds so the bank shears organically
+      var speed = FOG_DRIFT * (0.75 + 0.5 * ((i * 7) % 5) / 4);
+      var margin = p[2] + 0.05;
+      var x = ((p[0] + margin + t * speed) % (1 + 2 * margin)) - margin;
+      var cx = x * W, cy = p[1] * H, rx = p[2] * W, ry = p[3] * H;
       g.save();
       g.translate(cx, cy); g.scale(1, ry / rx);
       var grd = g.createRadialGradient(0, 0, rx * 0.15, 0, 0, rx);
@@ -780,7 +970,6 @@
     fy.addColorStop(0, "rgba(0,0,0,0)"); fy.addColorStop(0.2, "rgba(0,0,0,1)");
     fy.addColorStop(0.85, "rgba(0,0,0,1)"); fy.addColorStop(1, "rgba(0,0,0,0)");
     g.fillStyle = fy; g.fillRect(0, 0, W, H);
-    return c.toDataURL();
   }
 
   // ---- traffic poll -------------------------------------------------------

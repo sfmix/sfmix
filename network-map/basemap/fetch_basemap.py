@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Regenerate the committed all-vector basemap (water / land / roads).
 
-Run on a laptop with internet + GDAL (ogr2ogr). Writes into
-website/static/map/basemap-{water,land,roads}.json. See basemap/README.md.
+Run on a laptop with internet + GDAL (ogr2ogr) + shapely (water validity
+repair). Writes into website/static/map/basemap-{water,land,roads}.json.
+See basemap/README.md.
 
     python3 network-map/basemap/fetch_basemap.py
 """
@@ -16,7 +17,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-BBOX = [-122.75, 37.15, -121.6, 38.05]  # minlon, minlat, maxlon, maxlat
+BBOX = [-122.95, 36.95, -121.40, 38.25]  # minlon, minlat, maxlon, maxlat
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir, "website", "static", "map"))
 # Full-resolution assembled coastline->water polygons (~900 MB) — gives a smooth,
@@ -25,6 +26,7 @@ WATER_ZIP = "https://osmdata.openstreetmap.de/download/water-polygons-split-3857
 # overpass-api.de rate-limits/406s aggressively; try mirrors in order.
 OVERPASS_ENDPOINTS = [
     "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
     "https://overpass-api.de/api/interpreter",
     "https://overpass.osm.jp/api/interpreter",
 ]
@@ -71,9 +73,20 @@ def build_water(tmp):
     for feat in d["features"]:
         feat["geometry"]["coordinates"] = _round(feat["geometry"]["coordinates"])
         feat["properties"] = {}
+    # ogr2ogr -simplify does not preserve topology: the bay's shoreline ring
+    # came out self-intersecting (at the Alviso sloughs), which flips even-odd
+    # fill parity in coarse renderers. Repair + dissolve, one feature per
+    # polygon. (GDAL's -makevalid was a silent no-op on this install.)
+    from shapely.geometry import mapping, shape  # deferred: only water needs it
+    from shapely.ops import unary_union
+    from shapely.validation import make_valid
+    merged = unary_union([make_valid(shape(f["geometry"])) for f in d["features"]])
+    polys = [merged] if merged.geom_type == "Polygon" else \
+        [p for p in merged.geoms if p.geom_type == "Polygon"]
+    feats = [{"type": "Feature", "properties": {}, "geometry": mapping(p)} for p in polys]
     with open(os.path.join(OUT, "basemap-water.json"), "w") as fh:
-        json.dump(d, fh)
-    print("wrote basemap-water.json (%d features)" % len(d["features"]))
+        json.dump({"type": "FeatureCollection", "features": feats}, fh)
+    print("wrote basemap-water.json (%d polygons)" % len(feats))
 
 
 def _overpass(q):
@@ -81,7 +94,7 @@ def _overpass(q):
     last = None
     for ep in OVERPASS_ENDPOINTS:
         try:
-            return json.load(urllib.request.urlopen(urllib.request.Request(ep, data=data), timeout=180))
+            return json.load(urllib.request.urlopen(urllib.request.Request(ep, data=data), timeout=300))
         except Exception as e:  # 406/timeout/etc — try the next mirror
             last = e
             print("  overpass %s failed (%s), trying next…" % (ep, e))

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Loch-Ness-style sea serpent, "here be packets" cartouche beast.
+       Palette matches map decorations: body #3f9c73, outline #2f7d5b, eye #0b3640. -->
+  <g stroke="#2f7d5b" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- tail: curls up out of the water into a two-lobed fluke -->
+    <path d="M8 94 C 10 84, 12 76, 18 70 C 14 66, 10 60, 12 52 C 16 58, 20 60, 24 60
+             C 22 54, 24 48, 30 45 C 28 52, 30 57, 33 61 C 35 66, 33 72, 27 76
+             C 22 80, 19 87, 19 94 Z"
+          fill="#3f9c73"/>
+    <!-- hump 1 -->
+    <path d="M20 94 C 24 74, 34 66, 42 66 C 50 66, 58 74, 61 94 Z" fill="#3f9c73"/>
+    <!-- hump 2 (larger) -->
+    <path d="M60 94 C 64 70, 74 60, 82 60 C 90 60, 98 70, 101 94 Z" fill="#3f9c73"/>
+    <!-- neck + head, arching up and facing right -->
+    <path d="M96 94 C 96 72, 96 55, 100 42 C 103 32, 108 24, 114 21
+             C 118 19, 122 20, 124 23 C 126 26, 125 29, 122 30
+             L 116 32 C 113 33, 111 36, 110 41 C 108 51, 108 62, 109 74
+             C 110 82, 111 89, 112 94 Z"
+          fill="#3f9c73"/>
+    <!-- lower jaw / chin nub -->
+    <path d="M122 30 C 124 31, 125 33, 124 35 C 122 37, 118 36, 116 33"
+          fill="#3f9c73"/>
+  </g>
+  <!-- dorsal spikes -->
+  <g fill="#2f7d5b" stroke="none">
+    <path d="M34 71 l4 -8 l4 7 Z"/>
+    <path d="M42 68 l4 -8 l4 7 Z"/>
+    <path d="M73 64 l4 -9 l5 8 Z"/>
+    <path d="M82 62 l4 -9 l5 8 Z"/>
+    <path d="M97 52 l-6 -4 l7 -4 Z"/>
+    <path d="M100 40 l-5 -5 l7 -3 Z"/>
+  </g>
+  <!-- eye + nostril -->
+  <circle cx="116" cy="26" r="2.4" fill="#0b3640"/>
+  <circle cx="123" cy="25" r="1" fill="#0b3640"/>
+  <!-- waterline ripples -->
+  <g fill="none" stroke="#2f7d5b" stroke-width="3" stroke-linecap="round" opacity="0.55">
+    <path d="M4 99 q8 6 20 2 q10 -4 18 1"/>
+    <path d="M52 101 q10 5 22 0 q10 -4 20 2"/>
+    <path d="M100 100 q9 4 20 0"/>
+  </g>
+</svg>

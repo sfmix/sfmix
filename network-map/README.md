@@ -178,6 +178,7 @@ network-map/
   DEPLOY.md                  deploy runbook
   atlas_precise/             GITIGNORED  full-res mined geometry (NDA)
   basemap/                   fetch_basemap.py / fetch_rights_of_way.py + README
+  sprites-src/               vector sprite art (shipped as SVG, rasterized in-browser)
   fixtures/map.json          synthetic structure for dev (generated)
   dev/make_fixture.py        regenerates fixtures/map.json
   dev/serve.py               offline dev harness

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Sunken admiralty anchor, litter on the sea floor. Muted steel-blue and
+       semi-transparent so it reads as deeeep underwater on the dark chart. -->
+  <g stroke="#7e97a8" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.75">
+    <!-- shank -->
+    <path d="M64 30 v62"/>
+    <!-- arms with flukes -->
+    <path d="M64 92 C 48 92, 32 82, 26 64"/>
+    <path d="M64 92 C 80 92, 96 82, 102 64"/>
+    <!-- stock -->
+    <path d="M40 40 h48"/>
+  </g>
+  <g stroke="#7e97a8" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.75">
+    <!-- fluke barbs -->
+    <path d="M26 64 l-8 12"/>
+    <path d="M26 64 l14 2"/>
+    <path d="M102 64 l8 12"/>
+    <path d="M102 64 l-14 2"/>
+  </g>
+  <!-- ring -->
+  <circle cx="64" cy="20" r="9" stroke="#7e97a8" stroke-width="7" fill="none" opacity="0.75"/>
+</svg>
