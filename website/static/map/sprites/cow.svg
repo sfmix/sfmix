@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Central Valley dairy cow, side profile facing right. Holstein: cream
+       body (#efece3) with charcoal patches (#2c2b30), pink muzzle+udder.
+       Outline #3a3833 so it reads against the dark night-chart ground. -->
+  <g stroke="#3a3833" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+    <!-- tail, swishing down off the rump -->
+    <path d="M26 60 C 20 70, 18 84, 22 96 C 23 100, 27 100, 27 96 C 25 86, 28 74, 32 66 Z"
+          fill="#efece3"/>
+    <!-- legs (drawn before body so the body overlaps their tops) -->
+    <g fill="#efece3">
+      <path d="M38 78 h9 v30 h-9 Z"/>
+      <path d="M52 80 h9 v28 h-9 Z"/>
+      <path d="M80 80 h9 v28 h-9 Z"/>
+      <path d="M92 78 h9 v30 h-9 Z"/>
+    </g>
+    <!-- body -->
+    <path d="M28 62 C 24 50, 40 43, 62 44 C 82 44, 98 48, 101 62
+             C 102 72, 97 80, 86 81 L 40 81 C 30 80, 27 72, 28 62 Z"
+          fill="#efece3"/>
+    <!-- neck + head, snout dipping to the right -->
+    <path d="M96 54 C 104 47, 117 48, 121 58 C 123 66, 119 74, 110 75
+             C 103 75, 98 70, 97 63 C 96 60, 95 56, 96 54 Z"
+          fill="#efece3"/>
+  </g>
+  <!-- hooves -->
+  <g fill="#2c2b30" stroke="none">
+    <rect x="38" y="104" width="9" height="5" rx="1"/>
+    <rect x="52" y="104" width="9" height="5" rx="1"/>
+    <rect x="80" y="104" width="9" height="5" rx="1"/>
+    <rect x="92" y="104" width="9" height="5" rx="1"/>
+  </g>
+  <!-- charcoal Holstein patches on the body -->
+  <g fill="#2c2b30" stroke="none">
+    <path d="M40 52 C 50 48, 58 52, 56 62 C 53 70, 42 70, 38 62 C 36 57, 37 53, 40 52 Z"/>
+    <path d="M74 54 C 86 52, 94 58, 90 68 C 85 76, 74 74, 72 66 C 71 60, 71 56, 74 54 Z"/>
+    <path d="M60 70 C 68 68, 72 74, 68 79 L 58 79 C 55 75, 56 71, 60 70 Z"/>
+  </g>
+  <!-- pink udder tucked under the belly -->
+  <ellipse cx="66" cy="82" rx="8" ry="4.5" fill="#e39aa2" stroke="#3a3833" stroke-width="2"/>
+  <!-- ear + horn nub -->
+  <g stroke="#3a3833" stroke-width="2.6" stroke-linejoin="round">
+    <path d="M100 50 C 96 44, 100 42, 104 46 C 106 49, 104 53, 100 53 Z" fill="#efece3"/>
+    <path d="M112 48 c3 -3 6 -2 6 1" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- pink muzzle at the snout tip -->
+  <ellipse cx="118" cy="68" rx="6" ry="4.5" fill="#e39aa2" stroke="#3a3833" stroke-width="2"/>
+  <!-- nostril + eye -->
+  <circle cx="119" cy="68" r="1.4" fill="#3a3833"/>
+  <circle cx="108" cy="60" r="2.4" fill="#241f1a"/>
+</svg>

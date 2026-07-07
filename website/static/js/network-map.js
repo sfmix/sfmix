@@ -628,7 +628,8 @@
   // happens inside the same tick, so they all share a single repaint and the
   // map renders at ~11fps while animating instead of a continuous 60fps.
   var flowPhase = 0;
-  var FOG_TICK = null; // registered by addFog, driven by this same clock
+  var FOG_TICK = null;  // registered by addFog, driven by this same clock
+  var DECO_TICK = null; // registered by addDecorations (roaming cattle)
   setInterval(function () {
     if (document.hidden) return;
     flowPhase = (flowPhase + 1) % FLOW_SEQ.length;
@@ -638,6 +639,7 @@
         if (map.getLayer(p[0])) map.setPaintProperty(p[0], "line-dasharray", p[1]);
       });
     if (FOG_TICK) FOG_TICK();
+    if (DECO_TICK) DECO_TICK();
   }, 90);
 
   // Toggle metro / site / device tiers by zoom (layer visibility + markers).
@@ -966,16 +968,47 @@
       .then(function (deco) {
         var points = { type: "FeatureCollection", features: [] };
         var icons = {};
+        var roamers = []; // features that wander (cattle) — see DECO_TICK below
         deco.features.forEach(function (f) {
           if (f.geometry.type === "Point") {
             points.features.push(f);
             if (f.properties.icon) icons[f.properties.icon] = true;
             if (f.properties.label) addDecoText(f);
+            if (f.properties.roam) {
+              var c = f.geometry.coordinates;
+              // per-critter phases spread the herd out; radius is in degrees
+              // (~0.012° ≈ 1km — cartoonishly large, matching the giant-object
+              // scale of the other decorations). Lat swing is squished so they
+              // graze in an ellipse rather than a circle.
+              roamers.push({ f: f, lng0: c[0], lat0: c[1],
+                r: f.properties.roam === true ? 0.012 : f.properties.roam,
+                p1: (roamers.length * 1.7) % 6.283, p2: (roamers.length * 2.9) % 6.283,
+                w1: 0.9 + (roamers.length % 3) * 0.15, w2: 0.6 + (roamers.length % 2) * 0.2,
+                base: f.properties.rotation || 0 });
+            }
           } else if (f.properties.kind === "image-overlay" && f.properties.icon === "fog") {
             addFog(f);
           }
         });
         map.addSource("decorations", { type: "geojson", data: points });
+        // roaming cattle: nudge each roamer along a slow Lissajous path every
+        // tick and re-feed the source. Deterministic (no per-frame randomness),
+        // so it's smooth and cheap at the shared ~11fps clock. A small heading
+        // sway suggests an ambling graze — we do NOT flip to face direction, as
+        // that would need a mirrored sprite (a 180° icon-rotate is upside-down).
+        if (roamers.length) {
+          var roamT = 0, decoSrc = map.getSource("decorations");
+          DECO_TICK = function () {
+            roamT += 0.05;
+            roamers.forEach(function (m) {
+              var dx = Math.cos(roamT * m.w1 + m.p1);
+              var dy = Math.sin(roamT * m.w2 + m.p2);
+              m.f.geometry.coordinates = [m.lng0 + m.r * dx, m.lat0 + m.r * 0.55 * dy];
+              m.f.properties.rotation = m.base + 5 * dy; // gentle amble sway
+            });
+            decoSrc.setData(points);
+          };
+        }
         var loaded = 0, want = Object.keys(icons).length;
         if (!want) return;
         Object.keys(icons).forEach(function (name) {
