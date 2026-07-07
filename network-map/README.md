@@ -145,6 +145,16 @@ points the frontend at the live portal endpoints.
 To preview inside the real Hugo site: `hugo server -s website` and browse
 `/network-map/` (the page's `data-*-url` attributes point at portal.sfmix.org).
 
+For non-interactive visual checks (e.g. after touching sprites, decorations, or
+renderer code), `dev/screenshot.mjs` captures the harness headlessly — it waits
+on the map's own loaded state (the dev shell exposes `window.__map`), so no
+flaky fixed timeouts:
+
+```
+python3 network-map/dev/serve.py &
+node network-map/dev/screenshot.mjs http://localhost:8765/network-map/ /tmp/map.png
+```
+
 ## Deployment
 
 - **Builder + serving** live in the portal (`portal/mapbuild/` + Django-Q2). A
@@ -171,6 +181,7 @@ network-map/
   fixtures/map.json          synthetic structure for dev (generated)
   dev/make_fixture.py        regenerates fixtures/map.json
   dev/serve.py               offline dev harness
+  dev/screenshot.mjs         headless-Chrome map screenshot (visual verification)
   dev/deploy_demo.sh         publish frontend → demo.sfmix.org (points at live portal)
 portal/mapbuild/data/
   atlas/<ID>.geojson         committed coarsened circuit shapes (+ _TEMPLATE)
