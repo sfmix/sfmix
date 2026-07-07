@@ -131,7 +131,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         body = json.dumps(obj).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # NB: no ACAO here — end_headers() already adds it for every response;
+        # a duplicate produces "*, *", which browsers reject wholesale.
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

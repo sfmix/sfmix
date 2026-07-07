@@ -19,7 +19,7 @@
     },
     {
       "type": "Feature",
-      "properties": {"icon": "sea-lion-chonker", "size": 1.1, "rotation": -6, "minzoom": 10, "label": "Chonkers"},
+      "properties": {"icon": "sea-lion-chonker", "size": 1.1, "rotation": -6, "minzoom": 10},
       "geometry": {"type": "Point", "coordinates": [-122.4088, 37.8082]}
     },
     {
@@ -29,7 +29,7 @@
     },
     {
       "type": "Feature",
-      "properties": {"icon": "fog", "kind": "image-overlay", "min_opacity": 0.10, "max_opacity": 0.35},
+      "properties": {"icon": "fog", "kind": "image-overlay", "min_opacity": 0.15, "max_opacity": 0.55},
       "geometry": {
         "type": "Polygon",
         "coordinates": [[

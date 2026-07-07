@@ -658,33 +658,64 @@
         });
       }).catch(function () {});
   }
+  // Decoration sprites scale as if pinned to the ground (doubling per zoom
+  // level, like the geography) between z8 and z12, so they read as objects
+  // with a real — if cartoonishly giant — physical size. Past z12 growth is
+  // damped so a monster never swallows the screen.
+  var DECO_SIZE_STOPS = [[8, 0.12], [12, 1.92], [14, 2.1]];
+  function decoSizeFactor(z) {
+    var s = DECO_SIZE_STOPS, last = s.length - 1;
+    if (z <= s[0][0]) return s[0][1];
+    if (z >= s[last][0]) return s[last][1];
+    for (var i = 0; i < last; i++) {
+      var z0 = s[i][0], v0 = s[i][1], z1 = s[i + 1][0], v1 = s[i + 1][1];
+      if (z <= z1) {
+        // exponential-base-2 interpolation, mirroring the style expression
+        var t = (Math.pow(2, z - z0) - 1) / (Math.pow(2, z1 - z0) - 1);
+        return v0 + (v1 - v0) * t;
+      }
+    }
+    return s[last][1];
+  }
   function addDecoLayer() {
     if (map.getLayer("decorations")) return;
     map.addLayer({
       id: "decorations", type: "symbol", source: "decorations",
       layout: {
         "icon-image": ["get", "icon"],
-        // grows with zoom: small & icon-like when zoomed out, large & detailed in.
         // NB zoom interpolate must be OUTERMOST; per-feature size goes in each stop.
-        "icon-size": ["interpolate", ["linear"], ["zoom"],
-          8, ["*", ["coalesce", ["get", "size"], 1], 0.16],
-          11, ["*", ["coalesce", ["get", "size"], 1], 0.34],
-          14, ["*", ["coalesce", ["get", "size"], 1], 0.72]],
+        "icon-size": ["interpolate", ["exponential", 2], ["zoom"],
+          DECO_SIZE_STOPS[0][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[0][1]],
+          DECO_SIZE_STOPS[1][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[1][1]],
+          DECO_SIZE_STOPS[2][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[2][1]]],
         "icon-rotate": ["coalesce", ["get", "rotation"], 0],
         "icon-allow-overlap": true, "icon-ignore-placement": true
       },
-      paint: { "icon-opacity": 0.9 }
+      // fade the critters once device-level detail matters, so a giant
+      // Chonkers can't hide the infrastructure you zoomed in to inspect
+      paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.9, 14, 0.55] }
     });
   }
+  var DECO_SPRITE_PX = 160; // rendered sprite height (see network-map/sprites-src)
   function addDecoText(f) {
     var d = document.createElement("div");
     d.className = "nm-label nm-label-deco";
     d.textContent = f.properties.label;
-    // anchor the caption below the sprite so graphic and text don't overlap
-    var m = new maplibregl.Marker({ element: d, anchor: "top", offset: [0, 24] })
+    // anchor the caption below the sprite so graphic and text don't overlap;
+    // the offset tracks the sprite's zoom-dependent height (see placeDecoText)
+    var m = new maplibregl.Marker({ element: d, anchor: "top" })
       .setLngLat(f.geometry.coordinates).addTo(map);
+    m._decoSize = f.properties.size || 1;
     decoTextMarkers.push(m);
+    placeDecoText();
   }
+  function placeDecoText() {
+    var factor = decoSizeFactor(map.getZoom());
+    decoTextMarkers.forEach(function (m) {
+      m.setOffset([0, DECO_SPRITE_PX * m._decoSize * factor / 2 + 4]);
+    });
+  }
+  map.on("zoom", placeDecoText);
   function addFog(f) {
     var ring = f.geometry.coordinates[0];
     // corners: use bbox corners ordered TL,TR,BR,BL for image source
@@ -708,14 +739,17 @@
     var g = c.getContext("2d");
     // deterministic layout — same fog every load
     var puffs = [
-      // [cx, cy, rx, ry, alpha] in unit coords
-      [0.10, 0.72, 0.16, 0.10, 0.50], [0.24, 0.66, 0.20, 0.12, 0.55],
-      [0.42, 0.74, 0.22, 0.11, 0.60], [0.60, 0.68, 0.20, 0.12, 0.55],
-      [0.78, 0.73, 0.19, 0.10, 0.50], [0.92, 0.66, 0.15, 0.10, 0.45],
-      [0.16, 0.48, 0.14, 0.08, 0.35], [0.35, 0.42, 0.18, 0.09, 0.40],
-      [0.55, 0.46, 0.17, 0.08, 0.38], [0.74, 0.40, 0.16, 0.09, 0.35],
-      [0.30, 0.24, 0.13, 0.06, 0.22], [0.52, 0.20, 0.15, 0.07, 0.25],
-      [0.70, 0.26, 0.12, 0.06, 0.20]
+      // [cx, cy, rx, ry, alpha] in unit coords; alphas run hot because the
+      // raster layer's zoom-faded opacity multiplies them back down
+      // densest bank at the top (north edge = the Gate itself), thinning as
+      // it spills south over the city
+      [0.10, 0.28, 0.16, 0.10, 0.85], [0.24, 0.34, 0.20, 0.12, 0.90],
+      [0.42, 0.26, 0.22, 0.11, 0.95], [0.60, 0.32, 0.20, 0.12, 0.90],
+      [0.78, 0.27, 0.19, 0.10, 0.85], [0.92, 0.34, 0.15, 0.10, 0.80],
+      [0.16, 0.52, 0.14, 0.08, 0.60], [0.35, 0.58, 0.18, 0.09, 0.68],
+      [0.55, 0.54, 0.17, 0.08, 0.65], [0.74, 0.60, 0.16, 0.09, 0.60],
+      [0.30, 0.76, 0.13, 0.06, 0.38], [0.52, 0.80, 0.15, 0.07, 0.42],
+      [0.70, 0.74, 0.12, 0.06, 0.35]
     ];
     puffs.forEach(function (p) {
       var cx = p[0] * W, cy = p[1] * H, rx = p[2] * W, ry = p[3] * H;
