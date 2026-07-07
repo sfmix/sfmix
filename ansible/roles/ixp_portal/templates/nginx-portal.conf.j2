@@ -37,16 +37,10 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # Public network-map structure (map.json), rsynced from the metrics builder
-    # into the private map dir. Only this exact file is routed; the sibling
-    # map-links.json (opaque-id -> ports) has NO location and is never exposed.
-    # CORS-open because the map page on sfmix.org fetches it cross-origin.
-    location = /map/map.json {
-        alias /var/lib/sfmix-map/map.json;
-        default_type application/json;
-        add_header Access-Control-Allow-Origin "*" always;
-        add_header Cache-Control "public, max-age=300" always;
-    }
+    # The network map is built + served by the portal itself now (mapbuild app):
+    # public map.json at /statistics/map/map.json (CORS-open) and the traffic feed
+    # at /statistics/map/traffic, both proxied to Django below. map-links.json
+    # stays private on the db volume and is never exposed.
 
     location / {
         proxy_pass http://127.0.0.1:{{ ixp_portal_listen_port }};
