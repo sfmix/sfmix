@@ -36,6 +36,11 @@
   ];
   var UTIL_COLOR_EXPR = ["interpolate", ["linear"], ["coalesce", ["feature-state", "util"], 0],
     0, RAMP[0][1], 20, RAMP[1][1], 40, RAMP[2][1], 60, RAMP[3][1], 80, RAMP[4][1]];
+  // barber-pole stripe colour: a strongly darkened shade of the SAME hue the
+  // link is showing (candy-stripe look) — a fixed pale stripe vanished on the
+  // light green/yellow/orange utilization colours
+  var FLOW_STRIPE_EXPR = ["interpolate", ["linear"], ["coalesce", ["feature-state", "util"], 0],
+    0, "#173a75", 20, "#26521f", 40, "#6e5e00", 60, "#7d4306", 80, "#75141f"];
   // perpendicular offset (px) by the feature's "offset" step — shared by the
   // cable layers AND the water-treatment layers so they track the same path.
   var OFFSET_EXPR = ["interpolate", ["linear"], ["zoom"],
@@ -308,6 +313,9 @@
     },
     center: [-122.05, 37.6],
     zoom: 9.1,
+    // load already tilted (looking north-ish across the terrain) so the 3D —
+    // hills, Sutro Tower, billboarded critters — reads immediately
+    pitch: 42,
     // NOT lower: at z8 the vendored MapLibre (5.6.0) mis-tessellates the tile
     // holding the south bay — fill parity inverts and the bay paints as land
     // (ponds fill, water doesn't). Data-side fixes (validity repair, grid
@@ -430,7 +438,7 @@
     });
     // barber-pole flow stripes: an animated dash riding each live link toward
     // its dominant traffic direction (see addFlowLayers / the ticker below)
-    map.addSource("flows", { type: "geojson", data: src.flows });
+    map.addSource("flows", { type: "geojson", data: src.flows, promoteId: "id" });
     addFlowLayers("flows", "flow", function (add) {
       return ["interpolate", ["linear"], ["zoom"],
         8, ["+", ["*", ["get", "weight"], 0.3], add],
@@ -536,7 +544,7 @@
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidthAdd(0) }
     });
-    map.addSource("metro-flows", { type: "geojson", data: src.metroFlows });
+    map.addSource("metro-flows", { type: "geojson", data: src.metroFlows, promoteId: "id" });
     addFlowLayers("metro-flows", "metro-flow", function (add) {
       return ["interpolate", ["linear"], ["zoom"],
         8, ["+", ["*", ["get", "weight"], 0.5], add],
@@ -595,7 +603,7 @@
         id: idBase + (dir === 1 ? "-fwd" : "-rev"), type: "line", source: source,
         filter: ["==", ["get", "dir"], dir],
         layout: { "line-cap": "butt", "line-join": "round" },
-        paint: { "line-color": "#eef4f8", "line-opacity": 0.5,
+        paint: { "line-color": FLOW_STRIPE_EXPR, "line-opacity": 0.85,
           "line-offset": offsetExpr, "line-width": widthFn(0.4),
           "line-dasharray": FLOW_SEQ[0] }
       });
@@ -972,25 +980,41 @@
   }
   function addDecoLayer() {
     if (map.getLayer("decorations")) return;
+    // NB zoom interpolate must be OUTERMOST; per-feature size goes in each stop.
+    var sizeExpr = ["interpolate", ["exponential", 2], ["zoom"],
+      DECO_SIZE_STOPS[0][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[0][1]],
+      DECO_SIZE_STOPS[1][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[1][1]],
+      DECO_SIZE_STOPS[2][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[2][1]]];
+    // fade the critters once device-level detail matters, so a giant
+    // Chonkers can't hide the infrastructure you zoomed in to inspect
+    var fadeExpr = ["interpolate", ["linear"], ["zoom"], 12, 0.9, 14, 0.55];
+    // ground layer (anchors etc): registered to the ground — keeps heading
+    // when the map rotates/pitches, lies flat on the seabed
     map.addLayer({
       id: "decorations", type: "symbol", source: "decorations",
+      filter: ["!=", ["get", "billboard"], true],
       layout: {
-        "icon-image": ["get", "icon"],
-        // NB zoom interpolate must be OUTERMOST; per-feature size goes in each stop.
-        "icon-size": ["interpolate", ["exponential", 2], ["zoom"],
-          DECO_SIZE_STOPS[0][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[0][1]],
-          DECO_SIZE_STOPS[1][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[1][1]],
-          DECO_SIZE_STOPS[2][0], ["*", ["coalesce", ["get", "size"], 1], DECO_SIZE_STOPS[2][1]]],
+        "icon-image": ["get", "icon"], "icon-size": sizeExpr,
         "icon-rotate": ["coalesce", ["get", "rotation"], 0],
-        // registered to the ground: critters keep their heading when the map
-        // rotates/pitches instead of always pointing screen-up
         "icon-rotation-alignment": "map",
         "icon-pitch-alignment": "map",
         "icon-allow-overlap": true, "icon-ignore-placement": true
       },
-      // fade the critters once device-level detail matters, so a giant
-      // Chonkers can't hide the infrastructure you zoomed in to inspect
-      paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.9, 14, 0.55] }
+      paint: { "icon-opacity": fadeExpr }
+    });
+    // billboard layer (critters): viewport-aligned so they STAND UP in the
+    // default pitched view instead of lying flat on the water
+    map.addLayer({
+      id: "decorations-billboard", type: "symbol", source: "decorations",
+      filter: ["==", ["get", "billboard"], true],
+      layout: {
+        "icon-image": ["get", "icon"], "icon-size": sizeExpr,
+        "icon-rotate": ["coalesce", ["get", "rotation"], 0],
+        "icon-rotation-alignment": "viewport",
+        "icon-pitch-alignment": "viewport",
+        "icon-allow-overlap": true, "icon-ignore-placement": true
+      },
+      paint: { "icon-opacity": fadeExpr }
     });
   }
   var DECO_SPRITE_PX = 160; // rendered sprite height (see network-map/sprites-src)
@@ -1110,6 +1134,7 @@
       var util = LAST_TRAFFIC[id].util_pct;
       map.setFeatureState({ source: "cables", id: id }, { util: util });
       if (map.getSource("drops")) map.setFeatureState({ source: "drops", id: id }, { util: util });
+      if (map.getSource("flows")) map.setFeatureState({ source: "flows", id: id }, { util: util });
     });
     // aggregate member stats onto metro trunks (util = sum bps / sum capacity)
     Object.keys(METRO_MEMBERS).forEach(function (mid) {
@@ -1122,6 +1147,7 @@
       if (mc > 0) util = Math.min(100, 100 * Math.max(inb, outb) / mc);
       METRO_STATS[mid] = { in_bps: inb, out_bps: outb, util_pct: Math.round(util * 10) / 10 };
       map.setFeatureState({ source: "metro-cables", id: mid }, { util: util });
+      if (map.getSource("metro-flows")) map.setFeatureState({ source: "metro-flows", id: mid }, { util: util });
     });
     // steer the barber-pole stripes toward each link's dominant direction
     updateFlowDirs(STATE.flows, "flows", LAST_TRAFFIC);
