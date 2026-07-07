@@ -23,7 +23,7 @@
        are static assets on this site. Override portal host via site params. */}}
   {{ $portal := .Site.Params.map_portal_base | default "https://portal.sfmix.org" }}
   <div id="network-map"
-       data-structure-url="{{ $portal }}/map/map.json"
+       data-structure-url="{{ $portal }}/statistics/map/map.json"
        data-traffic-url="{{ $portal }}/statistics/map/traffic"
        data-basemap-base="{{ "map/" | relURL }}"
        data-sprite-base="{{ "map/sprites/" | relURL }}"
