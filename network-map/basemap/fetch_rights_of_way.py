@@ -18,7 +18,7 @@ import urllib.request
 
 BBOX = [-122.75, 37.15, -121.6, 38.05]  # minlon, minlat, maxlon, maxlat (Bay Area)
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "rights-of-way.json")
+OUT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir, "portal", "mapbuild", "data", "rights-of-way.json"))
 OVERPASS_ENDPOINTS = [
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",

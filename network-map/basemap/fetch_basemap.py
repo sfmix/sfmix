@@ -179,6 +179,20 @@ def build_airports():
     print("wrote basemap-airports.json (%d features)" % len(feats))
 
 
+def _mirror_to_mapbuild():
+    """The map builder (portal/mapbuild) reads water rings + road corridors from
+    its own baked-in data/ dir (the portal image only ships portal/). Mirror the
+    two builder-relevant basemaps there so a refresh stays in sync. The other
+    layers (land, airports, decorations) are frontend-only and stay under
+    website/static/map."""
+    import shutil
+    dest = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir, "portal", "mapbuild", "data"))
+    os.makedirs(dest, exist_ok=True)
+    for fn in ("basemap-water.json", "basemap-roads.json"):
+        shutil.copy2(os.path.join(OUT, fn), os.path.join(dest, fn))
+        print("mirrored %s -> portal/mapbuild/data/" % fn)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     build_land()
@@ -186,6 +200,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         build_water(tmp)
         build_roads(tmp)
+    _mirror_to_mapbuild()
 
 
 if __name__ == "__main__":

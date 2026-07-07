@@ -2,18 +2,18 @@
 # Build the NetBox-sourced map and publish it to the password-protected demo at
 # demo.sfmix.org/network-map/ (behind the existing "SFMIX Demo" basic-auth).
 #
-# One command for the off-box iteration loop: it generates live fixtures from
-# device eAPI-LLDP + NetBox (since sflow-rt/Prometheus aren't reachable here),
-# builds --source=netbox, adds a SYNTHETIC traffic overlay, assembles a
-# self-contained bundle from website/static/ (NOT the stale Hugo public/ build —
-# that mismatch caused a cable.segments crash), and rsyncs to the portal host.
+# One command for the off-box iteration loop: it builds the map straight from
+# NetBox using the portal's self-contained builder (portal/mapbuild), adds a
+# SYNTHETIC traffic overlay, assembles a self-contained bundle from
+# website/static/ (NOT the stale Hugo public/ build — that mismatch caused a
+# cable.segments crash), and rsyncs to the portal host.
 #
 #   NetBox creds: NETBOX_API_ENDPOINT/NETBOX_API_TOKEN or scripts/.env
-#   Device eAPI:  ~/.netrc entry for machine sfmix.org
+#   Deps:         pip install pynetbox requests  (the builder's only runtime deps)
 #   Override host: PORTAL_HOST=portal.sfmix.org (default)
 #
-# NOTE: this is the DEMO path (static snapshot + synthetic traffic). Production is
-# different — see network-map/DEPLOY.md (builder on metrics.sfo02 -> portal).
+# NOTE: this is the DEMO path (static snapshot + synthetic traffic). Production
+# builds the same map in the portal on a schedule — see network-map/DEPLOY.md.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -39,20 +39,19 @@ fi
 : "${NETBOX_API_TOKEN:?set NETBOX_API_TOKEN (env or scripts/.env)}"
 export PYTHONWARNINGS=ignore
 
-echo "[1/5] live fixtures (eAPI-LLDP topology + NetBox sites)"
-python3 "$HERE/gen_live_fixtures.py" "$WORK"
+echo "[1/4] build map.json from NetBox (portal/mapbuild)"
+PYTHONPATH="$REPO/portal" python3 - "$WORK/map.json" "$WORK/links.json" <<'PYEOF'
+import sys
+from mapbuild import builder
+m, links, _drift = builder.build(generation_seed="demo")
+builder.write_outputs(m, links, sys.argv[1], sys.argv[2])
+print("  %d cables, %d sites, %d metros" % (len(m["cables"]), len(m["sites"]), len(m["metros"])))
+PYEOF
 
-echo "[2/5] build map.json (--source=netbox)"
-echo '{}' > "$WORK/empty_eapi.json"
-python3 "$SCRIPTS/gen_map_structure.py" \
-  --topology-fixture "$WORK/topo_live.json" --sites-fixture "$WORK/sites_live.json" \
-  --eapi-fixture "$WORK/empty_eapi.json" \
-  --out "$WORK/map.json" --links-out "$WORK/links.json" --generation-seed demo
-
-echo "[3/5] synthetic traffic overlay"
+echo "[2/4] synthetic traffic overlay"
 python3 "$HERE/gen_synth_traffic.py" "$WORK/map.json" "$WORK/traffic.json"
 
-echo "[4/5] assemble self-contained bundle from website/static/"
+echo "[3/4] assemble self-contained bundle from website/static/"
 mkdir -p "$BUNDLE/css" "$BUNDLE/js" "$BUNDLE/vendor/maplibre-gl" "$BUNDLE/map"
 cp "$HERE/demo_index.html"            "$BUNDLE/index.html"
 cp "$STATIC/js/network-map.js"        "$BUNDLE/js/"
@@ -61,7 +60,7 @@ cp "$STATIC/vendor/maplibre-gl/"*     "$BUNDLE/vendor/maplibre-gl/"
 cp -r "$STATIC/map/." "$BUNDLE/map/"
 cp "$WORK/map.json" "$WORK/traffic.json" "$BUNDLE/"
 
-echo "[5/5] publish to $PORTAL:$DEST"
+echo "[4/4] publish to $PORTAL:$DEST"
 ssh "$PORTAL" "mkdir -p $DEST"
 rsync -a --delete "$BUNDLE/" "$PORTAL:$DEST/"
 # ensure the demo index links it (idempotent)
