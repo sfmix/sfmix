@@ -1469,16 +1469,19 @@
           : '<div class="nm-info-operator">' + esc(p.operator) + "</div>";
       }
     } else if (p.operator) {
-      body += row("", esc(p.operator));
+      body += '<div class="nm-info-addr">' + esc(p.operator) + "</div>";
     }
-    if (p.metro) body += row("", esc(p.metro));
     var hasAddr = p.address && p.address.indexOf("synthetic") < 0;
-    if (hasAddr) body += '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + esc(p.address) + "</span></div>";
-    else if (p.city) body += row(t("Location"), esc(p.city) + (p.state ? ", " + esc(p.state) : ""));
-    // PeeringDB rich rows (only when the site was enriched)
-    if (p.net_count) body += row(t("Networks"), p.net_count);
-    if (p.ix_count) body += row(t("Exchanges"), p.ix_count);
-    if (p.pdb_url) body += '<div class="nm-info-pdb"><a href="' + esc(p.pdb_url) + '" target="_blank" rel="noopener">' + t("View on PeeringDB") + " ↗</a></div>";
+    if (hasAddr) body += '<div class="nm-info-addr">' + esc(p.address) + "</div>";
+    else if (p.city) body += '<div class="nm-info-addr">' + esc(p.city) + (p.state ? ", " + esc(p.state) : "") + "</div>";
+    // PeeringDB: one compact stat line + a link (only when the site was enriched)
+    if (!isDevice) {
+      var stats = [];
+      if (p.net_count) stats.push(p.net_count + " " + t("networks"));
+      if (p.ix_count) stats.push(p.ix_count + " " + t("IXes"));
+      if (stats.length) body += '<div class="nm-info-stats">' + stats.join(" · ") + "</div>";
+      if (p.pdb_url) body += '<div class="nm-info-pdb"><a href="' + esc(p.pdb_url) + '" target="_blank" rel="noopener">' + t("View on PeeringDB") + " ↗</a></div>";
+    }
     var title = (code ? code.toUpperCase() + " · " : "") + name;  // rendered via textContent
     return { title: title, body: body };
   }
