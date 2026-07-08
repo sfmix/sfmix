@@ -60,15 +60,19 @@ services:
       AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
       AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-    # `user: root` and the docker socket volume are optional.
-    # See more for the docker socket integration here:
-    # https://goauthentik.io/docs/outposts/integrations/docker
-    # Removing `user: root` also prevents the worker from fixing the permissions
-    # on the mounted folders, so when removing this make sure the folders have the correct UID/GID
-    # (1000:1000 by default)
-    user: root
+    # NOTE: upstream ships this worker with `user: root` and a docker.sock mount
+    # for the optional Docker outpost controller. Both are removed/disabled here:
+    #   - `user: root` only exists to chown the mounted folders at startup, but the
+    #     ansible role already pre-creates media/certs/templates owned 999:1000, so
+    #     it serves no purpose and needlessly runs the worker as root.
+    #   - the docker.sock mount below is only needed by authentik's embedded Docker
+    #     outpost controller (https://goauthentik.io/docs/outposts/integrations/docker),
+    #     which SFMIX does not use. Mounting it grants the worker root-equivalent
+    #     control of the host (a container-escape path), so it stays disabled.
+    #     When outposts are introduced, deploy them as manually-managed containers
+    #     via ansible rather than re-enabling this socket.
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # - /var/run/docker.sock:/var/run/docker.sock
       - /opt/authentik/media:/media
       - /opt/authentik/certs:/certs
       - /opt/authentik/custom-templates:/templates
