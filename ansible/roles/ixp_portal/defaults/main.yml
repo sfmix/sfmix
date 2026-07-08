@@ -5,6 +5,15 @@ ixp_portal_user: sfmix
 ixp_portal_group: sfmix
 ixp_portal_listen_port: 8000
 
+# Host dirs bind-mounted into the portal container and served DIRECTLY by nginx
+# (collectstatic output at /static/, and the public network-map assets at
+# /statistics/map/{map.json,logos/}) instead of streaming through Django. Must
+# match the bind mounts in portal/docker-compose.yml (via the SFMIX_*_DIR vars in
+# .env) and the alias paths in nginx-portal.conf.j2. The private map-links.json
+# deliberately stays on the container's db volume, outside these dirs.
+ixp_portal_static_dir: /opt/sfmix/portal-static
+ixp_portal_map_public_dir: /opt/sfmix/map-public
+
 # OIDC (Authentik)
 ixp_portal_oidc_client_id: portal
 ixp_portal_oidc_provider_url: "https://login.sfmix.org/application/o/portal"

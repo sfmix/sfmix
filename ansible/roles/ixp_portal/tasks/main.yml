@@ -20,6 +20,22 @@
     group: root
     mode: "0755"
 
+# Bind-mount targets for nginx-direct asset serving. The container writes here as
+# root; 0755 lets nginx (www-data) traverse and read the 0644 files collectstatic
+# and the map builder produce. Must exist before `docker-compose up` so the mounts
+# resolve to these host dirs rather than docker auto-creating them.
+- name: Create host dirs for nginx-served portal assets
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ ixp_portal_static_dir }}"
+    - "{{ ixp_portal_map_public_dir }}"
+
 # Sync portal source from the monorepo
 - name: Synchronize portal source
   become: true
