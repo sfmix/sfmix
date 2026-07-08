@@ -1105,7 +1105,7 @@
   function addDecoText(f) {
     var d = document.createElement("div");
     d.className = "nm-label nm-label-deco";
-    d.textContent = f.properties.label;
+    d.textContent = t(f.properties.label);
     // anchor the caption below the sprite so graphic and text don't overlap;
     // the offset tracks the sprite's zoom-dependent height (see placeDecoText)
     var m = new maplibregl.Marker({ element: d, anchor: "top" })
