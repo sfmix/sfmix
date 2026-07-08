@@ -338,11 +338,21 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Resolve RPC shared secret from environment
-    let rpc_secret = std::env::var(&server_cfg.rpc.secret_env).unwrap_or_else(|_| {
-        tracing::warn!("RPC secret env var '{}' not set", server_cfg.rpc.secret_env);
-        String::new()
-    });
+    // Resolve RPC shared secret from environment. The RPC boundary is the only
+    // authentication gate in front of admin-level command execution, so refuse
+    // to start without a secret rather than falling open to an empty one.
+    let rpc_secret = std::env::var(&server_cfg.rpc.secret_env).map_err(|_| {
+        anyhow::anyhow!(
+            "RPC secret env var '{}' not set; refusing to start with an empty RPC secret",
+            server_cfg.rpc.secret_env
+        )
+    })?;
+    if rpc_secret.is_empty() {
+        anyhow::bail!(
+            "RPC secret env var '{}' is empty; refusing to start with an empty RPC secret",
+            server_cfg.rpc.secret_env
+        );
+    }
 
     // Start telnet server if configured
     if let Some(ref telnet_cfg) = server_cfg.listen.telnet {
