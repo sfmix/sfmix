@@ -260,15 +260,33 @@ impl LookingGlass {
                         )));
                     }
                 }
-                Resource::InterfaceDetail | Resource::OpticsDetail => {
-                    let pmap = self.port_map.load();
-                    if !pmap.is_empty()
-                        && !pmap.known_interface(target)
-                        && !identity.is_admin(self.policy.admin_group())
-                    {
+                r if r.is_port_scoped() => {
+                    // A port-scoped target is an interface/port name that gets
+                    // interpolated directly into a device CLI command (e.g.
+                    // `show interfaces {t}`, `port {t} transceiver`). Enforce a
+                    // strict charset unconditionally — for every identity and
+                    // even when the port map is empty (cold start) — so neither
+                    // an admin nor a NetBox outage can open a CLI-injection path.
+                    if !is_valid_interface_name(target) {
                         return Err(Error::BadRequest(format!(
-                            "unknown interface: {target}"
+                            "invalid interface name: {target}"
                         )));
+                    }
+                    // Existence/ownership gate for the per-port detail views
+                    // (unchanged behavior).
+                    if matches!(
+                        command.resource,
+                        Resource::InterfaceDetail | Resource::OpticsDetail
+                    ) {
+                        let pmap = self.port_map.load();
+                        if !pmap.is_empty()
+                            && !pmap.known_interface(target)
+                            && !identity.is_admin(self.policy.admin_group())
+                        {
+                            return Err(Error::BadRequest(format!(
+                                "unknown interface: {target}"
+                            )));
+                        }
                     }
                 }
                 _ => {}
@@ -526,6 +544,22 @@ fn is_valid_destination(s: &str) -> bool {
             && !label.starts_with('-')
             && !label.ends_with('-')
     })
+}
+
+/// Check if a string is a syntactically valid interface/port name before it is
+/// interpolated into a device CLI command.
+///
+/// Accepts only the characters that appear in real Arista/Nokia interface names
+/// (e.g. `Ethernet21/1`, `Port-Channel114.998`, `1/1/c1/1`, `lag-1`) and
+/// rejects everything else — crucially every shell/CLI metacharacter (spaces,
+/// quotes, `|`, `;`, `$`, backticks, newlines, `*`, parentheses) — so a target
+/// cannot smuggle additional commands into the device session.
+fn is_valid_interface_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 64
+        && s.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || b == b'/' || b == b'.' || b == b'-' || b == b'_'
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -938,6 +972,28 @@ mod tests {
         assert!(!is_valid_destination("trailing-.com"));
         assert!(!is_valid_destination(".leading-dot.com"));
         assert!(!is_valid_destination("double..dot.com"));
+    }
+
+    #[test]
+    fn valid_interface_names() {
+        assert!(is_valid_interface_name("Ethernet1"));
+        assert!(is_valid_interface_name("Ethernet21/1"));
+        assert!(is_valid_interface_name("Port-Channel114.998"));
+        assert!(is_valid_interface_name("Management1"));
+        assert!(is_valid_interface_name("1/1/c1/1")); // Nokia
+        assert!(is_valid_interface_name("lag-1"));
+    }
+
+    #[test]
+    fn rejects_interface_name_injection() {
+        assert!(!is_valid_interface_name("Ethernet1 | bash"));
+        assert!(!is_valid_interface_name("Ethernet1\nconfigure"));
+        assert!(!is_valid_interface_name("Ethernet1; reload"));
+        assert!(!is_valid_interface_name("$(reboot)"));
+        assert!(!is_valid_interface_name("foo`reboot`"));
+        assert!(!is_valid_interface_name("Ethernet\"1\"")); // Nokia quote break-out
+        assert!(!is_valid_interface_name("*")); // wildcard is not a valid target
+        assert!(!is_valid_interface_name(""));
     }
 
     #[test]
