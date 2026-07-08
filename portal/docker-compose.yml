@@ -1,24 +1,49 @@
 # The portal builds the network map itself (mapbuild app + Django-Q2), producing
-# the public map.json + private map-links.json into the shared `db` volume — no
-# external rsync. Two services share one image + the templated .env (which now
-# also carries NETBOX_API_ENDPOINT/TOKEN for the builder): the `portal` web
-# server and the `qcluster` background worker that runs the (scheduled +
-# on-demand) map build. Kept docker-compose v1 friendly (no long-form depends_on
-# conditions); qcluster migrates before it starts so its django_q tables exist.
+# the PUBLIC map.json + operator logos and the PRIVATE map-links.json. Two
+# services share one image + the templated .env (which also carries
+# NETBOX_API_ENDPOINT/TOKEN for the builder): the `portal` web server and the
+# `qcluster` background worker that runs the (scheduled + on-demand) map build.
+#
+# Static/built assets are served DIRECTLY BY THE HOST NGINX, not streamed through
+# Django, via two host bind mounts:
+#   - ${SFMIX_PORTAL_STATIC_DIR:-/opt/sfmix/portal-static}  -> /app/staticfiles
+#     (collectstatic output; nginx serves /static/). collectstatic runs at
+#     startup because the bind mount shadows the image's build-time copy.
+#   - ${SFMIX_MAP_PUBLIC_DIR:-/opt/sfmix/map-public}        -> /app/mappublic
+#     (PUBLIC map.json + logos/; nginx serves /statistics/map/{map.json,logos/}).
+# The PRIVATE map-links.json stays on the `db` named volume (/app/db/map), which
+# nginx cannot read — so a public/private split is enforced at the filesystem
+# layer, not just by URL routing.
+#
+# Host prep before first deploy (both dirs must exist; container writes as root,
+# nginx reads world-readable files collectstatic/atomic-writes produce):
+#   mkdir -p /opt/sfmix/portal-static /opt/sfmix/map-public
+#
+# Kept docker-compose v1 friendly (no long-form depends_on conditions); qcluster
+# migrates before it starts so its django_q tables exist.
 services:
   portal:
     build: .
     restart: unless-stopped
+    # Refresh collectstatic into the bind-mounted static dir, then serve. exec so
+    # gunicorn is PID 1 and receives signals directly.
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+      exec gunicorn ixp_portal.wsgi:application
+      --bind 0.0.0.0:8000 --workers 3
+      --access-logfile - --error-logfile -"
     ports:
       - "127.0.0.1:8000:8000"
     env_file:
       - .env
     environment:
-      MAP_OUTPUT: "/app/db/map/map.json"
+      MAP_OUTPUT: "/app/mappublic/map.json"
       MAP_LINKS_OUTPUT: "/app/db/map/map-links.json"
       SFMIX_MAP_LINKS_PATH: "/app/db/map/map-links.json"
     volumes:
       - db:/app/db
+      - ${SFMIX_PORTAL_STATIC_DIR:-/opt/sfmix/portal-static}:/app/staticfiles
+      - ${SFMIX_MAP_PUBLIC_DIR:-/opt/sfmix/map-public}:/app/mappublic
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/login/')"]
       interval: 30s
@@ -32,11 +57,12 @@ services:
     env_file:
       - .env
     environment:
-      MAP_OUTPUT: "/app/db/map/map.json"
+      MAP_OUTPUT: "/app/mappublic/map.json"
       MAP_LINKS_OUTPUT: "/app/db/map/map-links.json"
       SFMIX_MAP_LINKS_PATH: "/app/db/map/map-links.json"
     volumes:
       - db:/app/db
+      - ${SFMIX_MAP_PUBLIC_DIR:-/opt/sfmix/map-public}:/app/mappublic
 
 volumes:
   db:

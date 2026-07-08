@@ -37,10 +37,36 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # The network map is built + served by the portal itself now (mapbuild app):
-    # public map.json at /statistics/map/map.json (CORS-open) and the traffic feed
-    # at /statistics/map/traffic, both proxied to Django below. map-links.json
-    # stays private on the db volume and is never exposed.
+    # Built + static assets are served straight from disk (bind mounts the portal
+    # container writes to), never streamed through Django/gunicorn:
+    #   /static/                    -> collectstatic output
+    #   /statistics/map/map.json    -> PUBLIC network-map structure (CORS-open)
+    #   /statistics/map/logos/      -> cached operator logos (was hotlinked from
+    #                                  peeringdb.com; now downloaded at build time)
+    # The PRIVATE map-links.json lives on the db named volume, outside these dirs,
+    # so it is not reachable here. The dynamic /statistics/map/traffic feed and
+    # everything else fall through to Django below.
+    # Host paths must match the bind mounts in portal/docker-compose.yml.
+    location /static/ {
+        alias {{ ixp_portal_static_dir | default('/opt/sfmix/portal-static') }}/;
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public";
+    }
+
+    location = /statistics/map/map.json {
+        alias {{ ixp_portal_map_public_dir | default('/opt/sfmix/map-public') }}/map.json;
+        default_type application/json;
+        add_header Access-Control-Allow-Origin "*";
+        add_header Cache-Control "public, max-age=300";
+    }
+
+    location /statistics/map/logos/ {
+        alias {{ ixp_portal_map_public_dir | default('/opt/sfmix/map-public') }}/logos/;
+        add_header Access-Control-Allow-Origin "*";
+        add_header Cache-Control "public, max-age=86400";
+        add_header X-Content-Type-Options "nosniff";
+    }
 
     location / {
         proxy_pass http://127.0.0.1:{{ ixp_portal_listen_port }};

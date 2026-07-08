@@ -167,6 +167,20 @@ def _peeringdb_api_key():
 PDB_SITE_FIELDS = ("pdb_fac", "pdb_url", "operator_website", "city", "state",
                    "country", "net_count", "ix_count", "logo")
 
+# Operator logos come from PeeringDB org records as absolute peeringdb.com URLs.
+# We never emit those into map.json (that would hotlink a third party from every
+# visitor's browser and leak visitor IPs to PeeringDB); instead the build
+# downloads each logo and rewrites `logo` to a portal-served path under this
+# prefix. The host nginx serves these directly from the map-public bind mount
+# (location /statistics/map/logos/), alongside map.json — no Django view.
+LOGO_URL_PREFIX = "/statistics/map/logos/"
+LOGO_MAX_BYTES = 512 * 1024
+# content-type -> extension; also the allowlist of acceptable logo formats
+LOGO_CONTENT_TYPES = {
+    "image/png": "png", "image/jpeg": "jpg", "image/svg+xml": "svg",
+    "image/webp": "webp", "image/gif": "gif",
+}
+
 
 def enrich_peeringdb(sites):
     """Merge public PeeringDB facility metadata into sites that carry a facility
@@ -570,7 +584,83 @@ def _atomic_write(path, obj):
     os.replace(tmp, path)
 
 
+def _atomic_write_bytes(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+    os.replace(tmp, path)
+
+
+def cache_logos(mapjson, out_dir):
+    """Download PeeringDB operator logos and rewrite each site's ``logo`` to a
+    local, portal-served path, so the browser never hotlinks peeringdb.com.
+
+    Logos land in ``<out_dir>/logos/<sha256[:16]>.<ext>`` and the ``logo`` field
+    becomes ``/statistics/map/logos/<name>`` (resolved against the portal origin
+    by the frontend). Best-effort and offline-safe: any logo that can't be
+    fetched, isn't a recognised image type, or exceeds the size cap is dropped
+    from map.json entirely (the frontend then falls back to the bundled operator
+    icon / monogram) rather than left as a third-party hotlink. Stale files from
+    prior builds are pruned so the directory tracks the current generation."""
+    import hashlib
+    import logging
+    log = logging.getLogger(__name__)
+
+    sites = mapjson.get("sites", {})
+    urls = sorted({
+        s["logo"] for s in sites.values()
+        if isinstance(s.get("logo"), str) and s["logo"].startswith(("http://", "https://"))
+    })
+    logos_dir = os.path.join(out_dir, "logos")
+    mapping = {}  # source peeringdb URL -> served path
+    keep = set()  # filenames for the current generation (for pruning)
+
+    if urls:
+        import requests
+        sess = requests.Session()
+        for url in urls:
+            try:
+                r = sess.get(url, timeout=15, stream=True)
+                r.raise_for_status()
+                ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                ext = LOGO_CONTENT_TYPES.get(ctype)
+                if not ext:
+                    raise ValueError("unsupported content-type %r" % ctype)
+                # read one byte past the cap so an oversize body is detected
+                data = r.raw.read(LOGO_MAX_BYTES + 1, decode_content=True)
+                if len(data) > LOGO_MAX_BYTES:
+                    raise ValueError("logo exceeds %d bytes" % LOGO_MAX_BYTES)
+                name = "%s.%s" % (hashlib.sha256(url.encode()).hexdigest()[:16], ext)
+                _atomic_write_bytes(os.path.join(logos_dir, name), data)
+                mapping[url] = LOGO_URL_PREFIX + name
+                keep.add(name)
+            except Exception as e:  # network/HTTP/type/size — never fatal to a build
+                log.warning("logo cache failed for %s: %s", url, e)
+
+    for s in sites.values():
+        u = s.get("logo")
+        if not isinstance(u, str):
+            continue
+        if u in mapping:
+            s["logo"] = mapping[u]
+        elif u.startswith(("http://", "https://")):
+            s.pop("logo", None)  # fetch failed: drop rather than hotlink
+
+    # prune logos from prior generations
+    if os.path.isdir(logos_dir):
+        for fn in os.listdir(logos_dir):
+            if fn not in keep and not fn.endswith(".tmp"):
+                try:
+                    os.remove(os.path.join(logos_dir, fn))
+                except OSError:
+                    pass
+
+
 def write_outputs(mapjson, linksjson, out_path, links_path):
-    """Atomically write the public map + private links files."""
+    """Atomically write the public map + private links files. Operator logos are
+    downloaded and rewritten to portal-served paths (see cache_logos) before the
+    public map is materialised, so map.json never carries a peeringdb.com URL."""
+    cache_logos(mapjson, os.path.dirname(out_path))
     _atomic_write(out_path, mapjson)
     _atomic_write(links_path, linksjson)
