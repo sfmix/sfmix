@@ -15,4 +15,6 @@ SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer vol
 
 {{< stat-card icon="🗺️" url="https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495" title="traffic weathermap" desc="live per-link usage across the SFMIX fabric, it's giving realtime 🔥" >}}
 
+{{< stat-card icon="🚇" url="/genz/network-map/" external="false" title="interactive network map 🚇" desc="a subway-style map of the fabric, colored by live traffic. zoom from metros all the way down to sites, fr 🔥" >}}
+
 </div>
