@@ -18,6 +18,13 @@
   var BASEMAP_BASE = el.dataset.basemapBase || "/map/";
   var SPRITE_BASE = el.dataset.spriteBase || "/map/sprites/";
   var DECOR_URL = el.dataset.decorationsUrl || "";
+  // Portal origin, derived from the (absolute) structure URL, so portal-relative
+  // asset paths in map.json (e.g. cached operator logos at /statistics/map/logos/)
+  // resolve to the portal rather than this static site's origin.
+  var PORTAL_ORIGIN = (function () {
+    try { return new URL(STRUCTURE_URL, window.location.href).origin; }
+    catch (e) { return ""; }
+  })();
   var POLL_MS = 60000;
   // Three tiers: metro (overview) -> site -> device. Below METRO_ZOOM the map
   // shows one node per metro to avoid clustering tight sites (e.g. Santa Clara);
@@ -1427,6 +1434,11 @@
   // Base path for repo-local operator logos (curated fallback when PeeringDB has
   // no org logo); filename is the operator slug, e.g. /img/operators/equinix.svg
   var OPLOGO_BASE = "/img/operators/";
+  // Portal path prefix under which the builder caches PeeringDB operator logos.
+  var LOGO_URL_PREFIX = "/statistics/map/logos/";
+  // Allow only http(s) links out; refuses javascript:/data: URIs that could ride
+  // in on third-party (PeeringDB-sourced) fields like operator_website.
+  function httpUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
   function slug(s) { return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -1441,9 +1453,18 @@
     var hue = 0; for (var i = 0; i < (op || "").length; i++) hue = (hue * 31 + op.charCodeAt(i)) % 360;
     return '<span class="nm-info-mono" style="background:hsl(' + hue + ',45%,42%)">' + esc(init) + "</span>";
   }
+  // Resolve the map.json `logo` field to a safe src: cached logos are served as
+  // portal-relative paths (prefixed with the portal origin); a bare https URL is
+  // tolerated for back-compat; anything else (e.g. a javascript: URI) is refused.
+  function logoSrc(raw) {
+    raw = raw || "";
+    if (raw.indexOf(LOGO_URL_PREFIX) === 0) return PORTAL_ORIGIN + raw;
+    if (/^https:\/\//i.test(raw)) return raw;
+    return "";
+  }
   function operatorLogoHtml(p) {
     var mono = monogramHtml(p.operator);
-    var pdb = p.logo || "";
+    var pdb = logoSrc(p.logo);
     var local = p.operator ? OPLOGO_BASE + slug(p.operator) + ".svg" : "";
     var first = pdb || local;
     if (!first) return '<div class="nm-info-logo">' + mono + "</div>";
@@ -1464,8 +1485,9 @@
     if (!isDevice) {
       body += operatorLogoHtml(p);
       if (p.operator) {
-        body += p.operator_website
-          ? '<div class="nm-info-operator"><a href="' + esc(p.operator_website) + '" target="_blank" rel="noopener">' + esc(p.operator) + " ↗</a></div>"
+        var opsite = httpUrl(p.operator_website);
+        body += opsite
+          ? '<div class="nm-info-operator"><a href="' + esc(opsite) + '" target="_blank" rel="noopener">' + esc(p.operator) + " ↗</a></div>"
           : '<div class="nm-info-operator">' + esc(p.operator) + "</div>";
       }
     } else if (p.operator) {

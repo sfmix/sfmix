@@ -8,8 +8,6 @@ import json
 import os
 
 from django.conf import settings
-from django.http import FileResponse
-from django.http import Http404
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -22,17 +20,13 @@ from .tasks import SCHEDULE_NAME
 TASK_FUNC = "mapbuild.tasks.build_map_task"
 
 
-def map_json(request):
-    """Serve the PUBLIC map.json the builder writes. Opaque ids only — no circuit
-    ids/providers — so it's safe to serve cross-origin to the website frontend.
-    (map-links.json is never served; the traffic feed keys off it server-side.)"""
-    try:
-        resp = FileResponse(open(settings.MAP_OUTPUT, "rb"), content_type="application/json")
-    except OSError:
-        raise Http404("map.json not built yet")
-    resp["Access-Control-Allow-Origin"] = "*"
-    resp["Cache-Control"] = "public, max-age=300"
-    return resp
+# NOTE: the PUBLIC map.json (and cached operator logos under /statistics/map/
+# logos/) are now served directly from disk by the host nginx from the
+# map-public bind mount — see portal/docker-compose.yml and the ixp_portal nginx
+# template. There is deliberately no Django view streaming those files; keeping a
+# Python handler just to `open()` a static file was wasteful. The builder writes
+# them (mapbuild.builder.write_outputs / cache_logos); the admin status view
+# below still reads settings.MAP_OUTPUT directly to report build freshness.
 
 
 def _is_ix_admin(request):
