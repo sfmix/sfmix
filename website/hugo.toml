@@ -38,23 +38,24 @@ defaultContentLanguageInSubdir = false
       description = "SFMIX ist ein Internet-Knoten (IX) mit Sitz in San Francisco, Kalifornien. IX dienen als Knotenpunkt für Bandbreite bzw. Netzwerkkapazität. Teilnehmende Organisationen verbinden sich direkt miteinander, um die Netzwerkleistung zu verbessern."
   # Novelty locales — mirror the portal's language picker. English-derived and
   # only reachable via the picker (no browser sends "Pirate" in Accept-Language,
-  # so the JS auto-detect never selects them). languageCode stays a real BCP-47
-  # tag ("en") for <html lang>.
-  # Novelty locales use distinct base language keys (pirate/genz) rather than
-  # "en-…": Hugo's i18n matcher collapses any en-derived tag back to the empty
-  # "en" bundle, so the catalog would never load. A standalone key gets its own
-  # bundle and a clean /pirate/ , /genz/ URL; languageCode stays "en" so the
-  # rendered <html lang> is still valid English for assistive tech.
+  # so the JS auto-detect never selects them).
+  # Each novelty locale needs BOTH a distinct language key (pirate/genz) AND a
+  # distinct languageCode. Hugo resolves the i18n catalog by languageCode, so if
+  # several languages share languageCode = "en" they all collapse onto the empty
+  # "en" bundle (English is the source, so there is none) and every string falls
+  # back to English — the catalog never loads. Giving each a private-use BCP-47
+  # subtag ("en-x-pirate") keeps <html lang> valid English for assistive tech
+  # (the -x- subtag is ignored by consumers) while making the catalog resolvable.
   [languages.pirate]
     languageName = 'Pirate'
-    languageCode = 'en'
+    languageCode = 'en-x-pirate'
     weight = 4
     title = 'SFMIX – Th’ San Francisco Metropolitan Internet eXchange'
     [languages.pirate.params]
       description = "SFMIX be an Internet Exchange (IX) moored in San Francisco, California, where crews o' networks meet t' swap their bits direct-like, savin' coin an' speedin' the voyage."
   [languages.genz]
     languageName = 'Gen Z'
-    languageCode = 'en'
+    languageCode = 'en-x-genz'
     weight = 5
     title = 'SFMIX – the San Francisco Metropolitan Internet eXchange fr'
     [languages.genz.params]

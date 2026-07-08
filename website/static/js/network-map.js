@@ -1382,7 +1382,7 @@
   function metroDetail(e) {
     var f = e.features && e.features[0]; if (!f) return null;
     var p = f.properties;
-    var body = row(p.nsite + (p.nsite == 1 ? " site" : " sites"), "") +
+    var body = row(p.nsite + " " + (p.nsite == 1 ? t("site") : t("sites")), "") +
       '<div class="nm-pop-row"><span class="v" style="font-weight:500">' + p.codes + "</span></div>";
     return { title: p.metro, body: body };
   }
@@ -1398,7 +1398,7 @@
     } else if (p.scope === "metro") head = p.a_site + " ⇆ " + p.z_site;
     var rows = "";
     var isMember = !isMetro && p.members > 1 && p.strand != null && p.strand !== "";
-    if (p.scope === "metro" && p.nmember) rows += row(p.nmember + " circuits", "");
+    if (p.scope === "metro" && p.nmember) rows += row(p.nmember + " " + t("circuits"), "");
     if (isMember) {
       // a specific physical member of the LAG was clicked
       rows += row(t("LAG member"), (Number(p.strand) + 1) + " / " + p.members);
