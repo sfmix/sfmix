@@ -1,5 +1,5 @@
 ---
-title: "the squad 🫂"
+title: "the BFFs 💖"
 layout: "video-header"
 video: "video/team-bg.mp4"
 mobile_image: "img/mobile-golden-gate.jpg"
