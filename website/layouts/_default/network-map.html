@@ -63,7 +63,7 @@
   {{/* UI strings for the map JS, translated via the T partial. Build one dict
        and jsonify it once; safeHTML avoids the double JS-escaping Hugo applies
        to interpolations inside <script>. */}}
-  {{ $keys := slice "In" "Out" "Capacity" "of capacity" "Last updated" "approximate route" "link offline" "live stats unavailable" "underground" "aerial" "submarine" "bridge" "building" "networks" "IXes" "View on PeeringDB" }}
+  {{ $keys := slice "In" "Out" "Capacity" "of capacity" "Last updated" "approximate route" "link offline" "live stats unavailable" "underground" "aerial" "submarine" "bridge" "building" "networks" "IXes" "View on PeeringDB" "LAG member" "LAG total" "Member speed" "LAG members" "Member links" "site" "sites" "circuits" }}
   {{ $i18n := dict }}
   {{ range $keys }}{{ $i18n = merge $i18n (dict . (partial "T.html" .)) }}{{ end }}
   <script type="application/json" id="map-i18n">{{ $i18n | jsonify | safeJS }}</script>
