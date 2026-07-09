@@ -124,21 +124,22 @@
 
     // The backend (portal/mapbuild) has already done ALL geometry prep —
     // smoothing, a->z orientation, de-looping, box-edge clipping, water spans, and
-    // per-pair lane assignment. Here we only STYLE it: fan a LAG's members into
+    // per-pair lane assignment. Here we only STYLE it: fan a parallel bundle's links into
     // parallel strands and turn the pre-built geometry into GeoJSON features. The
     // px spacing of the parallel strands IS a rendering choice, so it lives here.
     var cableFeatures = [], mediaFeatures = [], flowFeatures = [];
     var PAIR_STEP = 2.8;    // px-lane spacing between DISTINCT circuits on a pair
-    var STRAND_FRAC = 0.34; // tight spacing between a circuit's own LAG strands
-    LAG_PROPS = {};
+    var STRAND_FRAC = 0.34; // tight spacing between a bundle's own parallel strands
+    BUNDLE_PROPS = {}; CABLE_STRANDS = {};
     structure.cables.forEach(function (c) {
       var laneCount = c.lane_count || 1;
       var base = ((c.lane || 0) - (laneCount - 1) / 2) * PAIR_STEP;
       var strands = Math.max(1, c.members || 1);
-      // remember multi-member cables so the info pane's ◀ ▶ member stepper can
-      // rebuild a strand's props without re-querying rendered features
+      CABLE_STRANDS[c.id] = strands;
+      // remember parallel bundles so the info pane's ◀ ▶ stepper can rebuild a
+      // strand's props without re-querying rendered features
       if (strands > 1) {
-        LAG_PROPS[c.id] = { id: c.id, scope: c.scope, status: c.status,
+        BUNDLE_PROPS[c.id] = { id: c.id, scope: c.scope, status: c.status,
           approximate: !!c.approximate, capacity_bps: c.capacity_bps,
           members: strands, a_site: c.a_site, z_site: c.z_site,
           a_device: c.a_device || "", z_device: c.z_device || "" };
@@ -159,6 +160,9 @@
         cableFeatures.push({
           type: "Feature", id: c.id,
           properties: {
+            // sid = per-strand feature-state key (promoteId): each parallel
+            // strand colours by its OWN member utilization (see applyTraffic)
+            sid: strands > 1 ? c.id + "#" + st : c.id,
             id: c.id, scope: c.scope, status: c.status,
             approximate: !!c.approximate, weight: weightForCapacity(c.capacity_bps),
             capacity_bps: c.capacity_bps, offset: base + strandOff,
@@ -259,7 +263,7 @@
   }
   function fc(features) { return { type: "FeatureCollection", features: features }; }
   function avg(a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; }
-  var METRO_MEMBERS = {}, METRO_CAP = {}, METRO_STATS = {}, LAG_PROPS = {};
+  var METRO_MEMBERS = {}, METRO_CAP = {}, METRO_STATS = {}, BUNDLE_PROPS = {}, CABLE_STRANDS = {};
   var STATION_KEYS = [], METRO_KEYS = [];
 
   // ---- map ----------------------------------------------------------------
@@ -368,7 +372,7 @@
     // (ponds fill, water doesn't). Data-side fixes (validity repair, grid
     // splits, tolerance/buffer) don't help; revisit on a MapLibre upgrade.
     minZoom: 9,
-    maxZoom: 16.5,  // deep enough to inspect intra-site switch links / LAG strands
+    maxZoom: 16.5,  // deep enough to inspect intra-site switch links / bundle strands
     maxBounds: [[-124.2, 36.0], [-120.1, 39.2]],
     attributionControl: false
   });
@@ -402,7 +406,7 @@
     STATE.flows = src.flows; STATE.metroFlows = src.metroFlows;
 
 
-    map.addSource("cables", { type: "geojson", data: src.cables, promoteId: "id" });
+    map.addSource("cables", { type: "geojson", data: src.cables, promoteId: "sid" });
     map.addSource("cable-media", { type: "geojson", data: src.media });
     map.addSource("stations", { type: "geojson", data: src.stations, promoteId: "code" });
     map.addSource("devices", { type: "geojson", data: src.devices });
@@ -515,7 +519,7 @@
       id: "cables-hit", type: "line", source: "cables",
       layout: { "line-cap": "round" },
       // Fat and forgiving when zoomed out (thin cables are hard to tap); narrows
-      // deep in so each LAG member strand sits in its own hit lane and is
+      // deep in so each parallel-link strand sits in its own hit lane and is
       // individually selectable (strands are ~5px apart at max zoom).
       paint: { "line-color": "#000", "line-opacity": 0, "line-offset": offsetExpr,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 18, 13, 15, 15, 8, 16.5, 4.5] }
@@ -1265,8 +1269,20 @@
   function applyTraffic(traffic) {
     LAST_TRAFFIC = traffic.links || {};
     Object.keys(LAST_TRAFFIC).forEach(function (id) {
-      var util = LAST_TRAFFIC[id].util_pct;
-      map.setFeatureState({ source: "cables", id: id }, { util: util });
+      var tr = LAST_TRAFFIC[id], util = tr.util_pct;
+      // parallel bundles: each strand colours by its own member's utilization
+      // (strand feature ids are id#n — see buildSources); a missing member
+      // breakdown falls back to the combined figure on every strand
+      var strands = CABLE_STRANDS[id] || 1;
+      if (strands > 1) {
+        for (var st = 0; st < strands; st++) {
+          var m = tr.members && tr.members[st];
+          map.setFeatureState({ source: "cables", id: id + "#" + st },
+            { util: m && m.util_pct != null ? m.util_pct : util });
+        }
+      } else {
+        map.setFeatureState({ source: "cables", id: id }, { util: util });
+      }
       if (map.getSource("drops")) map.setFeatureState({ source: "drops", id: id }, { util: util });
       if (map.getSource("flows")) map.setFeatureState({ source: "flows", id: id }, { util: util });
     });
@@ -1404,7 +1420,7 @@
     var props = feat.properties || {};
     DIM_LAYERS[source].forEach(_dim);
     var hl = source === "cables" ? "cables-highlight" : "metro-highlight";
-    // A LAG member strand isolates to just that strand (its siblings dim with the
+    // A parallel-link strand isolates to just that strand (its siblings dim with the
     // rest); a single-strand link highlights whole. metro trunks have no strand.
     if (source === "cables" && props.members > 1 && props.strand != null && props.strand !== "") {
       map.setFilter(hl, ["all", ["==", ["get", "id"], props.id],
@@ -1441,26 +1457,38 @@
     } else if (p.scope === "metro") head = p.a_site + " ⇆ " + p.z_site;
     var rows = "";
     var isMember = !isMetro && p.members > 1 && p.strand != null && p.strand !== "";
+    var st = isMember ? Number(p.strand) : -1;
+    // this link's own stats when the feed carries the per-member breakdown
+    // (array index = strand index); null on a failed member query -> fall back
+    // to the combined bundle figures below
+    var mtr = isMember && tr && tr.members ? tr.members[st] : null;
+    var mspd = isMember
+      ? ((mtr && mtr.speed_bps) || (p.capacity_bps > 0 ? p.capacity_bps / p.members : 0)) : 0;
     if (p.scope === "metro" && p.nmember) rows += row(p.nmember + " " + t("circuits"), "");
     if (isMember) {
-      // a specific physical member of the LAG was clicked — the ◀ ▶ stepper
-      // walks the selection through the sibling strands (they sit ~a strand-
-      // width apart on screen, too fiddly to click individually); handled by
-      // the delegated listener in infoPane.init
-      var st = Number(p.strand);
-      rows += row(t("LAG member"),
-        lagNavBtn(id, st - 1, "◀", t("Previous member")) +
-        '<span class="nm-lagnav-pos">' + (st + 1) + " / " + p.members + "</span>" +
-        lagNavBtn(id, st + 1, "▶", t("Next member")));
-      if (p.capacity_bps > 0) rows += row(t("Member speed"), capLabel(p.capacity_bps / p.members));
-    } else if (p.members > 1) {
-      rows += row(t(p.scope === "intra" ? "LAG members" : "Member links"), p.members + "×");
+      // one physical link of a parallel bundle was clicked — the ◀ ▶ stepper
+      // walks the selection through its siblings (they sit ~a strand-width
+      // apart on screen, too fiddly to click individually); handled by the
+      // delegated listener in infoPane.init
+      rows += row(t("Parallel link"),
+        linkNavBtn(id, st - 1, "◀", t("Previous link")) +
+        '<span class="nm-linknav-pos">' + (st + 1) + " / " + p.members + "</span>" +
+        linkNavBtn(id, st + 1, "▶", t("Next link")));
+      if (mspd > 0) rows += row(t("Link speed"), capLabel(mspd));
+      if (p.capacity_bps > 0) rows += row(t("Combined capacity"), capLabel(p.capacity_bps));
+    } else {
+      if (p.members > 1) rows += row(t("Parallel links"), p.members + "×");
+      if (p.capacity_bps > 0) rows += row(t("Capacity"), capLabel(p.capacity_bps));
     }
-    if (p.capacity_bps > 0) rows += row(isMember ? t("LAG total") : t("Capacity"), capLabel(p.capacity_bps));
     if (p.status === "down") {
       rows += '<div class="nm-pop-row"><span class="nm-chip nm-chip-offline">' + t("link offline") + "</span></div>";
     } else if (p.status === "planned") {
       rows += '<div class="nm-pop-row"><span class="nm-chip nm-chip-planned">' + t("planned — not yet in service") + "</span></div>";
+    } else if (mtr) {
+      rows += row(t("In"), fmtBps(mtr.in_bps));
+      rows += row(t("Out"), fmtBps(mtr.out_bps));
+      rows += row(t("of capacity"), (mtr.util_pct != null ? mtr.util_pct + "%" : "—"));
+      rows += sparkline(mtr, mspd);
     } else if (tr) {
       rows += row(t("In"), fmtBps(tr.in_bps));
       rows += row(t("Out"), fmtBps(tr.out_bps));
@@ -1476,17 +1504,17 @@
     return siteDetailFromProps(f.properties);
   }
 
-  // ---- LAG member stepper --------------------------------------------------
-  function lagNavBtn(id, strand, glyph, label) {
-    return '<button class="nm-lagnav-btn" type="button" data-cable="' + esc(id) +
+  // ---- parallel-link stepper --------------------------------------------------
+  function linkNavBtn(id, strand, glyph, label) {
+    return '<button class="nm-linknav-btn" type="button" data-cable="' + esc(id) +
       '" data-strand="' + strand + '" aria-label="' + esc(label) + '">' + glyph + "</button>";
   }
   // Re-select cable `id` at member `strand` (wrapping both ways) and re-render
   // the pane — a synthesized strand feature is enough for selectFeature and
   // cableDetail, so no queryRenderedFeatures round-trip is needed (the sibling
   // strand may even be off-screen).
-  function selectLagMember(id, strand) {
-    var c = LAG_PROPS[id]; if (!c) return;
+  function selectBundleLink(id, strand) {
+    var c = BUNDLE_PROPS[id]; if (!c) return;
     var props = {};
     Object.keys(c).forEach(function (k) { props[k] = c[k]; });
     props.strand = ((strand % c.members) + c.members) % c.members;
@@ -1495,7 +1523,7 @@
     var d = cableDetail({ features: [fake] });
     if (d) infoPane.showDetail(d.title, d.body);
   }
-  window.__nmLagMember = selectLagMember;  // exposed for dev/screenshot tooling
+  window.__nmBundleLink = selectBundleLink;  // exposed for dev/screenshot tooling
 
   // Base path for repo-local operator logos (curated fallback when PeeringDB has
   // no org logo); filename is the operator slug, e.g. /img/operators/equinix.svg
@@ -1634,11 +1662,11 @@
       aboutEl = root.querySelector(".nm-info-about");
       detailEl = root.querySelector(".nm-info-detail");
       detailBody = root.querySelector(".nm-info-detail-body");
-      // LAG member stepper (◀ ▶ in cableDetail) — delegated, since the body
+      // parallel-link stepper (◀ ▶ in cableDetail) — delegated, since the body
       // is re-rendered wholesale on every showDetail
       if (detailBody) detailBody.addEventListener("click", function (ev) {
-        var b = ev.target && ev.target.closest && ev.target.closest(".nm-lagnav-btn");
-        if (b) selectLagMember(b.getAttribute("data-cable"), Number(b.getAttribute("data-strand")));
+        var b = ev.target && ev.target.closest && ev.target.closest(".nm-linknav-btn");
+        if (b) selectBundleLink(b.getAttribute("data-cable"), Number(b.getAttribute("data-strand")));
       });
       defaultTitle = titleEl ? titleEl.textContent : "";
       if (toggle) toggle.addEventListener("click", function () { setCollapsed(expanded()); });

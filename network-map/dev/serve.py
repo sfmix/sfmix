@@ -62,12 +62,26 @@ def fabricate_traffic(mapdata):
         series_out = [max(0.0, min(0.98, base + 0.2 * math.sin(now / 900.0 + phase + k / 5.0))) * cap
                       for k in range(SERIES_POINTS)]
         series_in = [v * 0.8 for v in series_out]
-        links[cable["id"]] = {
+        entry = {
             "in_bps": round(in_bps), "out_bps": round(out_bps),
             "util_pct": round(100 * max(frac_in, frac_out), 1),
             "series_in": [round(v) for v in series_in],
             "series_out": [round(v) for v in series_out],
         }
+        # parallel bundles: per-member breakdown (index = strand), deliberately
+        # skewed so stepping members in the UI shows visibly different numbers
+        nmem = cable.get("members") or 1
+        if nmem > 1:
+            spd = cap / nmem
+            shares = [2 * (k + 1) / (nmem * (nmem + 1)) for k in range(nmem)]
+            entry["members"] = [{
+                "in_bps": round(in_bps * sh), "out_bps": round(out_bps * sh),
+                "util_pct": round(100 * max(frac_in, frac_out) * sh * nmem, 1),
+                "speed_bps": round(spd),
+                "series_in": [round(v * sh) for v in series_in],
+                "series_out": [round(v * sh) for v in series_out],
+            } for k, sh in enumerate(shares)]
+        links[cable["id"]] = entry
     return {
         "generation": mapdata["generation"],
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),

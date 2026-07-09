@@ -348,6 +348,7 @@ def netbox_cables(topology, facts, cids, nb):
             "up" if st == "active" else ("planned" if st == "planned" else "down"))
         cables.append({
             "key": ("nb", gc), "a_site": a, "z_site": z, "members": mlist,
+            "member_speed": dict(mem),
             "tokens": sorted({norm_token(t) for t in h.get("match", [])}),
             "provider": h.get("provider") or "", "capacity_bps": cap, "status": status,
         })
@@ -494,8 +495,11 @@ def build(generation_seed=None, now=None):
             "approximate": approximate, "members": len(rep),
             "path": geom["path"], "media": geom["media"], "drops": geom["drops"],
         })
+        # members stay in rep's sorted order: the traffic feed's per-member array
+        # index IS the map's strand index (frontend fans strands in this order)
         links_private[oid] = {
-            "members": [{"host": traffic_host(m[0]), "ifname": m[1]} for m in rep],
+            "members": [{"host": traffic_host(m[0]), "ifname": m[1],
+                         "speed_bps": int(c.get("member_speed", {}).get(m) or 0)} for m in rep],
             "circuit": c["tokens"], "provider": c["provider"],
             "capacity_bps": c["capacity_bps"],
         }
@@ -520,6 +524,9 @@ def build(generation_seed=None, now=None):
         dc = {d["id"]: [d["dlon"], d["dlat"]] for d in sites_out[site]["devices"]}
         if da not in dc or db not in dc:
             continue
+        # stable member order: the traffic feed's per-member array index IS the
+        # map's strand index (topology iteration order is not deterministic)
+        member_ports = sorted(member_ports)
         cap = sum(port_speed_bps(facts, h, i) for h, i in member_ports)
         oid = str(uuid.uuid5(NS, generation + "|intra|" + site + "|" + da + "|" + db))
         cables_out.append({
@@ -529,7 +536,8 @@ def build(generation_seed=None, now=None):
             "path": [dc[da], dc[db]], "media": [], "drops": [],
         })
         links_private[oid] = {
-            "members": [{"host": traffic_host(h), "ifname": i} for h, i in member_ports],
+            "members": [{"host": traffic_host(h), "ifname": i,
+                         "speed_bps": int(port_speed_bps(facts, h, i))} for h, i in member_ports],
             "circuit": [], "provider": "", "capacity_bps": cap, "scope": "intra",
         }
 
