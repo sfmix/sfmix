@@ -739,6 +739,12 @@
   var DECO_TICK = null; // registered by addDecorations (roaming cattle)
   setInterval(function () {
     if (document.hidden) return;
+    // While the camera is moving (user gesture or easeTo/zoomTo animation) the
+    // map already repaints every frame — skip the tick entirely so the dash
+    // stepping, fog redraw and cattle setData don't add main-thread/worker work
+    // (source re-tiling!) to every interaction frame. The animations freeze for
+    // the duration of the gesture and resume on the next tick after moveend.
+    if (map.isMoving()) return;
     flowPhase = (flowPhase + 1) % FLOW_SEQ.length;
     var fwd = FLOW_SEQ[flowPhase], rev = FLOW_SEQ[FLOW_SEQ.length - 1 - flowPhase];
     [["flow-fwd", fwd], ["flow-rev", rev], ["metro-flow-fwd", fwd], ["metro-flow-rev", rev]]
@@ -762,22 +768,32 @@
   function setVis(ids, on) {
     ids.forEach(function (id) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
   }
-  function setTier() {
+  // setTier runs on EVERY 'zoom' event (i.e. every animation frame of a zoom);
+  // memoize on the tier tuple so the marker loops and ~25 setLayoutProperty
+  // calls only happen when a tier boundary is actually crossed. Callers that
+  // create markers after the fact (airport labels, structure reload) pass
+  // force=true since new markers start hidden regardless of the cached state.
+  var tierKey = null;
+  function setTier(force) {
     var z = map.getZoom();
     var metro = z < METRO_ZOOM;
-    setVis(METRO_LAYERS, metro);
-    setVis(SITE_LAYERS, !metro);
     // site name: beside the roundel at the site tier, then ABOVE the building box
     // once the box opens (device tier) — never overlapping the switches inside
     var besideOn = !metro && z < EXPAND_ZOOM;
     var aboveBoxOn = z >= EXPAND_ZOOM;
+    var deviceOn = z >= DEVICE_LABEL_ZOOM;
+    var showIcao = z >= ICAO_ZOOM;
+    var key = "" + metro + besideOn + aboveBoxOn + deviceOn + showIcao;
+    if (key === tierKey && force !== true) return;
+    tierKey = key;
+    setVis(METRO_LAYERS, metro);
+    setVis(SITE_LAYERS, !metro);
     siteMarkers.forEach(function (m) { m.getElement().style.display = besideOn ? "" : "none"; });
     siteBoxMarkers.forEach(function (m) { m.getElement().style.display = aboveBoxOn ? "" : "none"; });
     metroMarkers.forEach(function (m) { m.getElement().style.display = metro ? "" : "none"; });
     // device dots appear with the building box; their labels wait until there's
     // room so adjacent switch captions don't collide
-    deviceMarkers.forEach(function (m) { m.getElement().style.display = z >= DEVICE_LABEL_ZOOM ? "" : "none"; });
-    var showIcao = z >= ICAO_ZOOM;
+    deviceMarkers.forEach(function (m) { m.getElement().style.display = deviceOn ? "" : "none"; });
     airportMarkers.forEach(function (m) { m.getElement().style.display = showIcao ? "" : "none"; });
   }
 
@@ -855,7 +871,7 @@
       m.getElement().style.display = "none";
       airportMarkers.push(m);
     });
-    setTier();
+    setTier(true); // force: the new markers start hidden regardless of tier
   }
 
   // ---- highway shields ------------------------------------------------------
@@ -1111,7 +1127,16 @@
         if (roamers.length) {
           var roamT = 0, decoSrc = map.getSource("decorations");
           DECO_TICK = function () {
-            roamT += 0.05;
+            roamT += 0.05; // keep time flowing so motion is continuous on resume
+            // setData() re-tiles the whole GeoJSON source every tick — skip it
+            // when no roamer is anywhere near the viewport (their wander radius
+            // is ~0.012°, use a generous margin so they never freeze on-screen)
+            var b = map.getBounds();
+            var visible = roamers.some(function (m) {
+              return m.lng0 >= b.getWest() - 0.1 && m.lng0 <= b.getEast() + 0.1 &&
+                     m.lat0 >= b.getSouth() - 0.1 && m.lat0 <= b.getNorth() + 0.1;
+            });
+            if (!visible) return;
             roamers.forEach(function (m) {
               var dx = Math.cos(roamT * m.w1 + m.p1);
               var dy = Math.sin(roamT * m.w2 + m.p2);
@@ -1202,10 +1227,16 @@
       .setLngLat(f.geometry.coordinates).addTo(map);
     m._decoSize = f.properties.size || 1;
     decoTextMarkers.push(m);
-    placeDecoText();
+    placeDecoText(true);
   }
-  function placeDecoText() {
+  // Also a per-frame 'zoom' listener: skip the setOffset pass (each one is a
+  // marker DOM write + reprojection) unless the sprite size factor moved
+  // enough to matter (< ~half a px of caption offset at the largest sprite).
+  var decoFactorLast = -1;
+  function placeDecoText(force) {
     var factor = decoSizeFactor(map.getZoom());
+    if (force !== true && Math.abs(factor - decoFactorLast) < 0.005) return;
+    decoFactorLast = factor;
     decoTextMarkers.forEach(function (m) {
       m.setOffset([0, DECO_SPRITE_PX * m._decoSize * factor / 2 + 4]);
     });
@@ -1375,7 +1406,7 @@
         map.getSource("metro-stations").setData(src.metroStations);
         map.getSource("buildings").setData(src.buildings);
         map.getSource("drops").setData(src.drops);
-        setTier();
+        setTier(true);
         pollTraffic();
       }).catch(function () {});
   }
