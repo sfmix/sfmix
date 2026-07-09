@@ -77,6 +77,8 @@
 "IXes" = "IX"
 "View on PeeringDB" = "Ver en PeeringDB"
 "LAG member" = "Miembro de LAG"
+"Previous member" = "Miembro anterior"
+"Next member" = "Miembro siguiente"
 "LAG total" = "Total de LAG"
 "Member speed" = "Velocidad por miembro"
 "LAG members" = "Miembros de LAG"
