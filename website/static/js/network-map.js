@@ -130,10 +130,19 @@
     var cableFeatures = [], mediaFeatures = [], flowFeatures = [];
     var PAIR_STEP = 2.8;    // px-lane spacing between DISTINCT circuits on a pair
     var STRAND_FRAC = 0.34; // tight spacing between a circuit's own LAG strands
+    LAG_PROPS = {};
     structure.cables.forEach(function (c) {
       var laneCount = c.lane_count || 1;
       var base = ((c.lane || 0) - (laneCount - 1) / 2) * PAIR_STEP;
       var strands = Math.max(1, c.members || 1);
+      // remember multi-member cables so the info pane's ◀ ▶ member stepper can
+      // rebuild a strand's props without re-querying rendered features
+      if (strands > 1) {
+        LAG_PROPS[c.id] = { id: c.id, scope: c.scope, status: c.status,
+          approximate: !!c.approximate, capacity_bps: c.capacity_bps,
+          members: strands, a_site: c.a_site, z_site: c.z_site,
+          a_device: c.a_device || "", z_device: c.z_device || "" };
+      }
       // one flow feature per inter cable (rides the bundle's lane): the barber-
       // pole stripe animated toward the dominant traffic direction (dir set on
       // each traffic poll; 0 = unknown/idle = hidden)
@@ -250,7 +259,7 @@
   }
   function fc(features) { return { type: "FeatureCollection", features: features }; }
   function avg(a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; }
-  var METRO_MEMBERS = {}, METRO_CAP = {}, METRO_STATS = {};
+  var METRO_MEMBERS = {}, METRO_CAP = {}, METRO_STATS = {}, LAG_PROPS = {};
   var STATION_KEYS = [], METRO_KEYS = [];
 
   // ---- map ----------------------------------------------------------------
@@ -1434,8 +1443,15 @@
     var isMember = !isMetro && p.members > 1 && p.strand != null && p.strand !== "";
     if (p.scope === "metro" && p.nmember) rows += row(p.nmember + " " + t("circuits"), "");
     if (isMember) {
-      // a specific physical member of the LAG was clicked
-      rows += row(t("LAG member"), (Number(p.strand) + 1) + " / " + p.members);
+      // a specific physical member of the LAG was clicked — the ◀ ▶ stepper
+      // walks the selection through the sibling strands (they sit ~a strand-
+      // width apart on screen, too fiddly to click individually); handled by
+      // the delegated listener in infoPane.init
+      var st = Number(p.strand);
+      rows += row(t("LAG member"),
+        lagNavBtn(id, st - 1, "◀", t("Previous member")) +
+        '<span class="nm-lagnav-pos">' + (st + 1) + " / " + p.members + "</span>" +
+        lagNavBtn(id, st + 1, "▶", t("Next member")));
       if (p.capacity_bps > 0) rows += row(t("Member speed"), capLabel(p.capacity_bps / p.members));
     } else if (p.members > 1) {
       rows += row(t(p.scope === "intra" ? "LAG members" : "Member links"), p.members + "×");
@@ -1459,6 +1475,27 @@
     var f = e.features && e.features[0]; if (!f) return null;
     return siteDetailFromProps(f.properties);
   }
+
+  // ---- LAG member stepper --------------------------------------------------
+  function lagNavBtn(id, strand, glyph, label) {
+    return '<button class="nm-lagnav-btn" type="button" data-cable="' + esc(id) +
+      '" data-strand="' + strand + '" aria-label="' + esc(label) + '">' + glyph + "</button>";
+  }
+  // Re-select cable `id` at member `strand` (wrapping both ways) and re-render
+  // the pane — a synthesized strand feature is enough for selectFeature and
+  // cableDetail, so no queryRenderedFeatures round-trip is needed (the sibling
+  // strand may even be off-screen).
+  function selectLagMember(id, strand) {
+    var c = LAG_PROPS[id]; if (!c) return;
+    var props = {};
+    Object.keys(c).forEach(function (k) { props[k] = c[k]; });
+    props.strand = ((strand % c.members) + c.members) % c.members;
+    var fake = { properties: props };
+    selectFeature("cables", fake);
+    var d = cableDetail({ features: [fake] });
+    if (d) infoPane.showDetail(d.title, d.body);
+  }
+  window.__nmLagMember = selectLagMember;  // exposed for dev/screenshot tooling
 
   // Base path for repo-local operator logos (curated fallback when PeeringDB has
   // no org logo); filename is the operator slug, e.g. /img/operators/equinix.svg
@@ -1597,6 +1634,12 @@
       aboutEl = root.querySelector(".nm-info-about");
       detailEl = root.querySelector(".nm-info-detail");
       detailBody = root.querySelector(".nm-info-detail-body");
+      // LAG member stepper (◀ ▶ in cableDetail) — delegated, since the body
+      // is re-rendered wholesale on every showDetail
+      if (detailBody) detailBody.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest && ev.target.closest(".nm-lagnav-btn");
+        if (b) selectLagMember(b.getAttribute("data-cable"), Number(b.getAttribute("data-strand")));
+      });
       defaultTitle = titleEl ? titleEl.textContent : "";
       if (toggle) toggle.addEventListener("click", function () { setCollapsed(expanded()); });
       var back = root.querySelector(".nm-info-back");
