@@ -333,7 +333,14 @@
         // committed terrarium DEM pyramid (z8-10, fetch_dem.py) — hillshade +
         // gentle 3D terrain. 256px tiles are fetched at map-zoom+1 and the
         // source under/overzooms outside 8..10.
+        // TWO sources over the same tiles: MapLibre warns (and renders worse)
+        // when hillshade and setTerrain share one raster-dem source, since
+        // terrain wants different overscaling than the hillshade layer. The
+        // browser HTTP cache dedupes the underlying tile fetches.
         dem: { type: "raster-dem", tiles: [BASEMAP_BASE + "dem/{z}/{x}/{y}.png"],
+          tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 10,
+          bounds: [-124.0, 36.2, -120.3, 39.0] },
+        "dem-terrain": { type: "raster-dem", tiles: [BASEMAP_BASE + "dem/{z}/{x}/{y}.png"],
           tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 10,
           bounds: [-124.0, 36.2, -120.3, 39.0] },
         sutro: { type: "geojson", data: BASEMAP_BASE + "sutro.json" }
@@ -439,7 +446,7 @@
   function syncTerrain() {
     var want = map.getPitch() >= TERRAIN_PITCH;
     if (want === !!map.getTerrain()) return;
-    map.setTerrain(want ? { source: "dem", exaggeration: 1.3 } : null);
+    map.setTerrain(want ? { source: "dem-terrain", exaggeration: 1.3 } : null);
   }
   map.on("load", syncTerrain);
   map.on("pitchend", syncTerrain);
