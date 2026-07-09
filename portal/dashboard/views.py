@@ -1898,8 +1898,10 @@ def ix_map_traffic(request):
     The browser loads the static structure (map.json, served by nginx) once, then
     polls this for colouring. Per-cable throughput is summed over the cable's
     member ports (from the private map-links map); circuit ids/providers are never
-    returned. The whole response is cached server-side so N visitors cost one
-    Prometheus query burst per TTL — Prometheus is never hit by the browser.
+    returned. Parallel bundles (2+ member ports) also carry a per-member
+    breakdown so each strand can be inspected/coloured individually. The whole
+    response is cached server-side so N visitors cost one Prometheus query burst
+    per TTL — Prometheus is never hit by the browser.
     """
     payload = cache.get("map_traffic")
     if payload is not None:
@@ -1919,28 +1921,48 @@ def ix_map_traffic(request):
     xs = prom_client.build_grid(start, end, step)
     prom = prom_client.PrometheusClient()
 
-    out_links = {}
-    for cid, meta in links.items():
-        members = [(m["host"], m["ifname"]) for m in meta.get("members", [])]
-        cap = meta.get("capacity_bps") or 0
-        if not members:
-            continue
+    def _rates(port_list, cap_bps):
+        """One in/out query pair over port_list -> stats dict, or None on failure."""
         try:
-            in_r = prom.query_range(prom_client.ifcounters_query(members, "in", step), start, end, step)
-            out_r = prom.query_range(prom_client.ifcounters_query(members, "out", step), start, end, step)
+            in_r = prom.query_range(prom_client.ifcounters_query(port_list, "in", step), start, end, step)
+            out_r = prom.query_range(prom_client.ifcounters_query(port_list, "out", step), start, end, step)
         except Exception:
             logger.warning("map traffic query failed for a cable", exc_info=True)
-            continue
+            return None
         series_in = prom_client.align_single(in_r, xs, start, step)
         series_out = prom_client.align_single(out_r, xs, start, step)
         cur_in = next((v for v in reversed(series_in) if v is not None), 0) or 0
         cur_out = next((v for v in reversed(series_out) if v is not None), 0) or 0
-        util = round(100.0 * max(cur_in, cur_out) / cap, 1) if cap else 0
-        out_links[cid] = {
+        util = round(100.0 * max(cur_in, cur_out) / cap_bps, 1) if cap_bps else 0
+        return {
             "in_bps": round(cur_in), "out_bps": round(cur_out), "util_pct": util,
             "series_in": [round(v) if v is not None else None for v in series_in],
             "series_out": [round(v) if v is not None else None for v in series_out],
         }
+
+    out_links = {}
+    for cid, meta in links.items():
+        mlist = meta.get("members", [])
+        members = [(m["host"], m["ifname"]) for m in mlist]
+        cap = meta.get("capacity_bps") or 0
+        if not members:
+            continue
+        entry = _rates(members, cap)
+        if entry is None:
+            continue
+        # parallel bundles additionally get a per-member breakdown, index-aligned
+        # with the map's strand order (a failed member query stays null so the
+        # indices keep lining up; the frontend falls back to the combined stats)
+        if len(members) > 1:
+            per = []
+            for m in mlist:
+                spd = m.get("speed_bps") or 0
+                stats = _rates([(m["host"], m["ifname"])], spd)
+                if stats is not None:
+                    stats["speed_bps"] = spd
+                per.append(stats)
+            entry["members"] = per
+        out_links[cid] = entry
 
     payload = {
         "generation": links_doc.get("generation"),

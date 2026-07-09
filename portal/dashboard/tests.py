@@ -478,3 +478,71 @@ class NdEventCountEnrichmentTests(SimpleTestCase):
         out = views._fetch_discovered_by_ip(lg, "tok", 64496)
         self.assertEqual(out["2001:db8:0:1::10"]["event_count"], 2)
         self.assertEqual(out["192.0.2.99"]["event_count"], 0)
+
+
+class IxMapTrafficMembersTests(SimpleTestCase):
+    """Parallel bundles (2+ member ports) get a per-member breakdown whose array
+    index matches the map's strand index; a failed member query leaves a null
+    placeholder so the indices keep lining up."""
+
+    LINKS_DOC = {
+        "generation": "g-test", "generated_at": "2026-07-08T00:00:00Z",
+        "links": {
+            "cable-solo": {
+                "members": [{"host": "sw1.example", "ifname": "et1", "speed_bps": 100e9}],
+                "capacity_bps": 100e9,
+            },
+            "cable-pair": {
+                "members": [
+                    {"host": "sw1.example", "ifname": "et2", "speed_bps": 50_000_000_000},
+                    {"host": "sw1.example", "ifname": "et3", "speed_bps": 50_000_000_000},
+                ],
+                "capacity_bps": 100_000_000_000,
+            },
+        },
+    }
+
+    def _run_view(self, per_port_bps):
+        from unittest.mock import MagicMock, patch
+
+        from django.test import RequestFactory
+
+        from dashboard import views
+
+        def fake_query_range(query, start, end, step):
+            # queries name their ports; return the sum of matching per-port rates
+            hit = [v for ifn, v in per_port_bps.items() if f'ifname="{ifn}"' in query]
+            if any(v is None for v in hit):
+                raise RuntimeError("prom down for this port")
+            return [{"values": [[start, str(sum(hit))]]}]  # PromQL already *8 -> bps
+
+        prom = MagicMock()
+        prom.query_range.side_effect = fake_query_range
+        request = RequestFactory().get("/statistics/map/traffic")
+        with patch.object(views, "_load_map_links", return_value=self.LINKS_DOC), \
+                patch.object(views.prom_client, "PrometheusClient", return_value=prom), \
+                patch.object(views.cache, "get", return_value=None), \
+                patch.object(views.cache, "set"):
+            resp = views.ix_map_traffic(request)
+        import json
+        return json.loads(resp.content)
+
+    def test_member_breakdown_and_index_alignment(self):
+        out = self._run_view({"et1": 10e9, "et2": 6e9, "et3": 30e9})
+        solo = out["links"]["cable-solo"]
+        self.assertNotIn("members", solo)      # single links stay flat
+        pair = out["links"]["cable-pair"]
+        self.assertEqual(pair["in_bps"], 36e9)  # combined = both ports
+        mem = pair["members"]
+        self.assertEqual(len(mem), 2)
+        self.assertEqual(mem[0]["in_bps"], 6e9)
+        self.assertEqual(mem[1]["in_bps"], 30e9)
+        self.assertEqual(mem[0]["speed_bps"], 50_000_000_000)
+        self.assertEqual(mem[0]["util_pct"], 12.0)   # 6G of 50G
+        self.assertEqual(mem[1]["util_pct"], 60.0)   # 30G of 50G
+
+    def test_failed_member_query_keeps_index(self):
+        out = self._run_view({"et1": 10e9, "et2": None, "et3": 30e9})
+        # combined query (et2+et3) also fails -> whole cable skipped? No: the
+        # combined query matches et2 too, so it raises; cable dropped entirely.
+        self.assertNotIn("cable-pair", out["links"])

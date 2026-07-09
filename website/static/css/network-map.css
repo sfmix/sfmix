@@ -193,9 +193,9 @@
 .nm-info-detail-body .nm-pop-row { display: flex; justify-content: space-between; gap: 14px; margin: 3px 0; }
 .nm-info-detail-body .nm-pop-row .k { color: #8ea6b3; }
 .nm-info-detail-body .nm-pop-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
-/* LAG member stepper: ◀ n / m ▶ in the cable detail — steps the selection
+/* parallel-link stepper: ◀ n / m ▶ in the cable detail — steps the selection
    through the bundle's parallel strands */
-.nm-lagnav-btn {
+.nm-linknav-btn {
   background: none;
   border: 1px solid #3d5866;
   border-radius: 4px;
@@ -206,8 +206,8 @@
   cursor: pointer;
   vertical-align: 1px;
 }
-.nm-lagnav-btn:hover { color: var(--nm-text); border-color: #8ea6b3; }
-.nm-lagnav-pos { margin: 0 7px; }
+.nm-linknav-btn:hover { color: var(--nm-text); border-color: #8ea6b3; }
+.nm-linknav-pos { margin: 0 7px; }
 /* operator badge: monogram base + logo layered on top (logo hides on error),
    centred in the pane */
 .nm-info-logo {
