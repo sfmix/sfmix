@@ -428,10 +428,21 @@
     customAttribution: "Basemap © OpenStreetMap contributors · Terrain © Mapzen/AWS · SFMIX"
   }), "bottom-right");
   // gentle 3D terrain from the same DEM — puts the hills under the hillshade
-  // (and Sutro Tower on an actual Mount Sutro) once the map is pitched
-  map.on("load", function () {
-    map.setTerrain({ source: "dem", exaggeration: 1.3 });
-  });
+  // (and Sutro Tower on an actual Mount Sutro) once the map is pitched.
+  // Pitch-gated: terrain draping is by far the dominant per-frame render cost
+  // (ablation: ~10-24x frame time on software GL), and near pitch 0 it is
+  // visually indistinguishable from the flat hillshade. So terrain only mounts
+  // while the view is meaningfully tilted; flattening the map (e.g. the
+  // compass control's pitch reset) drops it and buys back the frame budget.
+  // Toggled on pitchend (not per pitch frame) to avoid thrashing mid-gesture.
+  var TERRAIN_PITCH = 15; // degrees; the load default (42) starts terrain on
+  function syncTerrain() {
+    var want = map.getPitch() >= TERRAIN_PITCH;
+    if (want === !!map.getTerrain()) return;
+    map.setTerrain(want ? { source: "dem", exaggeration: 1.3 } : null);
+  }
+  map.on("load", syncTerrain);
+  map.on("pitchend", syncTerrain);
 
   var siteMarkers = [], deviceMarkers = [], decoTextMarkers = [], metroMarkers = [],
     airportMarkers = [], siteBoxMarkers = [];
