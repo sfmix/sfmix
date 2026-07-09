@@ -37,6 +37,16 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
+    # Ubuntu's stock nginx gzips only text/html: the network-map's map.json and
+    # the Django-proxied /statistics/map/traffic feed otherwise go over the wire
+    # uncompressed. gzip_proxied covers the proxy_pass responses below.
+    gzip on;
+    gzip_types application/json application/javascript text/css image/svg+xml;
+    gzip_min_length 1024;
+    gzip_comp_level 5;
+    gzip_vary on;
+    gzip_proxied any;
+
     # Built + static assets are served straight from disk (bind mounts the portal
     # container writes to), never streamed through Django/gunicorn:
     #   /static/                    -> collectstatic output
