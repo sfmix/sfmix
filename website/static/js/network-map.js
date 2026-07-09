@@ -318,12 +318,18 @@
       // relied on transitions.
       transition: { duration: 0, delay: 0 },
       sources: {
-        water: { type: "geojson", data: BASEMAP_BASE + "basemap-water.json" },
-        land: { type: "geojson", data: BASEMAP_BASE + "basemap-land.json" },
+        // Static, coarse basemap data: cap the client-side geojson-vt tile
+        // pyramid (default maxzoom 18 built tiles far deeper than this coarse
+        // data warrants) and simplify a little harder. Overzoom past the cap
+        // is visually free at the widths these layers draw.
+        water: { type: "geojson", data: BASEMAP_BASE + "basemap-water.json",
+          tolerance: 0.5, maxzoom: 13 },
+        land: { type: "geojson", data: BASEMAP_BASE + "basemap-land.json",
+          tolerance: 0.5, maxzoom: 12 },
         // airports/roads start EMPTY and are filled from the shared PREFETCH
         // (single fetch shared with the shield/label builders — see load handler)
-        airports: { type: "geojson", data: EMPTY_FC },
-        roads: { type: "geojson", data: EMPTY_FC, tolerance: 0.5 },
+        airports: { type: "geojson", data: EMPTY_FC, tolerance: 0.5, maxzoom: 12 },
+        roads: { type: "geojson", data: EMPTY_FC, tolerance: 0.5, maxzoom: 14, buffer: 32 },
         // committed terrarium DEM pyramid (z8-10, fetch_dem.py) — hillshade +
         // gentle 3D terrain. 256px tiles are fetched at map-zoom+1 and the
         // source under/overzooms outside 8..10.
@@ -476,14 +482,16 @@
     var widthExpr = widthExprAdd(0);
 
     // site building footprints — fade in at the device tier as the "box" that
-    // contains the switches (below cables so links route to/over the box)
+    // contains the switches (below cables so links route to/over the box).
+    // minzoom matches the 0-opacity end of each fade: an opacity-0 layer still
+    // costs evaluation + draw every frame, minzoom skips it entirely.
     map.addLayer({
-      id: "site-building", type: "fill", source: "buildings",
+      id: "site-building", type: "fill", source: "buildings", minzoom: EXPAND_ZOOM - 0.5,
       paint: { "fill-color": "#2a3a47", "fill-outline-color": "#4d6375",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.85] }
     });
     map.addLayer({
-      id: "site-building-outline", type: "line", source: "buildings",
+      id: "site-building-outline", type: "line", source: "buildings", minzoom: EXPAND_ZOOM - 0.5,
       paint: { "line-color": "#4d6375", "line-width": 1.2,
         "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.5, 0, EXPAND_ZOOM + 0.5, 0.9] }
     });
@@ -491,7 +499,7 @@
     // box edge and this bridges them across the box (no device to drop to). Drawn
     // over the box, fading in with it.
     map.addLayer({
-      id: "cable-crossconnect", type: "line", source: "cables",
+      id: "cable-crossconnect", type: "line", source: "cables", minzoom: EXPAND_ZOOM - 0.5,
       filter: ["==", ["get", "scope"], "crossconnect"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": "#9fb8c6", "line-width": 2, "line-dasharray": [1, 1.2],
@@ -552,7 +560,7 @@
     }, offsetExpr);
     // intra-site links (only visible zoomed in)
     map.addLayer({
-      id: "cables-intra", type: "line", source: "cables",
+      id: "cables-intra", type: "line", source: "cables", minzoom: EXPAND_ZOOM - 0.5,
       filter: ["==", ["get", "scope"], "intra"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-width": 2.2, "line-dasharray": [2, 1],
@@ -602,7 +610,9 @@
       }
     });
     map.addLayer({
-      id: "stations-dot", type: "circle", source: "stations",
+      // maxzoom = the fade-out end; NB stations-ring stays ungated — it's a
+      // PICK_LAYERS click target and must remain queryable at all zooms
+      id: "stations-dot", type: "circle", source: "stations", maxzoom: EXPAND_ZOOM + 0.5,
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 15, 3.2],
         "circle-color": "#0b3640",
@@ -614,7 +624,7 @@
     // device drops — short stubs from the site centroid to each switch, so cables
     // terminate on the specific device once the building box is open
     map.addLayer({
-      id: "cable-drops", type: "line", source: "drops",
+      id: "cable-drops", type: "line", source: "drops", minzoom: EXPAND_ZOOM - 0.5,
       layout: { "line-cap": "round" },
       paint: {
         "line-color": ["case", ["==", ["get", "status"], "down"], "#9aa4aa",
@@ -625,7 +635,7 @@
     });
     // devices (fade in when zoomed into a site)
     map.addLayer({
-      id: "devices-dot", type: "circle", source: "devices",
+      id: "devices-dot", type: "circle", source: "devices", minzoom: EXPAND_ZOOM - 0.5,
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM, 3, 15, 6],
         "circle-color": "#137a8a", "circle-stroke-color": "#fff", "circle-stroke-width": 2,
