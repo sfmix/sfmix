@@ -259,10 +259,13 @@ def metro_aggregate(cables, sites, metro_of, metro_centroid):
             continue
         key = tuple(sorted([ma, mz]))
         g = groups.setdefault(key, {"a": ma, "z": mz, "cap": 0, "ids": [],
-                                    "any_up": False, "all_approx": True})
+                                    "any_up": False, "any_planned": False,
+                                    "all_approx": True})
         g["cap"] += c.get("capacity_bps", 0)
         g["ids"].append(c["id"])
-        if c.get("status") != "down":
+        if c.get("status") == "planned":
+            g["any_planned"] = True
+        elif c.get("status") != "down":
             g["any_up"] = True
         if not c.get("approximate"):
             g["all_approx"] = False
@@ -292,7 +295,9 @@ def metro_aggregate(cables, sites, metro_of, metro_centroid):
             line = chaikin([ca, [mx - dy * 0.08, my + dx * 0.08], cz])
             real = False
         out.append({"id": "metro:%s~%s" % key, "a_metro": g["a"], "z_metro": g["z"],
-                    "capacity_bps": g["cap"], "status": "up" if g["any_up"] else "down",
+                    "capacity_bps": g["cap"],
+                    "status": ("up" if g["any_up"] else
+                               "planned" if g["any_planned"] else "down"),
                     "approximate": not real, "members": len(g["ids"]), "member_ids": g["ids"],
                     "path": [[round(p[0], 5), round(p[1], 5)] for p in line]})
     return out

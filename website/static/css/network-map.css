@@ -92,6 +92,7 @@
   color: #fff;
 }
 .nm-chip-offline { background: #8a949a; }
+.nm-chip-planned { background: #7d9cc0; }
 .nm-spark { margin-top: 8px; }
 .nm-spark svg { display: block; width: 100%; height: 40px; }
 .nm-badge-approx {

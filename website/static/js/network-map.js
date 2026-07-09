@@ -43,6 +43,9 @@
   ];
   var UTIL_COLOR_EXPR = ["interpolate", ["linear"], ["coalesce", ["feature-state", "util"], 0],
     0, RAMP[0][1], 20, RAMP[1][1], 40, RAMP[2][1], 60, RAMP[3][1], 80, RAMP[4][1]];
+  // planned / not-yet-in-service spans: a cool slate blue, clearly outside the
+  // utilization ramp and distinct from the "down" grey
+  var PLANNED_COLOR = "#7d9cc0";
   // barber-pole stripe colour: a strongly darkened shade of the SAME hue the
   // link is showing (candy-stripe look) — a fixed pale stripe vanished on the
   // light green/yellow/orange utilization colours
@@ -134,7 +137,7 @@
       // one flow feature per inter cable (rides the bundle's lane): the barber-
       // pole stripe animated toward the dominant traffic direction (dir set on
       // each traffic poll; 0 = unknown/idle = hidden)
-      if (c.scope === "inter" && c.status !== "down") {
+      if (c.scope === "inter" && c.status === "up") {
         flowFeatures.push({
           type: "Feature", id: c.id,
           properties: { id: c.id, weight: weightForCapacity(c.capacity_bps),
@@ -222,7 +225,7 @@
         metroMediaFeatures.push({ type: "Feature", properties: { id: g.id, medium: m.medium },
           geometry: { type: "LineString", coordinates: m.coordinates } });
       });
-      if (g.status !== "down") {
+      if (g.status === "up") {
         metroFlowFeatures.push({ type: "Feature", id: g.id,
           properties: { id: g.id, weight: weightForCapacity(g.capacity_bps),
             offset: 0, dir: 0 },
@@ -454,11 +457,20 @@
       paint: { "line-color": "#9aa4aa", "line-dasharray": [1.5, 1.5],
         "line-offset": offsetExpr, "line-width": widthExpr }
     });
+    // planned / not-yet-in-service links (delivered dark fibre awaiting its
+    // onward span, or future orders): long slate-blue dashes, no flow stripes
+    map.addLayer({
+      id: "cables-planned", type: "line", source: "cables",
+      filter: ["all", ["==", ["get", "scope"], "inter"], ["==", ["get", "status"], "planned"]],
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: { "line-color": PLANNED_COLOR, "line-dasharray": [2.4, 1.8],
+        "line-offset": offsetExpr, "line-width": widthExpr }
+    });
     // approximate links (dotted, still util-coloured)
     map.addLayer({
       id: "cables-approx", type: "line", source: "cables",
       filter: ["all", ["==", ["get", "scope"], "inter"], ["==", ["get", "approximate"], true],
-        ["!=", ["get", "status"], "down"]],
+        ["==", ["get", "status"], "up"]],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-dasharray": [0.4, 1.8],
         "line-offset": offsetExpr, "line-width": widthExpr }
@@ -467,7 +479,7 @@
     map.addLayer({
       id: "cables-line", type: "line", source: "cables",
       filter: ["all", ["==", ["get", "scope"], "inter"], ["==", ["get", "approximate"], false],
-        ["!=", ["get", "status"], "down"]],
+        ["==", ["get", "status"], "up"]],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-offset": offsetExpr, "line-width": widthExpr }
     });
@@ -506,7 +518,9 @@
       id: "cables-highlight", type: "line", source: "cables",
       filter: ["==", ["get", "id"], "__none__"],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": UTIL_COLOR_EXPR, "line-offset": offsetExpr,
+      paint: { "line-color": ["case", ["==", ["get", "status"], "planned"], PLANNED_COLOR,
+          UTIL_COLOR_EXPR],
+        "line-offset": offsetExpr,
         "line-width": widthExprAdd(1.6) }
     });
 
@@ -545,7 +559,8 @@
       id: "cable-drops", type: "line", source: "drops",
       layout: { "line-cap": "round" },
       paint: {
-        "line-color": ["case", ["==", ["get", "status"], "down"], "#9aa4aa", UTIL_COLOR_EXPR],
+        "line-color": ["case", ["==", ["get", "status"], "down"], "#9aa4aa",
+          ["==", ["get", "status"], "planned"], PLANNED_COLOR, UTIL_COLOR_EXPR],
         "line-width": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM, 1.5, 16, 3],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], EXPAND_ZOOM - 0.3, 0, EXPAND_ZOOM + 0.6, 0.95]
       }
@@ -576,8 +591,17 @@
     });
     map.addLayer({
       id: "metro-line", type: "line", source: "metro-cables",
+      filter: ["!=", ["get", "status"], "planned"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidthAdd(0) }
+    });
+    // planned metro trunk (every member span still awaiting turn-up)
+    map.addLayer({
+      id: "metro-planned", type: "line", source: "metro-cables",
+      filter: ["==", ["get", "status"], "planned"],
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: { "line-color": PLANNED_COLOR, "line-dasharray": [2.4, 1.8],
+        "line-width": metroWidthAdd(0) }
     });
     map.addSource("metro-flows", { type: "geojson", data: src.metroFlows, promoteId: "id" });
     addFlowLayers("metro-flows", "metro-flow", function (add) {
@@ -589,7 +613,9 @@
       id: "metro-highlight", type: "line", source: "metro-cables",
       filter: ["==", ["get", "id"], "__none__"],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": UTIL_COLOR_EXPR, "line-width": metroWidthAdd(1.6) }
+      paint: { "line-color": ["case", ["==", ["get", "status"], "planned"], PLANNED_COLOR,
+          UTIL_COLOR_EXPR],
+        "line-width": metroWidthAdd(1.6) }
     });
     map.addLayer({
       id: "metro-stations-ring", type: "circle", source: "metro-stations",
@@ -664,14 +690,15 @@
   }, 90);
 
   // Toggle metro / site / device tiers by zoom (layer visibility + markers).
-  var SITE_LAYERS = ["cables-casing", "cables-down", "cables-approx", "cables-line",
-    "cables-hit", "cable-water", "cable-submarine", "cable-ripple", "cable-drops",
-    "stations-ring", "stations-dot", "flow-fwd", "flow-rev"];
+  var SITE_LAYERS = ["cables-casing", "cables-down", "cables-planned", "cables-approx",
+    "cables-line", "cables-hit", "cable-water", "cable-submarine", "cable-ripple",
+    "cable-drops", "stations-ring", "stations-dot", "flow-fwd", "flow-rev"];
   // the metro water veil MUST toggle with its tier: it's wider than the site-tier
   // veil and sits above the site flow stripes, so left visible it drowns the
   // barber pole over water crossings at close zoom
-  var METRO_LAYERS = ["metro-casing", "metro-line", "metro-stations-ring", "metro-stations-dot",
-    "metro-flow-fwd", "metro-flow-rev", "metro-submarine", "metro-water", "metro-ripple"];
+  var METRO_LAYERS = ["metro-casing", "metro-line", "metro-planned", "metro-stations-ring",
+    "metro-stations-dot", "metro-flow-fwd", "metro-flow-rev", "metro-submarine",
+    "metro-water", "metro-ripple"];
   function setVis(ids, on) {
     ids.forEach(function (id) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
   }
@@ -1327,9 +1354,9 @@
   // ---- click-to-isolate: highlight one cable, dim the rest ----------------
   var DIM_LAYERS = {
     cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
-      "cables-intra", "cable-drops", "cable-water", "cable-submarine", "cable-ripple",
-      "flow-fwd", "flow-rev"],
-    metro: ["metro-casing", "metro-line", "metro-flow-fwd", "metro-flow-rev"]
+      "cables-planned", "cables-intra", "cable-drops", "cable-water", "cable-submarine",
+      "cable-ripple", "flow-fwd", "flow-rev"],
+    metro: ["metro-casing", "metro-line", "metro-planned", "metro-flow-fwd", "metro-flow-rev"]
   };
   // which station source + key list pairs with each cable source
   var STATION_SRC = { cables: "stations", metro: "metro-stations" };
@@ -1416,6 +1443,8 @@
     if (p.capacity_bps > 0) rows += row(isMember ? t("LAG total") : t("Capacity"), capLabel(p.capacity_bps));
     if (p.status === "down") {
       rows += '<div class="nm-pop-row"><span class="nm-chip nm-chip-offline">' + t("link offline") + "</span></div>";
+    } else if (p.status === "planned") {
+      rows += '<div class="nm-pop-row"><span class="nm-chip nm-chip-planned">' + t("planned — not yet in service") + "</span></div>";
     } else if (tr) {
       rows += row(t("In"), fmtBps(tr.in_bps));
       rows += row(t("Out"), fmtBps(tr.out_bps));
