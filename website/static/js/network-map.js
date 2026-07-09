@@ -26,6 +26,43 @@
     catch (e) { return ""; }
   })();
   var POLL_MS = 60000;
+
+  // ---- early prefetch (startup perf) --------------------------------------
+  // Start every startup fetch immediately, in parallel with map/style init,
+  // instead of serially after the map 'load' event. Previously:
+  //   - structure (map.json) was fetched only inside the load handler, so the
+  //     network layers appeared well after the basemap;
+  //   - roads/airports GeoJSON was fetched (and parsed) TWICE — once by the
+  //     MapLibre source worker, again by the shield/label builders. Now each
+  //     is fetched ONCE here; the parsed object feeds the source via setData
+  //     AND the builders (the style declares those sources empty).
+  //   - the water-texture sprite + decorations feed also start now, so the
+  //     ripple restyle and critters land with the rest instead of trailing.
+  // loadSvgImage / DECO_SPRITE_PX below are hoisted/assigned before any
+  // .then() callback here can run.
+  function fetchJson(url) {
+    return fetch(url, { mode: "cors" }).then(function (r) {
+      if (!r.ok) throw new Error(url + ": " + r.status);
+      return r.json();
+    });
+  }
+  var EMPTY_FC = { type: "FeatureCollection", features: [] };
+  var PREFETCH = {
+    structure: fetchJson(STRUCTURE_URL),
+    roads: fetchJson(BASEMAP_BASE + "basemap-roads.json"),
+    airports: fetchJson(BASEMAP_BASE + "basemap-airports.json"),
+    decorations: DECOR_URL ? fetchJson(DECOR_URL) : null,
+    waterTexture: loadSvgImage("water-texture", 176),
+    decoIcons: {} // icon name -> sprite promise, filled when the feed arrives
+  };
+  if (PREFETCH.decorations) {
+    PREFETCH.decorations.then(function (deco) {
+      deco.features.forEach(function (f) {
+        var ic = f.geometry.type === "Point" && f.properties.icon;
+        if (ic && !PREFETCH.decoIcons[ic]) PREFETCH.decoIcons[ic] = loadSvgImage(ic, DECO_SPRITE_PX);
+      });
+    }).catch(function () {});
+  }
   // Three tiers: metro (overview) -> site -> device. Below METRO_ZOOM the map
   // shows one node per metro to avoid clustering tight sites (e.g. Santa Clara);
   // above it, individual sites; above EXPAND_ZOOM, devices within each site.
@@ -283,8 +320,10 @@
       sources: {
         water: { type: "geojson", data: BASEMAP_BASE + "basemap-water.json" },
         land: { type: "geojson", data: BASEMAP_BASE + "basemap-land.json" },
-        airports: { type: "geojson", data: BASEMAP_BASE + "basemap-airports.json" },
-        roads: { type: "geojson", data: BASEMAP_BASE + "basemap-roads.json", tolerance: 0.5 },
+        // airports/roads start EMPTY and are filled from the shared PREFETCH
+        // (single fetch shared with the shield/label builders — see load handler)
+        airports: { type: "geojson", data: EMPTY_FC },
+        roads: { type: "geojson", data: EMPTY_FC, tolerance: 0.5 },
         // committed terrarium DEM pyramid (z8-10, fetch_dem.py) — hillshade +
         // gentle 3D terrain. 256px tiles are fetched at map-zoom+1 and the
         // source under/overzooms outside 8..10.
@@ -392,8 +431,14 @@
     airportMarkers = [], siteBoxMarkers = [];
 
   map.on("load", function () {
-    fetch(STRUCTURE_URL, { mode: "cors" })
-      .then(function (r) { return r.json(); })
+    // roads/airports: feed the (style-declared-empty) sources from the shared
+    // prefetch — the same parsed object also drives the shield/label builders
+    // in init(), so each file is fetched and parsed exactly once.
+    PREFETCH.roads.then(function (fc) { map.getSource("roads").setData(fc); })
+      .catch(function () {});
+    PREFETCH.airports.then(function (fc) { map.getSource("airports").setData(fc); })
+      .catch(function () {});
+    PREFETCH.structure
       .then(function (structure) { init(structure); })
       .catch(function (e) { showStatus(t("live stats unavailable")); console.error(e); });
   });
@@ -647,8 +692,10 @@
     });
 
     addLabels(structure);
-    addAirportLabels();
-    addRoadShields();
+    // builders consume the SAME parsed objects the sources were fed from —
+    // called from init so their layers/markers slot under site-building etc.
+    PREFETCH.airports.then(addAirportLabels).catch(function () {});
+    PREFETCH.roads.then(addRoadShields).catch(function () {});
     addWaterTreatment();
     if (DECOR_URL) addDecorations();
     wireInteractions();
@@ -797,21 +844,18 @@
   }
   // ---- airport ICAO labels (tiny, zoom-gated) -----------------------------
   var ICAO_ZOOM = 10.5;
-  function addAirportLabels() {
-    fetch(BASEMAP_BASE + "basemap-airports.json").then(function (r) { return r.json(); })
-      .then(function (fc) {
-        fc.features.forEach(function (f) {
-          if (f.properties.kind !== "aerodrome" || !f.properties.icao) return;
-          var d = document.createElement("div");
-          d.className = "nm-label nm-label-icao";
-          d.textContent = f.properties.icao;
-          var m = new maplibregl.Marker({ element: d, anchor: "center" })
-            .setLngLat(f.geometry.coordinates).addTo(map);
-          m.getElement().style.display = "none";
-          airportMarkers.push(m);
-        });
-        setTier();
-      }).catch(function () {});
+  function addAirportLabels(fc) {
+    fc.features.forEach(function (f) {
+      if (f.properties.kind !== "aerodrome" || !f.properties.icao) return;
+      var d = document.createElement("div");
+      d.className = "nm-label nm-label-icao";
+      d.textContent = f.properties.icao;
+      var m = new maplibregl.Marker({ element: d, anchor: "center" })
+        .setLngLat(f.geometry.coordinates).addTo(map);
+      m.getElement().style.display = "none";
+      airportMarkers.push(m);
+    });
+    setTier();
   }
 
   // ---- highway shields ------------------------------------------------------
@@ -819,9 +863,7 @@
   // needed — and placed ALONG the road lines as a symbol layer, so MapLibre's
   // collision engine spaces them out and drops any that would overlap other
   // symbols. Positioning is therefore fully dynamic with zoom/pan.
-  function addRoadShields() {
-    fetch(BASEMAP_BASE + "basemap-roads.json").then(function (r) { return r.json(); })
-      .then(function (fc) {
+  function addRoadShields(fc) {
         // Only the few LONGEST segments per route get a shield: freeways come as
         // hundreds of short parallel-carriageway fragments, and labelling each
         // one reads as a breadcrumb trail (880 especially).
@@ -888,7 +930,6 @@
           },
           paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0, 10.8, 0.85] }
         }, map.getLayer("site-building") ? "site-building" : undefined);
-      }).catch(function () {});
   }
   // Shield badges follow the real sign shapes — Interstate shield with the red
   // chief, US-route white badge, California's green miner's-spade — in muted
@@ -1011,7 +1052,7 @@
       layout: { "line-cap": "butt", "line-join": "round" },
       paint: { "line-color": "#8fb4d0", "line-opacity": 0.7, "line-width": 6 }
     }, metroBefore);
-    loadSvgImage("water-texture", 176).then(function (sp) {
+    PREFETCH.waterTexture.then(function (sp) {
       if (!map.hasImage("water-texture")) map.addImage("water-texture", sp.image, { pixelRatio: sp.pixelRatio });
       if (map.getLayer("metro-ripple")) {
         map.setPaintProperty("metro-ripple", "line-pattern", "water-texture");
@@ -1035,7 +1076,7 @@
 
   // ---- decorations (whimsy) ----------------------------------------------
   function addDecorations() {
-    fetch(DECOR_URL, { mode: "cors" }).then(function (r) { return r.json(); })
+    PREFETCH.decorations
       .then(function (deco) {
         var points = { type: "FeatureCollection", features: [] };
         var icons = {};
@@ -1083,7 +1124,9 @@
         var loaded = 0, want = Object.keys(icons).length;
         if (!want) return;
         Object.keys(icons).forEach(function (name) {
-          loadSvgImage(name, DECO_SPRITE_PX).then(function (sp) {
+          // sprite loads were kicked off as soon as the decorations feed
+          // arrived (see PREFETCH.decoIcons); fall back for any straggler
+          (PREFETCH.decoIcons[name] || loadSvgImage(name, DECO_SPRITE_PX)).then(function (sp) {
             if (!map.hasImage(name)) map.addImage(name, sp.image, { pixelRatio: sp.pixelRatio });
             if (++loaded === want) addDecoLayer();
           }).catch(function () { if (++loaded === want) addDecoLayer(); });
