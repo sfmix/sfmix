@@ -296,7 +296,9 @@ def netbox_cables(topology, facts, cids, nb):
     each interface attributes to its OWN circuit (a passive-site chain like
     scl02->scl03 + sfo02->scl03 stays two segments). Geometry matches the atlas by
     CID tokens; map_exclude circuits are dropped; status from the circuit lifecycle
-    (active->up, planned->planned, else down)."""
+    (active->up, planned->planned, else down). A circuit whose traced port
+    dead-ends at a passive site's termination (delivered span, onward span not
+    yet patched) is still drawn, single-ended, as a planned segment."""
     hints = circ.circuit_hints(nb)
     bycid = {h["cid"]: h for h in hints}
     gc_hint = {h["geom_cid"]: h for h in hints}
@@ -317,6 +319,22 @@ def netbox_cables(topology, facts, cids, nb):
             spd = facts.get((dev, ifn)) or 100e9  # NetBox speed already in facts
             members.setdefault(gc, {})[(dev, ifn)] = spd
 
+    # Stub spans: a core port whose trace reached a circuit but never a far
+    # switch (the circuit terminates at a passive site, and the onward span
+    # isn't patched yet — e.g. sfo01<->oak01 waiting on oak01<->fmt01). The
+    # topology-link pass above can't see these, so add the port here and force
+    # the cable to "planned": the fibre exists but carries nothing.
+    stubs, linked = set(), set(members)
+    for (dev, ifn), cid in sorted(cids.items()):
+        h = bycid.get(cid)
+        if not h or cid in exclude:
+            continue
+        gc = h["geom_cid"]
+        if gc in linked or site_of(dev) not in (h["a_site"], h["z_site"]):
+            continue
+        members.setdefault(gc, {})[(dev, ifn)] = facts.get((dev, ifn)) or 100e9
+        stubs.add(gc)
+
     cables = []
     for gc, mem in members.items():
         h = gc_hint[gc]
@@ -326,7 +344,8 @@ def netbox_cables(topology, facts, cids, nb):
         mlist = sorted(mem)
         cap = sum(s for (d, _i), s in mem.items() if site_of(d) == a) or (sum(mem.values()) / 2)
         st = h.get("status")
-        status = "up" if st == "active" else ("planned" if st == "planned" else "down")
+        status = "planned" if gc in stubs else (
+            "up" if st == "active" else ("planned" if st == "planned" else "down"))
         cables.append({
             "key": ("nb", gc), "a_site": a, "z_site": z, "members": mlist,
             "tokens": sorted({norm_token(t) for t in h.get("match", [])}),
