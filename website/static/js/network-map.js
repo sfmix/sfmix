@@ -723,12 +723,25 @@
     });
 
     addLabels(structure);
-    // builders consume the SAME parsed objects the sources were fed from —
-    // called from init so their layers/markers slot under site-building etc.
-    PREFETCH.airports.then(addAirportLabels).catch(function () {});
-    PREFETCH.roads.then(addRoadShields).catch(function () {});
     addWaterTreatment();
-    if (DECOR_URL) addDecorations();
+    // Whimsy wave: shields, ICAO labels and decorations are dressing, but
+    // addRoadShields alone walks all ~12k road features on the main thread and
+    // the sprite rasterization isn't free either. Deferring the batch to the
+    // map's first idle keeps the first network render (cables/stations, right
+    // above) as early as possible; everything still lands in ONE later wave,
+    // not a stagger. Builders consume the SAME parsed objects the sources were
+    // fed from. The timeout is a fallback for the pathological case where
+    // 'idle' never fires (e.g. a tab throttled mid-load).
+    var whimsyDone = false;
+    function whimsyWave() {
+      if (whimsyDone) return;
+      whimsyDone = true;
+      PREFETCH.airports.then(addAirportLabels).catch(function () {});
+      PREFETCH.roads.then(addRoadShields).catch(function () {});
+      if (DECOR_URL) addDecorations();
+    }
+    map.once("idle", whimsyWave);
+    setTimeout(whimsyWave, 6000);
     wireInteractions();
     wireLegend();
     infoPane.init();

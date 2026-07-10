@@ -2,6 +2,24 @@
 <link rel="stylesheet" href="{{ "vendor/maplibre-gl/maplibre-gl.css" | relURL }}">
 <link rel="stylesheet" href="{{ "css/network-map.css" | relURL }}">
 
+{{/* Fetch hints: without these, every data download queues behind the ~1MB
+     MapLibre parse + network-map.js eval before its fetch() even starts.
+     Preloads let the browser start them all at HTML-parse time. crossorigin
+     (anonymous) is REQUIRED on each: it makes the preload's request mode
+     "cors" with same-origin credentials, matching both our fetch() calls and
+     MapLibre's internal source loads — an attribute mismatch means the preload
+     is wasted and the asset silently downloads twice. */}}
+{{ $portalPre := .Site.Params.map_portal_base | default "https://portal.sfmix.org" }}
+<link rel="preconnect" href="{{ $portalPre }}" crossorigin>
+<link rel="preload" href="{{ $portalPre }}/statistics/map/map.json" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/basemap-water.json" | relURL }}" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/basemap-roads.json" | relURL }}" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/basemap-airports.json" | relURL }}" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/basemap-land.json" | relURL }}" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/sutro.json" | relURL }}" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/decorations.json" | relURL }}" as="fetch" crossorigin>
+<link rel="preload" href="{{ "map/sprites/water-texture.svg" | relURL }}" as="fetch" crossorigin>
+
 {{/* No hero, no prose: the map IS the page — full viewport below the site
      header. Data URLs come from the portal (dynamic); basemap + sprites +
      decorations are static assets on this site. Override portal host via
@@ -69,6 +87,9 @@
   {{ range $keys }}{{ $i18n = merge $i18n (dict . (partial "T.html" .)) }}{{ end }}
   <script type="application/json" id="map-i18n">{{ $i18n | jsonify | safeJS }}</script>
 </div>
-<script src="{{ "vendor/maplibre-gl/maplibre-gl.js" | relURL }}"></script>
+{{/* both defer: parsing the 1MB MapLibre bundle no longer blocks the HTML
+     parser (and the preload scanner above); defer scripts execute in document
+     order, so network-map.js still runs after maplibregl exists. */}}
+<script src="{{ "vendor/maplibre-gl/maplibre-gl.js" | relURL }}" defer></script>
 <script src="{{ "js/network-map.js" | relURL }}" defer></script>
 {{ end }}

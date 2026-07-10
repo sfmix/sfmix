@@ -97,6 +97,17 @@ DEV_SHELL = """<!doctype html>
 <title>SFMIX Network Map — dev harness</title>
 <link rel="stylesheet" href="/vendor/maplibre-gl/maplibre-gl.css">
 <link rel="stylesheet" href="/css/network-map.css">
+<!-- mirrors the production template's fetch hints (layouts/_default/network-map.html)
+     so preload/fetch mode matching can be verified against this harness: a
+     crossorigin mismatch shows up as a double download in the waterfall -->
+<link rel="preload" href="/map/map.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/basemap-water.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/basemap-roads.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/basemap-airports.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/basemap-land.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/sutro.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/decorations.json" as="fetch" crossorigin>
+<link rel="preload" href="/map/sprites/water-texture.svg" as="fetch" crossorigin>
 <style>
   body { margin: 0; font-family: system-ui, sans-serif; background:#0b3640; color:#eee; }
   .devbar { padding: 6px 12px; font-size: 13px; background:#08262e; }
