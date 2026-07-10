@@ -8,38 +8,90 @@ the already-built map.json — the cable ids stay identical, so the frontend
 colours links from the SAME /statistics/map/traffic feed the geographic map
 polls, and no second build pass or traffic endpoint exists.
 
-Layout (ideas ported from scripts/weathermap_layouts.py, sans graphviz):
-metro anchors are placed by lon/lat *rank* (equal spacing — rank, not raw
-coordinates, so nearby metros never collide); each metro's nodes sit on a
-circle whose radius grows with the node count, each node seated at the slot
+Layout (ideas ported from scripts/weathermap_layouts.py, sans graphviz),
+optimised for clarity over geography: metro anchors sit on a ring, ordered so
+the most-connected metro pairs are ring-adjacent (brute-forced — metro counts
+are tiny) — inter-metro trunks then run along the ring's edges instead of
+overlapping diagonals through the middle. The ring is rotated so the
+northernmost metro sits at the top and mirrored so the westernmost sits on
+the left, keeping a loose geographic feel. Within a metro, nodes sit on a
+circle whose radius grows with the node count, each seated at the slot
 nearest the direction of its external neighbours (so inter-metro links leave
 the cluster on the side they travel, instead of slicing through it); finally
-an iterative push-apart pass guarantees no two node label boxes overlap. A
-passive site with no switches (splice/patch building) that terminates a drawn
-span becomes a small junction node so chained circuits stay connected.
+an iterative push-apart pass guarantees no two node label boxes overlap and a
+normalize step stretches the graph to fill the viewbox. A passive site with
+no switches (splice/patch building) that terminates a drawn span becomes a
+small junction node so chained circuits stay connected.
 """
 
 VIEW_W, VIEW_H = 1600.0, 1000.0
-PAD = 260.0          # anchor inset: must cover the largest cluster radius + box
+PAD = 260.0          # horizontal anchor inset: largest cluster radius + box
+PAD_Y = 200.0        # vertical inset can run tighter (boxes are wide, not tall)
 # nominal node label-box footprint for the collision pass (frontend draws
 # ~6.8px/char + padding at 22px tall; keep these comfortably larger)
 NODE_W, NODE_H = 150.0, 34.0
 
 
-def _metro_anchors(metros):
-    """Metro name -> (x, y): lon rank spaces metros across, lat rank down."""
+def _ring_order(metros, pair_weight):
+    """Metro names in the ring order that keeps heavily-linked metro pairs
+    adjacent: minimise sum(weight * (ring_distance - 1)^2) over linked pairs.
+    Brute force — a handful of metros, and fixing the first element kills the
+    rotational symmetry. Deterministic: sorted base order, first improvement
+    wins ties."""
+    import itertools
+    names = sorted(metros)
+    if len(names) <= 3:
+        return names
+    n = len(names)
+    best, best_cost = names, None
+    for perm in itertools.permutations(names[1:]):
+        order = [names[0]] + list(perm)
+        idx = {m: i for i, m in enumerate(order)}
+        cost = 0
+        for (a, b), w in pair_weight.items():
+            d = abs(idx[a] - idx[b])
+            d = min(d, n - d)
+            cost += w * (d - 1) ** 2
+        if best_cost is None or cost < best_cost:
+            best, best_cost = order, cost
+    return best
+
+
+def _metro_anchors(metros, pair_weight, counts):
+    """Metro name -> (x, y) on an ellipse, in connectivity ring order, each
+    metro given arc room proportional to its cluster radius (a 7-switch metro
+    needs more clearance than a lone junction); rotated so the northernmost
+    metro is at the top and mirrored so the westernmost falls on the left
+    half — clarity first, with a loose geographic feel."""
+    import math
     names = sorted(metros)
     if not names:
         return {}
-    by_lon = sorted(names, key=lambda n: metros[n]["lon"])
-    by_lat = sorted(names, key=lambda n: -metros[n]["lat"])  # north at the top
-    span = max(len(names) - 1, 1)
-    anchors = {}
-    for n in names:
-        fx = by_lon.index(n) / span if len(names) > 1 else 0.5
-        fy = by_lat.index(n) / span if len(names) > 1 else 0.5
-        anchors[n] = (PAD + fx * (VIEW_W - 2 * PAD), PAD + fy * (VIEW_H - 2 * PAD))
-    return anchors
+    if len(names) == 1:
+        return {names[0]: (VIEW_W / 2, VIEW_H / 2)}
+    order = _ring_order(metros, pair_weight)
+    n = len(order)
+    top = max(names, key=lambda m: metros[m]["lat"])
+    west = min(names, key=lambda m: metros[m]["lon"])
+    cx, cy = VIEW_W / 2, VIEW_H / 2
+    rx, ry = VIEW_W / 2 - PAD, VIEW_H / 2 - PAD_Y
+
+    def seats(seq):
+        # arc share per metro ~ its clearance need; a seat sits at the middle
+        # of its arc, and the whole ring is rotated so `top` lands at -pi/2
+        need = {m: _circle_radius(counts.get(m, 1)) + 150.0 for m in seq}
+        total = sum(need.values())
+        ang, acc = {}, 0.0
+        for m in seq:
+            ang[m] = 2 * math.pi * (acc + need[m] / 2) / total
+            acc += need[m]
+        off = -math.pi / 2 - ang[top]
+        return {m: a + off for m, a in ang.items()}
+
+    a = seats(order)
+    if math.cos(a[west]) > 0:  # westernmost landed on the right: mirror the ring
+        a = seats(order[::-1])
+    return {m: (cx + rx * math.cos(a[m]), cy + ry * math.sin(a[m])) for m in names}
 
 
 def _circle_radius(count):
@@ -47,7 +99,10 @@ def _circle_radius(count):
     import math
     if count <= 1:
         return 0.0
-    return max(90.0, (NODE_W * 0.95) / (2 * math.sin(math.pi / count)))
+    # 0.8 chord factor under-provisions slightly on purpose: the push-apart
+    # pass fixes residual touches locally, and tighter clusters keep the
+    # inter-metro corridors open
+    return max(90.0, (NODE_W * 0.8) / (2 * math.sin(math.pi / count)))
 
 
 def _seat_on_circle(anchor, occ, prefer):
@@ -128,7 +183,6 @@ def weathermap_from_map(mapjson):
     import math
     sites = mapjson.get("sites", {})
     metros = mapjson.get("metros", {})
-    anchors = _metro_anchors(metros)
     metro_of = {code: name for name, m in metros.items() for code in m.get("codes", [])}
 
     # links first: they decide which passive sites need a junction node.
@@ -168,6 +222,17 @@ def weathermap_from_map(mapjson):
                 "site_name": s.get("name") or code, "metro": metro,
                 "label": s.get("name") or code}
             occupants.setdefault(metro, []).append(nid)
+
+    # ring the metros by connectivity: pair weight = physical strand count
+    pair_weight = {}
+    for l in links:
+        ma = node_meta.get(l["a"], {}).get("metro")
+        mz = node_meta.get(l["z"], {}).get("metro")
+        if ma and mz and ma != mz:
+            k = (min(ma, mz), max(ma, mz))
+            pair_weight[k] = pair_weight.get(k, 0) + (l["members"] or 1)
+    anchors = _metro_anchors(metros, pair_weight,
+                             {m: len(o) for m, o in occupants.items()})
 
     # preferred angle per node: the direction of its external neighbours'
     # metro anchors — a node connected toward Fremont faces Fremont
