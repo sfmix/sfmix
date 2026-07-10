@@ -462,11 +462,9 @@ class NdEventsViewTests(SimpleTestCase):
 class NdEventCountEnrichmentTests(SimpleTestCase):
     def test_discovered_by_ip_attaches_event_count(self):
         lg = mock.Mock()
-        lg.get_nd_events.return_value = {
-            "events": [
-                {"ip": "2001:db8:0:1::10"}, {"ip": "2001:db8:0:1::10"}, {"ip": "192.0.2.10"},
-            ]
-        }
+        nd_events = [
+            {"ip": "2001:db8:0:1::10"}, {"ip": "2001:db8:0:1::10"}, {"ip": "192.0.2.10"},
+        ]
         lg.get_discovered_neighbors.return_value = {
             "neighbors": [
                 {"ip": "2001:db8:0:1::10", "conflict": True,
@@ -475,7 +473,7 @@ class NdEventCountEnrichmentTests(SimpleTestCase):
                  "macs": [{"mac": "b", "first_seen": "", "last_seen": ""}]},
             ]
         }
-        out = views._fetch_discovered_by_ip(lg, "tok", 64496)
+        out = views._fetch_discovered_by_ip(lg, "tok", 64496, nd_events)
         self.assertEqual(out["2001:db8:0:1::10"]["event_count"], 2)
         self.assertEqual(out["192.0.2.99"]["event_count"], 0)
 
@@ -546,3 +544,73 @@ class IxMapTrafficMembersTests(SimpleTestCase):
         # combined query (et2+et3) also fails -> whole cable skipped? No: the
         # combined query matches et2 too, so it raises; cable dropped entirely.
         self.assertNotIn("cable-pair", out["links"])
+
+
+class OpticBandTests(SimpleTestCase):
+    def test_down_port_is_dark_not_bad(self):
+        # A dark port floors at ~-30 dBm; that's expected, not out-of-range.
+        self.assertEqual(views._optic_band(-30.0, "100GBASE-LR4", up=False), "dark")
+        self.assertEqual(views._optic_band(None, "100GBASE-LR4", up=False), "dark")
+
+    def test_up_port_with_no_light_is_bad(self):
+        self.assertEqual(views._optic_band(-30.0, "100GBASE-LR4", up=True), "bad")
+
+    def test_lr4_short_link_high_rx_is_good(self):
+        # In-building patch: RX lands near the far end's launch power (~+2 dBm),
+        # well under the +4.5 dBm LR4 receiver overload. Must not warn.
+        self.assertEqual(views._optic_band(1.8, "100GBASE-LR4", up=True), "good")
+        self.assertEqual(views._optic_band(1.8, "100GBASE-LR", up=True), "good")
+
+    def test_low_light_still_flags(self):
+        self.assertEqual(views._optic_band(-15.7, "10GBASE-LR", up=True), "bad")
+        self.assertEqual(views._optic_band(-13.5, "10GBASE-LR", up=True), "warn")
+
+    def test_er4_total_power_reporting_tolerated(self):
+        # Some ER4 modules report the 4-lane total (~per-lane + 6 dB) in every
+        # lane slot; -1.3 dBm "per lane" must not flag.
+        self.assertEqual(views._optic_band(-1.3, "100GBASE-ER4", up=True), "good")
+
+
+_OPTICS_PROBLEMS_FIXTURE = [
+    {
+        "success": True,
+        "device": "switch01.test.sfmix.org",
+        "data": [
+            {   # healthy, up
+                "name": "Ethernet1", "description": "AS64496", "link_status": "connected",
+                "media_type": "10GBASE-LR", "temperature_c": 35.0, "dom_supported": True,
+                "lanes": [{"lane": 1, "rx_power_dbm": -5.0, "tx_power_dbm": -2.0, "tx_bias_ma": 30.0}],
+            },
+            {   # up, low light -> bad
+                "name": "Ethernet2", "description": "AS64497", "link_status": "connected",
+                "media_type": "10GBASE-LR", "temperature_c": 36.0, "dom_supported": True,
+                "lanes": [{"lane": 1, "rx_power_dbm": -15.7, "tx_power_dbm": -2.5, "tx_bias_ma": 31.0}],
+            },
+            {   # disabled with laser still firing -> dark list, never a problem
+                "name": "Ethernet3", "description": "", "link_status": "notconnect",
+                "media_type": "100GBASE-LR4", "temperature_c": 30.0, "dom_supported": True,
+                "lanes": [{"lane": 1, "rx_power_dbm": -30.0, "tx_power_dbm": 1.5, "tx_bias_ma": 40.0}],
+            },
+        ],
+    },
+]
+
+
+class OpticsProblemsViewTests(SimpleTestCase):
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_flags_only_up_out_of_range_lanes(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        inst.get_optics.return_value = _OPTICS_PROBLEMS_FIXTURE
+        inst.get_optics_inventory.return_value = []
+        resp = views.optics_problems_view(_admin_request("/admin/optics/problems/"))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn("Ethernet2", html)          # the sick lane is listed
+        self.assertIn("-15.70", html)
+        self.assertIn("Ethernet3", html)          # dark port listed informationally
+        self.assertNotIn("Ethernet1", html)       # healthy port absent
+
+    def test_non_admin_is_forbidden(self):
+        resp = views.optics_problems_view(_admin_request("/admin/optics/problems/", admin=False))
+        self.assertEqual(resp.status_code, 403)

@@ -263,37 +263,47 @@ def nd_event_pcap(request, event_id):
 # ── Network detail helpers ─────────────────────────────────────────
 
 # Per-media-type RX power specs: (rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad)
-# Sources: IEEE 802.3 per-lane receiver sensitivity and overload specs.
-# warn zone = 1.5 dB inside the bad boundary on each side.
+#
+# rx_min_bad is the IEEE 802.3 average receiver sensitivity per lane and
+# rx_max_bad is the IEEE *receiver overload* (maximum average receive power)
+# per lane — NOT the transmitter launch max, which is several dB lower on the
+# LR4-style types and false-flags healthy short in-building links whose RX
+# lands right at the far end's launch power. Warn zone = 1.5 dB inside the
+# bad boundary on each side.
+#
+# Field quirk: some modules (seen on the ER4 fleet) report the 4-lane *total*
+# power duplicated into every lane slot (~ per-lane + 6 dB), so the high-side
+# ceilings on 4-lane types stay generous enough to tolerate that.
 _OPTIC_RX_SPECS: dict[str, tuple[float, float, float, float]] = {
     # 1G
-    "1000BASE-T":   (-30.0, -30.0, 30.0, 30.0),   # copper, ignore
-    "1000BASE-LX":  (-19.0, -17.5, -0.5, 0.5),     # -19 to 0 dBm
-    "1000BASE-SX":  (-17.0, -15.5, -2.0, -0.5),
+    "1000BASE-T":   (-40.0, -40.0, 40.0, 40.0),   # copper, never flags
+    "1000BASE-LX":  (-19.0, -17.5, -3.0, 0.5),
+    "1000BASE-SX":  (-17.0, -15.5, -1.5, 0.0),
     # 10G
-    "10GBASE-SR":   (-11.1, -9.6, -0.5, 1.0),      # -11.1 to -1 dBm
-    "10GBASE-LR":   (-14.4, -12.9, -0.5, 0.5),     # -14.4 to 0.5 dBm
-    "10GBASE-ER":   (-15.8, -14.3, -0.5, 1.0),     # -15.8 to -1 dBm
+    "10GBASE-SR":   (-11.1, -9.6, -1.0, 0.5),
+    "10GBASE-LR":   (-14.4, -12.9, -1.0, 0.5),
+    "10GBASE-ER":   (-15.8, -14.3, -2.5, -1.0),
     # 40G
-    "40GBASE-SR4":  (-9.5, -8.0, -0.5, 1.0),
-    "40GBASE-LR4":  (-13.7, -12.2, 1.5, 2.3),      # per-lane
-    "40GBASE-PSM4": (-13.0, -11.5, 1.5, 2.5),
+    "40GBASE-SR4":  (-9.5, -8.0, 0.9, 2.4),
+    "40GBASE-LR4":  (-13.7, -12.2, 0.8, 2.3),
+    "40GBASE-PSM4": (-13.0, -11.5, 1.0, 2.5),
     # 100G
-    "100GBASE-SR4":  (-10.3, -8.8, 1.5, 2.4),
-    "100GBASE-LR4":  (-10.6, -9.1, 1.5, 2.4),      # per-lane
-    "100GBASE-ER4":  (-13.5, -12.0, 1.5, 2.4),
-    "100GBASE-LR":   (-10.6, -9.1, 1.5, 2.4),
-    "100GBASE-CR4":  (-30.0, -30.0, 30.0, 30.0),   # DAC, ignore
-    # 400G
-    "400GBASE-SR8":  (-10.3, -8.8, 1.5, 2.4),
-    "400GBASE-DR4":  (-10.6, -9.1, 1.5, 2.4),
-    "400GBASE-FR4":  (-10.6, -9.1, 1.5, 2.4),
-    "400GBASE-LR8":  (-10.6, -9.1, 1.5, 2.4),
-    "400GBASE-ZR":   (-18.0, -16.5, 2.0, 3.5),
-    "400GBASE-ZRP":  (-18.0, -16.5, 2.0, 3.5),
+    "100GBASE-SR4":   (-10.3, -8.8, 0.9, 2.4),
+    "100GBASE-LR4":   (-10.6, -9.1, 3.0, 4.5),
+    "100GBASE-ER4":   (-20.9, -19.4, 2.0, 3.5),   # high side tolerates total-power reporting
+    "100GBASE-LR":    (-10.6, -9.1, 3.0, 4.5),
+    "100GBASE-CWDM4": (-10.5, -9.0, 1.0, 2.5),
+    "100GBASE-CR4":   (-40.0, -40.0, 40.0, 40.0),  # DAC, never flags
+    # 400G (ZR/ZRP are coherent and typically expose no per-lane DOM here)
+    "400GBASE-SR8":  (-10.3, -8.8, 1.5, 3.0),
+    "400GBASE-DR4":  (-10.6, -9.1, 2.5, 4.0),
+    "400GBASE-FR4":  (-10.6, -9.1, 2.5, 4.0),
+    "400GBASE-LR8":  (-10.6, -9.1, 2.5, 4.0),
+    "400GBASE-ZR":   (-23.0, -21.0, 1.0, 3.0),
+    "400GBASE-ZRP":  (-23.0, -21.0, 1.0, 3.0),
 }
 # Fallback for unknown types
-_OPTIC_RX_DEFAULT = (-14.0, -12.0, 1.5, 3.0)
+_OPTIC_RX_DEFAULT = (-14.0, -12.0, 2.0, 3.5)
 
 
 def _optic_spec(media_type):
@@ -304,8 +314,14 @@ def _optic_spec(media_type):
     return _OPTIC_RX_SPECS.get(key, _OPTIC_RX_DEFAULT)
 
 
-def _optic_band(rx_dbm, media_type=""):
-    """Classify RX power level against per-optic-type thresholds."""
+def _optic_band(rx_dbm, media_type="", up=True):
+    """Classify RX power level against per-optic-type thresholds.
+
+    A port that isn't link-up is expected to read no light (RX floors out
+    around -30 dBm), so its lanes classify as "dark" rather than out-of-range.
+    """
+    if not up:
+        return "dark"
     if rx_dbm is None:
         return "unknown"
     rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad = _optic_spec(media_type)
@@ -322,6 +338,7 @@ def _optic_band_label(band):
         "good": gettext("Nominal"),
         "warn": gettext("Marginal"),
         "bad": gettext("Out of range"),
+        "dark": gettext("Port down"),
     }.get(band, "—")
 
 
@@ -363,14 +380,16 @@ def _optic_triage(entry):
     bias = lane0.get("tx_bias_ma") if up else None
     temp = entry.get("temperature_c")
 
-    rx_band = _optic_band(rx, media) if rx is not None else "unknown"
+    rx_band = _optic_band(rx, media, up)
     temp_zone = "crit" if (temp is not None and temp > 70) else "warn" if (temp is not None and temp > 60) else ""
 
     if not up:
         health, note = "down", gettext("Link down — no light")
     elif rx_band == "bad" or rx_band == "warn" or temp_zone:
         health = "warn"
-        if rx_band in ("bad", "warn"):
+        if rx_band == "bad":
+            note = gettext("RX power out of range for %(media)s") % {"media": media or gettext("this optic")}
+        elif rx_band == "warn":
             note = gettext("RX power marginal for %(media)s") % {"media": media or gettext("this optic")}
         else:
             note = gettext("Module temperature elevated")
@@ -632,11 +651,12 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
         if optic.get("dom_supported"):
             lanes_raw = optic.get("lanes", [])
             media_type = optic.get("media_type", "")
+            link_up = link_status in ("up", "connected")
             lanes = []
             for i, lane in enumerate(lanes_raw):
                 rx = lane.get("rx_power_dbm")
                 tx = lane.get("tx_power_dbm")
-                band = _optic_band(rx, media_type)
+                band = _optic_band(rx, media_type, link_up)
                 lanes.append({
                     "index": i,
                     "label": lane.get("label", f"Lane {i+1}"),
@@ -1788,6 +1808,40 @@ def netbox_status_view(request):
 
 # ── Admin: Optics (status + inventory) ─────────────────────────────
 
+def _fetch_optics_entries(token):
+    """Fetch DOM status merged with hardware inventory for every device.
+
+    Returns (entries, lg_error); entries carry a ``device`` key each.
+    """
+    entries = []
+    lg = LookingGlassClient()
+    if not lg.base_url:
+        return entries, gettext("Looking Glass not configured")
+
+    status_by_key = {}
+    for device_result in lg.get_optics(token=token):
+        if device_result.get("success") and device_result.get("data"):
+            dev = device_result.get("device", "")
+            for optic in device_result["data"]:
+                status_by_key[(dev, optic.get("name", ""))] = optic
+
+    for device_result in lg.get_optics_inventory(token=token):
+        if device_result.get("success") and device_result.get("data"):
+            dev = device_result.get("device", "")
+            for inv in device_result["data"]:
+                key = (dev, inv.get("name", ""))
+                entry = status_by_key.pop(key, {})
+                entry.update({k: v for k, v in inv.items() if k not in entry})
+                entry["device"] = dev
+                entries.append(entry)
+
+    # status entries with no matching inventory record
+    for (dev, _), optic in status_by_key.items():
+        optic["device"] = dev
+        entries.append(optic)
+    return entries, None
+
+
 @login_required
 def optics_view(request):
     """Transceiver DOM status and hardware inventory across all devices (admin only)."""
@@ -1797,36 +1851,11 @@ def optics_view(request):
     lg_error = None
     token = request.session.get("oidc_id_token")
     try:
-        lg = LookingGlassClient()
-        if not lg.base_url:
-            lg_error = gettext("Looking Glass not configured")
-        else:
-            status_by_key = {}
-            for device_result in lg.get_optics(token=token):
-                if device_result.get("success") and device_result.get("data"):
-                    dev = device_result.get("device", "")
-                    for optic in device_result["data"]:
-                        status_by_key[(dev, optic.get("name", ""))] = optic
-
-            for device_result in lg.get_optics_inventory(token=token):
-                if device_result.get("success") and device_result.get("data"):
-                    dev = device_result.get("device", "")
-                    for inv in device_result["data"]:
-                        key = (dev, inv.get("name", ""))
-                        entry = status_by_key.pop(key, {})
-                        entry.update({k: v for k, v in inv.items() if k not in entry})
-                        entry["device"] = dev
-                        entries.append(entry)
-
-            # status entries with no matching inventory record
-            for (dev, _), optic in status_by_key.items():
-                optic["device"] = dev
-                entries.append(optic)
-
-            # Attach mobile-triage fields (health zone, light-bar positions,
-            # average RX) used by the narrow-viewport card view.
-            for entry in entries:
-                _optic_triage(entry)
+        entries, lg_error = _fetch_optics_entries(token)
+        # Attach mobile-triage fields (health zone, light-bar positions,
+        # average RX) used by the narrow-viewport card view.
+        for entry in entries:
+            _optic_triage(entry)
     except Exception as e:
         lg_error = str(e)
     # Mobile card order: anomalies always on top, then ascending average RX so
@@ -1841,6 +1870,116 @@ def optics_view(request):
     return render(request, "dashboard/optics.html", {
         "entries": entries,
         "optics_triage": optics_triage,
+        "lg_error": lg_error,
+        "is_ix_admin": True,
+    })
+
+
+@login_required
+def optics_problems_view(request):
+    """Fabric-wide triage of problem optic lanes (admin only).
+
+    Every DOM lane on a link-up port is classified against the per-media-type
+    RX window; lanes outside it are listed worst-first with the threshold
+    window and the dB distance past it, so a threshold that's merely
+    miscalibrated for an optic type is distinguishable from a genuinely sick
+    lane. Down/disabled ports read no light by design and are collected into
+    a separate informational list instead of being flagged.
+    """
+    if not _is_ix_admin(request):
+        return HttpResponseForbidden(gettext("IX Administrators only."))
+    token = request.session.get("oidc_id_token")
+    entries, lg_error = [], None
+    try:
+        entries, lg_error = _fetch_optics_entries(token)
+    except Exception as e:
+        lg_error = str(e)
+
+    problem_lanes = []
+    hot_modules = []
+    dark_ports = []
+    lanes_scanned = 0
+    for entry in entries:
+        media = entry.get("media_type", "") or ""
+        lanes = entry.get("lanes") or []
+        link_status = (entry.get("link_status") or "").lower()
+        up = link_status in ("up", "connected")
+        base = {
+            "device": (entry.get("device") or "").split(".sfmix.org")[0],
+            "port": entry.get("name", ""),
+            "description": entry.get("description", "") or "",
+            "link_status": entry.get("link_status", "") or "",
+            "media_type": media,
+            "vendor": entry.get("vendor", "") or "",
+            "model": entry.get("model", "") or "",
+            "serial": entry.get("serial_number", "") or "",
+            "temperature_c": entry.get("temperature_c"),
+        }
+
+        if not up:
+            # A transceiver in a down/disabled port: expected dark, not a
+            # problem optic — but worth a glance for cabling/light issues.
+            has_light_data = any(
+                l.get("rx_power_dbm") is not None or l.get("tx_power_dbm") is not None
+                for l in lanes
+            )
+            if lanes and has_light_data:
+                lane0 = lanes[0]
+                tx0 = lane0.get("tx_power_dbm")
+                dark_ports.append({
+                    **base,
+                    # A laser still firing into a notconnect port suggests a
+                    # cabling / far-end problem rather than a pulled cable.
+                    "tx_dbm": tx0,
+                    "tx_live": tx0 is not None and tx0 > -15.0,
+                })
+            continue
+
+        rx_min_bad, rx_min_warn, rx_max_warn, rx_max_bad = _optic_spec(media)
+        for i, lane in enumerate(lanes):
+            rx = lane.get("rx_power_dbm")
+            if rx is None:
+                continue
+            lanes_scanned += 1
+            band = _optic_band(rx, media, up)
+            if band not in ("warn", "bad"):
+                continue
+            low_side = rx < rx_min_warn
+            # dB past the nearest edge of the good window
+            delta = (rx_min_warn - rx) if low_side else (rx - rx_max_warn)
+            problem_lanes.append({
+                **base,
+                "lane": lane.get("lane", i + 1),
+                "lane_count": len(lanes),
+                "rx_dbm": rx,
+                "tx_dbm": lane.get("tx_power_dbm"),
+                "bias_ma": lane.get("tx_bias_ma"),
+                "band": band,
+                "band_label": _optic_band_label(band),
+                "low_side": low_side,
+                "delta_db": delta,
+                "spec_min": rx_min_bad,
+                "spec_max": rx_max_bad,
+                "warn_min": rx_min_warn,
+                "warn_max": rx_max_warn,
+                "meter_pos": _optic_meter_pos(rx, media),
+            })
+
+        temp = entry.get("temperature_c")
+        if temp is not None and temp > 60:
+            hot_modules.append({**base, "temp_zone": "crit" if temp > 70 else "warn"})
+
+    problem_lanes.sort(key=lambda r: (0 if r["band"] == "bad" else 1, -r["delta_db"]))
+    hot_modules.sort(key=lambda r: -(r["temperature_c"] or 0))
+    dark_ports.sort(key=lambda r: (r["device"], r["port"]))
+
+    return render(request, "dashboard/optics_problems.html", {
+        "problem_lanes": problem_lanes,
+        "hot_modules": hot_modules,
+        "dark_ports": dark_ports,
+        "lanes_scanned": lanes_scanned,
+        "bad_count": sum(1 for r in problem_lanes if r["band"] == "bad"),
+        "warn_count": sum(1 for r in problem_lanes if r["band"] == "warn"),
         "lg_error": lg_error,
         "is_ix_admin": True,
     })

@@ -21,6 +21,7 @@ urlpatterns = [
     path("metrics/", views.metrics_view, name="metrics"),
     path("admin/netbox-status/", views.netbox_status_view, name="netbox_status"),
     path("admin/optics/", views.optics_view, name="optics"),
+    path("admin/optics/problems/", views.optics_problems_view, name="optics_problems"),
     path("admin/device-cache/", views.device_cache_status_view, name="device_cache_status"),
 ]
 

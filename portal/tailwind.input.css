@@ -282,6 +282,11 @@ body {
 .nd-lane-good .nd-qual { color: #15803d; }
 .nd-lane-warn .nd-qual { color: #b45309; }
 .nd-lane-bad .nd-qual { color: #dc2626; }
+/* Port is down: no light expected, render the lane neutrally. */
+.nd-lane-dark { border-color: #e5e7eb; background: #f9fafb; }
+.nd-lane-dark .nd-meter { background: #e5e7eb; }
+.nd-lane-dark .nd-needle { display: none; }
+.nd-lane-dark .nd-qual { color: #9ca3af; }
 
 /* LLDP pills (L2) */
 .nd-lldp-pill { display: flex; width: 100%; align-items: stretch; gap: 0; border: 1px solid #ddd; border-radius: 6px; font-size: .82rem; margin-bottom: .35rem; background: #fff; overflow: hidden; }
