@@ -269,3 +269,53 @@
     background: none; border: none; color: var(--nm-text); padding: 0; font-size: 12px;
   }
 }
+
+/* ---- loading veil ("warpbrand", from network-map/dev/loader-lab) ---------- */
+/* Markup ships in the page shell so the veil is up from first paint — long
+   before the deferred scripts evaluate. Pure CSS carries the waiting state
+   (rainbow barber-pole); network-map.js adds the starfield and dismisses with
+   the iris reveal. z-index above every map control/pane (max elsewhere: 4). */
+#nm-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a1526;
+}
+#nm-loader .nm-loader-stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+#nm-loader .nm-loader-brand {
+  position: relative; /* paints above the (absolute) starfield canvas */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+#nm-loader .nm-loader-wordmark { display: flex; font-size: 42px; font-weight: 800; letter-spacing: 0.06em; }
+#nm-loader .nm-loader-wordmark span:nth-child(1) { color: #8d43b8; }
+#nm-loader .nm-loader-wordmark span:nth-child(2) { color: #4079e0; }
+#nm-loader .nm-loader-wordmark span:nth-child(3) { color: #93c11f; }
+#nm-loader .nm-loader-wordmark span:nth-child(4) { color: #ef9420; }
+#nm-loader .nm-loader-wordmark span:nth-child(5) { color: #d5173e; }
+#nm-loader .nm-loader-track {
+  width: 260px;
+  height: 11px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+#nm-loader .nm-loader-stripes {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(45deg,
+    #8d43b8 0 14px, #4079e0 14px 28px, #93c11f 28px 42px,
+    #ef9420 42px 56px, #d5173e 56px 70px);
+  background-size: 200% 100%;
+  animation: nm-loader-barber 0.8s linear infinite;
+}
+@keyframes nm-loader-barber { to { background-position: -99px 0; } }
+#nm-loader .nm-loader-text { font-size: 13.5px; letter-spacing: 0.04em; color: #cfe0f2; opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) {
+  #nm-loader .nm-loader-stripes { animation: none; }
+}
