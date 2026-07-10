@@ -329,9 +329,9 @@
           if (e.pointerType === "mouse" && !e.buttons) moveTooltip(e);
         });
         hit.addEventListener("pointerleave", hideTooltip);
-        // taps: only when it wasn't a pan gesture
+        // click (not pan) opens the link's details in the info pane
         hit.addEventListener("click", function (e) {
-          if (dragDist < 6) { showTooltip(e, l); e.stopPropagation(); }
+          if (dragDist < 6) { hideTooltip(); infoPane.showDetail(l); e.stopPropagation(); }
         });
       });
     });
@@ -393,6 +393,7 @@
     });
     var ts = document.getElementById("wm-ts");
     if (ts) ts.textContent = t("Last updated") + ": " + new Date().toLocaleTimeString();
+    infoPane.refresh();
   }
 
   function pollTraffic() {
@@ -409,13 +410,104 @@
     });
   }
 
-  var info = document.getElementById("wm-info");
-  if (info) {
-    var btn = info.querySelector(".wm-info-toggle");
-    btn.addEventListener("click", function () {
-      var open = info.classList.toggle("collapsed");
-      btn.setAttribute("aria-expanded", open ? "false" : "true");
+  // ---- info pane: about blurb when idle, clicked link's details otherwise --
+  var infoPane = (function () {
+    var pane = document.getElementById("wm-info");
+    if (!pane) return { showDetail: function () {}, refresh: function () {} };
+    var toggle = pane.querySelector(".wm-info-toggle");
+    var titleEl = pane.querySelector(".wm-info-title");
+    var about = pane.querySelector(".wm-info-about");
+    var detail = pane.querySelector(".wm-info-detail");
+    var body = pane.querySelector(".wm-info-detail-body");
+    var defaultTitle = titleEl.textContent;
+    var currentLink = null;
+    function setCollapsed(c) {
+      pane.classList.toggle("collapsed", c);
+      toggle.setAttribute("aria-expanded", String(!c));
+    }
+    toggle.addEventListener("click", function () {
+      setCollapsed(!pane.classList.contains("collapsed"));
     });
+    pane.querySelector(".wm-info-back").addEventListener("click", showAbout);
+    function showAbout() {
+      currentLink = null;
+      detail.hidden = true;
+      about.hidden = false;
+      titleEl.textContent = defaultTitle;
+    }
+    function showDetail(l) {
+      currentLink = l;
+      about.hidden = true;
+      detail.hidden = false;
+      titleEl.textContent = l.a.replace(/^site:/, "") + " ⇄ " + l.z.replace(/^site:/, "");
+      body.innerHTML = linkDetailHtml(l);
+      setCollapsed(false);
+    }
+    function refresh() { // live update while a link is open
+      if (currentLink && !detail.hidden) body.innerHTML = linkDetailHtml(currentLink);
+    }
+    return { showDetail: showDetail, refresh: refresh };
+  })();
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function row(k, v) {
+    return '<div class="wm-row"><span class="k">' + k + '</span><span class="v">' + v + "</span></div>";
+  }
+  var SPARK_IN = "#00cf00", SPARK_OUT = "#fade2a"; // match the network map's
+  function sparkline(tr) {
+    var si = tr.series_in || [], so = tr.series_out || [];
+    var n = Math.max(si.length, so.length);
+    if (!n) return "";
+    var max = 1;
+    for (var i = 0; i < n; i++) { max = Math.max(max, si[i] || 0, so[i] || 0); }
+    var W = 240, H = 54;
+    function path(arr) {
+      if (!arr.length) return "";
+      return arr.map(function (v, i) {
+        var x = (i / (arr.length - 1)) * W;
+        var y = H - ((v || 0) / max) * (H - 4) - 2;
+        return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+      }).join(" ");
+    }
+    return '<div class="wm-spark"><svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
+      '<path d="' + path(so) + '" fill="none" stroke="' + SPARK_OUT + '" stroke-width="1.6"/>' +
+      '<path d="' + path(si) + '" fill="none" stroke="' + SPARK_IN + '" stroke-width="1.6"/>' +
+      "</svg>" +
+      '<div class="wm-spark-caption">' + t("Last 24 hours") +
+      ' · <span style="color:' + SPARK_IN + '">' + t("In") + "</span>" +
+      ' <span style="color:' + SPARK_OUT + '">' + t("Out") + "</span>" +
+      " · ≤ " + fmtBps(max) + "</div></div>";
+  }
+  function linkDetailHtml(l) {
+    var tr = STATE.traffic && STATE.traffic.links[l.id];
+    var aName = esc(l.a.replace(/^site:/, "")), zName = esc(l.z.replace(/^site:/, ""));
+    var html = "";
+    if (l.status === "planned") {
+      return '<div class="wm-tt-note">' + t("planned — not yet in service") + "</div>";
+    }
+    if (l.status !== "up") {
+      return '<div class="wm-tt-note">' + t("link offline") + "</div>";
+    }
+    if (!tr) {
+      return '<div class="wm-tt-note">' + t("live stats unavailable") + "</div>";
+    }
+    html += row(t("Out") + " → " + zName, "<b>" + fmtBps(tr.out_bps) + "</b>");
+    html += row(t("In") + " → " + aName, "<b>" + fmtBps(tr.in_bps) + "</b>");
+    html += row(t("Capacity"), capLabel(l.capacity_bps));
+    html += row("%", (tr.util_pct != null ? tr.util_pct : 0) + "%");
+    html += sparkline(tr);
+    if (tr.members && tr.members.length > 1) {
+      html += '<div class="wm-members-h">' + tr.members.length + " × " + t("Parallel links") + "</div>";
+      tr.members.forEach(function (m, i) {
+        if (!m) return;
+        html += row("#" + (i + 1) + " · " + capLabel(m.speed_bps || 0),
+          fmtBps(m.out_bps) + " / " + fmtBps(m.in_bps));
+      });
+    }
+    return html;
   }
 
   fetch(STRUCTURE_URL).then(function (r) { return r.json(); }).then(function (s) {
