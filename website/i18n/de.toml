@@ -48,6 +48,7 @@
 
 # Network map
 "Network Map" = "Netzwerkkarte"
+"Weathermap" = "Wetterkarte"
 "Legend" = "Legende"
 "Link utilization" = "Auslastung"
 "offline" = "offline"
@@ -60,6 +61,7 @@
 "link offline" = "Verbindung offline"
 "planned — not yet in service" = "geplant — noch nicht in Betrieb"
 "live stats unavailable" = "Live-Daten nicht verfügbar"
+"The weathermap data is unavailable right now." = "Die Wetterkarten-Daten sind gerade nicht verfügbar."
 "underground" = "unterirdisch"
 "aerial" = "oberirdisch"
 "submarine" = "unterseeisch"

@@ -7,10 +7,14 @@ network-map/ARCHITECTURE.md). Because everything comes from NetBox (world-
 reachable) + baked-in data, this runs in the portal with only a public network —
 no sflow-rt, no eAPI, no internal access.
 
-Emits two structures:
+Emits three structures:
   * map.json        PUBLIC  — opaque per-generation cable ids, render-ready
                               path/media/drops, sites, metros, metro_cables.
                               No circuit ids or provider names.
+  * weathermap.json PUBLIC  — the same graph laid out schematically (nodes with
+                              canvas positions + links keyed by the same cable
+                              ids), for the website's weathermap renderer.
+                              Derived from map.json — see weathermap.py.
   * map-links.json  PRIVATE — opaque id -> member {host, ifname} ports + circuit
                               id/provider, so the portal can key the per-link
                               traffic overlay. Never served to the browser.
@@ -687,7 +691,16 @@ def cache_logos(mapjson, out_dir):
 def write_outputs(mapjson, linksjson, out_path, links_path):
     """Atomically write the public map + private links files. Operator logos are
     downloaded and rewritten to portal-served paths (see cache_logos) before the
-    public map is materialised, so map.json never carries a peeringdb.com URL."""
+    public map is materialised, so map.json never carries a peeringdb.com URL.
+
+    Also derives + writes weathermap.json (the schematic view of the same
+    graph, see weathermap.py) next to map.json — same generation, same cable
+    ids, served by the same nginx location block. Returns the weathermap dict
+    so the task summary can report its node/link counts."""
+    from .weathermap import weathermap_from_map
+    wm = weathermap_from_map(mapjson)
     cache_logos(mapjson, os.path.dirname(out_path))
     _atomic_write(out_path, mapjson)
+    _atomic_write(os.path.join(os.path.dirname(out_path), "weathermap.json"), wm)
     _atomic_write(links_path, linksjson)
+    return wm

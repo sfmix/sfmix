@@ -51,6 +51,7 @@ server {
     # container writes to), never streamed through Django/gunicorn:
     #   /static/                    -> collectstatic output
     #   /statistics/map/map.json    -> PUBLIC network-map structure (CORS-open)
+    #   /statistics/map/weathermap.json -> PUBLIC schematic weathermap (CORS-open)
     #   /statistics/map/logos/      -> cached operator logos (was hotlinked from
     #                                  peeringdb.com; now downloaded at build time)
     # The PRIVATE map-links.json lives on the db named volume, outside these dirs,
@@ -66,6 +67,13 @@ server {
 
     location = /statistics/map/map.json {
         alias {{ ixp_portal_map_public_dir | default('/opt/sfmix/map-public') }}/map.json;
+        default_type application/json;
+        add_header Access-Control-Allow-Origin "*";
+        add_header Cache-Control "public, max-age=300";
+    }
+
+    location = /statistics/map/weathermap.json {
+        alias {{ ixp_portal_map_public_dir | default('/opt/sfmix/map-public') }}/weathermap.json;
         default_type application/json;
         add_header Access-Control-Allow-Origin "*";
         add_header Cache-Control "public, max-age=300";
