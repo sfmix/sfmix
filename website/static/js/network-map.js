@@ -55,6 +55,26 @@
     var gone = false, exiting = false, boost = 1, irisR = -1, raf = 0;
     var t0 = performance.now(), stars = [];
 
+    // SimCity-style status ticker. The opening line ("assembling the
+    // backbone…") ships in the HTML so it shows before any script runs; once
+    // we're alive the rest rotate through beneath the barber-pole. Keys are
+    // t()-translated (t and I18N are hoisted/assigned before the first tick).
+    var LINES = [
+      "reticulating splines…",
+      "waking the route servers…",
+      "negotiating BGP sessions…",
+      "warming up the optics…",
+      "untangling cross-connects…",
+      "herding packets…",
+      "polishing Sutro Tower…",
+      "counting the cows…"
+    ];
+    var textEl = root.querySelector(".nm-loader-text");
+    var lineIdx = 0;
+    var lineTimer = textEl ? setInterval(function () {
+      textEl.textContent = t(LINES[lineIdx++ % LINES.length]);
+    }, 1400) : 0;
+
     function fit() {
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = root.clientWidth * dpr;
@@ -113,6 +133,7 @@
     function remove() {
       gone = true;
       if (raf) cancelAnimationFrame(raf);
+      if (lineTimer) clearInterval(lineTimer);
       root.style.display = "none";
     }
     function dismiss() {
