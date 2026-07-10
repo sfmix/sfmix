@@ -330,18 +330,21 @@
         // (single fetch shared with the shield/label builders — see load handler)
         airports: { type: "geojson", data: EMPTY_FC, tolerance: 0.5, maxzoom: 12 },
         roads: { type: "geojson", data: EMPTY_FC, tolerance: 0.5, maxzoom: 14, buffer: 32 },
-        // committed terrarium DEM pyramid (z8-10, fetch_dem.py) — hillshade +
-        // gentle 3D terrain. 256px tiles are fetched at map-zoom+1 and the
-        // source under/overzooms outside 8..10.
+        // committed terrarium DEM pyramid (z8-9, fetch_dem.py + quantize_dem.py)
+        // — hillshade + gentle 3D terrain. 256px tiles are fetched at
+        // map-zoom+1 and the source under/overzooms outside 8..9. z9 is the
+        // cap on purpose: DEM tiles dominated the initial network payload, the
+        // hillshade's exaggeration already fades hard past z12, and overzoomed
+        // z9 is visually equivalent for this gentle relief.
         // TWO sources over the same tiles: MapLibre warns (and renders worse)
         // when hillshade and setTerrain share one raster-dem source, since
         // terrain wants different overscaling than the hillshade layer. The
         // browser HTTP cache dedupes the underlying tile fetches.
         dem: { type: "raster-dem", tiles: [BASEMAP_BASE + "dem/{z}/{x}/{y}.png"],
-          tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 10,
+          tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 9,
           bounds: [-124.0, 36.2, -120.3, 39.0] },
         "dem-terrain": { type: "raster-dem", tiles: [BASEMAP_BASE + "dem/{z}/{x}/{y}.png"],
-          tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 10,
+          tileSize: 256, encoding: "terrarium", minzoom: 8, maxzoom: 9,
           bounds: [-124.0, 36.2, -120.3, 39.0] },
         sutro: { type: "geojson", data: BASEMAP_BASE + "sutro.json" }
       },
