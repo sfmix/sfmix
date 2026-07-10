@@ -186,6 +186,36 @@
       }
     },
 
+    /* 4b. The full kit: warpspeed starfield behind the SFMIX wordmark and
+       barber-pole stripe, ending in the same hyperspace kick + iris. */
+    warpbrand: {
+      name: "Warpspeed + wordmark + barber-pole",
+      minMs: 2600,
+      start: function (ctx) {
+        CONCEPTS.warp.start.call(CONCEPTS.warp, ctx);
+        var brand = el("div", "ll-brand");
+        var w = el("div", "ll-wordmark");
+        "SFMIX".split("").forEach(function (ch) { w.appendChild(el("span", null, ch)); });
+        brand.appendChild(w);
+        var track = el("div", "ll-barber-track");
+        track.appendChild(el("div", "ll-barber-stripes"));
+        brand.appendChild(track);
+        brand.appendChild(el("div", "ll-loading-text", "assembling the backbone…"));
+        overlay.appendChild(brand);
+        ctx.brand = brand;
+      },
+      reveal: function (ctx, done) {
+        // final fast stripe sweep, fade the branding, then punch the iris
+        var s = ctx.brand.querySelector(".ll-barber-stripes");
+        if (s) s.style.animationDuration = "0.25s";
+        setTimeout(function () {
+          ctx.brand.style.transition = "opacity 0.35s ease";
+          ctx.brand.style.opacity = "0";
+          CONCEPTS.warp.reveal.call(CONCEPTS.warp, ctx, done);
+        }, 320);
+      }
+    },
+
     /* 5. Space drop: starfield, a rising horizon glow, then falling through
        clouds while the map zooms up underneath and sharpens into place. */
     skyfall: {
