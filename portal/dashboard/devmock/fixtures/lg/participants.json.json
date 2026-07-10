@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-01-01T00:00:00+0000",
+  "ixp_list": [
+    {
+      "shortname": "DEVMOCK-IX",
+      "name": "Devmock Example Internet Exchange",
+      "ixp_id": 1,
+      "ixf_id": 1,
+      "peeringdb_id": 1,
+      "country": "US",
+      "url": "https://ix.example.net/",
+      "support_email": "noc@ix.example.net",
+      "support_phone": "+1 555 0100",
+      "switch": [
+        {
+          "id": 10,
+          "name": "switch01.pop1.example.net",
+          "colo": "Example Colo One",
+          "pdb_facility_id": 1,
+          "city": "Anytown",
+          "country": "US",
+          "manufacturer": "Example",
+          "model": "EX-1000"
+        },
+        {
+          "id": 20,
+          "name": "switch02.pop2.example.net",
+          "colo": "Example Colo Two",
+          "pdb_facility_id": 2,
+          "city": "Anytown",
+          "country": "US",
+          "manufacturer": "Example",
+          "model": "EX-1000"
+        }
+      ],
+      "vlan": [
+        {
+          "id": 1,
+          "name": "DEVMOCK-PEERING",
+          "ipv4": { "prefix": "192.0.2.0", "mask_length": 24 },
+          "ipv6": { "prefix": "2001:db8:0:1::", "mask_length": 64 }
+        }
+      ]
+    }
+  ],
+  "member_list": [
+    {
+      "asnum": 64496,
+      "member_type": "peering",
+      "name": "Example Networks LLC",
+      "connection_list": [
+        {
+          "ixp_id": 1,
+          "state": "active",
+          "if_list": [{ "switch_id": 10, "if_speed": 20000 }],
+          "vlan_list": [
+            {
+              "vlan_id": 1,
+              "ipv4": { "address": "192.0.2.10" },
+              "ipv6": { "address": "2001:db8:0:1::10" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asnum": 64497,
+      "member_type": "peering",
+      "name": "Placeholder Transit Inc.",
+      "connection_list": [
+        {
+          "ixp_id": 1,
+          "state": "active",
+          "if_list": [{ "switch_id": 20, "if_speed": 10000 }],
+          "vlan_list": [
+            {
+              "vlan_id": 1,
+              "ipv4": { "address": "192.0.2.11" },
+              "ipv6": { "address": "2001:db8:0:1::11" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asnum": 64498,
+      "member_type": "peering",
+      "name": "Doc Example Peer Co.",
+      "connection_list": [
+        {
+          "ixp_id": 1,
+          "state": "active",
+          "if_list": [{ "switch_id": 10, "if_speed": 10000 }],
+          "vlan_list": [
+            {
+              "vlan_id": 1,
+              "ipv4": { "address": "192.0.2.12" },
+              "ipv6": { "address": "2001:db8:0:1::12" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

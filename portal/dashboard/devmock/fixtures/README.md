@@ -45,6 +45,7 @@ tells you exactly which filename to create.
 |--------|--------------|----------|-------------|
 | lg | `participants.json` | `/api/v1/participants` | participants list |
 | lg | `participants_<asn>.json` | `/api/v1/participants/{asn}` | network detail, mac-table gating |
+| lg | `participants.json.json` | `/api/v1/participants.json` | IX-F Member Export (`/participants.json`) |
 | lg | `peeringdb-cache.json` | `/api/v1/peeringdb-cache` | participant website links |
 | lg | `interfaces_status.json` | `/api/v1/interfaces/status` | network detail, lldp |
 | lg | `optics.json` | `/api/v1/optics` | network detail (admin), optics page |
