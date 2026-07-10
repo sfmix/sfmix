@@ -81,23 +81,6 @@
   pointer-events: none;
 }
 
-.wm-tooltip {
-  position: absolute;
-  z-index: 6;
-  max-width: 320px;
-  background: rgba(16, 27, 36, 0.96);
-  color: #dfe9ef;
-  border: 1px solid rgba(204, 204, 220, 0.2);
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 12.5px;
-  pointer-events: none;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
-}
-.wm-tooltip h4 { margin: 0 0 6px; font-size: 13px; }
-.wm-tt-row { display: flex; justify-content: space-between; gap: 14px; }
-.wm-tt-row b { font-variant-numeric: tabular-nums; }
-.wm-tt-member { opacity: 0.75; font-size: 11.5px; }
 .wm-tt-note { opacity: 0.8; font-style: italic; margin-top: 2px; }
 
 /* --- floating bubbles, same visual language as the network map's ---------- */
@@ -170,10 +153,30 @@
   display: flex;
   justify-content: space-between;
   gap: 14px;
-  padding: 1.5px 0;
+  padding: 3px 7px;
+  border-radius: 5px;
 }
+/* zebra stripes so the eye can track a label to its far-side value */
+.wm-info-detail-body .wm-row:nth-child(odd) { background: rgba(204, 204, 220, 0.07); }
 .wm-row .k { opacity: 0.75; }
 .wm-row .v { font-variant-numeric: tabular-nums; }
+
+/* utilization as a filled bar: colour + length lead to the number */
+.wm-util {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 7px 2px;
+}
+.wm-util-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(8, 17, 24, 0.6);
+  overflow: hidden;
+}
+.wm-util-fill { height: 100%; border-radius: 4px; transition: width 0.6s, background 0.6s; }
+.wm-util span { font-variant-numeric: tabular-nums; font-weight: 600; }
 .wm-members-h { margin: 8px 0 2px; font-weight: 600; opacity: 0.85; }
 .wm-spark { margin: 8px 0 2px; }
 .wm-spark svg {
