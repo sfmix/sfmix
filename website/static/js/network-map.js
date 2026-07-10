@@ -211,10 +211,12 @@
       }
       // water-crossing spans (pre-computed sub-spans of the path) get the submerged
       // treatment; carry the cable's base offset so the band centres on the bundle
+      // (weight + status feed the pale flow bed under the barber-pole stripes)
       (c.media || []).forEach(function (m) {
         mediaFeatures.push({
           type: "Feature",
-          properties: { medium: m.medium, id: c.id, offset: base },
+          properties: { medium: m.medium, id: c.id, offset: base,
+            weight: weightForCapacity(c.capacity_bps), status: c.status },
           geometry: { type: "LineString", coordinates: m.coordinates }
         });
       });
@@ -272,7 +274,9 @@
     var metroCableFeatures = (structure.metro_cables || []).map(function (g) {
       METRO_MEMBERS[g.id] = g.member_ids; METRO_CAP[g.id] = g.capacity_bps;
       (g.media || []).forEach(function (m) {
-        metroMediaFeatures.push({ type: "Feature", properties: { id: g.id, medium: m.medium },
+        metroMediaFeatures.push({ type: "Feature",
+          properties: { id: g.id, medium: m.medium,
+            weight: weightForCapacity(g.capacity_bps), status: g.status },
           geometry: { type: "LineString", coordinates: m.coordinates } });
       });
       if (g.status === "up") {
@@ -802,13 +806,13 @@
   // Toggle metro / site / device tiers by zoom (layer visibility + markers).
   var SITE_LAYERS = ["cables-casing", "cables-down", "cables-planned", "cables-approx",
     "cables-line", "cables-hit", "cable-water", "cable-submarine", "cable-ripple",
-    "cable-drops", "stations-ring", "stations-dot", "flow-fwd", "flow-rev"];
+    "cable-flow-bed", "cable-drops", "stations-ring", "stations-dot", "flow-fwd", "flow-rev"];
   // the metro water veil MUST toggle with its tier: it's wider than the site-tier
   // veil and sits above the site flow stripes, so left visible it drowns the
   // barber pole over water crossings at close zoom
   var METRO_LAYERS = ["metro-casing", "metro-line", "metro-planned", "metro-stations-ring",
     "metro-stations-dot", "metro-flow-fwd", "metro-flow-rev", "metro-submarine",
-    "metro-water", "metro-ripple"];
+    "metro-water", "metro-ripple", "metro-flow-bed"];
   function setVis(ids, on) {
     ids.forEach(function (id) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
   }
@@ -1088,10 +1092,29 @@
       paint: { "line-color": "#8fb4d0", "line-opacity": 0.7, "line-width": 2, "line-offset": OFFSET_EXPR,
         "line-dasharray": [0.6, 1.8] }
     }, beforeId);
+    // pale flow bed: the barber-pole stripe is a DARKENED util shade (contrast
+    // against the bright cable body on land), so over the dark veil it vanishes.
+    // A narrow crest-toned lane under the stripes — over the veil, under the
+    // flow layers — gives the dashes something light to crawl across; sized a
+    // hair wider than the stripe so it reads as the stripe's water backing, not
+    // a bright cable punching through the submerged treatment
+    map.addLayer({
+      id: "cable-flow-bed", type: "line", source: "cable-media",
+      filter: ["==", ["get", "status"], "up"],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#a9c9e2", "line-opacity": 0.65, "line-offset": OFFSET_EXPR,
+        "line-width": ["interpolate", ["linear"], ["zoom"],
+          8, ["+", ["*", ["get", "weight"], 0.3], 2.0],
+          12, ["+", ["*", ["get", "weight"], 0.55], 2.4],
+          16, ["+", ["*", ["get", "weight"], 1.0], 2.8]] }
+    }, beforeId);
     // METRO tier: the same submerged veil + waves over metro trunks that cross the
     // bay, so the zoomed-out inter-metro view also reads submarine (no per-cable
-    // media at that tier otherwise). Sits over metro-line, below metro stations.
-    var metroBefore = map.getLayer("metro-stations-ring") ? "metro-stations-ring" : undefined;
+    // media at that tier otherwise). Sits over metro-line but BELOW the metro flow
+    // stripes — same reason as the site tier: the wide veil painted on top
+    // swallows the barber pole entirely.
+    var metroBefore = map.getLayer("metro-flow-fwd") ? "metro-flow-fwd"
+      : map.getLayer("metro-stations-ring") ? "metro-stations-ring" : undefined;
     // depth shade for the metro tier too — without it (and with the veil
     // narrower than the fat metro trunk) the util colour bled around the veil
     // edges and the crossing read painted-on rather than submerged
@@ -1111,6 +1134,16 @@
       id: "metro-ripple", type: "line", source: "metro-cable-media",
       layout: { "line-cap": "butt", "line-join": "round" },
       paint: { "line-color": "#8fb4d0", "line-opacity": 0.7, "line-width": 6 }
+    }, metroBefore);
+    // metro tier's pale flow bed (same rationale as cable-flow-bed above)
+    map.addLayer({
+      id: "metro-flow-bed", type: "line", source: "metro-cable-media",
+      filter: ["==", ["get", "status"], "up"],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#a9c9e2", "line-opacity": 0.65,
+        "line-width": ["interpolate", ["linear"], ["zoom"],
+          8, ["+", ["*", ["get", "weight"], 0.5], 2.4],
+          10.6, ["+", ["*", ["get", "weight"], 0.7], 2.8]] }
     }, metroBefore);
     PREFETCH.waterTexture.then(function (sp) {
       if (!map.hasImage("water-texture")) map.addImage("water-texture", sp.image, { pixelRatio: sp.pixelRatio });
