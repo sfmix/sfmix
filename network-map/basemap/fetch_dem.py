@@ -3,9 +3,9 @@
 
 Downloads Mapzen terrarium-encoded elevation PNGs (public, hosted by AWS Open
 Data: https://registry.opendata.aws/terrain-tiles/) for the basemap BBOX at
-z8-z10 into website/static/map/dem/{z}/{x}/{y}.png. ~150 small tiles; the map
+z8-z9 into website/static/map/dem/{z}/{x}/{y}.png. ~50 small tiles; the map
 serves them as a raster-dem source (256px tiles are fetched at map-zoom+1, and
-the source overzooms past z10, so z10 is plenty for hillshade + gentle 3D).
+the source overzooms past z9, which is plenty for hillshade + gentle 3D).
 
     python3 network-map/basemap/fetch_dem.py
 """
@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir,
                                    "website", "static", "map", "dem"))
 URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-ZOOMS = (8, 9, 10)
+ZOOMS = (8, 9)
 
 
 def tile_range(z):
