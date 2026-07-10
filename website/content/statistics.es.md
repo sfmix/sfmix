@@ -5,9 +5,9 @@ video: "video/route-servers-bg.mp4"
 mobile_image: "img/mobile-sf-night.jpg"
 ---
 
-## Paneles públicos de Grafana
+## Estadísticas y mapas en vivo
 
-SFMIX usa sFlow para muestrear los metadatos del tráfico del intercambio, incluidas las métricas de volumen de par a par. Las cargas útiles de los paquetes nunca se capturan ni se inspeccionan. La pila está compuesta por sFlow-RT, Prometheus y [Grafana](https://grafana.com/).
+SFMIX usa sFlow para muestrear los metadatos del tráfico del intercambio, incluidas las métricas de volumen de par a par. Las cargas útiles de los paquetes nunca se capturan ni se inspeccionan. El tráfico se recopila con sFlow-RT y Prometheus, y puedes explorarlo de dos maneras: mediante nuestros propios mapas interactivos en vivo o mediante los paneles públicos de [Grafana](https://grafana.com/).
 
 <div class="stat-cta-grid">
 

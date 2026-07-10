@@ -5,9 +5,9 @@ video: "video/route-servers-bg.mp4"
 mobile_image: "img/mobile-sf-night.jpg"
 ---
 
-## public grafana dashboards 📊
+## live stats & maps 📊
 
-SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer volume metrics. packet payloads are never captured or inspected (we're not nosy 🤫). the stack is sFlow-RT, Prometheus, and [Grafana](https://grafana.com/).
+SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer volume metrics. packet payloads are never captured or inspected (we're not nosy 🤫). traffic gets collected with sFlow-RT and Prometheus, and you can vibe with it two ways: our own interactive live maps, or the public [Grafana](https://grafana.com/) dashboards.
 
 <div class="stat-cta-grid">
 

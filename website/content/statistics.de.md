@@ -5,9 +5,9 @@ video: "video/route-servers-bg.mp4"
 mobile_image: "img/mobile-sf-night.jpg"
 ---
 
-## Öffentliche Grafana-Dashboards
+## Live-Statistiken & Karten
 
-SFMIX verwendet sFlow, um Metadaten zum Datenverkehr des Internet-Knotens zu erfassen, einschließlich Volumenkennzahlen zwischen einzelnen Teilnehmern. Paketinhalte werden niemals erfasst oder inspiziert. Der Stack besteht aus sFlow-RT, Prometheus und [Grafana](https://grafana.com/).
+SFMIX verwendet sFlow, um Metadaten zum Datenverkehr des Internet-Knotens zu erfassen, einschließlich Volumenkennzahlen zwischen einzelnen Teilnehmern. Paketinhalte werden niemals erfasst oder inspiziert. Der Datenverkehr wird mit sFlow-RT und Prometheus gesammelt und lässt sich auf zwei Wegen erkunden: über unsere eigenen interaktiven Live-Karten oder über die öffentlichen [Grafana](https://grafana.com/)-Dashboards.
 
 <div class="stat-cta-grid">
 
