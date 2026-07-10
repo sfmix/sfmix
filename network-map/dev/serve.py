@@ -121,6 +121,15 @@ DEV_SHELL = """<!doctype html>
      data-basemap-base="/map/"
      data-sprite-base="/map/sprites/"
      data-decorations-url="/map/decorations.json">
+  <div id="nm-loader" aria-hidden="true">
+    <canvas class="nm-loader-stars"></canvas>
+    <div class="nm-loader-brand">
+      <div class="nm-loader-wordmark"><span>S</span><span>F</span><span>M</span><span>I</span><span>X</span></div>
+      <div class="nm-loader-track"><div class="nm-loader-stripes"></div></div>
+      <div class="nm-loader-text">assembling the backbone…</div>
+    </div>
+  </div>
+  <noscript><style>#nm-loader { display: none; }</style></noscript>
   <div id="nm-status"></div>
   <div id="nm-info" class="collapsed">
     <button class="nm-info-toggle" type="button" aria-expanded="false" aria-controls="nm-info-body">

@@ -11,7 +11,12 @@
   "use strict";
 
   var el = document.getElementById("network-map");
-  if (!el || typeof maplibregl === "undefined") return;
+  if (!el || typeof maplibregl === "undefined") {
+    // no map is coming — don't leave the veil covering the container
+    var lv = document.getElementById("nm-loader");
+    if (lv) lv.style.display = "none";
+    return;
+  }
 
   var STRUCTURE_URL = el.dataset.structureUrl;
   var TRAFFIC_URL = el.dataset.trafficUrl;
@@ -26,6 +31,135 @@
     catch (e) { return ""; }
   })();
   var POLL_MS = 60000;
+
+  // ---- loading veil (the "warpbrand" concept from network-map/dev/loader-lab)
+  // A branded splash — technicolor starfield in the five logo hues behind the
+  // SFMIX wordmark and a barber-pole stripe — covering the staged load, exiting
+  // with a hyperspace kick + iris reveal. The markup/CSS ship in the page shell
+  // so the veil is up from first paint; this module only animates and
+  // dismisses. dismiss() is reached from: the idle AFTER the whimsy wave (map
+  // fully dressed — the normal path), showStatus() (structure fetch failed; the
+  // error chip must be visible), a hard cap (never trap the user behind a
+  // broken loader), and ?noveil=1 (the loader-lab overlays its own concepts on
+  // this page and suppresses the built-in veil). prefers-reduced-motion gets a
+  // plain fade with no starfield/kick/iris.
+  var loader = (function () {
+    var root = document.getElementById("nm-loader");
+    var noop = { dismiss: function () {} };
+    if (!root) return noop;
+    if (/[?&]noveil\b/.test(window.location.search)) { root.style.display = "none"; return noop; }
+    var LOGO = ["#8d43b8", "#4079e0", "#93c11f", "#ef9420", "#d5173e"];
+    var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var canvas = root.querySelector(".nm-loader-stars");
+    var g = canvas && canvas.getContext ? canvas.getContext("2d") : null;
+    var gone = false, exiting = false, boost = 1, irisR = -1, raf = 0;
+    var t0 = performance.now(), stars = [];
+
+    function fit() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = root.clientWidth * dpr;
+      canvas.height = root.clientHeight * dpr;
+    }
+    function frame() {
+      var W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+      var half = Math.hypot(cx, cy);
+      g.fillStyle = "rgba(10,21,38,0.34)"; // veil bg at partial alpha = motion trails
+      g.fillRect(0, 0, W, H);
+      var age = (performance.now() - t0) / 1000;
+      var speed = (1.012 + Math.min(age * 0.004, 0.02)) * boost;
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        var d0 = s.d; s.d *= speed;
+        if (s.d > 1.05) { s.d = Math.random() * 0.03 + 0.002; d0 = s.d; }
+        g.strokeStyle = s.c;
+        g.globalAlpha = Math.min(0.3 + s.d * 2.2, 1);
+        g.lineWidth = s.w * (0.5 + s.d * 2);
+        g.beginPath();
+        g.moveTo(cx + Math.cos(s.a) * d0 * half, cy + Math.sin(s.a) * d0 * half);
+        g.lineTo(cx + Math.cos(s.a) * s.d * half, cy + Math.sin(s.a) * s.d * half);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      if (irisR >= 0) { // glowing rainbow rim on the opening iris
+        var r = irisR * Math.min(window.devicePixelRatio || 1, 2);
+        if (g.createConicGradient) {
+          var rim = g.createConicGradient(age, cx, cy);
+          LOGO.forEach(function (c, k) { rim.addColorStop(k / LOGO.length, c); });
+          rim.addColorStop(1, LOGO[0]);
+          g.strokeStyle = rim;
+        } else {
+          g.strokeStyle = "#ffffff";
+        }
+        g.lineWidth = 3 + r * 0.02;
+        g.globalAlpha = 0.9;
+        g.beginPath(); g.arc(cx, cy, Math.max(r, 1), 0, Math.PI * 2); g.stroke();
+        g.globalAlpha = 1;
+      }
+      raf = requestAnimationFrame(frame);
+    }
+    if (g && !reduced) {
+      fit();
+      window.addEventListener("resize", fit);
+      for (var i = 0; i < 260; i++) {
+        stars.push({
+          a: Math.random() * Math.PI * 2,
+          d: Math.pow(Math.random(), 2) * 0.45 + 0.002, // fraction of half-diagonal
+          c: LOGO[i % LOGO.length],
+          w: Math.random() * 1.6 + 0.4
+        });
+      }
+      raf = requestAnimationFrame(frame);
+    }
+    function remove() {
+      gone = true;
+      if (raf) cancelAnimationFrame(raf);
+      root.style.display = "none";
+    }
+    function dismiss() {
+      if (gone || exiting) return;
+      exiting = true;
+      root.style.pointerEvents = "none";
+      if (!g || reduced) {
+        root.style.transition = "opacity 0.6s ease";
+        requestAnimationFrame(function () { root.style.opacity = "0"; });
+        setTimeout(remove, 700);
+        return;
+      }
+      var stripes = root.querySelector(".nm-loader-stripes");
+      if (stripes) stripes.style.animationDuration = "0.25s"; // final fast sweep
+      setTimeout(function () {
+        var brand = root.querySelector(".nm-loader-brand");
+        if (brand) { brand.style.transition = "opacity 0.35s ease"; brand.style.opacity = "0"; }
+        boost = 1.14; // hyperspace kick
+        // slight over-zoom on the map's own canvas container (canvas + markers,
+        // not the controls) that settles to 1 as the iris opens; the transform
+        // is cleared afterwards so nothing lingers to skew pointer math
+        var settle = el.querySelector(".maplibregl-canvas-container");
+        if (settle) settle.style.transform = "scale(1.12)";
+        setTimeout(function () {
+          if (settle) {
+            settle.style.transition = "transform 1.1s cubic-bezier(0.22, 0.8, 0.3, 1)";
+            settle.style.transform = "scale(1)";
+            setTimeout(function () { settle.style.transition = ""; settle.style.transform = ""; }, 1200);
+          }
+          var maxR = Math.hypot(root.clientWidth, root.clientHeight) / 2 + 140;
+          var i0 = performance.now(), DUR = 950;
+          (function iris() {
+            var p = Math.min((performance.now() - i0) / DUR, 1);
+            var e = 1 - Math.pow(1 - p, 3); // ease-out cubic
+            irisR = e * maxR;
+            var m = "radial-gradient(circle at 50% 50%, transparent " + irisR +
+              "px, black " + (irisR + 110) + "px)";
+            root.style.maskImage = m;
+            root.style.webkitMaskImage = m;
+            if (p < 1) requestAnimationFrame(iris); else remove();
+          })();
+        }, 480);
+      }, 320);
+    }
+    setTimeout(dismiss, 15000); // hard cap
+    return { dismiss: dismiss };
+  })();
 
   // ---- early prefetch (startup perf) --------------------------------------
   // Start every startup fetch immediately, in parallel with map/style init,
@@ -743,6 +877,11 @@
       PREFETCH.airports.then(addAirportLabels).catch(function () {});
       PREFETCH.roads.then(addRoadShields).catch(function () {});
       if (DECOR_URL) addDecorations();
+      // the loading veil lifts on the NEXT idle — after the shields, labels
+      // and critters above have landed — so the iris opens onto the fully
+      // dressed map in one reveal (timeout: sprite stragglers, throttled tabs)
+      map.once("idle", loader.dismiss);
+      setTimeout(loader.dismiss, 2500);
     }
     map.once("idle", whimsyWave);
     setTimeout(whimsyWave, 6000);
@@ -1841,6 +1980,10 @@
   }
 
   // ---- status chip --------------------------------------------------------
-  function showStatus(msg) { var s = document.getElementById("nm-status"); if (s) { s.textContent = msg; s.style.display = "block"; } }
+  function showStatus(msg) {
+    loader.dismiss(); // an error chip behind the loading veil helps nobody
+    var s = document.getElementById("nm-status");
+    if (s) { s.textContent = msg; s.style.display = "block"; }
+  }
   function hideStatus() { var s = document.getElementById("nm-status"); if (s) s.style.display = "none"; }
 })();

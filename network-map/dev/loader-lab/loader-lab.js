@@ -327,7 +327,9 @@
   var ctx = {};
   var t0 = performance.now();
   concept.start(ctx);
-  frame.src = "../network-map/";
+  // noveil suppresses the map's now-built-in warpbrand veil so lab concepts
+  // demo over a bare load, not on top of another loader
+  frame.src = "../network-map/?noveil=1";
 
   var revealed = false;
   function onReady(how) {
