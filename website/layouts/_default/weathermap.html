@@ -33,6 +33,14 @@
       </div>
     </div>
 
+    {{/* Zoom bubble: bottom-left. The field also pans by drag and zooms by
+         wheel / pinch / double-click; these are the discoverable fallback. */}}
+    <div id="wm-zoom" role="group">
+      <button type="button" data-zoom="in" aria-label="{{ partial "T.html" "Zoom in" }}">+</button>
+      <button type="button" data-zoom="out" aria-label="{{ partial "T.html" "Zoom out" }}">−</button>
+      <button type="button" data-zoom="reset" aria-label="{{ partial "T.html" "Reset view" }}">⌂</button>
+    </div>
+
     {{/* Legend bubble: bottom-right over the field. */}}
     <div id="wm-legend">
       <h4>{{ partial "T.html" "Link utilization" }}</h4>

@@ -81,6 +81,107 @@
   // STATE.strands[cableId] = [{h1,h2,c1,c2,speed}] per member; chips/hit by id.
   var STATE = { generation: null, nodes: {}, links: [], strands: {}, chips: {}, traffic: null };
 
+  // ---- slippy viewport: drag pans, wheel/pinch/dblclick/buttons zoom -------
+  var SVG = null, FITBOX = null, VIEWBOX = null, dragDist = 0;
+
+  function applyViewBox() {
+    SVG.setAttribute("viewBox", VIEWBOX.x.toFixed(1) + " " + VIEWBOX.y.toFixed(1) +
+      " " + VIEWBOX.w.toFixed(1) + " " + VIEWBOX.h.toFixed(1));
+  }
+  function clampViewBox() {
+    var over = 0.15; // allow a little slack past the drawing's edge
+    VIEWBOX.w = Math.min(Math.max(VIEWBOX.w, FITBOX.w / 8), FITBOX.w);
+    VIEWBOX.h = VIEWBOX.w * FITBOX.h / FITBOX.w;
+    VIEWBOX.x = Math.min(Math.max(VIEWBOX.x, -FITBOX.w * over),
+      FITBOX.w * (1 + over) - VIEWBOX.w);
+    VIEWBOX.y = Math.min(Math.max(VIEWBOX.y, -FITBOX.h * over),
+      FITBOX.h * (1 + over) - VIEWBOX.h);
+  }
+  function viewScale() { // CSS px per user unit (letterboxed "meet" fitting)
+    var r = SVG.getBoundingClientRect();
+    return Math.min(r.width / VIEWBOX.w, r.height / VIEWBOX.h);
+  }
+  function clientToUser(cx, cy) {
+    var r = SVG.getBoundingClientRect(), s = viewScale();
+    var ox = (r.width - VIEWBOX.w * s) / 2, oy = (r.height - VIEWBOX.h * s) / 2;
+    return [VIEWBOX.x + (cx - r.left - ox) / s, VIEWBOX.y + (cy - r.top - oy) / s];
+  }
+  function zoomAt(cx, cy, factor) {
+    var p = clientToUser(cx, cy);
+    var w1 = Math.min(Math.max(VIEWBOX.w / factor, FITBOX.w / 8), FITBOX.w);
+    var f = VIEWBOX.w / w1;
+    VIEWBOX.x = p[0] - (p[0] - VIEWBOX.x) / f;
+    VIEWBOX.y = p[1] - (p[1] - VIEWBOX.y) / f;
+    VIEWBOX.w = w1;
+    clampViewBox();
+    applyViewBox();
+  }
+  function initPanZoom(svg, W, H) {
+    SVG = svg;
+    var same = FITBOX && FITBOX.w === W && FITBOX.h === H;
+    FITBOX = { x: 0, y: 0, w: W, h: H };
+    if (!same || !VIEWBOX) VIEWBOX = { x: 0, y: 0, w: W, h: H };
+    clampViewBox();
+    applyViewBox();
+
+    var pointers = {};
+    svg.addEventListener("pointerdown", function (e) {
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+      dragDist = 0;
+    });
+    svg.addEventListener("pointermove", function (e) {
+      if (!pointers[e.pointerId]) return;
+      var ids = Object.keys(pointers);
+      if (ids.length === 1) {
+        var p = pointers[e.pointerId], s = viewScale();
+        VIEWBOX.x -= (e.clientX - p.x) / s;
+        VIEWBOX.y -= (e.clientY - p.y) / s;
+        dragDist += Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y);
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        if (dragDist > 6) {
+          hideTooltip();
+          // capture only once it's clearly a pan, so plain clicks/hovers on
+          // the hit lines keep working (capture re-targets their events)
+          try { svg.setPointerCapture(e.pointerId); } catch (err) {}
+        }
+        clampViewBox();
+        applyViewBox();
+      } else if (ids.length === 2) { // pinch
+        var a = pointers[ids[0]], b = pointers[ids[1]];
+        var before = Math.hypot(a.x - b.x, a.y - b.y);
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        a = pointers[ids[0]]; b = pointers[ids[1]];
+        var after = Math.hypot(a.x - b.x, a.y - b.y);
+        dragDist = 99;
+        if (before > 4 && after > 4) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, after / before);
+      }
+    });
+    function drop(e) { delete pointers[e.pointerId]; }
+    svg.addEventListener("pointerup", drop);
+    svg.addEventListener("pointercancel", drop);
+    svg.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, Math.pow(1.0015, -e.deltaY));
+    }, { passive: false });
+    svg.addEventListener("dblclick", function (e) {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, 1.7);
+    });
+  }
+  (function bindZoomButtons() {
+    var box = document.getElementById("wm-zoom");
+    if (!box) return;
+    box.addEventListener("click", function (e) {
+      var act = e.target && e.target.getAttribute("data-zoom");
+      if (!act || !SVG) return;
+      var r = SVG.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      if (act === "in") zoomAt(cx, cy, 1.5);
+      else if (act === "out") zoomAt(cx, cy, 1 / 1.5);
+      else { VIEWBOX = { x: FITBOX.x, y: FITBOX.y, w: FITBOX.w, h: FITBOX.h }; applyViewBox(); }
+    });
+  })();
+
   var tooltip = document.createElement("div");
   tooltip.className = "wm-tooltip";
   tooltip.hidden = true;
@@ -212,8 +313,8 @@
           var cxm = (A.x + Z.x) / 2 + px * ox + (dx / len) * along;
           var cym = (A.y + Z.y) / 2 + py * ox + (dy / len) * along;
           var chip = el("g", { class: "wm-chip", transform: "translate(" + cxm + " " + cym + ")" }, gChips);
-          el("rect", { x: -20, y: -10, width: 40, height: 20, rx: 10 }, chip);
-          var txt = el("text", { x: 0, y: 4, "text-anchor": "middle" }, chip);
+          el("rect", { x: -22, y: -11, width: 44, height: 22, rx: 11 }, chip);
+          var txt = el("text", { x: 0, y: 4.5, "text-anchor": "middle" }, chip);
           txt.textContent = "–%";
           STATE.chips[l.id] = { g: chip, rect: chip.firstChild, text: txt };
         }
@@ -221,13 +322,21 @@
         // one wide transparent hit line per cable for hover/tap details
         var hit = el("line", { x1: A.x, y1: A.y, x2: Z.x, y2: Z.y, class: "wm-hit",
           "stroke-width": Math.max(total * spacing + 10, 18) }, gHit);
-        hit.addEventListener("pointerenter", function (e) { showTooltip(e, l); });
-        hit.addEventListener("pointermove", moveTooltip);
+        hit.addEventListener("pointerenter", function (e) {
+          if (e.pointerType === "mouse" && !e.buttons) showTooltip(e, l);
+        });
+        hit.addEventListener("pointermove", function (e) {
+          if (e.pointerType === "mouse" && !e.buttons) moveTooltip(e);
+        });
         hit.addEventListener("pointerleave", hideTooltip);
-        hit.addEventListener("pointerdown", function (e) { showTooltip(e, l); e.stopPropagation(); });
+        // taps: only when it wasn't a pan gesture
+        hit.addEventListener("click", function (e) {
+          if (dragDist < 6) { showTooltip(e, l); e.stopPropagation(); }
+        });
       });
     });
-    svg.addEventListener("pointerdown", hideTooltip);
+    svg.addEventListener("click", function () { if (dragDist < 6) hideTooltip(); });
+    initPanZoom(svg, W, H);
 
     struct.nodes.forEach(function (n) {
       var g = el("g", { class: "wm-node wm-node-" + n.kind,
@@ -237,9 +346,9 @@
         el("text", { y: 23, "text-anchor": "middle", class: "wm-node-label" }, g)
           .textContent = n.label;
       } else {
-        var wpx = n.label.length * 8 + 18;
-        el("rect", { x: -wpx / 2, y: -13, width: wpx, height: 26, rx: 7 }, g);
-        el("text", { y: 4.5, "text-anchor": "middle", class: "wm-node-label" }, g)
+        var wpx = n.label.length * 9.2 + 20;
+        el("rect", { x: -wpx / 2, y: -14, width: wpx, height: 28, rx: 7 }, g);
+        el("text", { y: 5, "text-anchor": "middle", class: "wm-node-label" }, g)
           .textContent = n.label;
       }
       var title = el("title", {}, g);
@@ -252,9 +361,12 @@
     var ui = speed ? 100 * inBps / speed : 0;
     s.h1.setAttribute("stroke", utilColor(uo));
     s.h2.setAttribute("stroke", utilColor(ui));
-    var active = 2e6; // chevrons only when a direction carries real traffic
-    if (s.c1) { s.c1.setAttribute("fill", utilColor(uo)); s.c1.style.opacity = outBps > active ? 0.95 : 0; }
-    if (s.c2) { s.c2.setAttribute("fill", utilColor(ui)); s.c2.style.opacity = inBps > active ? 0.95 : 0; }
+    // chevron on the DOMINANT direction only (and only when it carries real
+    // traffic) — the split-half colouring still shows both directions' load
+    var active = 2e6;
+    var domOut = outBps >= inBps;
+    if (s.c1) { s.c1.setAttribute("fill", utilColor(uo)); s.c1.style.opacity = (domOut && outBps > active) ? 0.95 : 0; }
+    if (s.c2) { s.c2.setAttribute("fill", utilColor(ui)); s.c2.style.opacity = (!domOut && inBps > active) ? 0.95 : 0; }
   }
 
   function applyTraffic(traffic) {
