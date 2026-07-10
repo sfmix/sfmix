@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Optic problems" %} – SFMIX Portal{% endblock %}
+{% block container_class %}max-w-full{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
+  <a href="{% url 'optics' %}" class="text-sm text-blue-600 hover:underline">{% translate "Full transceiver inventory" %} &rarr;</a>
+</div>
+
+<h1 class="page-title text-2xl font-bold mb-2">{% translate "Optic problems" %}</h1>
+<p class="text-sm text-gray-500 mb-6 max-w-3xl">
+  {% translate "Every DOM lane on a link-up port, classified against the IEEE receive window for its optic type. Down and disabled ports read no light by design and are listed separately below rather than flagged." %}
+</p>
+
+{% if lg_error %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
+  {% translate "Unable to fetch optics data:" %} {{ lg_error }}
+</div>
+{% endif %}
+
+{# ── Summary chips ─────────────────────────────────────────────── #}
+<div class="flex flex-wrap gap-3 mb-8">
+  <div class="rounded-lg border px-4 py-2 {% if bad_count %}border-red-300 bg-red-50{% else %}border-gray-200 bg-white{% endif %}">
+    <div class="text-2xl font-bold {% if bad_count %}text-red-700{% else %}text-gray-800{% endif %}">{{ bad_count }}</div>
+    <div class="text-xs {% if bad_count %}text-red-700{% else %}text-gray-500{% endif %}">{% translate "lanes out of range" %}</div>
+  </div>
+  <div class="rounded-lg border px-4 py-2 {% if warn_count %}border-amber-300 bg-amber-50{% else %}border-gray-200 bg-white{% endif %}">
+    <div class="text-2xl font-bold {% if warn_count %}text-amber-700{% else %}text-gray-800{% endif %}">{{ warn_count }}</div>
+    <div class="text-xs {% if warn_count %}text-amber-700{% else %}text-gray-500{% endif %}">{% translate "lanes marginal" %}</div>
+  </div>
+  <div class="rounded-lg border px-4 py-2 {% if hot_modules %}border-amber-300 bg-amber-50{% else %}border-gray-200 bg-white{% endif %}">
+    <div class="text-2xl font-bold {% if hot_modules %}text-amber-700{% else %}text-gray-800{% endif %}">{{ hot_modules|length }}</div>
+    <div class="text-xs {% if hot_modules %}text-amber-700{% else %}text-gray-500{% endif %}">{% translate "hot modules" %}</div>
+  </div>
+  <div class="rounded-lg border border-gray-200 bg-white px-4 py-2">
+    <div class="text-2xl font-bold text-gray-800">{{ dark_ports|length }}</div>
+    <div class="text-xs text-gray-500">{% translate "dark ports with optics" %}</div>
+  </div>
+  <div class="rounded-lg border border-gray-200 bg-white px-4 py-2">
+    <div class="text-2xl font-bold text-gray-800">{{ lanes_scanned }}</div>
+    <div class="text-xs text-gray-500">{% translate "live lanes scanned" %}</div>
+  </div>
+</div>
+
+{# ── Problem lanes ─────────────────────────────────────────────── #}
+<h2 class="text-lg font-semibold mb-2">{% translate "Problem lanes" %}</h2>
+{% if problem_lanes %}
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto mb-8">
+  <table class="w-full text-sm whitespace-nowrap">
+    <thead class="bg-gray-50 text-left text-gray-500">
+      <tr>
+        <th class="px-4 py-2 font-medium">{% translate "Severity" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Device" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Port" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Media" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Lane" %}</th>
+        <th class="px-4 py-2 font-medium">RX (dBm)</th>
+        <th class="px-4 py-2 font-medium">{% translate "Expected window" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Excursion" %}</th>
+        <th class="px-4 py-2 font-medium">TX (dBm)</th>
+        <th class="px-4 py-2 font-medium">{% translate "Bias (mA)" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Module" %}</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for r in problem_lanes %}
+      <tr class="{% if r.band == 'bad' %}bg-red-50/60{% else %}bg-amber-50/40{% endif %}">
+        <td class="px-4 py-2">
+          {% if r.band == 'bad' %}
+          <span class="inline-block bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">{{ r.band_label }}</span>
+          {% else %}
+          <span class="inline-block bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">{{ r.band_label }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 text-xs text-gray-600">{{ r.device }}</td>
+        <td class="px-4 py-2 font-mono text-xs">
+          {{ r.port }}
+          {% if r.description %}<span class="block text-gray-400 font-sans">{{ r.description }}</span>{% endif %}
+        </td>
+        <td class="px-4 py-2 text-xs">{{ r.media_type|default:"—" }}</td>
+        <td class="px-4 py-2 text-xs">{{ r.lane }}{% if r.lane_count > 1 %}<span class="text-gray-400">/{{ r.lane_count }}</span>{% endif %}</td>
+        <td class="px-4 py-2">
+          <div class="font-mono text-sm font-semibold {% if r.band == 'bad' %}text-red-700{% else %}text-amber-700{% endif %}">{{ r.rx_dbm|floatformat:2 }}</div>
+          <div class="nd-meter" style="width:110px"><div class="nd-needle" style="left: {{ r.meter_pos|floatformat:0 }}%"></div></div>
+        </td>
+        <td class="px-4 py-2 font-mono text-xs text-gray-600">{{ r.warn_min|floatformat:1 }} &hellip; {{ r.warn_max|floatformat:1 }}</td>
+        <td class="px-4 py-2 font-mono text-xs {% if r.band == 'bad' %}text-red-700{% else %}text-amber-700{% endif %}">
+          {{ r.delta_db|floatformat:1 }} dB {% if r.low_side %}{% translate "below" %}{% else %}{% translate "above" %}{% endif %}
+        </td>
+        <td class="px-4 py-2 font-mono text-xs">{% if r.tx_dbm != None %}{{ r.tx_dbm|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td class="px-4 py-2 font-mono text-xs">{% if r.bias_ma != None %}{{ r.bias_ma|floatformat:1 }}{% else %}—{% endif %}</td>
+        <td class="px-4 py-2 text-xs text-gray-600">
+          {{ r.vendor|default:"" }} {{ r.model|default:"" }}
+          {% if r.serial %}<span class="block font-mono text-gray-400">{{ r.serial }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif not lg_error %}
+<div class="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 mb-8">
+  {% translate "All lanes on link-up ports are within their expected receive windows." %} 🎉
+</div>
+{% endif %}
+
+{# ── Hot modules ───────────────────────────────────────────────── #}
+{% if hot_modules %}
+<h2 class="text-lg font-semibold mb-2">{% translate "Hot modules" %}</h2>
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto mb-8">
+  <table class="w-full text-sm whitespace-nowrap">
+    <thead class="bg-gray-50 text-left text-gray-500">
+      <tr>
+        <th class="px-4 py-2 font-medium">{% translate "Device" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Port" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Media" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Temp (°C)" %}</th>
+        <th class="px-4 py-2 font-medium">{% translate "Module" %}</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for m in hot_modules %}
+      <tr>
+        <td class="px-4 py-2 text-xs text-gray-600">{{ m.device }}</td>
+        <td class="px-4 py-2 font-mono text-xs">{{ m.port }}{% if m.description %}<span class="block text-gray-400 font-sans">{{ m.description }}</span>{% endif %}</td>
+        <td class="px-4 py-2 text-xs">{{ m.media_type|default:"—" }}</td>
+        <td class="px-4 py-2 font-mono text-sm font-semibold {% if m.temp_zone == 'crit' %}text-red-700{% else %}text-amber-700{% endif %}">{{ m.temperature_c|floatformat:1 }}</td>
+        <td class="px-4 py-2 text-xs text-gray-600">{{ m.vendor|default:"" }} {{ m.model|default:"" }}{% if m.serial %}<span class="block font-mono text-gray-400">{{ m.serial }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ── Dark ports (informational) ────────────────────────────────── #}
+{% if dark_ports %}
+<details class="mb-8">
+  <summary class="cursor-pointer text-lg font-semibold text-gray-700 select-none">
+    {% translate "Dark ports with optics installed" %}
+    <span class="text-sm font-normal text-gray-400">({{ dark_ports|length }} — {% translate "expected to read no light; not counted as problems" %})</span>
+  </summary>
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto mt-3">
+    <table class="w-full text-sm whitespace-nowrap">
+      <thead class="bg-gray-50 text-left text-gray-500">
+        <tr>
+          <th class="px-4 py-2 font-medium">{% translate "Device" %}</th>
+          <th class="px-4 py-2 font-medium">{% translate "Port" %}</th>
+          <th class="px-4 py-2 font-medium">{% translate "Status" %}</th>
+          <th class="px-4 py-2 font-medium">{% translate "Media" %}</th>
+          <th class="px-4 py-2 font-medium">TX (dBm)</th>
+          <th class="px-4 py-2 font-medium">{% translate "Laser" %}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for p in dark_ports %}
+        <tr>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ p.device }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{{ p.port }}{% if p.description %}<span class="block text-gray-400 font-sans">{{ p.description }}</span>{% endif %}</td>
+          <td class="px-4 py-2"><span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ p.link_status|default:"—" }}</span></td>
+          <td class="px-4 py-2 text-xs">{{ p.media_type|default:"—" }}</td>
+          <td class="px-4 py-2 font-mono text-xs">{% if p.tx_dbm != None %}{{ p.tx_dbm|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-2 text-xs">
+            {% if p.tx_live %}
+            <span class="text-amber-600" title="{% translate 'Transmitter is firing into a down port — check cabling / far end' %}">&#9888; {% translate "firing" %}</span>
+            {% else %}
+            <span class="text-gray-400">{% translate "off" %}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{% endif %}
+
+<p class="text-xs text-gray-400 max-w-3xl">
+  {% translate "Windows are per-lane IEEE 802.3 receiver sensitivity → overload, with a 1.5 dB “marginal” margin inside each edge. Copper and DAC media never flag. Some 4-lane modules report total power in every lane slot (~6 dB high), which the ceilings tolerate." %}
+</p>
+{% endblock %}
