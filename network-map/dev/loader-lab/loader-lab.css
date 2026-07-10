@@ -1,0 +1,70 @@
+/* Loader lab — shared chrome for the loading-screen concept demos.
+   Each concept page is: full-viewport iframe of the REAL demo map
+   (../network-map/) + an overlay that the concept animates and then
+   dismisses when the map underneath reports its first idle. */
+
+html, body { margin: 0; height: 100%; background: #05070f; overflow: hidden; }
+body { font-family: system-ui, -apple-system, sans-serif; }
+
+#stage { position: absolute; inset: 0; transform-origin: 50% 50%; }
+#stage iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+#overlay {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 22px;
+  background: #0a1526; color: #cfe0f2;
+}
+#overlay canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#overlay.gone { display: none; }
+
+/* HUD: concept name + timing + controls. Sits above everything, survives reveal. */
+#hud {
+  position: absolute; top: 10px; right: 10px; z-index: 20;
+  background: rgba(6, 14, 26, 0.82); color: #dce9f7;
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px;
+  padding: 8px 12px; font-size: 12.5px; line-height: 1.5;
+  display: flex; flex-direction: column; gap: 4px; min-width: 210px;
+}
+#hud .hud-name { font-weight: 650; font-size: 13.5px; }
+#hud .hud-time { opacity: 0.85; font-variant-numeric: tabular-nums; }
+#hud .hud-row { display: flex; gap: 10px; }
+#hud a, #hud button {
+  color: #8fc1f0; background: none; border: 0; padding: 0;
+  font: inherit; cursor: pointer; text-decoration: underline;
+}
+
+/* ---- concept: spinner ---------------------------------------------------- */
+.ll-spinner {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #cfe0f2;
+  animation: ll-spin 0.9s linear infinite;
+}
+@keyframes ll-spin { to { transform: rotate(360deg); } }
+.ll-loading-text { font-size: 14px; letter-spacing: 0.04em; opacity: 0.85; }
+
+/* ---- concept: barber (SFMIX rainbow) ------------------------------------- */
+.ll-wordmark { font-size: 44px; font-weight: 800; letter-spacing: 0.06em; display: flex; }
+.ll-wordmark span:nth-child(1) { color: #8d43b8; }
+.ll-wordmark span:nth-child(2) { color: #4079e0; }
+.ll-wordmark span:nth-child(3) { color: #93c11f; }
+.ll-wordmark span:nth-child(4) { color: #ef9420; }
+.ll-wordmark span:nth-child(5) { color: #d5173e; }
+.ll-barber-track {
+  width: 280px; height: 12px; border-radius: 6px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.ll-barber-stripes {
+  width: 100%; height: 100%;
+  background: repeating-linear-gradient(45deg,
+    #8d43b8 0 14px, #4079e0 14px 28px, #93c11f 28px 42px,
+    #ef9420 42px 56px, #d5173e 56px 70px);
+  background-size: 200% 100%;
+  animation: ll-barber 0.8s linear infinite;
+}
+@keyframes ll-barber { to { background-position: -99px 0; } }
+
+/* generic reveal transitions the harness toggles */
+#overlay.fade-out { transition: opacity 0.7s ease; opacity: 0; pointer-events: none; }
+#stage.settle { transition: transform 1.1s cubic-bezier(0.22, 0.8, 0.3, 1), filter 1.1s ease; }
