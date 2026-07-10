@@ -14,7 +14,7 @@ SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer vol
 
 {{< stat-card icon="📈" url="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" title="Overall Traffic Dashboard" desc="Aggregate exchange throughput, peaks, and historical trends." >}}
 
-{{< stat-card icon="🗺️" url="https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495" title="Traffic Weathermap" desc="Live per-link utilization across the SFMIX switch fabric." >}}
+{{< stat-card icon="🗺️" url="/weathermap/" external="false" title="Traffic Weathermap" desc="Live per-link utilization across the SFMIX switch fabric." >}}
 
 {{< stat-card icon="🚇" url="/network-map/" external="false" title="Interactive Network Map" desc="A subway-style map of the fabric, coloured by live traffic. Zoom from metros to sites." >}}
 

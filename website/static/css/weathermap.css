@@ -1,11 +1,16 @@
-/* SFMIX backbone weathermap — schematic dark chart, kin to network-map.css. */
+/* SFMIX backbone weathermap — schematic dark chart, kin to network-map.css.
+   The map IS the page: it fills the viewport under the sticky site header,
+   and the legend/info float as bubbles over the dark field. */
+
+.wm-page { width: 100%; }
 
 #weathermap {
   position: relative;
   width: 100%;
+  height: calc(100vh - var(--header-height, 64px));
+  min-height: 480px;
   background: #12324e; /* --nm-water: same night ground as the geographic map */
-  border-radius: 12px;
-  overflow: auto;      /* narrow viewports scroll the fixed-aspect chart */
+  overflow: hidden;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 #weathermap.wm-error::after {
@@ -16,11 +21,20 @@
   color: #dfe9ef;
 }
 
+/* The SVG letterboxes inside the viewport (preserveAspectRatio: meet) — the
+   container background is the same field colour, so the box edge is
+   invisible and the chart simply fills whatever space it gets. */
 .wm-svg {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  min-width: 720px;  /* below this the labels are unreadable — scroll instead */
-  height: auto;
+  height: 100%;
+}
+@media (max-width: 720px) {
+  /* labels turn unreadable when the whole chart squeezes onto a phone —
+     keep a legible size and let the field pan horizontally instead */
+  #weathermap { overflow-x: auto; }
+  .wm-svg { position: static; width: 1000px; height: 100%; }
 }
 
 .wm-metro {
@@ -32,7 +46,7 @@
   fill: #8fb4c4;
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
-  font-size: 17px;
+  font-size: 22px;
   letter-spacing: 0.5px;
 }
 
@@ -56,25 +70,24 @@
 }
 .wm-node-label {
   fill: #dfe9ef;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   pointer-events: none;
 }
-.wm-node-junction .wm-node-label { font-size: 10px; opacity: 0.8; }
+.wm-node-junction .wm-node-label { font-size: 12px; opacity: 0.8; }
 
 .wm-chip rect { stroke: rgba(8, 17, 24, 0.65); stroke-width: 1; }
 .wm-chip text {
   fill: #0b1218;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   pointer-events: none;
 }
-.wm-chip:not(.wm-chip-dark) text { fill: #0b1218; }
 
 .wm-tooltip {
   position: absolute;
-  z-index: 5;
-  max-width: 300px;
+  z-index: 6;
+  max-width: 320px;
   background: rgba(16, 27, 36, 0.96);
   color: #dfe9ef;
   border: 1px solid rgba(204, 204, 220, 0.2);
@@ -90,27 +103,92 @@
 .wm-tt-member { opacity: 0.75; font-size: 11.5px; }
 .wm-tt-note { opacity: 0.8; font-style: italic; margin-top: 2px; }
 
-/* legend, shared visual language with the network map's */
-.wm-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem 1.4rem;
-  margin: 0.7rem 0 0;
-  color: #4c5a66;
-  font-size: 0.85rem;
+/* --- floating bubbles, same visual language as the network map's ---------- */
+#wm-info {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  max-width: 340px;
+  background: rgba(16, 27, 36, 0.92);
+  border: 1px solid rgba(204, 204, 220, 0.18);
+  border-radius: 12px;
+  color: #dfe9ef;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
+.wm-info-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: 600 13px system-ui, sans-serif;
+  cursor: pointer;
+  text-align: left;
+}
+.wm-info-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.4px solid #8fb4c4;
+  color: #8fb4c4;
+  font: italic 700 12px/16px Georgia, serif;
+  text-align: center;
+}
+.wm-info-chevron {
+  margin-left: auto;
+  border: solid #8fb4c4;
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: rotate(45deg);
+  transition: transform 0.2s;
+}
+#wm-info:not(.collapsed) .wm-info-chevron { transform: rotate(-135deg); }
+.wm-info-body {
+  padding: 0 14px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.wm-info-body p { margin: 0 0 8px; }
+#wm-info.collapsed .wm-info-body { display: none; }
+
+#wm-legend {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  background: rgba(16, 27, 36, 0.92);
+  border: 1px solid rgba(204, 204, 220, 0.18);
+  border-radius: 12px;
+  color: #dfe9ef;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  padding: 10px 14px;
+  font-size: 12px;
+}
+#wm-legend h4 { margin: 0 0 6px; font-size: 12px; }
 .wm-ramp {
   width: 150px;
   height: 10px;
   border-radius: 5px;
   background: linear-gradient(90deg, #5794F2, #73BF69 25%, #FADE2A 50%, #FF9830 75%, #F2495C);
 }
-.wm-legend .swatch {
+.wm-ramp-labels {
+  display: flex;
+  justify-content: space-between;
+  opacity: 0.75;
+  margin: 2px 0 6px;
+}
+.wm-legend-key { margin: 3px 0; }
+.wm-legend-key .swatch {
   display: inline-block;
   width: 22px;
   border-top: 3px dashed;
   vertical-align: middle;
-  margin-right: 4px;
+  margin-right: 6px;
 }
-#wm-ts { margin-left: auto; font-variant-numeric: tabular-nums; }
+.wm-ts { margin-top: 6px; opacity: 0.75; font-variant-numeric: tabular-nums; }

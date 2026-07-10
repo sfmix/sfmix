@@ -143,7 +143,8 @@
     var old = root.querySelector("svg");
     if (old) old.remove();
     var W = struct.view.width, H = struct.view.height;
-    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, class: "wm-svg", role: "img" });
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, class: "wm-svg", role: "img",
+      preserveAspectRatio: "xMidYMid meet" });
     root.insertBefore(svg, root.firstChild);
     var gMetros = el("g", {}, svg), gLinks = el("g", {}, svg),
       gChips = el("g", {}, svg), gNodes = el("g", {}, svg), gHit = el("g", {}, svg);
@@ -156,8 +157,8 @@
     Object.keys(byMetro).forEach(function (m) {
       var xs = byMetro[m].map(function (n) { return n.x; }),
         ys = byMetro[m].map(function (n) { return n.y; });
-      var x0 = Math.min.apply(0, xs) - 66, x1 = Math.max.apply(0, xs) + 66;
-      var y0 = Math.min.apply(0, ys) - 40, y1 = Math.max.apply(0, ys) + 34;
+      var x0 = Math.min.apply(0, xs) - 82, x1 = Math.max.apply(0, xs) + 82;
+      var y0 = Math.min.apply(0, ys) - 46, y1 = Math.max.apply(0, ys) + 40;
       el("rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: 18, class: "wm-metro" }, gMetros);
       el("text", { x: (x0 + x1) / 2, y: y0 - 10, class: "wm-metro-label", "text-anchor": "middle" }, gMetros)
         .textContent = m;
@@ -174,7 +175,7 @@
     Object.keys(pairs).forEach(function (k) {
       var group = pairs[k];
       var total = group.reduce(function (s, l) { return s + (l.members || 1); }, 0);
-      var spacing = 7, idx = 0;
+      var spacing = 9, idx = 0;
       group.forEach(function (l, gi) {
         var A = STATE.nodes[l.a], Z = STATE.nodes[l.z];
         if (!A || !Z) return;
@@ -211,8 +212,8 @@
           var cxm = (A.x + Z.x) / 2 + px * ox + (dx / len) * along;
           var cym = (A.y + Z.y) / 2 + py * ox + (dy / len) * along;
           var chip = el("g", { class: "wm-chip", transform: "translate(" + cxm + " " + cym + ")" }, gChips);
-          el("rect", { x: -17, y: -9, width: 34, height: 18, rx: 9 }, chip);
-          var txt = el("text", { x: 0, y: 3.5, "text-anchor": "middle" }, chip);
+          el("rect", { x: -20, y: -10, width: 40, height: 20, rx: 10 }, chip);
+          var txt = el("text", { x: 0, y: 4, "text-anchor": "middle" }, chip);
           txt.textContent = "–%";
           STATE.chips[l.id] = { g: chip, rect: chip.firstChild, text: txt };
         }
@@ -232,13 +233,13 @@
       var g = el("g", { class: "wm-node wm-node-" + n.kind,
         transform: "translate(" + n.x + " " + n.y + ")" }, gNodes);
       if (n.kind === "junction") {
-        el("circle", { r: 6 }, g);
-        el("text", { y: 20, "text-anchor": "middle", class: "wm-node-label" }, g)
+        el("circle", { r: 7 }, g);
+        el("text", { y: 23, "text-anchor": "middle", class: "wm-node-label" }, g)
           .textContent = n.label;
       } else {
-        var wpx = n.label.length * 6.8 + 16;
-        el("rect", { x: -wpx / 2, y: -11, width: wpx, height: 22, rx: 6 }, g);
-        el("text", { y: 4, "text-anchor": "middle", class: "wm-node-label" }, g)
+        var wpx = n.label.length * 8 + 18;
+        el("rect", { x: -wpx / 2, y: -13, width: wpx, height: 26, rx: 7 }, g);
+        el("text", { y: 4.5, "text-anchor": "middle", class: "wm-node-label" }, g)
           .textContent = n.label;
       }
       var title = el("title", {}, g);
@@ -293,6 +294,15 @@
     }).catch(function () {
       var ts = document.getElementById("wm-ts");
       if (ts) ts.textContent = t("live stats unavailable");
+    });
+  }
+
+  var info = document.getElementById("wm-info");
+  if (info) {
+    var btn = info.querySelector(".wm-info-toggle");
+    btn.addEventListener("click", function () {
+      var open = info.classList.toggle("collapsed");
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
     });
   }
 

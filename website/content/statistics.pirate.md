@@ -13,7 +13,7 @@ SFMIX uses sFlow to sample th' exchange's traffic metadata, includin' peer-to-pe
 
 {{< stat-card icon="📈" url="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" title="Overall Traffic Dashboard" desc="All th' exchange's throughput, high tides, an' tallies o' voyages past." >}}
 
-{{< stat-card icon="🗺️" url="https://grafana.sfmix.org/public-dashboards/e93a968eb538461da4c6ada750b33495" title="Traffic Weathermap" desc="Live load on ev'ry line across th' SFMIX riggin'." >}}
+{{< stat-card icon="🗺️" url="/weathermap/" external="false" title="Traffic Weathermap" desc="Live load on ev'ry line across th' SFMIX riggin'." >}}
 
 {{< stat-card icon="🚇" url="/pirate/network-map/" external="false" title="Interactive Chart o' th' Network" desc="A subway-style chart o' th' riggin', coloured by live traffic. Zoom from th' metros down to th' berths." >}}
 
