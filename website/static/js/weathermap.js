@@ -139,9 +139,8 @@
         dragDist += Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y);
         pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
         if (dragDist > 6) {
-          hideTooltip();
-          // capture only once it's clearly a pan, so plain clicks/hovers on
-          // the hit lines keep working (capture re-targets their events)
+          // capture only once it's clearly a pan, so plain clicks on the
+          // hit lines keep working (capture re-targets their events)
           try { svg.setPointerCapture(e.pointerId); } catch (err) {}
         }
         clampViewBox();
@@ -182,49 +181,6 @@
     });
   })();
 
-  var tooltip = document.createElement("div");
-  tooltip.className = "wm-tooltip";
-  tooltip.hidden = true;
-  root.appendChild(tooltip);
-
-  function showTooltip(evt, link) {
-    var tr = (STATE.traffic && STATE.traffic.links[link.id]) || null;
-    var html = "<h4>" + link.a.replace(/^site:/, "") + " ⇄ " + link.z.replace(/^site:/, "") + "</h4>";
-    if (link.status === "planned") {
-      html += "<div class='wm-tt-note'>" + t("planned — not yet in service") + "</div>";
-    } else if (link.status !== "up") {
-      html += "<div class='wm-tt-note'>" + t("link offline") + "</div>";
-    } else if (tr) {
-      html += "<div class='wm-tt-row'><span>" + t("Out") + " (" + link.a.replace(/^site:/, "") + " → " + link.z.replace(/^site:/, "") + ")</span><b>" + fmtBps(tr.out_bps) + "</b></div>";
-      html += "<div class='wm-tt-row'><span>" + t("In") + " (" + link.z.replace(/^site:/, "") + " → " + link.a.replace(/^site:/, "") + ")</span><b>" + fmtBps(tr.in_bps) + "</b></div>";
-      html += "<div class='wm-tt-row'><span>" + t("Capacity") + "</span><b>" + capLabel(link.capacity_bps) + "</b></div>";
-      html += "<div class='wm-tt-row'><span>%</span><b>" + (tr.util_pct != null ? tr.util_pct : 0) + "%</b></div>";
-      if (tr.members && tr.members.length > 1) {
-        html += "<div class='wm-tt-note'>" + tr.members.length + " × " + t("Parallel links") + "</div>";
-        tr.members.forEach(function (m, i) {
-          if (!m) return;
-          html += "<div class='wm-tt-row wm-tt-member'><span>#" + (i + 1) +
-            " · " + capLabel(m.speed_bps || 0) + "</span><b>" +
-            fmtBps(m.out_bps) + " / " + fmtBps(m.in_bps) + "</b></div>";
-        });
-      }
-    } else {
-      html += "<div class='wm-tt-note'>" + t("live stats unavailable") + "</div>";
-    }
-    tooltip.innerHTML = html;
-    tooltip.hidden = false;
-    moveTooltip(evt);
-  }
-  function moveTooltip(evt) {
-    var r = root.getBoundingClientRect();
-    var x = evt.clientX - r.left + 14, y = evt.clientY - r.top + 14;
-    x = Math.min(x, r.width - tooltip.offsetWidth - 8);
-    y = Math.min(y, r.height - tooltip.offsetHeight - 8);
-    tooltip.style.left = x + "px";
-    tooltip.style.top = y + "px";
-  }
-  function hideTooltip() { tooltip.hidden = true; }
-
   // Chevron polygon at fraction f along (x1,y1)->(x2,y2), pointing forward.
   function chevron(parent, x1, y1, x2, y2, f, w) {
     var mx = x1 + (x2 - x1) * f, my = y1 + (y2 - y1) * f;
@@ -261,8 +217,19 @@
       var x0 = Math.min.apply(0, xs) - 82, x1 = Math.max.apply(0, xs) + 82;
       var y0 = Math.min.apply(0, ys) - 46, y1 = Math.max.apply(0, ys) + 40;
       el("rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: 18, class: "wm-metro" }, gMetros);
-      el("text", { x: (x0 + x1) / 2, y: y0 - 10, class: "wm-metro-label", "text-anchor": "middle" }, gMetros)
-        .textContent = m;
+      // seat the label on the halo edge FACING AWAY from the canvas centre —
+      // the backbone links run through the middle of the ring, so the
+      // outside edge is the one nothing crosses
+      var mdx = (x0 + x1) / 2 - W / 2, mdy = (y0 + y1) / 2 - H / 2;
+      var lab;
+      if (Math.abs(mdy) >= Math.abs(mdx)) {
+        lab = { x: (x0 + x1) / 2, y: mdy < 0 ? y0 - 14 : y1 + 32, "text-anchor": "middle" };
+      } else {
+        lab = { x: mdx < 0 ? x0 - 14 : x1 + 14, y: (y0 + y1) / 2 + 9,
+          "text-anchor": mdx < 0 ? "end" : "start" };
+      }
+      lab["class"] = "wm-metro-label";
+      el("text", lab, gMetros).textContent = m;
     });
 
     // fan parallel strands: all member strands between the same node pair
@@ -322,20 +289,13 @@
         // one wide transparent hit line per cable for hover/tap details
         var hit = el("line", { x1: A.x, y1: A.y, x2: Z.x, y2: Z.y, class: "wm-hit",
           "stroke-width": Math.max(total * spacing + 10, 18) }, gHit);
-        hit.addEventListener("pointerenter", function (e) {
-          if (e.pointerType === "mouse" && !e.buttons) showTooltip(e, l);
-        });
-        hit.addEventListener("pointermove", function (e) {
-          if (e.pointerType === "mouse" && !e.buttons) moveTooltip(e);
-        });
-        hit.addEventListener("pointerleave", hideTooltip);
-        // click (not pan) opens the link's details in the info pane
+        // click (not pan) opens the link's details in the info pane —
+        // the pane is the only inspection surface, no hover popover
         hit.addEventListener("click", function (e) {
-          if (dragDist < 6) { hideTooltip(); infoPane.showDetail(l); e.stopPropagation(); }
+          if (dragDist < 6) { infoPane.showDetail(l); e.stopPropagation(); }
         });
       });
     });
-    svg.addEventListener("click", function () { if (dragDist < 6) hideTooltip(); });
     initPanZoom(svg, W, H);
 
     struct.nodes.forEach(function (n) {
@@ -497,7 +457,12 @@
     html += row(t("Out") + " → " + zName, "<b>" + fmtBps(tr.out_bps) + "</b>");
     html += row(t("In") + " → " + aName, "<b>" + fmtBps(tr.in_bps) + "</b>");
     html += row(t("Capacity"), capLabel(l.capacity_bps));
-    html += row("%", (tr.util_pct != null ? tr.util_pct : 0) + "%");
+    // utilization as a filled bar — the colour + fill carry the eye to the
+    // number, instead of a lone "%" far from its value
+    var u = Math.max(0, Math.min(100, tr.util_pct != null ? tr.util_pct : 0));
+    html += '<div class="wm-util"><div class="wm-util-track">' +
+      '<div class="wm-util-fill" style="width:' + u + '%;background:' + utilColor(u) + '"></div>' +
+      "</div><span>" + u + "%</span></div>";
     html += sparkline(tr);
     if (tr.members && tr.members.length > 1) {
       html += '<div class="wm-members-h">' + tr.members.length + " × " + t("Parallel links") + "</div>";
