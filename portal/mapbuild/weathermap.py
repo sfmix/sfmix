@@ -24,9 +24,9 @@ no switches (splice/patch building) that terminates a drawn span becomes a
 small junction node so chained circuits stay connected.
 """
 
-VIEW_W, VIEW_H = 1600.0, 1000.0
-PAD = 260.0          # horizontal anchor inset: largest cluster radius + box
-PAD_Y = 200.0        # vertical inset can run tighter (boxes are wide, not tall)
+VIEW_W, VIEW_H = 2200.0, 1400.0  # roomy: the frontend is a pan/zoom viewport
+PAD = 360.0          # horizontal anchor inset: largest cluster radius + box
+PAD_Y = 280.0        # vertical inset can run tighter (boxes are wide, not tall)
 # nominal node label-box footprint for the collision pass (frontend draws
 # ~6.8px/char + padding at 22px tall; keep these comfortably larger)
 NODE_W, NODE_H = 150.0, 34.0
@@ -79,7 +79,7 @@ def _metro_anchors(metros, pair_weight, counts):
     def seats(seq):
         # arc share per metro ~ its clearance need; a seat sits at the middle
         # of its arc, and the whole ring is rotated so `top` lands at -pi/2
-        need = {m: _circle_radius(counts.get(m, 1)) + 150.0 for m in seq}
+        need = {m: _circle_radius(counts.get(m, 1)) + 200.0 for m in seq}
         total = sum(need.values())
         ang, acc = {}, 0.0
         for m in seq:
@@ -99,10 +99,9 @@ def _circle_radius(count):
     import math
     if count <= 1:
         return 0.0
-    # 0.8 chord factor under-provisions slightly on purpose: the push-apart
-    # pass fixes residual touches locally, and tighter clusters keep the
-    # inter-metro corridors open
-    return max(90.0, (NODE_W * 0.8) / (2 * math.sin(math.pi / count)))
+    # 1.2 chord factor: a whole label box plus clearance between neighbouring
+    # nodes — the canvas is a zoomable viewport now, so space is cheap
+    return max(110.0, (NODE_W * 1.2) / (2 * math.sin(math.pi / count)))
 
 
 def _seat_on_circle(anchor, occ, prefer):
@@ -161,7 +160,7 @@ def _push_apart(pos, iters=300, pad=26.0):
     return {n: (P[n][0], P[n][1]) for n in names}
 
 
-def _fill_view(pos, margin=120.0):
+def _fill_view(pos, margin=160.0):
     """Stretch the laid-out graph to fill the padded viewbox (the Grafana
     lab's normalize step). Expansion only — scales below 1 would compress
     node spacing and could reintroduce the overlaps _push_apart removed."""
