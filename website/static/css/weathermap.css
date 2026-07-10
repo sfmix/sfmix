@@ -154,6 +154,37 @@
 .wm-info-body p { margin: 0 0 8px; }
 #wm-info.collapsed .wm-info-body { display: none; }
 
+.wm-info-back {
+  display: block;
+  margin: 0 0 8px;
+  padding: 3px 10px;
+  background: rgba(204, 204, 220, 0.1);
+  border: 1px solid rgba(204, 204, 220, 0.2);
+  border-radius: 7px;
+  color: #8fb4c4;
+  font: 600 11.5px system-ui, sans-serif;
+  cursor: pointer;
+}
+.wm-info-back:hover { background: rgba(204, 204, 220, 0.18); }
+.wm-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 1.5px 0;
+}
+.wm-row .k { opacity: 0.75; }
+.wm-row .v { font-variant-numeric: tabular-nums; }
+.wm-members-h { margin: 8px 0 2px; font-weight: 600; opacity: 0.85; }
+.wm-spark { margin: 8px 0 2px; }
+.wm-spark svg {
+  display: block;
+  width: 100%;
+  height: 54px;
+  background: rgba(8, 17, 24, 0.55);
+  border-radius: 6px;
+}
+.wm-spark-caption { margin-top: 3px; font-size: 11px; opacity: 0.8; }
+
 #wm-zoom {
   position: absolute;
   left: 12px;

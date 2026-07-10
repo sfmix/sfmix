@@ -29,7 +29,13 @@
         <span class="wm-info-chevron" aria-hidden="true"></span>
       </button>
       <div class="wm-info-body" id="wm-info-body">
-        {{ .Content }}
+        <div class="wm-info-about">{{ .Content }}</div>
+        {{/* A clicked link's details (rates, members, 24h sparkline) land
+             here, network-map style, instead of a popover. */}}
+        <div class="wm-info-detail" hidden>
+          <button class="wm-info-back" type="button">{{ partial "T.html" "Back to map info" }}</button>
+          <div class="wm-info-detail-body"></div>
+        </div>
       </div>
     </div>
 
@@ -53,7 +59,8 @@
   </div>
 
   {{ $keys := slice "In" "Out" "Capacity" "Last updated" "link offline"
-     "planned — not yet in service" "live stats unavailable" "Parallel links" }}
+     "planned — not yet in service" "live stats unavailable" "Parallel links"
+     "Last 24 hours" "Link speed" }}
   {{ $i18n := dict }}
   {{ range $keys }}{{ $i18n = merge $i18n (dict . (partial "T.html" .)) }}{{ end }}
   <script type="application/json" id="wm-i18n">{{ $i18n | jsonify | safeJS }}</script>

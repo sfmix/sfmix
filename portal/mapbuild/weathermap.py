@@ -123,6 +123,81 @@ def _seat_on_circle(anchor, occ, prefer):
     return out
 
 
+def _relax(pos, links, metro_of_node, anchors, iters=160):
+    """Force-directed refinement between the circle seating and the push-apart
+    pass. Four forces, all deterministic (sorted iteration, fixed step decay):
+
+      * node-node repulsion     — spreads clusters into the roomy canvas
+      * intra-metro link spring — keeps a metro's switches a readable, even
+                                  distance apart (inter-metro links get no
+                                  spring; the ring anchors own that shape)
+      * anchor gravity          — holds each node loosely to its metro
+      * node-EDGE repulsion     — pushes a node label off any link corridor
+                                  that passes too close (the main source of
+                                  label/link overlap the circle layout left)
+    """
+    import math
+    names = sorted(pos)
+    P = {n: [pos[n][0], pos[n][1]] for n in names}
+    edges = [(l["a"], l["z"]) for l in links if l["a"] in P and l["z"] in P]
+    SPRING_LEN, EDGE_CLEAR = 300.0, 120.0
+
+    for it in range(iters):
+        F = {n: [0.0, 0.0] for n in names}
+        for i, a in enumerate(names):  # pairwise repulsion
+            for b in names[i + 1:]:
+                dx, dy = P[a][0] - P[b][0], P[a][1] - P[b][1]
+                d2 = dx * dx + dy * dy or 1.0
+                if d2 < 420.0 ** 2:
+                    f = min(140000.0 / d2, 60.0)
+                    d = math.sqrt(d2)
+                    F[a][0] += f * dx / d; F[a][1] += f * dy / d
+                    F[b][0] -= f * dx / d; F[b][1] -= f * dy / d
+        for a, z in edges:  # springs on intra-metro links only
+            if metro_of_node.get(a) != metro_of_node.get(z):
+                continue
+            dx, dy = P[z][0] - P[a][0], P[z][1] - P[a][1]
+            d = math.hypot(dx, dy) or 1.0
+            f = 0.02 * (d - SPRING_LEN)
+            F[a][0] += f * dx / d; F[a][1] += f * dy / d
+            F[z][0] -= f * dx / d; F[z][1] -= f * dy / d
+        for n in names:  # anchor gravity
+            ax, ay = anchors.get(metro_of_node.get(n), (VIEW_W / 2, VIEW_H / 2))
+            F[n][0] += 0.012 * (ax - P[n][0])
+            F[n][1] += 0.012 * (ay - P[n][1])
+        for a, z in edges:  # node-edge repulsion
+            ax, ay = P[a]; zx, zy = P[z]
+            ex, ey = zx - ax, zy - ay
+            ee = ex * ex + ey * ey or 1.0
+            for n in names:
+                if n == a or n == z:
+                    continue
+                t = ((P[n][0] - ax) * ex + (P[n][1] - ay) * ey) / ee
+                if t <= 0.02 or t >= 0.98:
+                    continue  # beyond the segment (or at an endpoint node)
+                qx, qy = ax + t * ex, ay + t * ey
+                dx, dy = P[n][0] - qx, P[n][1] - qy
+                d = math.hypot(dx, dy)
+                if d >= EDGE_CLEAR:
+                    continue
+                if d < 1.0:  # node sits ON the line: push perpendicular
+                    L = math.sqrt(ee)
+                    dx, dy, d = -ey / L, ex / L, 1.0
+                f = 0.9 * (EDGE_CLEAR - d)
+                F[n][0] += f * dx / d; F[n][1] += f * dy / d
+                # nudge the segment's endpoints the other way, gently
+                F[a][0] -= 0.15 * f * dx / d; F[a][1] -= 0.15 * f * dy / d
+                F[z][0] -= 0.15 * f * dx / d; F[z][1] -= 0.15 * f * dy / d
+        step = 0.5 * (1.0 - it / iters) + 0.05  # cooling
+        for n in names:
+            mag = math.hypot(F[n][0], F[n][1])
+            cap = 22.0
+            s = step * (cap / mag if mag > cap else 1.0)
+            P[n][0] += F[n][0] * s
+            P[n][1] += F[n][1] * s
+    return {n: (P[n][0], P[n][1]) for n in names}
+
+
 def _push_apart(pos, iters=300, pad=26.0):
     """Iterative pairwise push so no two node boxes overlap (port of the
     Grafana layout lab's remove_overlaps). Deterministic: fixed order/iters."""
@@ -261,6 +336,8 @@ def weathermap_from_map(mapjson):
     pos = {}
     for metro, occ in sorted(occupants.items()):
         pos.update(_seat_on_circle(anchors.get(metro, (cx, cy)), sorted(occ), prefer))
+    metro_of_node = {nid: nm["metro"] for nid, nm in node_meta.items()}
+    pos = _relax(pos, links, metro_of_node, anchors)
     pos = _push_apart(pos)
     pos = _fill_view(pos)
 
