@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SFMIX network map — loader lab</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #0a1526; color: #dce9f7;
+    font-family: system-ui, -apple-system, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 20px 60px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h1 .rainbow span:nth-child(1) { color: #8d43b8; }
+  h1 .rainbow span:nth-child(2) { color: #4079e0; }
+  h1 .rainbow span:nth-child(3) { color: #93c11f; }
+  h1 .rainbow span:nth-child(4) { color: #ef9420; }
+  h1 .rainbow span:nth-child(5) { color: #d5173e; }
+  p.lede { opacity: 0.85; line-height: 1.55; margin: 0 0 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+  a.card { display: block; text-decoration: none; color: inherit;
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 12px;
+    padding: 18px 18px 16px; background: #0e2438; transition: border-color .15s, transform .15s; }
+  a.card:hover { border-color: #4079e0; transform: translateY(-2px); }
+  .card h2 { font-size: 16.5px; margin: 0 0 8px; }
+  .card p { font-size: 13.5px; line-height: 1.5; opacity: 0.8; margin: 0 0 10px; }
+  .tag { display: inline-block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    border-radius: 999px; padding: 2px 9px; margin-right: 5px; }
+  .tag.plain { background: #24455f; }
+  .tag.brand { background: #5a2f7d; }
+  .tag.cine  { background: #7d3050; }
+  footer { margin-top: 34px; font-size: 12.5px; opacity: 0.65; line-height: 1.6; }
+</style></head>
+<body>
+<main>
+  <h1><span class="rainbow"><span>S</span><span>F</span><span>M</span><span>I</span><span>X</span></span> network map — loader lab</h1>
+  <p class="lede">Loading-screen concepts for the network map. Every demo runs over the <b>real</b>
+  live-loading map (the private demo build, iframed underneath) and dismisses on the map's genuine
+  first idle — so what you feel here is real load timing, not a canned delay. The HUD in the corner
+  shows when the map was actually ready vs. when the loader revealed it. Reload a page to replay
+  (second loads are faster: warm cache).</p>
+
+  <div class="grid">
+    <a class="card" href="concept.html?c=fade">
+      <h2>Plain fade</h2>
+      <p>The community standard: a dark veil over the canvas, faded out on first idle. One clean
+      reveal, zero theater.</p>
+      <span class="tag plain">community</span>
+    </a>
+    <a class="card" href="concept.html?c=spinner">
+      <h2>Night veil + spinner</h2>
+      <p>Veil in the map's night palette with a spinner and label — the classic
+      spinner-on-sourcedata pattern from the MapLibre/Mapbox gists.</p>
+      <span class="tag plain">community</span>
+    </a>
+    <a class="card" href="concept.html?c=barber">
+      <h2>SFMIX barber-pole</h2>
+      <p>The wordmark in the logo rainbow over an animated barber-pole stripe — the same motion
+      language as the map's animated cables. Final fast sweep on ready.</p>
+      <span class="tag brand">branded</span>
+    </a>
+    <a class="card" href="concept.html?c=warp">
+      <h2>Technicolor warpspeed → iris</h2>
+      <p>Star streaks in the five SFMIX hues accelerating to a hyperspace kick, then an expanding
+      center eye irises the map in with a slight zoom settle.</p>
+      <span class="tag brand">branded</span> <span class="tag cine">cinematic</span>
+    </a>
+    <a class="card" href="concept.html?c=skyfall">
+      <h2>Orbital drop</h2>
+      <p>Falling in from space: stars thin, a horizon glow rises, clouds rush past — and the map
+      sharpens up underneath as you land in the Bay Area.</p>
+      <span class="tag cine">cinematic</span>
+    </a>
+  </div>
+
+  <footer>Prototypes only — nothing here ships as-is. The winning concept gets rebuilt inside
+  <code>network-map.js</code> keyed on the map's own <code>idle</code>/whimsy-wave completion.
+  Source: <code>network-map/dev/loader-lab/</code>.</footer>
+</main>
+</body></html>
