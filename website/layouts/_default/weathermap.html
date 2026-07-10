@@ -4,17 +4,12 @@
 <link rel="preconnect" href="{{ $portal }}" crossorigin>
 <link rel="preload" href="{{ $portal }}/statistics/map/weathermap.json" as="fetch" crossorigin>
 
-<div class="page-header">
-  <div class="container">
-    <h1>{{ .Title }}</h1>
-  </div>
-</div>
-<div class="content">
-  <div class="container">
-  {{ .Content }}
-
-  {{/* Structure (topology + layout) is built by the portal's map-build job;
-       traffic is the SAME public feed the geographic network map polls. */}}
+{{/* No hero, no prose: the weathermap IS the page — full viewport below the
+     site header, like the geographic network map. Structure (topology +
+     layout) is built by the portal's map-build job; traffic is the SAME
+     public feed the network map polls. The page prose lives in the floating
+     info bubble, so translations stay in the content files. */}}
+<div class="wm-page">
   <div id="weathermap"
        data-structure-url="{{ $portal }}/statistics/map/weathermap.json"
        data-traffic-url="{{ $portal }}/statistics/map/traffic"
@@ -25,15 +20,28 @@
         <a href="{{ "statistics/" | relLangURL }}">{{ partial "T.html" "See the traffic statistics instead." }}</a>
       </div>
     </noscript>
-  </div>
 
-  <div class="wm-legend">
-    <strong>{{ partial "T.html" "Link utilization" }}</strong>
-    <span class="wm-ramp" aria-hidden="true"></span>
-    <span>0% → 100%</span>
-    <span><span class="swatch" style="border-top-color:#9aa4aa"></span>{{ partial "T.html" "offline" }}</span>
-    <span><span class="swatch" style="border-top-color:#7d9cc0"></span>{{ partial "T.html" "planned" }}</span>
-    <span id="wm-ts"></span>
+    {{/* Info bubble: collapsed pill top-left; expands to the page prose. */}}
+    <div id="wm-info" class="collapsed">
+      <button class="wm-info-toggle" type="button" aria-expanded="false" aria-controls="wm-info-body">
+        <span class="wm-info-icon" aria-hidden="true">i</span>
+        <span class="wm-info-title">{{ .Title }}</span>
+        <span class="wm-info-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="wm-info-body" id="wm-info-body">
+        {{ .Content }}
+      </div>
+    </div>
+
+    {{/* Legend bubble: bottom-right over the field. */}}
+    <div id="wm-legend">
+      <h4>{{ partial "T.html" "Link utilization" }}</h4>
+      <div class="wm-ramp"></div>
+      <div class="wm-ramp-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+      <div class="wm-legend-key"><span class="swatch" style="border-top-color:#9aa4aa"></span> {{ partial "T.html" "offline" }}</div>
+      <div class="wm-legend-key"><span class="swatch" style="border-top-color:#7d9cc0"></span> {{ partial "T.html" "planned" }}</div>
+      <div class="wm-ts" id="wm-ts"></div>
+    </div>
   </div>
 
   {{ $keys := slice "In" "Out" "Capacity" "Last updated" "link offline"
@@ -41,7 +49,6 @@
   {{ $i18n := dict }}
   {{ range $keys }}{{ $i18n = merge $i18n (dict . (partial "T.html" .)) }}{{ end }}
   <script type="application/json" id="wm-i18n">{{ $i18n | jsonify | safeJS }}</script>
-  </div>
 </div>
 <script src="{{ "js/weathermap.js" | relURL }}" defer></script>
 {{ end }}
