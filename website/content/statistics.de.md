@@ -13,7 +13,7 @@ SFMIX verwendet sFlow, um Metadaten zum Datenverkehr des Internet-Knotens zu erf
 
 {{< stat-card icon="📈" url="https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef" title="Dashboard zum Gesamtverkehr" desc="Gesamtdurchsatz des Knotens, Spitzenwerte und historische Trends." >}}
 
-{{< stat-card icon="🗺️" url="/weathermap/" external="false" title="Verkehrs-Weathermap" desc="Live-Auslastung je Verbindung im SFMIX-Switch-Fabric." >}}
+{{< stat-card icon="🗺️" url="/de/weathermap/" external="false" title="Verkehrs-Wetterkarte" desc="Die klassische Wetterkarte, neu gebaut: jede Backbone-Verbindung nach Live-Auslastung eingefärbt. Verschieben, zoomen und jede Verbindung anklicken für Raten und einen 24-Stunden-Graphen." >}}
 
 {{< stat-card icon="🚇" url="/de/network-map/" external="false" title="Interaktive Netzwerkkarte" desc="Eine U-Bahn-artige Karte des Fabrics, eingefärbt nach Live-Datenverkehr. Zoomen Sie von Metropolregionen bis zu einzelnen Standorten." >}}
 
