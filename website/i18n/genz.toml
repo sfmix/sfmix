@@ -47,6 +47,7 @@
 
 # Network map
 "Network Map" = "Network Map"
+"Weathermap" = "Weathermap"
 "Legend" = "Legend"
 "Link utilization" = "How cooked the link is"
 "offline" = "down bad"
@@ -54,6 +55,7 @@
 "approximate route" = "approx route"
 "of capacity" = "of capacity"
 "live stats unavailable" = "live stats ghosted us"
+"The weathermap data is unavailable right now." = "the weathermap data is ghosting us rn."
 "This interactive map needs JavaScript." = "This map needs JavaScript fr."
 "See the traffic statistics instead." = "Peep the traffic stats instead."
 "About this map" = "about this map 🗺️"

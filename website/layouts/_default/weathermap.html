@@ -1,0 +1,47 @@
+{{ define "main" }}
+<link rel="stylesheet" href="{{ "css/weathermap.css" | relURL }}">
+{{ $portal := .Site.Params.map_portal_base | default "https://portal.sfmix.org" }}
+<link rel="preconnect" href="{{ $portal }}" crossorigin>
+<link rel="preload" href="{{ $portal }}/statistics/map/weathermap.json" as="fetch" crossorigin>
+
+<div class="page-header">
+  <div class="container">
+    <h1>{{ .Title }}</h1>
+  </div>
+</div>
+<div class="content">
+  <div class="container">
+  {{ .Content }}
+
+  {{/* Structure (topology + layout) is built by the portal's map-build job;
+       traffic is the SAME public feed the geographic network map polls. */}}
+  <div id="weathermap"
+       data-structure-url="{{ $portal }}/statistics/map/weathermap.json"
+       data-traffic-url="{{ $portal }}/statistics/map/traffic"
+       data-error-text="{{ partial "T.html" "The weathermap data is unavailable right now." }}">
+    <noscript>
+      <div style="padding:2rem;text-align:center;color:#dfe9ef">
+        {{ partial "T.html" "This interactive map needs JavaScript." }}
+        <a href="{{ "statistics/" | relLangURL }}">{{ partial "T.html" "See the traffic statistics instead." }}</a>
+      </div>
+    </noscript>
+  </div>
+
+  <div class="wm-legend">
+    <strong>{{ partial "T.html" "Link utilization" }}</strong>
+    <span class="wm-ramp" aria-hidden="true"></span>
+    <span>0% → 100%</span>
+    <span><span class="swatch" style="border-top-color:#9aa4aa"></span>{{ partial "T.html" "offline" }}</span>
+    <span><span class="swatch" style="border-top-color:#7d9cc0"></span>{{ partial "T.html" "planned" }}</span>
+    <span id="wm-ts"></span>
+  </div>
+
+  {{ $keys := slice "In" "Out" "Capacity" "Last updated" "link offline"
+     "planned — not yet in service" "live stats unavailable" "Parallel links" }}
+  {{ $i18n := dict }}
+  {{ range $keys }}{{ $i18n = merge $i18n (dict . (partial "T.html" .)) }}{{ end }}
+  <script type="application/json" id="wm-i18n">{{ $i18n | jsonify | safeJS }}</script>
+  </div>
+</div>
+<script src="{{ "js/weathermap.js" | relURL }}" defer></script>
+{{ end }}

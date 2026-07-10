@@ -18,16 +18,17 @@ SCHEDULE_NAME = "map-build-daily"
 
 
 def build_map_task():
-    """Build map.json + map-links.json from NetBox + committed geometry and write
-    them to the configured outputs. Returns a run summary."""
+    """Build map.json + weathermap.json + map-links.json from NetBox + committed
+    geometry and write them to the configured outputs. Returns a run summary."""
     mapjson, links, drift = builder.build()
-    builder.write_outputs(mapjson, links, settings.MAP_OUTPUT, settings.MAP_LINKS_OUTPUT)
+    wm = builder.write_outputs(mapjson, links, settings.MAP_OUTPUT, settings.MAP_LINKS_OUTPUT)
     result = {
         "generation": mapjson["generation"],
         "generated_at": mapjson["generated_at"],
         "cables": len(mapjson["cables"]),
         "sites": len(mapjson["sites"]),
         "metros": len(mapjson["metros"]),
+        "weathermap": {"nodes": len(wm["nodes"]), "links": len(wm["links"])},
         "drift": {k: len(v) for k, v in drift.items()},
         "out": settings.MAP_OUTPUT,
     }

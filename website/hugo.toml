@@ -126,14 +126,19 @@ defaultContentLanguageInSubdir = false
   weight = 4
 
 [[menus.services]]
+  name = "Weathermap"
+  url = "/weathermap/"
+  weight = 5
+
+[[menus.services]]
   name = "Speed Test"
   url = "https://snappy.sfmix.org/"
-  weight = 5
+  weight = 6
 
 [[menus.services]]
   name = "AS40271 IP Network"
   url = "https://ip.sfmix.org/"
-  weight = 6
+  weight = 7
 
 [[menus.main]]
   # Distinct from the "Connect" dropdown category above so the label isn't

@@ -40,6 +40,7 @@
 
 # Network map
 "Network Map" = "Chart o' th' Network"
+"Weathermap" = "Weather Chart"
 "Legend" = "Ye Key"
 "Link utilization" = "How heavy-laden"
 "offline" = "run aground"
@@ -52,6 +53,7 @@
 "link offline" = "line run aground"
 "planned — not yet in service" = "charted — not yet sailin'"
 "live stats unavailable" = "the spyglass be fogged"
+"The weathermap data is unavailable right now." = "The weather chart be lost in the fog, arrr."
 "bridge" = "gangplank"
 "submarine" = "'neath the waves"
 "This interactive map needs JavaScript." = "This here chart needs JavaScript, matey."
