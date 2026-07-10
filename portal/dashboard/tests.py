@@ -1,5 +1,7 @@
 """Unit tests for route-server parity computation."""
 
+import json
+
 from django.test import SimpleTestCase
 
 from dashboard.views import (
@@ -614,3 +616,30 @@ class OpticsProblemsViewTests(SimpleTestCase):
     def test_non_admin_is_forbidden(self):
         resp = views.optics_problems_view(_admin_request("/admin/optics/problems/", admin=False))
         self.assertEqual(resp.status_code, 403)
+
+
+class ParticipantsIxfViewTests(SimpleTestCase):
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_serves_ixf_document(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        doc = {"version": "1.0", "ixp_list": [], "member_list": []}
+        inst.get_participants_json.return_value = doc
+        resp = views.participants_ixf(RequestFactory().get("/participants.json"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/json")
+        self.assertEqual(json.loads(resp.content), doc)
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_lg_unconfigured_is_503(self, MockLG):
+        MockLG.return_value.base_url = ""
+        resp = views.participants_ixf(RequestFactory().get("/participants.json"))
+        self.assertEqual(resp.status_code, 503)
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_lg_error_is_502(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        inst.get_participants_json.side_effect = RuntimeError("boom")
+        resp = views.participants_ixf(RequestFactory().get("/participants.json"))
+        self.assertEqual(resp.status_code, 502)

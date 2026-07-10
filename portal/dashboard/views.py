@@ -1731,6 +1731,23 @@ def participants_list(request):
     })
 
 
+def participants_ixf(request):
+    """Public IX-F Member Export (participants.json).
+
+    Serves the IX-F Member Export Schema v1.0 document, rendered by the
+    looking glass from live NetBox data.
+    """
+    lg = LookingGlassClient()
+    if not lg.base_url:
+        return JsonResponse({"error": "looking glass not configured"}, status=503)
+    try:
+        doc = lg.get_participants_json()
+    except Exception:
+        logger.exception("Error fetching IX-F member export from looking glass")
+        return JsonResponse({"error": "member export unavailable"}, status=502)
+    return JsonResponse(doc, json_dumps_params={"indent": 2, "sort_keys": True})
+
+
 def route_server_parity(request):
     """Public route-server parity overview across all participants.
 

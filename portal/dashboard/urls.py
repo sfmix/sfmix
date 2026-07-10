@@ -9,6 +9,7 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("network/<int:asn>/mac-table/", views.network_mac_table, name="network_mac_table"),
     path("participants/", views.participants_list, name="participants_list"),
+    path("participants.json", views.participants_ixf, name="participants_ixf"),
     path("statistics/", views.ix_statistics, name="ix_statistics"),
     path("statistics/metrics/", views.ix_metrics, name="ix_metrics"),
     path("statistics/map/traffic", views.ix_map_traffic, name="ix_map_traffic"),
