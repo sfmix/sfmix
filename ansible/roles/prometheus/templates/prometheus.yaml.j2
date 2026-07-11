@@ -54,6 +54,31 @@ scrape_configs:
             target_label: instance
           - target_label: __address__
             replacement: 127.0.0.1:9116
+    # SNMP polling of the PDUs (mixed vendors) via snmp_exporter. Targets come
+    # from the netbox-prometheus-sd-pdu timer, which stamps each with the right
+    # snmp_exporter `module` (ServerTech Sentry3 vs Raritan PDU2) from the
+    # NetBox manufacturer. One job serves the whole fleet: the per-target
+    # `module` label is relabeled to __param_module. `vendor`/`site`/`device`
+    # ride along as series labels; the pdu:* recording rules normalise the two
+    # vendors' native metrics into common base-SI series.
+    - job_name: snmp-pdu
+      scrape_interval: 60s
+      scrape_timeout: 55s
+      metrics_path: /snmp
+      params:
+          auth: [sfmix_v2c]
+      file_sd_configs:
+          - files:
+              - /opt/prometheus/file_sd/pdu_targets.json
+      relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - source_labels: [module]     # vendor-aware: NetBox manufacturer -> module
+            target_label: __param_module
+          - target_label: __address__
+            replacement: 127.0.0.1:9116
     # Portal metrics: NetBox-cache health + sfmix_peering_port_info (the
     # participant/ASN attribution joined onto SNMP series by recording rules).
     - job_name: ixp-portal

@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically sync NetBox -> Prometheus SNMP PDU targets
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ snmp_exporter_sd_sync_interval | default('15min') }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

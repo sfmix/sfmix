@@ -3,9 +3,14 @@
 # Regenerate with:
 #   cd ansible/roles/snmp_exporter/files
 #   mkdir -p mibs && cp /var/lib/mibs/ietf/* /var/lib/mibs/iana/* mibs/
-#   docker run --rm -v "$PWD:/opt/" prom/snmp-generator generate
+#   # plus the vendor PDU MIBs (not in the base set):
+#   #   Sentry3-MIB  (ServerTech, e.g. netdisco-mibs/servertech or librenms)
+#   #   PDU2-MIB     (Raritan, e.g. librenms mibs/raritan)
+#   docker run --rm -v "$PWD:/opt/" prom/snmp-generator generate --no-fail-on-parse-errors
 # then re-apply the Jinja auth block in templates/snmp.yml.j2
 # (community: SNMP_COMMUNITY_PLACEHOLDER -> {{ sfmix_snmp_community }}).
+# (--no-fail-on-parse-errors sidesteps a benign netsnmp quirk in stock
+#  SNMPv2-PDU; both PDU modules still resolve fully.)
 auths:
   sfmix_v2c:
     version: 2
@@ -54,3 +59,89 @@ modules:
         type: EnumAsInfo
       entPhySensorOperStatus:
         type: EnumAsInfo
+
+  # ServerTech / Sentry3 (enterprise 1718.3) — Switched CDU infeed telemetry
+  # plus per-outlet on/off (these CDUs don't meter outlet current). Human
+  # labels: infeedName ("RPP-MDFD-B-39"), towerName, outletID ("A1"). Units are
+  # baked into the infeed OIDs (see pdu.rules for the ×scale to base SI):
+  # load=centi-A, voltage=deci-V, power=W, apparentPower=VA, powerFactor=centi,
+  # energy=deci-kWh, capacity=A.
+  pdu_servertech:
+    walk:
+      - towerName            # 1718.3.2.1.1.3  (lookup label)
+      - infeedID             # 1718.3.2.2.1.2
+      - infeedName           # 1718.3.2.2.1.3  (human label)
+      - infeedStatus         # 1718.3.2.2.1.5  (enum)
+      - infeedLoadValue      # 1718.3.2.2.1.7  (current, centi-A)
+      - infeedCapacity       # 1718.3.2.2.1.10 (A)
+      - infeedVoltage        # 1718.3.2.2.1.11 (deci-V)
+      - infeedPower          # 1718.3.2.2.1.12 (W)
+      - infeedApparentPower  # 1718.3.2.2.1.13 (VA)
+      - infeedPowerFactor    # 1718.3.2.2.1.14 (centi)
+      - infeedEnergy         # 1718.3.2.2.1.16 (deci-kWh)
+      # Per-outlet: these CDUs are switched-only (no per-outlet current), so we
+      # expose the outlet id ("A1") and on/off status. outletStatus is kept a
+      # NUMERIC gauge (0=off 1=on ...) for a state-timeline. outletName is NOT
+      # walked — it collides with PDU2-MIB::outletName; outletID is unique.
+      - outletID             # 1718.3.2.3.1.2  (per-outlet id "A1")
+      - outletStatus         # 1718.3.2.3.1.5  (per-outlet on/off, numeric)
+    lookups:
+      - source_indexes: [towerIndex, infeedIndex]
+        lookup: infeedName
+      - source_indexes: [towerIndex]
+        lookup: towerName
+      - source_indexes: [towerIndex, infeedIndex, outletIndex]
+        lookup: outletID
+    overrides:
+      towerName: {type: DisplayString}
+      infeedID: {type: DisplayString}
+      infeedName: {type: DisplayString}
+      infeedStatus: {type: EnumAsInfo}
+      outletID: {type: DisplayString}
+  # Raritan PX3 (PDU2-MIB, enterprise 13742.6) — inlet sensor telemetry.
+  # Readings are unsigned ints scaled by inletSensorDecimalDigits (walked, so
+  # pdu.rules scales dynamically). sensorType is an integer index kept NUMERIC
+  # on the series (rmsCurrent=1, rmsVoltage=4, activePower=5, apparentPower=6,
+  # powerFactor=7, activeEnergy=8, frequency=23) — pdu.rules selects by number.
+  # Human labels: inletLabel ("I1"), inletName, pduName. inletRatedCurrent
+  # ("24A") is regex-extracted to a numeric amp rating so load% works
+  # cross-vendor.
+  pdu_raritan:
+    walk:
+      - pduName                       # 13742.6.3.2.2.1.13  (unit name)
+      - inletLabel                    # 13742.6.3.3.3.1.2   (faceplate label)
+      - inletName                     # 13742.6.3.3.3.1.3   (human label)
+      - inletRatedCurrent             # 13742.6.3.3.3.1.7   ("24A" -> amps)
+      - measurementsInletSensorValue  # 13742.6.5.2.3.1.4   (reading)
+      - measurementsInletSensorState  # 13742.6.5.2.3.1.3   (enum)
+      - inletSensorDecimalDigits      # 13742.6.3.3.4.1.7   (scale exponent)
+      - inletSensorUnits              # 13742.6.3.3.4.1.6   (unit enum)
+      # Per-outlet: PX3 meters each outlet. outletLabel ("1".."20") is the human
+      # id; measurementsOutletSensorValue is indexed by sensorType like the
+      # inlet (1=current …), scaled by outletSensorDecimalDigits. outletName is
+      # NOT walked (collides with Sentry3-MIB::outletName); outletLabel is unique.
+      - outletLabel                   # 13742.6.3.5.3.1.2   (per-outlet label)
+      - measurementsOutletSensorValue # 13742.6.5.4.3.1.4   (per-outlet reading)
+      - outletSensorDecimalDigits     # 13742.6.3.5.4.1.7   (per-outlet scale)
+    lookups:
+      - source_indexes: [pduId, inletId]
+        lookup: inletName
+      - source_indexes: [pduId, inletId]
+        lookup: inletLabel
+      - source_indexes: [pduId]
+        lookup: pduName
+      - source_indexes: [pduId, outletId]
+        lookup: outletLabel
+    overrides:
+      pduName: {type: DisplayString}
+      inletLabel: {type: DisplayString}
+      inletName: {type: DisplayString}
+      inletSensorUnits: {type: EnumAsInfo}
+      measurementsInletSensorState: {type: EnumAsInfo}
+      outletLabel: {type: DisplayString}
+      inletRatedCurrent:
+        # "24A" -> gauge 24 (rated amps), for capacity/load% headroom
+        regex_extracts:
+          Amps:
+            - regex: '([0-9]+).*'
+              value: '$1'

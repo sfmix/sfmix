@@ -9,6 +9,1209 @@ auths:
     priv_protocol: DES
     version: 2
 modules:
+  pdu_raritan:
+    walk:
+    - 1.3.6.1.4.1.13742.6.3.2.2.1.13
+    - 1.3.6.1.4.1.13742.6.3.3.3.1.2
+    - 1.3.6.1.4.1.13742.6.3.3.3.1.3
+    - 1.3.6.1.4.1.13742.6.3.3.3.1.7
+    - 1.3.6.1.4.1.13742.6.3.3.4.1.6
+    - 1.3.6.1.4.1.13742.6.3.3.4.1.7
+    - 1.3.6.1.4.1.13742.6.3.5.3.1.2
+    - 1.3.6.1.4.1.13742.6.3.5.4.1.7
+    - 1.3.6.1.4.1.13742.6.5.2.3.1.3
+    - 1.3.6.1.4.1.13742.6.5.2.3.1.4
+    - 1.3.6.1.4.1.13742.6.5.4.3.1.4
+    metrics:
+    - name: pduName
+      oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+      type: DisplayString
+      help: The user-defined name for the PDU. - 1.3.6.1.4.1.13742.6.3.2.2.1.13
+      indexes:
+      - labelname: pduId
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+    - name: inletLabel
+      oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+      type: DisplayString
+      help: The label on the PDU identifying the inlet. - 1.3.6.1.4.1.13742.6.3.3.3.1.2
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+    - name: inletName
+      oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+      type: DisplayString
+      help: The user-defined name. - 1.3.6.1.4.1.13742.6.3.3.3.1.3
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+    - name: inletRatedCurrent
+      oid: 1.3.6.1.4.1.13742.6.3.3.3.1.7
+      type: DisplayString
+      help: The inlet current rating. - 1.3.6.1.4.1.13742.6.3.3.3.1.7
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      regex_extracts:
+        Amps:
+        - value: $1
+          regex: ^(?:([0-9]+).*)$
+    - name: inletSensorUnits
+      oid: 1.3.6.1.4.1.13742.6.3.3.4.1.6
+      type: EnumAsInfo
+      help: The unit in which the sensor reading is reported - 1.3.6.1.4.1.13742.6.3.3.4.1.6
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      - labelname: sensorType
+        type: gauge
+        enum_values:
+          1: rmsCurrent
+          2: peakCurrent
+          3: unbalancedCurrent
+          4: rmsVoltage
+          5: activePower
+          6: apparentPower
+          7: powerFactor
+          8: activeEnergy
+          9: apparentEnergy
+          10: temperature
+          11: humidity
+          12: airFlow
+          13: airPressure
+          14: onOff
+          15: trip
+          16: vibration
+          17: waterDetection
+          18: smokeDetection
+          19: binary
+          20: contact
+          21: fanSpeed
+          22: surgeProtectorStatus
+          23: frequency
+          24: phaseAngle
+          25: rmsVoltageLN
+          26: residualCurrent
+          27: rcmState
+          28: absoluteHumidity
+          29: reactivePower
+          30: other
+          31: none
+          32: powerQuality
+          33: overloadStatus
+          34: overheatStatus
+          35: displacementPowerFactor
+          36: residualDcCurrent
+          37: fanStatus
+          38: inletPhaseSyncAngle
+          39: inletPhaseSync
+          40: operatingState
+          41: activeInlet
+          42: illuminance
+          43: doorContact
+          44: tamperDetection
+          45: motionDetection
+          46: i1smpsStatus
+          47: i2smpsStatus
+          48: switchStatus
+          49: doorLockState
+          50: doorHandleLock
+          51: crestFactor
+          52: length
+          53: distance
+          54: activePowerDemand
+          55: residualAcCurrent
+          56: particleDensity
+          57: voltageThd
+          58: currentThd
+          59: inrushCurrent
+          60: unbalancedVoltage
+          61: unbalancedLineLineCurrent
+          62: unbalancedLineLineVoltage
+          63: dewPoint
+          64: mass
+          65: flux
+          66: luminousIntensity
+          67: luminousEnergy
+          68: luminousFlux
+          69: luminousEmittance
+          70: electricalResistance
+          71: electricalImpedance
+          72: totalHarmonicDistortion
+          73: magneticFieldStrength
+          74: magneticFluxDensity
+          75: electricFieldStrength
+          76: selection
+          77: rotationalSpeed
+          78: transferSwitchBypassState
+          79: batteryLevel
+          80: installFaultStatus
+          81: transferSwitchOutputStatus
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      enum_values:
+        -1: none
+        0: other
+        1: volt
+        2: amp
+        3: watt
+        4: voltamp
+        5: wattHour
+        6: voltampHour
+        7: degreeC
+        8: hertz
+        9: percent
+        10: meterpersec
+        11: pascal
+        12: psi
+        13: g
+        14: degreeF
+        15: feet
+        16: inches
+        17: cm
+        18: meters
+        19: rpm
+        20: degrees
+        21: lux
+        22: grampercubicmeter
+        23: var
+        24: feetpersec
+        25: lbspercubicfoot
+        26: microgrampercubicmeter
+        27: hour
+        28: minute
+        29: second
+        30: coulomb
+        31: kelvin
+        32: voltAmpReactiveHour
+        33: voltPerAmpere
+        34: voltPerMeter
+        35: gram
+        36: meterPerSquareSec
+        37: litersPerHour
+        38: nit
+        39: candela
+        40: lumen
+        41: lumenSecond
+        42: cubicMeter
+        43: radiant
+        44: steradiant
+        45: newton
+        46: joule
+        47: ohm
+        48: tesla
+        49: henry
+        50: farad
+        51: mol
+        52: becquerel
+        53: gray
+        54: sievert
+    - name: inletSensorDecimalDigits
+      oid: 1.3.6.1.4.1.13742.6.3.3.4.1.7
+      type: gauge
+      help: The number of digits displayed to the right of the decimal point - 1.3.6.1.4.1.13742.6.3.3.4.1.7
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      - labelname: sensorType
+        type: gauge
+        enum_values:
+          1: rmsCurrent
+          2: peakCurrent
+          3: unbalancedCurrent
+          4: rmsVoltage
+          5: activePower
+          6: apparentPower
+          7: powerFactor
+          8: activeEnergy
+          9: apparentEnergy
+          10: temperature
+          11: humidity
+          12: airFlow
+          13: airPressure
+          14: onOff
+          15: trip
+          16: vibration
+          17: waterDetection
+          18: smokeDetection
+          19: binary
+          20: contact
+          21: fanSpeed
+          22: surgeProtectorStatus
+          23: frequency
+          24: phaseAngle
+          25: rmsVoltageLN
+          26: residualCurrent
+          27: rcmState
+          28: absoluteHumidity
+          29: reactivePower
+          30: other
+          31: none
+          32: powerQuality
+          33: overloadStatus
+          34: overheatStatus
+          35: displacementPowerFactor
+          36: residualDcCurrent
+          37: fanStatus
+          38: inletPhaseSyncAngle
+          39: inletPhaseSync
+          40: operatingState
+          41: activeInlet
+          42: illuminance
+          43: doorContact
+          44: tamperDetection
+          45: motionDetection
+          46: i1smpsStatus
+          47: i2smpsStatus
+          48: switchStatus
+          49: doorLockState
+          50: doorHandleLock
+          51: crestFactor
+          52: length
+          53: distance
+          54: activePowerDemand
+          55: residualAcCurrent
+          56: particleDensity
+          57: voltageThd
+          58: currentThd
+          59: inrushCurrent
+          60: unbalancedVoltage
+          61: unbalancedLineLineCurrent
+          62: unbalancedLineLineVoltage
+          63: dewPoint
+          64: mass
+          65: flux
+          66: luminousIntensity
+          67: luminousEnergy
+          68: luminousFlux
+          69: luminousEmittance
+          70: electricalResistance
+          71: electricalImpedance
+          72: totalHarmonicDistortion
+          73: magneticFieldStrength
+          74: magneticFluxDensity
+          75: electricFieldStrength
+          76: selection
+          77: rotationalSpeed
+          78: transferSwitchBypassState
+          79: batteryLevel
+          80: installFaultStatus
+          81: transferSwitchOutputStatus
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+    - name: outletLabel
+      oid: 1.3.6.1.4.1.13742.6.3.5.3.1.2
+      type: DisplayString
+      help: The label on the PDU identifying the outlet. - 1.3.6.1.4.1.13742.6.3.5.3.1.2
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: outletId
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      - labels:
+        - pduId
+        - outletId
+        labelname: outletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.5.3.1.2
+        type: DisplayString
+    - name: outletSensorDecimalDigits
+      oid: 1.3.6.1.4.1.13742.6.3.5.4.1.7
+      type: gauge
+      help: The number of digits displayed to the right of the decimal point - 1.3.6.1.4.1.13742.6.3.5.4.1.7
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: outletId
+        type: gauge
+      - labelname: sensorType
+        type: gauge
+        enum_values:
+          1: rmsCurrent
+          2: peakCurrent
+          3: unbalancedCurrent
+          4: rmsVoltage
+          5: activePower
+          6: apparentPower
+          7: powerFactor
+          8: activeEnergy
+          9: apparentEnergy
+          10: temperature
+          11: humidity
+          12: airFlow
+          13: airPressure
+          14: onOff
+          15: trip
+          16: vibration
+          17: waterDetection
+          18: smokeDetection
+          19: binary
+          20: contact
+          21: fanSpeed
+          22: surgeProtectorStatus
+          23: frequency
+          24: phaseAngle
+          25: rmsVoltageLN
+          26: residualCurrent
+          27: rcmState
+          28: absoluteHumidity
+          29: reactivePower
+          30: other
+          31: none
+          32: powerQuality
+          33: overloadStatus
+          34: overheatStatus
+          35: displacementPowerFactor
+          36: residualDcCurrent
+          37: fanStatus
+          38: inletPhaseSyncAngle
+          39: inletPhaseSync
+          40: operatingState
+          41: activeInlet
+          42: illuminance
+          43: doorContact
+          44: tamperDetection
+          45: motionDetection
+          46: i1smpsStatus
+          47: i2smpsStatus
+          48: switchStatus
+          49: doorLockState
+          50: doorHandleLock
+          51: crestFactor
+          52: length
+          53: distance
+          54: activePowerDemand
+          55: residualAcCurrent
+          56: particleDensity
+          57: voltageThd
+          58: currentThd
+          59: inrushCurrent
+          60: unbalancedVoltage
+          61: unbalancedLineLineCurrent
+          62: unbalancedLineLineVoltage
+          63: dewPoint
+          64: mass
+          65: flux
+          66: luminousIntensity
+          67: luminousEnergy
+          68: luminousFlux
+          69: luminousEmittance
+          70: electricalResistance
+          71: electricalImpedance
+          72: totalHarmonicDistortion
+          73: magneticFieldStrength
+          74: magneticFluxDensity
+          75: electricFieldStrength
+          76: selection
+          77: rotationalSpeed
+          78: transferSwitchBypassState
+          79: batteryLevel
+          80: installFaultStatus
+          81: transferSwitchOutputStatus
+      lookups:
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      - labels:
+        - pduId
+        - outletId
+        labelname: outletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.5.3.1.2
+        type: DisplayString
+    - name: measurementsInletSensorState
+      oid: 1.3.6.1.4.1.13742.6.5.2.3.1.3
+      type: EnumAsInfo
+      help: The sensor state. - 1.3.6.1.4.1.13742.6.5.2.3.1.3
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      - labelname: sensorType
+        type: gauge
+        enum_values:
+          1: rmsCurrent
+          2: peakCurrent
+          3: unbalancedCurrent
+          4: rmsVoltage
+          5: activePower
+          6: apparentPower
+          7: powerFactor
+          8: activeEnergy
+          9: apparentEnergy
+          10: temperature
+          11: humidity
+          12: airFlow
+          13: airPressure
+          14: onOff
+          15: trip
+          16: vibration
+          17: waterDetection
+          18: smokeDetection
+          19: binary
+          20: contact
+          21: fanSpeed
+          22: surgeProtectorStatus
+          23: frequency
+          24: phaseAngle
+          25: rmsVoltageLN
+          26: residualCurrent
+          27: rcmState
+          28: absoluteHumidity
+          29: reactivePower
+          30: other
+          31: none
+          32: powerQuality
+          33: overloadStatus
+          34: overheatStatus
+          35: displacementPowerFactor
+          36: residualDcCurrent
+          37: fanStatus
+          38: inletPhaseSyncAngle
+          39: inletPhaseSync
+          40: operatingState
+          41: activeInlet
+          42: illuminance
+          43: doorContact
+          44: tamperDetection
+          45: motionDetection
+          46: i1smpsStatus
+          47: i2smpsStatus
+          48: switchStatus
+          49: doorLockState
+          50: doorHandleLock
+          51: crestFactor
+          52: length
+          53: distance
+          54: activePowerDemand
+          55: residualAcCurrent
+          56: particleDensity
+          57: voltageThd
+          58: currentThd
+          59: inrushCurrent
+          60: unbalancedVoltage
+          61: unbalancedLineLineCurrent
+          62: unbalancedLineLineVoltage
+          63: dewPoint
+          64: mass
+          65: flux
+          66: luminousIntensity
+          67: luminousEnergy
+          68: luminousFlux
+          69: luminousEmittance
+          70: electricalResistance
+          71: electricalImpedance
+          72: totalHarmonicDistortion
+          73: magneticFieldStrength
+          74: magneticFluxDensity
+          75: electricFieldStrength
+          76: selection
+          77: rotationalSpeed
+          78: transferSwitchBypassState
+          79: batteryLevel
+          80: installFaultStatus
+          81: transferSwitchOutputStatus
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      enum_values:
+        -1: unavailable
+        0: open
+        1: closed
+        2: belowLowerCritical
+        3: belowLowerWarning
+        4: normal
+        5: aboveUpperWarning
+        6: aboveUpperCritical
+        7: "on"
+        8: "off"
+        9: detected
+        10: notDetected
+        11: alarmed
+        12: ok
+        14: fail
+        15: "yes"
+        16: "no"
+        17: standby
+        18: one
+        19: two
+        20: inSync
+        21: outOfSync
+        22: i1OpenFault
+        23: i1ShortFault
+        24: i2OpenFault
+        25: i2ShortFault
+        26: fault
+        27: warning
+        28: critical
+        29: selfTest
+        30: nonRedundant
+        31: inactive
+        32: i1Selected
+        33: i2Selected
+        34: i1SelectedAndActive
+        35: i2SelectedAndActive
+        36: bypassActive
+    - name: measurementsInletSensorValue
+      oid: 1.3.6.1.4.1.13742.6.5.2.3.1.4
+      type: gauge
+      help: The sensor reading as an unsigned integer - 1.3.6.1.4.1.13742.6.5.2.3.1.4
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: inletId
+        type: gauge
+      - labelname: sensorType
+        type: gauge
+        enum_values:
+          1: rmsCurrent
+          2: peakCurrent
+          3: unbalancedCurrent
+          4: rmsVoltage
+          5: activePower
+          6: apparentPower
+          7: powerFactor
+          8: activeEnergy
+          9: apparentEnergy
+          10: temperature
+          11: humidity
+          12: airFlow
+          13: airPressure
+          14: onOff
+          15: trip
+          16: vibration
+          17: waterDetection
+          18: smokeDetection
+          19: binary
+          20: contact
+          21: fanSpeed
+          22: surgeProtectorStatus
+          23: frequency
+          24: phaseAngle
+          25: rmsVoltageLN
+          26: residualCurrent
+          27: rcmState
+          28: absoluteHumidity
+          29: reactivePower
+          30: other
+          31: none
+          32: powerQuality
+          33: overloadStatus
+          34: overheatStatus
+          35: displacementPowerFactor
+          36: residualDcCurrent
+          37: fanStatus
+          38: inletPhaseSyncAngle
+          39: inletPhaseSync
+          40: operatingState
+          41: activeInlet
+          42: illuminance
+          43: doorContact
+          44: tamperDetection
+          45: motionDetection
+          46: i1smpsStatus
+          47: i2smpsStatus
+          48: switchStatus
+          49: doorLockState
+          50: doorHandleLock
+          51: crestFactor
+          52: length
+          53: distance
+          54: activePowerDemand
+          55: residualAcCurrent
+          56: particleDensity
+          57: voltageThd
+          58: currentThd
+          59: inrushCurrent
+          60: unbalancedVoltage
+          61: unbalancedLineLineCurrent
+          62: unbalancedLineLineVoltage
+          63: dewPoint
+          64: mass
+          65: flux
+          66: luminousIntensity
+          67: luminousEnergy
+          68: luminousFlux
+          69: luminousEmittance
+          70: electricalResistance
+          71: electricalImpedance
+          72: totalHarmonicDistortion
+          73: magneticFieldStrength
+          74: magneticFluxDensity
+          75: electricFieldStrength
+          76: selection
+          77: rotationalSpeed
+          78: transferSwitchBypassState
+          79: batteryLevel
+          80: installFaultStatus
+          81: transferSwitchOutputStatus
+      lookups:
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletName
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.3
+        type: DisplayString
+      - labels:
+        - pduId
+        - inletId
+        labelname: inletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.3.3.1.2
+        type: DisplayString
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+    - name: measurementsOutletSensorValue
+      oid: 1.3.6.1.4.1.13742.6.5.4.3.1.4
+      type: gauge
+      help: The sensor reading as an unsigned integer - 1.3.6.1.4.1.13742.6.5.4.3.1.4
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: outletId
+        type: gauge
+      - labelname: sensorType
+        type: gauge
+        enum_values:
+          1: rmsCurrent
+          2: peakCurrent
+          3: unbalancedCurrent
+          4: rmsVoltage
+          5: activePower
+          6: apparentPower
+          7: powerFactor
+          8: activeEnergy
+          9: apparentEnergy
+          10: temperature
+          11: humidity
+          12: airFlow
+          13: airPressure
+          14: onOff
+          15: trip
+          16: vibration
+          17: waterDetection
+          18: smokeDetection
+          19: binary
+          20: contact
+          21: fanSpeed
+          22: surgeProtectorStatus
+          23: frequency
+          24: phaseAngle
+          25: rmsVoltageLN
+          26: residualCurrent
+          27: rcmState
+          28: absoluteHumidity
+          29: reactivePower
+          30: other
+          31: none
+          32: powerQuality
+          33: overloadStatus
+          34: overheatStatus
+          35: displacementPowerFactor
+          36: residualDcCurrent
+          37: fanStatus
+          38: inletPhaseSyncAngle
+          39: inletPhaseSync
+          40: operatingState
+          41: activeInlet
+          42: illuminance
+          43: doorContact
+          44: tamperDetection
+          45: motionDetection
+          46: i1smpsStatus
+          47: i2smpsStatus
+          48: switchStatus
+          49: doorLockState
+          50: doorHandleLock
+          51: crestFactor
+          52: length
+          53: distance
+          54: activePowerDemand
+          55: residualAcCurrent
+          56: particleDensity
+          57: voltageThd
+          58: currentThd
+          59: inrushCurrent
+          60: unbalancedVoltage
+          61: unbalancedLineLineCurrent
+          62: unbalancedLineLineVoltage
+          63: dewPoint
+          64: mass
+          65: flux
+          66: luminousIntensity
+          67: luminousEnergy
+          68: luminousFlux
+          69: luminousEmittance
+          70: electricalResistance
+          71: electricalImpedance
+          72: totalHarmonicDistortion
+          73: magneticFieldStrength
+          74: magneticFluxDensity
+          75: electricFieldStrength
+          76: selection
+          77: rotationalSpeed
+          78: transferSwitchBypassState
+          79: batteryLevel
+          80: installFaultStatus
+          81: transferSwitchOutputStatus
+      lookups:
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      - labels:
+        - pduId
+        - outletId
+        labelname: outletLabel
+        oid: 1.3.6.1.4.1.13742.6.3.5.3.1.2
+        type: DisplayString
+  pdu_servertech:
+    walk:
+    - 1.3.6.1.4.1.1718.3.2.1.1.3
+    - 1.3.6.1.4.1.1718.3.2.2.1.10
+    - 1.3.6.1.4.1.1718.3.2.2.1.11
+    - 1.3.6.1.4.1.1718.3.2.2.1.12
+    - 1.3.6.1.4.1.1718.3.2.2.1.13
+    - 1.3.6.1.4.1.1718.3.2.2.1.14
+    - 1.3.6.1.4.1.1718.3.2.2.1.16
+    - 1.3.6.1.4.1.1718.3.2.2.1.2
+    - 1.3.6.1.4.1.1718.3.2.2.1.3
+    - 1.3.6.1.4.1.1718.3.2.2.1.5
+    - 1.3.6.1.4.1.1718.3.2.2.1.7
+    - 1.3.6.1.4.1.1718.3.2.3.1.2
+    - 1.3.6.1.4.1.1718.3.2.3.1.5
+    metrics:
+    - name: towerName
+      oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+      type: DisplayString
+      help: The name of the tower. - 1.3.6.1.4.1.1718.3.2.1.1.3
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedCapacity
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.10
+      type: gauge
+      help: The load capacity of the input feed line - 1.3.6.1.4.1.1718.3.2.2.1.10
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedVoltage
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.11
+      type: gauge
+      help: The line-to-line voltage of the input feed - 1.3.6.1.4.1.1718.3.2.2.1.11
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedPower
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.12
+      type: gauge
+      help: The active power consumption of the input feed phase - 1.3.6.1.4.1.1718.3.2.2.1.12
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedApparentPower
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.13
+      type: gauge
+      help: The apparent power consumption of the input feed phase - 1.3.6.1.4.1.1718.3.2.2.1.13
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedPowerFactor
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.14
+      type: gauge
+      help: The power factor of the input feed phase - 1.3.6.1.4.1.1718.3.2.2.1.14
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedEnergy
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.16
+      type: gauge
+      help: The energy consumption of the input feed phase - 1.3.6.1.4.1.1718.3.2.2.1.16
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedID
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.2
+      type: DisplayString
+      help: The ID of the input feed. - 1.3.6.1.4.1.1718.3.2.2.1.2
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedName
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+      type: DisplayString
+      help: The name of the input feed. - 1.3.6.1.4.1.1718.3.2.2.1.3
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: infeedStatus
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.5
+      type: EnumAsInfo
+      help: The status of the input feed line - 1.3.6.1.4.1.1718.3.2.2.1.5
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+      enum_values:
+        0: "off"
+        1: "on"
+        2: offWait
+        3: onWait
+        4: offError
+        5: onError
+        6: noComm
+        7: reading
+        8: offFuse
+        9: onFuse
+    - name: infeedLoadValue
+      oid: 1.3.6.1.4.1.1718.3.2.2.1.7
+      type: gauge
+      help: The load measured on the input feed line - 1.3.6.1.4.1.1718.3.2.2.1.7
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+    - name: outletID
+      oid: 1.3.6.1.4.1.1718.3.2.3.1.2
+      type: DisplayString
+      help: The ID of the outlet. - 1.3.6.1.4.1.1718.3.2.3.1.2
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      - labelname: outletIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        - infeedIndex
+        - outletIndex
+        labelname: outletID
+        oid: 1.3.6.1.4.1.1718.3.2.3.1.2
+        type: DisplayString
+    - name: outletStatus
+      oid: 1.3.6.1.4.1.1718.3.2.3.1.5
+      type: gauge
+      help: The status of the outlet - 1.3.6.1.4.1.1718.3.2.3.1.5
+      indexes:
+      - labelname: towerIndex
+        type: gauge
+      - labelname: infeedIndex
+        type: gauge
+      - labelname: outletIndex
+        type: gauge
+      lookups:
+      - labels:
+        - towerIndex
+        - infeedIndex
+        labelname: infeedName
+        oid: 1.3.6.1.4.1.1718.3.2.2.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        labelname: towerName
+        oid: 1.3.6.1.4.1.1718.3.2.1.1.3
+        type: DisplayString
+      - labels:
+        - towerIndex
+        - infeedIndex
+        - outletIndex
+        labelname: outletID
+        oid: 1.3.6.1.4.1.1718.3.2.3.1.2
+        type: DisplayString
+      enum_values:
+        0: "off"
+        1: "on"
+        2: offWait
+        3: onWait
+        4: offError
+        5: onError
+        6: noComm
+        7: reading
+        8: offFuse
+        9: onFuse
   eos_health:
     walk:
     - 1.3.6.1.2.1.25.2.3

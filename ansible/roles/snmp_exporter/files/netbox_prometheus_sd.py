@@ -55,24 +55,56 @@ def fetch_devices(role: str) -> list:
     return devices
 
 
-def build_target_groups(devices: list) -> list:
+def _manufacturer(dev: dict) -> str:
+    """Human manufacturer name from a device's device_type (or '')."""
+    return (((dev.get("device_type") or {}).get("manufacturer") or {})
+            .get("name") or "")
+
+
+def _model(dev: dict) -> str:
+    dt = dev.get("device_type") or {}
+    return dt.get("model") or dt.get("display") or ""
+
+
+def build_target_groups(devices: list, module_map: dict | None = None) -> list:
+    """One file_sd target group per device.
+
+    When ``module_map`` (a {manufacturer-name: snmp_module} dict) is given the
+    discovery is *vendor-aware*: each target also carries ``module`` (which the
+    scrape job relabels to __param_module so one job polls a mixed fleet),
+    ``vendor`` and ``model``. Devices whose manufacturer isn't in the map are
+    skipped — better no data than polling gear with the wrong MIB module.
+    When the map is empty the labels are just ``device``/``site`` (switches).
+    """
     groups = []
-    for dev in sorted(devices, key=lambda d: d["name"]):
-        name = dev["name"].strip()
+    for dev in sorted(devices, key=lambda d: d.get("name") or ""):
+        name = (dev.get("name") or "").strip()
+        if not name:
+            log.warning("device id=%s has no name in NetBox — skipped",
+                        dev.get("id"))
+            continue
         fqdn = name if name.endswith("." + DOMAIN) else f"{name}.{DOMAIN}"
+        labels = {
+            "device": name,
+            "site": ((dev.get("site") or {}).get("slug") or ""),
+        }
+        if module_map is not None:
+            vendor = _manufacturer(dev)
+            module = module_map.get(vendor)
+            if not module:
+                log.warning("%s: manufacturer %r not in --module-map — skipped "
+                            "(add a mapping to poll it)", name, vendor)
+                continue
+            labels["module"] = module
+            labels["vendor"] = vendor
+            labels["model"] = _model(dev)
         try:
             socket.getaddrinfo(fqdn, None)
         except OSError:
             log.warning("%s does not resolve — skipped (fix DNS or the NetBox "
                         "name; it will be picked up on the next sync)", fqdn)
             continue
-        groups.append({
-            "targets": [fqdn],
-            "labels": {
-                "device": name,
-                "site": ((dev.get("site") or {}).get("slug") or ""),
-            },
-        })
+        groups.append({"targets": [fqdn], "labels": labels})
     return groups
 
 
@@ -81,6 +113,12 @@ def main() -> int:
     ap.add_argument("--output", default="/opt/prometheus/file_sd/snmp_targets.json")
     ap.add_argument("--role", default="peering_switch",
                     help="NetBox device role slug to enumerate")
+    ap.add_argument("--module-map", action="append", default=[],
+                    metavar="MANUFACTURER=MODULE",
+                    help="map a NetBox manufacturer name to an snmp_exporter "
+                         "module; repeatable. Enables vendor-aware discovery "
+                         "(emits module/vendor/model labels). Devices whose "
+                         "manufacturer is unmapped are skipped.")
     ap.add_argument("--exclude-name-regex", default="",
                     help="skip devices whose NetBox name matches")
     ap.add_argument("--allow-empty", action="store_true",
@@ -92,6 +130,16 @@ def main() -> int:
     if not (os.environ.get("NETBOX_API_ENDPOINT") and os.environ.get("NETBOX_API_TOKEN")):
         log.error("NETBOX_API_ENDPOINT / NETBOX_API_TOKEN not set")
         return 2
+
+    module_map = None
+    if args.module_map:
+        module_map = {}
+        for item in args.module_map:
+            if "=" not in item:
+                log.error("bad --module-map %r (want MANUFACTURER=MODULE)", item)
+                return 2
+            mfr, mod = item.split("=", 1)
+            module_map[mfr.strip()] = mod.strip()
 
     status = {"time": datetime.now(timezone.utc).isoformat(), "ok": False}
     try:
@@ -107,7 +155,7 @@ def main() -> int:
             raise RuntimeError(
                 f"NetBox returned no active '{args.role}' devices; "
                 "refusing to empty the target list (--allow-empty overrides)")
-        groups = build_target_groups(devices)
+        groups = build_target_groups(devices, module_map)
         body = json.dumps(groups, indent=2, sort_keys=True) + "\n"
     except Exception as e:  # noqa: BLE001
         log.error("sync failed, leaving %s untouched: %s", args.output, e)
