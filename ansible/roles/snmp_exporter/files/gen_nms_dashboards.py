@@ -252,13 +252,15 @@ def faceplate_panel(dev, ifnames, grid_y):
     for label, lanes, x, row, cage_w in sorted(cells,
                                                key=lambda c: (c[3], c[2])):
         y = FP_TOP + row * (CAGE_H + GAP)
-        lane_w = cage_w // max(1, len(lanes))
+        # breakout lanes stack as full-width slices so the cage keeps the
+        # connector's real footprint instead of squishing into slivers
+        lane_h = CAGE_H // max(1, len(lanes))
         for li, lane in enumerate(lanes):
             txt = label if li == 0 else ""
             elements.append(canvas_element(
-                lane, lane, txt, x + li * lane_w, y,
-                lane_w if li < len(lanes) - 1 else cage_w - li * lane_w,
-                CAGE_H))
+                lane, lane, txt, x, y + li * lane_h, cage_w,
+                lane_h if li < len(lanes) - 1 else CAGE_H - li * lane_h,
+                text_size=11 if len(lanes) == 1 else 8))
 
     height_px = FP_TOP + 2 * (CAGE_H + GAP)
     grid_h = max(4, -(-height_px // 30) + 1)   # ~30px per grid row
