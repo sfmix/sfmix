@@ -22,12 +22,20 @@ groups:
   - name: sfmix-pdu-power
     interval: 60s
     rules:
+      # Each series is a base-SI value labelled with the human `line`. The
+      # three `or` arms are the three fleet dialects — Sentry3 CDU (infeed*),
+      # Sentry4 PDU (st4*), Raritan PX3 (measurementsInletSensor*). A device
+      # answers only one, so the arms never overlap.
       # ── Current (Amps) ────────────────────────────────────────────────
       - record: pdu:current_amps
         expr: >
           label_replace(
             infeedLoadValue{job="snmp-pdu"} * 0.01,
             "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            st4LineCurrent{job="snmp-pdu"} * 0.01,
+            "line", "$1", "st4InputCordName", "(.+)")
           or
           label_replace(
             measurementsInletSensorValue{job="snmp-pdu", sensorType="1"}
@@ -42,6 +50,10 @@ groups:
             "line", "$1", "infeedName", "(.+)")
           or
           label_replace(
+            st4PhaseVoltage{job="snmp-pdu"} * 0.1,
+            "line", "$1", "st4InputCordName", "(.+)")
+          or
+          label_replace(
             measurementsInletSensorValue{job="snmp-pdu", sensorType="4"}
               * on (instance, pduId, inletId) group_left ()
                 (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="4"})),
@@ -52,6 +64,10 @@ groups:
           label_replace(
             infeedPower{job="snmp-pdu"},
             "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            st4InputCordActivePower{job="snmp-pdu"},
+            "line", "$1", "st4InputCordName", "(.+)")
           or
           label_replace(
             measurementsInletSensorValue{job="snmp-pdu", sensorType="5"}
@@ -66,6 +82,10 @@ groups:
             "line", "$1", "infeedName", "(.+)")
           or
           label_replace(
+            st4InputCordApparentPower{job="snmp-pdu"},
+            "line", "$1", "st4InputCordName", "(.+)")
+          or
+          label_replace(
             measurementsInletSensorValue{job="snmp-pdu", sensorType="6"}
               * on (instance, pduId, inletId) group_left ()
                 (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="6"})),
@@ -76,6 +96,10 @@ groups:
           label_replace(
             infeedPowerFactor{job="snmp-pdu"} * 0.01,
             "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            st4InputCordPowerFactor{job="snmp-pdu"} * 0.01,
+            "line", "$1", "st4InputCordName", "(.+)")
           or
           label_replace(
             measurementsInletSensorValue{job="snmp-pdu", sensorType="7"}
@@ -91,6 +115,10 @@ groups:
             "line", "$1", "infeedName", "(.+)")
           or
           label_replace(
+            st4InputCordEnergy{job="snmp-pdu"} * 0.1,
+            "line", "$1", "st4InputCordName", "(.+)")
+          or
+          label_replace(
             measurementsInletSensorValue{job="snmp-pdu", sensorType="8"}
               * on (instance, pduId, inletId) group_left ()
                 (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="8"}))
@@ -102,6 +130,10 @@ groups:
           label_replace(
             infeedCapacity{job="snmp-pdu"} > 0,
             "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            st4InputCordCurrentCapacity{job="snmp-pdu"} > 0,
+            "line", "$1", "st4InputCordName", "(.+)")
           or
           label_replace(
             inletRatedCurrentAmps{job="snmp-pdu"} > 0,
@@ -127,12 +159,18 @@ groups:
               * on (instance, pduId, outletId) group_left ()
                 (10 ^ (0 - outletSensorDecimalDigits{job="snmp-pdu", sensorType="1"})),
             "outlet", "$1", "outletLabel", "(.+)")
-      # ── Per-outlet on/off (ServerTech switched CDUs; 1 = on). ──────────
+      # ── Per-outlet on/off (ServerTech switched units; 1 = on). Sentry3
+      #    outletStatus (id "A1") and Sentry4 st4OutletState (name
+      #    "Primary_Outlet_1") both use on=1. ──
       - record: pdu:outlet_on
         expr: >
           label_replace(
             (outletStatus{job="snmp-pdu"} == bool 1),
             "outlet", "$1", "outletID", "(.+)")
+          or
+          label_replace(
+            (st4OutletState{job="snmp-pdu"} == bool 1),
+            "outlet", "$1", "st4OutletName", "(.+)")
       # ── Reachability (1 = polled OK) ──────────────────────────────────
       - record: pdu:up
         expr: up{job="snmp-pdu"}
