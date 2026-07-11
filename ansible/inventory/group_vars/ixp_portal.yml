@@ -1,0 +1,4 @@
+---
+# Allow the Prometheus server (metrics.sfo02) to scrape the portal's
+# /metrics/ endpoint (sfmix_peering_port_info + NetBox-cache health).
+ixp_portal_prometheus_trusted_networks: "127.0.0.0/8,::1/128,192.33.255.10/32,2620:11a:b000::10/128"
