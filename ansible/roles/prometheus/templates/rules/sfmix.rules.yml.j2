@@ -1,0 +1,29 @@
+# Managed by Ansible (prometheus role).
+groups:
+  - name: sfmix-participant-traffic
+    interval: 30s
+    rules:
+      # Per-port participant traffic: SNMP interface counters joined with the
+      # NetBox-derived attribution the portal exports (sfmix_peering_port_info).
+      # Only peering-LAN-facing ports (the Po or a plain Ethernet port) join
+      # here — LAG members would double-count the Port-Channel.
+      # The inner max collapses the portal job/instance labels and guards the
+      # many-to-one join.
+      - record: sfmix:participant_if_bps:in
+        expr: >
+          rate(ifHCInOctets{job="snmp-eos"}[2m]) * 8
+          * on (host, ifname) group_left (asn, participant, ipv4, ipv6)
+          max by (host, ifname, asn, participant, ipv4, ipv6)
+            (sfmix_peering_port_info{port_role="peering_port"})
+      - record: sfmix:participant_if_bps:out
+        expr: >
+          rate(ifHCOutOctets{job="snmp-eos"}[2m]) * 8
+          * on (host, ifname) group_left (asn, participant, ipv4, ipv6)
+          max by (host, ifname, asn, participant, ipv4, ipv6)
+            (sfmix_peering_port_info{port_role="peering_port"})
+      # Port-independent participant series: continuous across port moves and
+      # across a participant's multiple ports.
+      - record: sfmix:participant_bps:in
+        expr: sum by (asn, participant) (sfmix:participant_if_bps:in)
+      - record: sfmix:participant_bps:out
+        expr: sum by (asn, participant) (sfmix:participant_if_bps:out)

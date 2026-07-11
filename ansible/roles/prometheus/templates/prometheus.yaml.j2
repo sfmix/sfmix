@@ -2,7 +2,44 @@ global:
     scrape_interval: 15s
     scrape_timeout: 10s
     evaluation_interval: 15s
+rule_files:
+    - /opt/prometheus/rules/*.yml
 scrape_configs:
+    # SNMP polling of the peering switches via snmp_exporter. Targets are
+    # enumerated from NetBox by the netbox-prometheus-sd timer (file_sd).
+    - job_name: snmp-eos
+      scrape_interval: 30s
+      scrape_timeout: 25s
+      metrics_path: /snmp
+      params:
+          module: [if_mib, eos_health]
+          auth: [sfmix_v2c]
+      file_sd_configs:
+          - files:
+              - /opt/prometheus/file_sd/snmp_targets.json
+      relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: host          # matches the sflow series' FQDN label
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: 127.0.0.1:9116
+      metric_relabel_configs:
+          - source_labels: [ifName]     # match the sflow/portal join key
+            target_label: ifname
+          - regex: ifName
+            action: labeldrop
+    # Portal metrics: NetBox-cache health + sfmix_peering_port_info (the
+    # participant/ASN attribution joined onto SNMP series by recording rules).
+    - job_name: ixp-portal
+      scheme: https
+      metrics_path: /metrics/
+      scrape_interval: 60s
+      static_configs:
+      - targets:
+          - portal.sfmix.org
     - job_name: sflow-rt-ifcounters
       metrics_path: /prometheus/metrics/ALL/ifinoctets,ifoutoctets,ifinutilization,ifoututilization,ifinerrors,ifouterrors,ifindiscards,ifoutdiscards/txt
       scheme: http

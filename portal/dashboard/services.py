@@ -25,7 +25,8 @@ import httpx
 from django.conf import settings
 from django.core.cache import cache
 
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Counter, Gauge, Histogram, REGISTRY
+from prometheus_client.core import GaugeMetricFamily
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,13 @@ def _refresh_cache():
         tenants = _netbox_get_all("tenancy/tenants", {"tag": "ixp_participant", "limit": 200})
         ips = _netbox_get_all("ipam/ip-addresses", {"tag": "ixp_participant", "limit": 500})
         ports = _netbox_get_all("dcim/interfaces", {"tag": "peering_port", "limit": 500})
+        # Physical members of the peering LAGs (for per-port participant
+        # attribution on the SNMP series — errors, optics DOM, ...).
+        lag_ids = [p["id"] for p in ports if (p.get("type") or {}).get("value") == "lag"]
+        lag_members = (
+            _netbox_get_all("dcim/interfaces", {"lag_id": lag_ids, "limit": 500})
+            if lag_ids else []
+        )
         duration = monotonic() - t0
 
         # Write data to shared cache atomically (single key)
@@ -195,6 +203,7 @@ def _refresh_cache():
             "tenants": tenants,
             "ip_addresses": ips,
             "peering_ports": ports,
+            "lag_members": lag_members,
         }, CACHE_DATA_TIMEOUT)
 
         # Update shared health
@@ -206,6 +215,7 @@ def _refresh_cache():
             "tenants": len(tenants),
             "ip_addresses": len(ips),
             "peering_ports": len(ports),
+            "lag_members": len(lag_members),
         }
         cache.set(CACHE_KEY_HEALTH, health.to_dict(), CACHE_DATA_TIMEOUT)
 
@@ -314,7 +324,7 @@ def start_background_refresh():
 def _get_data() -> dict:
     """Read the full data dict from shared cache."""
     return cache.get(CACHE_KEY_DATA) or {
-        "tenants": [], "ip_addresses": [], "peering_ports": [],
+        "tenants": [], "ip_addresses": [], "peering_ports": [], "lag_members": [],
     }
 
 
@@ -361,3 +371,93 @@ def refresh_cache():
     """
     logger.info("NetBox cache refresh requested manually (pid=%d)", os.getpid())
     _refresh_cache()
+
+
+# ── Participant port attribution for Prometheus ─────────────────────
+
+PORT_INFO_DOMAIN = "sfmix.org"   # NetBox device names are bare (switch01.sfo02)
+
+
+def _port_host_site(port) -> tuple[str, str]:
+    dev = ((port.get("device") or {}).get("name") or "").strip()
+    host = dev if dev.endswith("." + PORT_INFO_DOMAIN) else f"{dev}.{PORT_INFO_DOMAIN}"
+    site = dev.split(".")[1] if "." in dev else ""
+    return host, site
+
+
+class PeeringPortInfoCollector:
+    """Export sfmix_peering_port_info for joining participant identity
+    (ASN, name, peering IPs) onto per-interface SNMP series in Prometheus.
+
+    Rebuilds the label sets from the NetBox cache at scrape time, so series
+    for moved/retired ports disappear on their own — no stale-series cleanup.
+    port_role distinguishes peering-LAN-facing interfaces (the Port-Channel
+    or a plain Ethernet port) from physical LAG members.
+    """
+
+    def collect(self):
+        fam = GaugeMetricFamily(
+            "sfmix_peering_port_info",
+            "Participant attribution for peering switch ports (join on host+ifname)",
+            labels=["host", "ifname", "asn", "participant", "site", "port_role",
+                    "ipv4", "ipv6"],
+        )
+        data = _get_data()
+        tenants = {t["id"]: t for t in data["tenants"]}
+
+        ips_by_port: dict[int, list] = {}
+        ips_by_tenant: dict[int, list] = {}
+        for ip in data["ip_addresses"]:
+            lag = (ip.get("custom_fields") or {}).get("participant_lag") or {}
+            if lag.get("id"):
+                ips_by_port.setdefault(lag["id"], []).append(ip)
+            tenant = ip.get("tenant") or {}
+            if tenant.get("id"):
+                ips_by_tenant.setdefault(tenant["id"], []).append(ip)
+
+        ports_by_tenant: dict[int, list] = {}
+        participant_by_port: dict[int, dict] = {}
+        for port in data["peering_ports"]:
+            ref = (port.get("custom_fields") or {}).get("participant") or {}
+            tenant = tenants.get(ref.get("id"))
+            if not tenant:
+                continue
+            ports_by_tenant.setdefault(tenant["id"], []).append(port)
+            participant_by_port[port["id"]] = tenant
+
+        for port in data["peering_ports"]:
+            tenant = participant_by_port.get(port["id"])
+            if not tenant:
+                continue
+            ips = ips_by_port.get(port["id"], [])
+            if not ips and len(ports_by_tenant[tenant["id"]]) == 1:
+                # participant_lag not set (or mis-set, cf. the PCH swap) —
+                # unambiguous only when the participant has a single port
+                ips = ips_by_tenant.get(tenant["id"], [])
+            v4 = sorted(ip["address"].split("/")[0] for ip in ips
+                        if ":" not in ip["address"])
+            v6 = sorted(ip["address"].split("/")[0] for ip in ips
+                        if ":" in ip["address"])
+            host, site = _port_host_site(port)
+            asn = str((tenant.get("custom_fields") or {}).get("as_number") or "")
+            fam.add_metric(
+                [host, port["name"], asn, tenant["name"], site, "peering_port",
+                 v4[0] if v4 else "", v6[0] if v6 else ""], 1)
+
+        for member in data.get("lag_members", []):
+            tenant = participant_by_port.get(((member.get("lag") or {}).get("id")))
+            if not tenant:
+                continue
+            host, site = _port_host_site(member)
+            asn = str((tenant.get("custom_fields") or {}).get("as_number") or "")
+            fam.add_metric(
+                [host, member["name"], asn, tenant["name"], site, "lag_member",
+                 "", ""], 1)
+
+        yield fam
+
+
+try:
+    REGISTRY.register(PeeringPortInfoCollector())
+except ValueError:
+    pass  # already registered (dev-server autoreload)
