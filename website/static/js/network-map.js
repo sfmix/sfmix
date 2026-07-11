@@ -235,6 +235,24 @@
   ];
   var UTIL_COLOR_EXPR = ["interpolate", ["linear"], ["coalesce", ["feature-state", "util"], 0],
     0, RAMP[0][1], 20, RAMP[1][1], 40, RAMP[2][1], 60, RAMP[3][1], 80, RAMP[4][1]];
+  // scalar equivalent of UTIL_COLOR_EXPR, for the inspector's utilization bar
+  function hex2rgb(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  function utilColor(u) {
+    if (u == null || isNaN(u)) u = 0;
+    if (u <= RAMP[0][0]) return RAMP[0][1];
+    for (var i = 1; i < RAMP.length; i++) {
+      if (u <= RAMP[i][0]) {
+        var a = hex2rgb(RAMP[i - 1][1]), b = hex2rgb(RAMP[i][1]);
+        var f = (u - RAMP[i - 1][0]) / (RAMP[i][0] - RAMP[i - 1][0]);
+        return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * f) + "," +
+          Math.round(a[1] + (b[1] - a[1]) * f) + "," +
+          Math.round(a[2] + (b[2] - a[2]) * f) + ")";
+      }
+    }
+    return RAMP[RAMP.length - 1][1];
+  }
   // planned / not-yet-in-service spans: a cool slate blue, clearly outside the
   // utilization ramp and distinct from the "down" grey
   var PLANNED_COLOR = "#7d9cc0";
@@ -1798,12 +1816,12 @@
     } else if (mtr) {
       rows += row(t("In"), fmtBps(mtr.in_bps));
       rows += row(t("Out"), fmtBps(mtr.out_bps));
-      rows += row(t("of capacity"), (mtr.util_pct != null ? mtr.util_pct + "%" : "—"));
+      rows += utilBar(mtr.util_pct);
       rows += sparkline(mtr, mspd);
     } else if (tr) {
       rows += row(t("In"), fmtBps(tr.in_bps));
       rows += row(t("Out"), fmtBps(tr.out_bps));
-      rows += row(t("of capacity"), (tr.util_pct != null ? tr.util_pct + "%" : "—"));
+      rows += utilBar(tr.util_pct);
       rows += sparkline(tr, p.capacity_bps);
     }
     if (p.approximate) rows += '<div style="margin-top:6px"><span class="nm-badge-approx">' + t("approximate route") + "</span></div>";
@@ -1916,6 +1934,15 @@
 
   function row(k, v) {
     return '<div class="nm-pop-row"><span class="k">' + k + '</span><span class="v">' + v + "</span></div>";
+  }
+  // utilization as a filled bar — the colour + fill carry the eye to the
+  // number, instead of a lone "%" far from its value
+  function utilBar(pct) {
+    if (pct == null) return row(t("of capacity"), "—");
+    var u = Math.max(0, Math.min(100, pct));
+    return '<div class="nm-util"><div class="nm-util-track">' +
+      '<div class="nm-util-fill" style="width:' + u + '%;background:' + utilColor(u) + '"></div>' +
+      "</div><span>" + u + "%</span></div>";
   }
   function sparkline(tr, cap) {
     var si = tr.series_in || [], so = tr.series_out || [];
