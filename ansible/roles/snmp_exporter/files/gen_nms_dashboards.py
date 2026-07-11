@@ -407,7 +407,7 @@ def switch_view_dashboard():
     p.append({
         "type": "state-timeline",
         "title": "Port link state",
-        "gridPos": {"h": 14, "w": 24, "x": 0, "y": y},
+        "gridPos": {"h": 18, "w": 24, "x": 0, "y": y},
         "datasource": DATASOURCE,
         "targets": [target(
             f'ifOperStatus{{host="{h}", ifname=~"{phys_re}"}}'
@@ -424,7 +424,7 @@ def switch_view_dashboard():
                     "legend": {"displayMode": "list", "placement": "bottom"},
                     "tooltip": {"mode": "single"}},
     })
-    y += 14
+    y += 18
 
     # ── traffic
     p.append(row("Traffic", y)); y += 1
