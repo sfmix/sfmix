@@ -76,6 +76,15 @@
     daemon_reload: true
 
 # ── NMS Grafana dashboard generator (systemd timer) ────────────────────
+- name: "SNMP exporter: ensure faceplate image dir (served by grafana nginx)"
+  become: true
+  ansible.builtin.file:
+    path: /opt/grafana/faceplates
+    state: directory
+    owner: root
+    group: root
+    mode: ugo=rx,u+w
+
 - name: "SNMP exporter: Install NMS dashboard generator"
   become: true
   register: nms_dashboards_script

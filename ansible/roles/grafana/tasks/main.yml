@@ -49,6 +49,10 @@
               ssl_certificate /etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem;
               ssl_certificate_key /etc/letsencrypt/live/{{ grafana_domain }}/privkey.pem;
               ssl_dhparam /etc/ssl/certs/dhparam.pem;
+              location /faceplates/ {
+                alias /opt/grafana/faceplates/;
+                add_header Cache-Control "public, max-age=3600";
+              }
               location / {
                 proxy_pass http://127.0.0.1:3000;
                 proxy_set_header Host $host;

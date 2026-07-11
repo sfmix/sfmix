@@ -207,6 +207,127 @@ def layout_generic(ifnames):
     return cells
 
 
+# ── Photo faceplates ─────────────────────────────────────────────────
+#
+# For calibrated models the faceplate is the real front-elevation photo
+# (mirrored out of NetBox, served same-origin at /faceplates/) dimmed by a
+# translucent overlay, with status boxes anchored over the actual port
+# positions. Anchor tables are measured in image pixels.
+
+FACEPLATES_DIR = os.environ.get("GRAFANA_FACEPLATES_DIR",
+                                "/opt/grafana/faceplates")
+FACEPLATES_URL = "/faceplates"          # same-origin on grafana vhost
+JUNIPER_TAIL_RE = re.compile(r"^(?:ge|xe|et)-(\d+/\d+/\d+)$")
+
+
+def _arista_48c6_anchors():
+    a = {}
+    for n in range(1, 49):
+        x0 = 48 if n <= 24 else 1620
+        col, row = ((n - 1) % 24) // 2, (n - 1) % 2
+        a[n] = (x0 + col * 90.8, 86 if row == 0 else 176, 82, 84)
+    for n in range(49, 55):
+        col, row = (n - 49) // 2, (n - 49) % 2
+        a[n] = (1180 + col * 139, 78 if row == 0 else 166, 122,
+                74 if row == 0 else 76)
+    return a
+
+
+def _arista_36s_anchors():
+    a = {}
+    for n in range(1, 37):
+        col, row = (n - 1) // 2, (n - 1) % 2
+        pair, cage = col // 2, col % 2
+        a[n] = (63 + pair * 288 + cage * 128, 85 if row == 0 else 176,
+                120, 78)
+    return a
+
+
+def _nokia_24d_anchors():
+    a = {}
+    for conn in range(1, 25):
+        g, i = (conn - 1) // 6, (conn - 1) % 6
+        col, row = i // 2, i % 2
+        a[conn] = (540 + g * 730 + col * 240, 410 if row == 0 else 512,
+                   165, 88)
+    return a
+
+
+def _mx150_anchors():
+    a = {}
+    for p in range(8):
+        a[f"0/0/{p}"] = (668 + (p // 2) * 59, 34 if p % 2 == 0 else 88,
+                         50, 52)
+    a["0/0/8"] = (925, 90, 56, 54)
+    a["0/0/9"] = (1008, 90, 56, 54)
+    a["0/0/10"] = (1090, 95, 55, 52)
+    a["0/0/11"] = (1152, 95, 55, 52)
+    a["0/1/0"] = (1258, 95, 55, 52)
+    a["0/1/1"] = (1320, 95, 55, 52)
+    return a
+
+
+# model-substring -> (netbox media filename, (img_w, img_h), anchors)
+FACEPLATE_CAL = [
+    ("7280SR-48C6", "ARISTA-7280SR-48C6_Front.jpg", (2777, 282),
+     _arista_48c6_anchors),
+    ("7280CR3-36S", "Screenshot_2023-05-20_at_10.36.44_AM.png", (2820, 284),
+     _arista_36s_anchors),
+    ("7750 SR-1-24D", "nokia-7750-sr-1-24d-24qsfpdd-400ge.front.png",
+     (3559, 694), _nokia_24d_anchors),
+    ("MX150", "mx150-front.png", (1789, 174), _mx150_anchors),
+]
+
+_MIRRORED = set()   # media filenames available under FACEPLATES_DIR
+
+
+def find_cal(model):
+    for key, fname, size, anchors in FACEPLATE_CAL:
+        if key in model:
+            return fname, size, anchors()
+    return None
+
+
+def mirror_faceplate_images(models):
+    """Copy needed front-elevation images out of NetBox (auth'd media)."""
+    base = os.environ["NETBOX_API_ENDPOINT"].rstrip("/")
+    hdrs = {"Authorization": f"Token {os.environ['NETBOX_API_TOKEN']}"}
+    os.makedirs(FACEPLATES_DIR, exist_ok=True)
+    for key, fname, _, _ in FACEPLATE_CAL:
+        if not any(key in m for m in models):
+            continue
+        dest = os.path.join(FACEPLATES_DIR, fname)
+        if not os.path.exists(dest):
+            url = f"{base}/media/devicetype-images/" + urllib.parse.quote(fname)
+            try:
+                req = urllib.request.Request(url, headers=hdrs)
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    data = resp.read()
+                with open(dest, "wb") as f:
+                    f.write(data)
+                os.chmod(dest, 0o644)
+                log.info("mirrored faceplate image %s (%d bytes)",
+                         fname, len(data))
+            except Exception as e:  # noqa: BLE001
+                log.warning("could not mirror %s (%s) — vector fallback", url, e)
+                continue
+        _MIRRORED.add(fname)
+
+
+def _anchor_key(ifn):
+    """Map a live ifname onto an anchor-table key."""
+    m = ETH_RE.match(ifn)
+    if m:
+        return int(m.group(1))
+    m = NOKIA_RE.match(ifn)
+    if m:
+        return int(m.group(1))
+    m = JUNIPER_TAIL_RE.match(ifn)
+    if m:
+        return m.group(1)
+    return None
+
+
 # ── Canvas faceplate panel ───────────────────────────────────────────
 
 FP_TOP = 34   # room for the model label + legend swatches
@@ -231,24 +352,27 @@ def canvas_element(name, field, text, x, y, w, h, bg_field=True, fixed_bg=None,
     }
 
 
-def faceplate_panel(dev, ifnames, grid_y):
+def _header_elements(dev):
+    els = [canvas_element(
+        "model", None, f'{dev["manufacturer"]} {dev["model"]}',
+        0, 2, 300, 22, bg_field=False, fixed_bg="rgba(0,0,0,0)",
+        text_size=13)]
+    for i, (color, lbl) in enumerate(
+            [(C_UP, "up"), (C_DOWN, "down"), (C_ADMIN, "admin down"),
+             (C_EMPTY, "empty"), (C_OTHER, "other")]):
+        els.append(canvas_element(
+            f"legend-{lbl}", None, lbl, 330 + i * 105, 4, 96, 18,
+            bg_field=False, fixed_bg=color, text_size=10))
+    return els
+
+
+def _vector_elements(dev, ifnames):
+    """Schematic faceplate for models without a calibrated photo."""
     if dev["manufacturer"].lower() == "arista":
         cells = layout_eos(dev["model"], ifnames)
     else:
         cells = layout_generic(ifnames)
-
     elements = []
-    # model tag + state legend swatches (state never color-alone)
-    elements.append(canvas_element(
-        "model", None, f'{dev["manufacturer"]} {dev["model"]}',
-        0, 2, 300, 22, bg_field=False, fixed_bg="rgba(0,0,0,0)", text_size=13))
-    for i, (color, lbl) in enumerate(
-            [(C_UP, "up"), (C_DOWN, "down"), (C_ADMIN, "admin down"),
-             (C_EMPTY, "empty"), (C_OTHER, "other")]):
-        elements.append(canvas_element(
-            f"legend-{lbl}", None, lbl, 330 + i * 105, 4, 96, 18,
-            bg_field=False, fixed_bg=color, text_size=10))
-
     for label, lanes, x, row, cage_w in sorted(cells,
                                                key=lambda c: (c[3], c[2])):
         y = FP_TOP + row * (CAGE_H + GAP)
@@ -261,9 +385,60 @@ def faceplate_panel(dev, ifnames, grid_y):
                 lane, lane, txt, x, y + li * lane_h, cage_w,
                 lane_h if li < len(lanes) - 1 else CAGE_H - li * lane_h,
                 text_size=11 if len(lanes) == 1 else 8))
+    return elements, FP_TOP + 2 * (CAGE_H + GAP)
 
-    height_px = FP_TOP + 2 * (CAGE_H + GAP)
-    grid_h = max(4, -(-height_px // 30) + 1)   # ~30px per grid row
+
+def _photo_elements(cal, ifnames):
+    """The real front panel, dimmed, with status boxes over the ports."""
+    fname, (img_w, img_h), anchors = cal
+    scale = 1400 / img_w
+    ih = img_h * scale
+    elements = [{
+        "type": "rectangle",
+        "name": "faceplate-photo",
+        "background": {"image": {"mode": "fixed",
+                                 "fixed": f"{FACEPLATES_URL}/{fname}"},
+                       "size": "fill"},
+        "border": {"color": {"fixed": "transparent"}, "width": 0},
+        "config": {"align": "center", "valign": "middle",
+                   "color": {"fixed": C_TEXT},
+                   "text": {"mode": "fixed", "fixed": ""}},
+        "constraint": {"horizontal": "left", "vertical": "top"},
+        "placement": {"left": 0, "top": FP_TOP, "width": 1400,
+                      "height": ih},
+    }, canvas_element(   # grey-out wash over the photo
+        "faceplate-dim", None, "", 0, FP_TOP, 1400, ih,
+        bg_field=False, fixed_bg="rgba(13, 15, 18, 0.55)")]
+    elements[-1]["border"] = {"color": {"fixed": "transparent"}, "width": 0}
+
+    cages = {}
+    for ifn in ifnames:
+        key = _anchor_key(ifn)
+        if key in anchors:
+            cages.setdefault(key, []).append(ifn)
+    for key, lanes in cages.items():
+        lanes.sort(key=lambda s: [int(x) for x in re.findall(r"\d+", s)])
+        ax, ay, aw, ah = anchors[key]
+        x, y = ax * scale, FP_TOP + ay * scale
+        w, h = aw * scale, ah * scale
+        lane_h = h / max(1, len(lanes))
+        for li, lane in enumerate(lanes):
+            txt = str(key).split("/")[-1] if li == 0 else ""
+            elements.append(canvas_element(
+                lane, lane, txt, round(x), round(y + li * lane_h),
+                round(w), round(lane_h),
+                text_size=9 if len(lanes) == 1 else 7))
+    return elements, FP_TOP + ih
+
+
+def faceplate_panel(dev, ifnames, grid_y):
+    cal = find_cal(dev["model"])
+    if cal and cal[0] in _MIRRORED:
+        body, height_px = _photo_elements(cal, ifnames)
+    else:
+        body, height_px = _vector_elements(dev, ifnames)
+    elements = _header_elements(dev) + body
+    grid_h = max(4, -(-int(height_px) // 30) + 1)   # ~30px per grid row
 
     return {
         "type": "canvas",
@@ -779,6 +954,8 @@ def main():
             log.warning("%s: no live interface series — skipped", dev["fqdn"])
             continue
         devices_ifnames.append((dev, ifnames))
+
+    mirror_faceplate_images([d["model"] for d, _ in devices_ifnames])
 
     dashboards = [participant_dashboard(), switch_view_dashboard(),
                   front_panels_dashboard(devices_ifnames)]
