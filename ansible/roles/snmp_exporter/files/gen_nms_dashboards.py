@@ -562,6 +562,38 @@ def sensor(h, extra=""):
     return SENSOR.format(h=h, extra=extra)
 
 
+def lit_gate(expr):
+    """Keep only lanes whose OWNING interface is link-up.
+
+    Expected-dark exclusion, mirroring the sfmix:optic_*_dbm:1h recording
+    rules: a down/notconnect port reads the receiver floor (~-40 dBm), not
+    absence. The owner is the interface with the lane's exact name
+    (breakout / single-lane optic); lanes of a non-breakout multi-lane
+    optic (sensors X/2..X/4 with no such interface) belong to X/1.
+    `expr` must carry an ifname label.
+    """
+    return (
+        f'(({expr}) and on (host, ifname) '
+        f'(max by (host, ifname) (ifOperStatus) == 1)) or '
+        f'label_replace(('
+        f'label_replace(({expr}) unless on (host, ifname) ifOperStatus, '
+        f'"parent", "$1/1", "ifname", "(.+)/[0-9]+") '
+        f'and on (host, parent) (max by (host, parent) '
+        f'(label_replace(ifOperStatus, "parent", "$1", "ifname", "(.+)")) '
+        f'== 1)), "parent", "", "", "")')
+
+
+def dom_dbm(h, dirn):
+    """Per-lane DOM power in dBm for one host, expected-dark lanes gated."""
+    inner = (
+        'label_replace(10 * log10((max by (entPhysicalIndex, '
+        'entPhysicalName, host) (entPhySensorValue{host="%s", '
+        'entPhysicalName=~"DOM %s Power Sensor for .*"}) > 0) / 10000), '
+        '"ifname", "$1", "entPhysicalName", "DOM %s Power Sensor for (.+)")'
+        % (h, dirn, dirn))
+    return lit_gate(inner)
+
+
 def switch_view_dashboard():
     # Grafana interpolates ${switch} (the bare NetBox device name) before
     # the query reaches Prometheus; host labels are <device>.<DOMAIN>.
@@ -687,14 +719,11 @@ def switch_view_dashboard():
     for i, (dirn, refid) in enumerate([("RX", "A"), ("TX", "B")]):
         p.append(timeseries(
             f"Optic {dirn} power",
-            [target(
-                'label_replace(10 * log10((max by (entPhysicalIndex, '
-                'entPhysicalName, host) (entPhySensorValue{host="%s", '
-                'entPhysicalName=~"DOM %s Power Sensor for .*"}) > 0) / 10000), '
-                '"port", "$1", "entPhysicalName", "DOM %s Power Sensor for (.*)")'
-                % (h, dirn, dirn), "{{port}}", refid)],
+            [target(dom_dbm(h, dirn), "{{ifname}}", refid)],
             {"h": 8, "w": 8, "x": 8 * i, "y": y}, unit="dBm",
-            description="Dark/unlit lanes are omitted (sentinel filtered)."))
+            description="Lanes on down/notconnect ports are excluded — "
+                        "an expected-dark receiver reads its floor "
+                        "(~-40 dBm), not absence."))
     p.append(timeseries(
         "Optic temperatures",
         [target(
