@@ -216,7 +216,10 @@ def layout_generic(ifnames):
 
 FACEPLATES_DIR = os.environ.get("GRAFANA_FACEPLATES_DIR",
                                 "/opt/grafana/faceplates")
-FACEPLATES_URL = "/faceplates"          # same-origin on grafana vhost
+# absolute: the image-renderer reaches Grafana on :3000 where a relative
+# /faceplates/ would 404 (nginx serves it on the public vhost)
+FACEPLATES_URL = os.environ.get("GRAFANA_PUBLIC_URL",
+                                "https://grafana.sfmix.org") + "/faceplates"
 JUNIPER_TAIL_RE = re.compile(r"^(?:ge|xe|et)-(\d+/\d+/\d+)$")
 
 
