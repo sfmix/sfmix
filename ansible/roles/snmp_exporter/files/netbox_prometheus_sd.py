@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import socket
 import sys
 import tempfile
 import urllib.parse
@@ -59,6 +60,12 @@ def build_target_groups(devices: list) -> list:
     for dev in sorted(devices, key=lambda d: d["name"]):
         name = dev["name"].strip()
         fqdn = name if name.endswith("." + DOMAIN) else f"{name}.{DOMAIN}"
+        try:
+            socket.getaddrinfo(fqdn, None)
+        except OSError:
+            log.warning("%s does not resolve — skipped (fix DNS or the NetBox "
+                        "name; it will be picked up on the next sync)", fqdn)
+            continue
         groups.append({
             "targets": [fqdn],
             "labels": {
@@ -74,10 +81,8 @@ def main() -> int:
     ap.add_argument("--output", default="/opt/prometheus/file_sd/snmp_targets.json")
     ap.add_argument("--role", default="peering_switch",
                     help="NetBox device role slug to enumerate")
-    ap.add_argument("--exclude-name-regex", default=r"\.transit$",
-                    help="skip devices whose NetBox name matches (the AS40271 "
-                         "transit routers share the peering_switch role but "
-                         "not the fabric's SNMP community)")
+    ap.add_argument("--exclude-name-regex", default="",
+                    help="skip devices whose NetBox name matches")
     ap.add_argument("--allow-empty", action="store_true",
                     help="write the file even when NetBox returns no devices")
     ap.add_argument("--status-file", default="",
