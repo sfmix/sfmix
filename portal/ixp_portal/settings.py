@@ -24,6 +24,10 @@ NETBOX_CACHE_LOCK_FILE = os.environ.get(
     str(BASE_DIR / "cache" / ".netbox_refresh.lock"),
 )
 
+# NetBox API access for the cache layer (dashboard/services.py)
+IXP_NETBOX_URL = os.environ.get("NETBOX_API_ENDPOINT", "https://netbox.sfmix.org")
+IXP_NETBOX_TOKEN = os.environ.get("NETBOX_API_TOKEN", "")
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-dev-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
