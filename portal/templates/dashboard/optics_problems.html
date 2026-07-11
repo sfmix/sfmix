@@ -76,7 +76,13 @@
         </td>
         <td class="px-4 py-2 text-xs text-gray-600">{{ r.device }}</td>
         <td class="px-4 py-2 font-mono text-xs">
+          {% if r.participant_asn %}
+          <a href="{% url 'participant_detail' r.participant_asn %}#{{ r.port_anchor }}"
+             class="text-blue-600 hover:underline"
+             title="{% blocktranslate with name=r.participant_name %}View this port on the {{ name }} participant page{% endblocktranslate %}">{{ r.port }}</a>
+          {% else %}
           {{ r.port }}
+          {% endif %}
           {% if r.description %}<span class="block text-gray-400 font-sans">{{ r.description }}</span>{% endif %}
         </td>
         <td class="px-4 py-2 text-xs">{{ r.media_type|default:"—" }}</td>
@@ -124,7 +130,14 @@
       {% for m in hot_modules %}
       <tr>
         <td class="px-4 py-2 text-xs text-gray-600">{{ m.device }}</td>
-        <td class="px-4 py-2 font-mono text-xs">{{ m.port }}{% if m.description %}<span class="block text-gray-400 font-sans">{{ m.description }}</span>{% endif %}</td>
+        <td class="px-4 py-2 font-mono text-xs">
+          {% if m.participant_asn %}
+          <a href="{% url 'participant_detail' m.participant_asn %}#{{ m.port_anchor }}"
+             class="text-blue-600 hover:underline"
+             title="{% blocktranslate with name=m.participant_name %}View this port on the {{ name }} participant page{% endblocktranslate %}">{{ m.port }}</a>
+          {% else %}{{ m.port }}{% endif %}
+          {% if m.description %}<span class="block text-gray-400 font-sans">{{ m.description }}</span>{% endif %}
+        </td>
         <td class="px-4 py-2 text-xs">{{ m.media_type|default:"—" }}</td>
         <td class="px-4 py-2 font-mono text-sm font-semibold {% if m.temp_zone == 'crit' %}text-red-700{% else %}text-amber-700{% endif %}">{{ m.temperature_c|floatformat:1 }}</td>
         <td class="px-4 py-2 text-xs text-gray-600">{{ m.vendor|default:"" }} {{ m.model|default:"" }}{% if m.serial %}<span class="block font-mono text-gray-400">{{ m.serial }}</span>{% endif %}</td>
@@ -158,7 +171,14 @@
         {% for p in dark_ports %}
         <tr>
           <td class="px-4 py-2 text-xs text-gray-600">{{ p.device }}</td>
-          <td class="px-4 py-2 font-mono text-xs">{{ p.port }}{% if p.description %}<span class="block text-gray-400 font-sans">{{ p.description }}</span>{% endif %}</td>
+          <td class="px-4 py-2 font-mono text-xs">
+            {% if p.participant_asn %}
+            <a href="{% url 'participant_detail' p.participant_asn %}#{{ p.port_anchor }}"
+               class="text-blue-600 hover:underline"
+               title="{% blocktranslate with name=p.participant_name %}View this port on the {{ name }} participant page{% endblocktranslate %}">{{ p.port }}</a>
+            {% else %}{{ p.port }}{% endif %}
+            {% if p.description %}<span class="block text-gray-400 font-sans">{{ p.description }}</span>{% endif %}
+          </td>
           <td class="px-4 py-2"><span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ p.link_status|default:"—" }}</span></td>
           <td class="px-4 py-2 text-xs">{{ p.media_type|default:"—" }}</td>
           <td class="px-4 py-2 font-mono text-xs">{% if p.tx_dbm != None %}{{ p.tx_dbm|floatformat:2 }}{% else %}—{% endif %}</td>

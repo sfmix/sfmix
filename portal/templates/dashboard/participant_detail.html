@@ -235,7 +235,7 @@ its action buttons.
       <div class="nd-lband-body">
         <div class="nd-pmembers">
           {% for phy in lp.physical %}
-          <div class="nd-pmember{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-pmember-down{% endif %}">
+          <div id="{{ phy.anchor }}" class="nd-pmember{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-pmember-down{% endif %}">
             <div class="nd-pm-head">
               <span class="nd-pm-name">
                 <span class="nd-dq-d">{{ phy.device|cut:".sfmix.org" }}</span>{{ phy.name }}
