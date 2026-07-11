@@ -54,7 +54,9 @@
   hosts: metrics
   tags:
     - prometheus
+    - snmp_exporter
   roles:
+    - snmp_exporter
     - prometheus
 
 - name: Metrics Server

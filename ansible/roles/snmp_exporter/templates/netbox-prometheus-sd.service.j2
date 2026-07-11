@@ -1,0 +1,14 @@
+[Unit]
+Description=Sync NetBox -> Prometheus SNMP file_sd targets
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/snmp_exporter/netbox-sd.env
+ExecStart=/usr/bin/python3 /opt/snmp_exporter/netbox_prometheus_sd.py \
+  --output /opt/prometheus/file_sd/snmp_targets.json \
+  --status-file /opt/snmp_exporter/netbox-sd-status.json
+# status is logged to the journal (journalctl -u netbox-prometheus-sd) and the
+# JSON status file above. On failure the target file is left untouched, so
+# Prometheus keeps the last-known targets.

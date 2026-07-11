@@ -1,0 +1,6 @@
+---
+- name: Restart snmp_exporter
+  community.docker.docker_container:
+    name: "snmp_exporter"
+    state: started
+    restart: true

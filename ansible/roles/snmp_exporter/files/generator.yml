@@ -1,0 +1,56 @@
+# snmp_exporter generator input for the committed snmp.yml.j2.
+#
+# Regenerate with:
+#   cd ansible/roles/snmp_exporter/files
+#   mkdir -p mibs && cp /var/lib/mibs/ietf/* /var/lib/mibs/iana/* mibs/
+#   docker run --rm -v "$PWD:/opt/" prom/snmp-generator generate
+# then re-apply the Jinja auth block in templates/snmp.yml.j2
+# (community: SNMP_COMMUNITY_PLACEHOLDER -> {{ sfmix_snmp_community }}).
+auths:
+  sfmix_v2c:
+    version: 2
+    community: SNMP_COMMUNITY_PLACEHOLDER
+modules:
+  # Interface counters/status for all ports (Ethernet, Port-Channel, ...)
+  if_mib:
+    walk:
+      - sysUpTime
+      - interfaces
+      - ifXTable
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifAlias
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+      - source_indexes: [ifIndex]
+        lookup: ifName
+    overrides:
+      ifAlias:
+        type: DisplayString
+      ifDescr:
+        type: DisplayString
+      ifName:
+        type: DisplayString
+      ifType:
+        type: EnumAsInfo
+  # Chassis health: ENTITY-SENSOR (temps, fans, PSUs, transceiver DOM on EOS)
+  # and HOST-RESOURCES (CPU load, memory/storage).
+  eos_health:
+    walk:
+      - entPhySensorTable
+      - hrProcessorLoad
+      - hrStorageTable
+    lookups:
+      - source_indexes: [entPhysicalIndex]
+        lookup: entPhysicalName
+      - source_indexes: [hrStorageIndex]
+        lookup: hrStorageDescr
+    overrides:
+      entPhysicalName:
+        type: DisplayString
+      hrStorageDescr:
+        type: DisplayString
+      entPhySensorType:
+        type: EnumAsInfo
+      entPhySensorOperStatus:
+        type: EnumAsInfo

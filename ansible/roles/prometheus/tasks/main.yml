@@ -10,6 +10,18 @@
   with_items:
     - /opt/prometheus
     - /opt/prometheus/var
+    - /opt/prometheus/file_sd
+    - /opt/prometheus/rules
+
+- name: "Prometheus: Template recording rules"
+  become: true
+  notify: Restart prometheus
+  ansible.builtin.template:
+    src: rules/sfmix.rules.yml.j2
+    dest: /opt/prometheus/rules/sfmix.rules.yml
+    owner: nobody
+    group: nogroup
+    mode: ugo=r
 
 - name: "Prometheus: Template config"
   become: true

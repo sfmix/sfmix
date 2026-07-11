@@ -1,0 +1,76 @@
+---
+# SNMP exporter for the peering switches, plus the NetBox -> Prometheus
+# file_sd target syncer. Runs on the metrics host next to Prometheus.
+
+- name: "SNMP exporter: ensure directories"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: ug=rwx,o=rx
+  with_items:
+    - /opt/snmp_exporter
+    - /opt/prometheus/file_sd
+
+- name: "SNMP exporter: Template snmp.yml (embeds SNMP community)"
+  become: true
+  notify: Restart snmp_exporter
+  ansible.builtin.template:
+    src: snmp.yml.j2
+    dest: /opt/snmp_exporter/snmp.yml
+    owner: nobody
+    group: nogroup
+    mode: u=rw,g=r,o=
+
+- name: "SNMP exporter: run prom/snmp-exporter container"
+  community.docker.docker_container:
+    name: snmp_exporter
+    image: prom/snmp-exporter
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/snmp_exporter:/etc/snmp_exporter
+    user: nobody
+    command:
+      - --config.file=/etc/snmp_exporter/snmp.yml
+
+# ── NetBox -> Prometheus file_sd target syncer (systemd timer) ─────────
+- name: "SNMP exporter: Install NetBox target syncer"
+  become: true
+  ansible.builtin.copy:
+    src: netbox_prometheus_sd.py
+    dest: /opt/snmp_exporter/netbox_prometheus_sd.py
+    owner: root
+    group: root
+    mode: ug=rwx,o=rx
+
+- name: "SNMP exporter: Template target syncer env (NetBox creds)"
+  become: true
+  ansible.builtin.template:
+    src: netbox-sd.env.j2
+    dest: /opt/snmp_exporter/netbox-sd.env
+    owner: root
+    group: root
+    mode: ug=rw,o=        # contains an API token
+
+- name: "SNMP exporter: Install target sync systemd units"
+  become: true
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: ug=rw,o=r
+  loop:
+    - netbox-prometheus-sd.service
+    - netbox-prometheus-sd.timer
+
+- name: "SNMP exporter: Enable target sync timer"
+  become: true
+  ansible.builtin.systemd_service:
+    name: netbox-prometheus-sd.timer
+    enabled: true
+    state: started
+    daemon_reload: true
