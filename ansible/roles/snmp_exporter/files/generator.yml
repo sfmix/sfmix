@@ -4,7 +4,8 @@
 #   cd ansible/roles/snmp_exporter/files
 #   mkdir -p mibs && cp /var/lib/mibs/ietf/* /var/lib/mibs/iana/* mibs/
 #   # plus the vendor PDU MIBs (not in the base set):
-#   #   Sentry3-MIB  (ServerTech, e.g. netdisco-mibs/servertech or librenms)
+#   #   Sentry3-MIB  (ServerTech Switched CDU, e.g. circitor or netdisco-mibs)
+#   #   Sentry4-MIB  (ServerTech Switched PDU, e.g. librenms mibs/sentry)
 #   #   PDU2-MIB     (Raritan, e.g. librenms mibs/raritan)
 #   docker run --rm -v "$PWD:/opt/" prom/snmp-generator generate --no-fail-on-parse-errors
 # then re-apply the Jinja auth block in templates/snmp.yml.j2
@@ -60,14 +61,16 @@ modules:
       entPhySensorOperStatus:
         type: EnumAsInfo
 
-  # ServerTech / Sentry3 (enterprise 1718.3) — Switched CDU infeed telemetry
-  # plus per-outlet on/off (these CDUs don't meter outlet current). Human
-  # labels: infeedName ("RPP-MDFD-B-39"), towerName, outletID ("A1"). Units are
-  # baked into the infeed OIDs (see pdu.rules for the ×scale to base SI):
-  # load=centi-A, voltage=deci-V, power=W, apparentPower=VA, powerFactor=centi,
-  # energy=deci-kWh, capacity=A.
+  # ServerTech — the fleet is MIXED: older "Sentry Switched CDU" units answer
+  # the Sentry3 tree (1718.3), while "Sentry Switched PDU" units answer Sentry4
+  # (1718.4). NetBox can't tell them apart (same manufacturer/model), so this
+  # one module walks BOTH trees; each device answers only its own and the
+  # pdu.rules `or` picks whichever is present. Neither meters per-outlet
+  # current — outlets are on/off only. Units are baked into the OIDs (see
+  # pdu.rules for the ×scale to base SI).
   pdu_servertech:
     walk:
+      # ── Sentry3 (1718.3) — Switched CDU infeed table ──
       - towerName            # 1718.3.2.1.1.3  (lookup label)
       - infeedID             # 1718.3.2.2.1.2
       - infeedName           # 1718.3.2.2.1.3  (human label)
@@ -79,25 +82,47 @@ modules:
       - infeedApparentPower  # 1718.3.2.2.1.13 (VA)
       - infeedPowerFactor    # 1718.3.2.2.1.14 (centi)
       - infeedEnergy         # 1718.3.2.2.1.16 (deci-kWh)
-      # Per-outlet: these CDUs are switched-only (no per-outlet current), so we
-      # expose the outlet id ("A1") and on/off status. outletStatus is kept a
-      # NUMERIC gauge (0=off 1=on ...) for a state-timeline. outletName is NOT
-      # walked — it collides with PDU2-MIB::outletName; outletID is unique.
       - outletID             # 1718.3.2.3.1.2  (per-outlet id "A1")
-      - outletStatus         # 1718.3.2.3.1.5  (per-outlet on/off, numeric)
+      - outletStatus         # 1718.3.2.3.1.5  (per-outlet on/off, numeric 0/1)
+      # ── Sentry4 (1718.4) — Switched PDU input-cord/line/phase telemetry ──
+      # outletName/outletStatus above collide with nothing here (st4* prefix).
+      - st4UnitName                 # unit name "Primary" (lookup)
+      - st4InputCordName            # cord name "Primary_Cord_A" (human label)
+      - st4InputCordState           # on/off (enum)
+      - st4InputCordActivePower     # W
+      - st4InputCordApparentPower   # VA
+      - st4InputCordPowerFactor     # centi
+      - st4InputCordEnergy          # deci-kWh
+      - st4InputCordCurrentCapacity # A
+      - st4LineCurrent              # centi-A (per line; single-phase here)
+      - st4PhaseVoltage             # deci-V
+      - st4OutletName               # per-outlet name (human)
+      - st4OutletState              # per-outlet on/off (numeric: unknown0 on1 off2)
     lookups:
+      # Sentry3
       - source_indexes: [towerIndex, infeedIndex]
         lookup: infeedName
       - source_indexes: [towerIndex]
         lookup: towerName
       - source_indexes: [towerIndex, infeedIndex, outletIndex]
         lookup: outletID
+      # Sentry4 — cord name rides onto cord/line/phase metrics (subset index)
+      - source_indexes: [st4UnitIndex, st4InputCordIndex]
+        lookup: st4InputCordName
+      - source_indexes: [st4UnitIndex, st4InputCordIndex, st4OutletIndex]
+        lookup: st4OutletName
+      - source_indexes: [st4UnitIndex]
+        lookup: st4UnitName
     overrides:
       towerName: {type: DisplayString}
       infeedID: {type: DisplayString}
       infeedName: {type: DisplayString}
       infeedStatus: {type: EnumAsInfo}
       outletID: {type: DisplayString}
+      st4UnitName: {type: DisplayString}
+      st4InputCordName: {type: DisplayString}
+      st4OutletName: {type: DisplayString}
+      st4InputCordState: {type: EnumAsInfo}
   # Raritan PX3 (PDU2-MIB, enterprise 13742.6) — inlet sensor telemetry.
   # Readings are unsigned ints scaled by inletSensorDecimalDigits (walked, so
   # pdu.rules scales dynamically). sensorType is an integer index kept NUMERIC
