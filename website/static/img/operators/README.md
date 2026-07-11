@@ -32,3 +32,9 @@ Notes:
 - **Use official assets you have rights to display.** These are operator
   trademarks; ship real logos only with permission, otherwise the monogram
   fallback is the safe default.
+- The curated files here are **typographic wordmarks in each operator's official
+  brand colour** (e.g. Equinix red `#ED1822`, QTS cardinal `#CC2031`, Digital
+  Realty teal `#01969D`, OpenColo two-tone blue). They intentionally do **not**
+  reproduce the operators' distinctive graphical marks (swirls, emblems). To use
+  an operator's exact logo, drop their official press-kit SVG in place of the
+  wordmark file (same filename) once you have the right to display it.
