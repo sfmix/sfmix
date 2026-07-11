@@ -548,8 +548,18 @@ def dashboard(uid, title, panels, templating=None, description=""):
 
 # ── Switch View dashboard (single, $switch-variable-driven) ──────────
 
+# Both sides collapse away job/instance: a scrape-job rename (e.g. the
+# snmp-eos -> snmp-eos-health split) briefly leaves the same sensor series
+# under two jobs, which a bare vector match rejects as duplicates.
+SENSOR = ('max by (entPhysicalIndex, entPhysicalName, host) '
+          '(entPhySensorValue{{host="{h}"{extra}}})')
 TEMP_JOIN = ('* on (entPhysicalIndex, host) group_left () '
-             'entPhySensorType_info{{entPhySensorType="{t}", host="{h}"}}')
+             'max by (entPhysicalIndex, host) '
+             '(entPhySensorType_info{{entPhySensorType="{t}", host="{h}"}})')
+
+
+def sensor(h, extra=""):
+    return SENSOR.format(h=h, extra=extra)
 
 
 def switch_view_dashboard():
@@ -571,12 +581,12 @@ def switch_view_dashboard():
          [{"color": "#3d9950", "value": None}, {"color": "#e8a33d", "value": 80},
           {"color": "#e0226e", "value": 92}], None),
         ("Hottest sensor",
-         f'max((entPhySensorValue{{host="{h}"}} / 10) '
+         f'max(({sensor(h)} / 10) '
          + TEMP_JOIN.format(t="celsius", h=h) + ')', "celsius", 1,
          [{"color": "#3d9950", "value": None}, {"color": "#e8a33d", "value": 65},
           {"color": "#e0226e", "value": 85}], None),
         ("Slowest fan",
-         f'min(entPhySensorValue{{host="{h}"}} '
+         f'min({sensor(h)} '
          + TEMP_JOIN.format(t="rpm", h=h) + ')', "rotrpm", 0,
          [{"color": "#e0226e", "value": None}, {"color": "#3d9950", "value": 1500}],
          None),
@@ -654,19 +664,19 @@ def switch_view_dashboard():
     p.append(row("Environment", y)); y += 1
     p.append(timeseries(
         "Chassis temperatures",
-        [target(f'(entPhySensorValue{{host="{h}", entPhysicalName!~"DOM.*"}} / 10) '
+        [target('(' + sensor(h, ', entPhysicalName!~"DOM.*"') + ' / 10) '
                 + TEMP_JOIN.format(t="celsius", h=h), "{{entPhysicalName}}")],
         {"h": 8, "w": 8, "x": 0, "y": y}, unit="celsius"))
     p.append(timeseries(
         "Fans",
-        [target(f'entPhySensorValue{{host="{h}"}} '
+        [target(sensor(h) + ' '
                 + TEMP_JOIN.format(t="rpm", h=h), "{{entPhysicalName}}")],
         {"h": 8, "w": 8, "x": 8, "y": y}, unit="rotrpm", min_val=0))
     p.append(timeseries(
         "Power supplies", [
-            target(f'(entPhySensorValue{{host="{h}", entPhysicalName=~".*[Vv]oltage.*"}} / 100) '
+            target('(' + sensor(h, ', entPhysicalName=~".*[Vv]oltage.*"') + ' / 100) '
                    + TEMP_JOIN.format(t="voltsAC", h=h), "{{entPhysicalName}} (AC)", "A"),
-            target(f'(entPhySensorValue{{host="{h}", entPhysicalName=~".*[Vv]oltage.*"}} / 100) '
+            target('(' + sensor(h, ', entPhysicalName=~".*[Vv]oltage.*"') + ' / 100) '
                    + TEMP_JOIN.format(t="voltsDC", h=h), "{{entPhysicalName}} (DC)", "B"),
         ], {"h": 8, "w": 8, "x": 16, "y": y}, unit="volt",
         description="PSU input/output voltage sensors."))
@@ -678,8 +688,9 @@ def switch_view_dashboard():
         p.append(timeseries(
             f"Optic {dirn} power",
             [target(
-                'label_replace(10 * log10((entPhySensorValue{host="%s", '
-                'entPhysicalName=~"DOM %s Power Sensor for .*"} > 0) / 10000), '
+                'label_replace(10 * log10((max by (entPhysicalIndex, '
+                'entPhysicalName, host) (entPhySensorValue{host="%s", '
+                'entPhysicalName=~"DOM %s Power Sensor for .*"}) > 0) / 10000), '
                 '"port", "$1", "entPhysicalName", "DOM %s Power Sensor for (.*)")'
                 % (h, dirn, dirn), "{{port}}", refid)],
             {"h": 8, "w": 8, "x": 8 * i, "y": y}, unit="dBm",
@@ -687,8 +698,9 @@ def switch_view_dashboard():
     p.append(timeseries(
         "Optic temperatures",
         [target(
-            'label_replace(entPhySensorValue{host="%s", '
-            'entPhysicalName=~"DOM Temperature Sensor for .*"} / 10, '
+            'label_replace(max by (entPhysicalIndex, entPhysicalName, host) '
+            '(entPhySensorValue{host="%s", '
+            'entPhysicalName=~"DOM Temperature Sensor for .*"}) / 10, '
             '"port", "$1", "entPhysicalName", "DOM Temperature Sensor for (.*)")'
             % h, "{{port}}")],
         {"h": 8, "w": 8, "x": 16, "y": y}, unit="celsius"))
