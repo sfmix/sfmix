@@ -5,6 +5,26 @@
     dest: "{{ arouteserver_templates_dir }}"
     mode: ug=rwx,o=rx
 
+- name: Warn about peering ports excluded from clients.yml for missing IPs
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: peering port {{ item.device.name }} {{ item.name }}
+      ({{ item.custom_fields.participant.name }}) has no participant IP
+      addresses in NetBox; it will be excluded from the route server clients.yml
+  loop: >-
+    {{
+      netbox_peering_port_interfaces.values()
+      | selectattr('custom_fields.participant')
+      | rejectattr('id', 'in',
+          netbox_participant_ip_addresses.values()
+          | selectattr('custom_fields.participant_lag')
+          | map(attribute='custom_fields.participant_lag.id')
+          | list)
+      | list
+    }}
+  loop_control:
+    label: "{{ item.device.name }} {{ item.name }}"
+
 - name: Template a clients.yml file
   ansible.builtin.template:
     src: clients.yml.j2
