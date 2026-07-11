@@ -1,0 +1,178 @@
+# Managed by Ansible (prometheus role).
+#
+# Cross-vendor PDU normalisation. snmp_exporter walks each vendor's native MIB
+# (ServerTech Sentry3 `infeed*`, Raritan PDU2 `measurementsInletSensor*`) with
+# vendor-specific names, indices and unit scaling. These recording rules fold
+# both into one family of base-SI `pdu:*` series so dashboards/alerts are
+# vendor-agnostic. Every series keeps human labels: device, site, vendor and
+# `line` (the infeed/inlet identifier — ServerTech infeedName like
+# "RPP-MDFD-B-39", Raritan inletLabel like "I1").
+#
+# Unit scaling (verified against live gear):
+#   ServerTech: load centi-A (×0.01), voltage deci-V (×0.1), power W,
+#               apparentPower VA, powerFactor centi (×0.01), energy deci-kWh
+#               (×0.1 → kWh), capacity A.
+#   Raritan:    measurementsInletSensorValue × 10^(-inletSensorDecimalDigits),
+#               scaled dynamically per row from the walked digits so a firmware
+#               change can't silently mis-scale. sensorType index (numeric):
+#               1=current 4=voltage 5=activePower 6=apparentPower 7=powerFactor
+#               8=activeEnergy(Wh) 23=frequency.
+{% raw %}
+groups:
+  - name: sfmix-pdu-power
+    interval: 60s
+    rules:
+      # ── Current (Amps) ────────────────────────────────────────────────
+      - record: pdu:current_amps
+        expr: >
+          label_replace(
+            infeedLoadValue{job="snmp-pdu"} * 0.01,
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            measurementsInletSensorValue{job="snmp-pdu", sensorType="1"}
+              * on (instance, pduId, inletId) group_left ()
+                (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="1"})),
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Voltage (Volts) ───────────────────────────────────────────────
+      - record: pdu:voltage_volts
+        expr: >
+          label_replace(
+            infeedVoltage{job="snmp-pdu"} * 0.1,
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            measurementsInletSensorValue{job="snmp-pdu", sensorType="4"}
+              * on (instance, pduId, inletId) group_left ()
+                (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="4"})),
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Active power (Watts) ──────────────────────────────────────────
+      - record: pdu:active_power_watts
+        expr: >
+          label_replace(
+            infeedPower{job="snmp-pdu"},
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            measurementsInletSensorValue{job="snmp-pdu", sensorType="5"}
+              * on (instance, pduId, inletId) group_left ()
+                (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="5"})),
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Apparent power (VA) ───────────────────────────────────────────
+      - record: pdu:apparent_power_va
+        expr: >
+          label_replace(
+            infeedApparentPower{job="snmp-pdu"},
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            measurementsInletSensorValue{job="snmp-pdu", sensorType="6"}
+              * on (instance, pduId, inletId) group_left ()
+                (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="6"})),
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Power factor (unitless 0..1) ──────────────────────────────────
+      - record: pdu:power_factor
+        expr: >
+          label_replace(
+            infeedPowerFactor{job="snmp-pdu"} * 0.01,
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            measurementsInletSensorValue{job="snmp-pdu", sensorType="7"}
+              * on (instance, pduId, inletId) group_left ()
+                (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="7"})),
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Cumulative energy (kWh) ───────────────────────────────────────
+      # ServerTech native is deci-kWh; Raritan native is Wh (×0.001 → kWh).
+      - record: pdu:energy_kwh
+        expr: >
+          label_replace(
+            infeedEnergy{job="snmp-pdu"} * 0.1,
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            measurementsInletSensorValue{job="snmp-pdu", sensorType="8"}
+              * on (instance, pduId, inletId) group_left ()
+                (10 ^ (0 - inletSensorDecimalDigits{job="snmp-pdu", sensorType="8"}))
+              * 0.001,
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Rated capacity (Amps) ─────────────────────────────────────────
+      - record: pdu:capacity_amps
+        expr: >
+          label_replace(
+            infeedCapacity{job="snmp-pdu"} > 0,
+            "line", "$1", "infeedName", "(.+)")
+          or
+          label_replace(
+            inletRatedCurrentAmps{job="snmp-pdu"} > 0,
+            "line", "$1", "inletLabel", "(.+)")
+      # ── Load as % of rated capacity (vendor-agnostic, from the above) ──
+      - record: pdu:load_pct
+        expr: >
+          pdu:current_amps
+          / on (device, line) group_left ()
+            pdu:capacity_amps
+          * 100
+      # ── Per-PDU and per-site active-power rollups ─────────────────────
+      - record: pdu:device_active_power_watts
+        expr: sum by (device, site, vendor) (pdu:active_power_watts)
+      - record: pdu:site_active_power_watts
+        expr: sum by (site) (pdu:active_power_watts)
+      # ── Per-outlet current (Raritan only; ServerTech CDUs don't meter
+      #    outlets — for them see pdu:outlet_on). `outlet` = outletLabel. ──
+      - record: pdu:outlet_current_amps
+        expr: >
+          label_replace(
+            measurementsOutletSensorValue{job="snmp-pdu", sensorType="1"}
+              * on (instance, pduId, outletId) group_left ()
+                (10 ^ (0 - outletSensorDecimalDigits{job="snmp-pdu", sensorType="1"})),
+            "outlet", "$1", "outletLabel", "(.+)")
+      # ── Per-outlet on/off (ServerTech switched CDUs; 1 = on). ──────────
+      - record: pdu:outlet_on
+        expr: >
+          label_replace(
+            (outletStatus{job="snmp-pdu"} == bool 1),
+            "outlet", "$1", "outletID", "(.+)")
+      # ── Reachability (1 = polled OK) ──────────────────────────────────
+      - record: pdu:up
+        expr: up{job="snmp-pdu"}
+
+  - name: sfmix-pdu-alerts
+    rules:
+      - alert: PduUnreachable
+        expr: pdu:up == 0
+        for: 10m
+        labels: {severity: warning, component: power}
+        annotations:
+          summary: >-
+            PDU {{ $labels.device }} ({{ $labels.site }}) not answering SNMP
+          description: >-
+            snmp_exporter has failed to poll {{ $labels.instance }} for 10m.
+            Power telemetry for {{ $labels.site }} is stale — check the PDU's
+            management link.
+      - alert: PduInfeedHighLoad
+        expr: pdu:load_pct >= 80
+        for: 15m
+        labels: {severity: warning, component: power}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.line }} at {{ printf "%.0f" $value }}%
+            of rated capacity
+          description: >-
+            Infeed/inlet {{ $labels.line }} on {{ $labels.device }}
+            ({{ $labels.site }}, {{ $labels.vendor }}) has drawn
+            >= 80% of its rated amperage for 15m. Rebalance load before it
+            trips.
+      - alert: PduInfeedCriticalLoad
+        expr: pdu:load_pct >= 90
+        for: 5m
+        labels: {severity: critical, component: power}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.line }} at {{ printf "%.0f" $value }}%
+            of rated capacity
+          description: >-
+            Infeed/inlet {{ $labels.line }} on {{ $labels.device }}
+            ({{ $labels.site }}) is >= 90% of rated amperage — imminent
+            overcurrent trip risk. Shed load now.
+{% endraw %}

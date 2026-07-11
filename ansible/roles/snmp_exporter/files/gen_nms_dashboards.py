@@ -1164,6 +1164,201 @@ def prometheus_ds_uid(gurl, hdrs):
     raise RuntimeError("no prometheus datasource in Grafana")
 
 
+def pdu_dashboard():
+    """Cross-vendor PDU power dashboard, driven entirely by the pdu:* recording
+    rules (ServerTech Sentry3 + Raritan PDU2 folded to common base-SI series by
+    pdu.rules). Human labels throughout: device, site, vendor and `line` (the
+    infeed/inlet id). Two variables: $site scopes the fleet views, $pdu the
+    per-unit detail."""
+    S = 'site=~"$site"'
+    p = []
+    y = 0
+
+    # ── Fleet overview ────────────────────────────────────────────────
+    p.append(row("Fleet overview", y)); y += 1
+    warn_crit = [{"color": "#3d9950", "value": None},
+                 {"color": "#e8a33d", "value": 80}, {"color": "#e0226e", "value": 90}]
+    red_if_any = [{"color": "#3d9950", "value": None}, {"color": "#e0226e", "value": 1}]
+    stats = [
+        ("PDUs polled", f'count(pdu:up{{{S}}}) or vector(0)', "none", 0, None),
+        ("Unreachable", f'count(pdu:up{{{S}}} == 0) or vector(0)', "none", 0, red_if_any),
+        ("Active power", f'sum(pdu:active_power_watts{{{S}}})', "watt", 0, None),
+        ("Total current", f'sum(pdu:current_amps{{{S}}})', "amp", 0, None),
+        ("Peak load", f'max(pdu:load_pct{{{S}}})', "percent", 0, warn_crit),
+        ("Infeeds ≥ 80%", f'count(pdu:load_pct{{{S}}} >= 80) or vector(0)',
+         "none", 0, warn_crit),
+    ]
+    for i, (t, e, u, dec, thr) in enumerate(stats):
+        p.append(stat(t, e, {"h": 4, "w": 4, "x": 4 * i, "y": y},
+                      unit=u, decimals=dec, thresholds=thr))
+    y += 4
+
+    # ── Capacity headroom: every infeed/inlet vs its rated amperage ───
+    p.append(row("Capacity headroom", y)); y += 1
+    p.append({
+        "type": "bargauge",
+        "title": "Infeed / inlet load vs rated capacity",
+        "description": "pdu:load_pct — measured current as a percentage of the "
+                       "infeed/inlet rated amperage. Amber ≥ 80%, red ≥ 90%.",
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": y},
+        "datasource": DATASOURCE,
+        "targets": [{"refId": "A", "datasource": DATASOURCE,
+                     "expr": f'sort_desc(pdu:load_pct{{{S}}})',
+                     "legendFormat": "{{device}} · {{line}} ({{vendor}})",
+                     "instant": True}],
+        "fieldConfig": {"defaults": {
+            "unit": "percent", "min": 0, "max": 100, "decimals": 0,
+            "thresholds": {"mode": "absolute", "steps": warn_crit}}, "overrides": []},
+        "options": {"displayMode": "gradient", "orientation": "horizontal",
+                    "showUnfilled": True, "valueMode": "color",
+                    "reduceOptions": {"calcs": ["lastNotNull"]}},
+    })
+    y += 10
+
+    # ── Power distribution by site / by PDU ───────────────────────────
+    p.append(row("Power by site", y)); y += 1
+    p.append(timeseries(
+        "Active power by site", [target(f'pdu:site_active_power_watts{{{S}}}',
+                                        "{{site}}")],
+        {"h": 8, "w": 12, "x": 0, "y": y}, unit="watt", stack=True, min_val=0))
+    p.append(timeseries(
+        "Active power by PDU", [target(f'pdu:device_active_power_watts{{{S}}}',
+                                       "{{device}} ({{vendor}})")],
+        {"h": 8, "w": 12, "x": 12, "y": y}, unit="watt", min_val=0))
+    y += 8
+
+    # ── Per-PDU detail (the $pdu variable) ────────────────────────────
+    D = 'device=~"$pdu"'
+    p.append(row("Per-PDU detail — $pdu", y)); y += 1
+    detail_a = [
+        ("Current per line", f'pdu:current_amps{{{D}}}', "amp", False),
+        ("Load vs capacity", f'pdu:load_pct{{{D}}}', "percent", False),
+        ("Active power per line", f'pdu:active_power_watts{{{D}}}', "watt", True),
+    ]
+    for i, (t, e, u, st) in enumerate(detail_a):
+        p.append(timeseries(t, [target(e, "{{device}} · {{line}}")],
+                            {"h": 7, "w": 8, "x": 8 * i, "y": y},
+                            unit=u, stack=st, min_val=0))
+    y += 7
+    detail_b = [
+        ("Voltage per line", f'pdu:voltage_volts{{{D}}}', "volt", None),
+        ("Power factor per line", f'pdu:power_factor{{{D}}}', "none", 1),
+        ("Cumulative energy", f'pdu:energy_kwh{{{D}}}', "kwatth", None),
+    ]
+    for i, (t, e, u, mx) in enumerate(detail_b):
+        panel = timeseries(t, [target(e, "{{device}} · {{line}}")],
+                           {"h": 7, "w": 8, "x": 8 * i, "y": y}, unit=u)
+        if mx is not None:
+            panel["fieldConfig"]["defaults"]["max"] = mx
+            panel["fieldConfig"]["defaults"]["min"] = 0
+        p.append(panel)
+    y += 7
+
+    templ = [
+        {"name": "site", "label": "Site", "type": "query",
+         "datasource": DATASOURCE,
+         "query": {"query": "label_values(pdu:up, site)", "refId": "site"},
+         "refresh": 2, "sort": 1, "multi": True, "includeAll": True,
+         "current": {"text": "All", "value": "$__all"}},
+        {"name": "pdu", "label": "PDU", "type": "query",
+         "datasource": DATASOURCE,
+         "query": {"query": 'label_values(pdu:up{site=~"$site"}, device)',
+                   "refId": "pdu"},
+         "refresh": 2, "sort": 1, "multi": True, "includeAll": True,
+         "current": {"text": "All", "value": "$__all"}},
+    ]
+    d = dashboard(
+        "sfmix-pdu-power", "PDU Power", p, templating=templ,
+        description="Cross-vendor PDU power: load headroom, per-site/per-PDU "
+                    "draw, and per-infeed current/voltage/power/PF/energy. "
+                    "ServerTech (Sentry3) and Raritan (PDU2) are normalised to "
+                    "common pdu:* base-SI series by pdu.rules. Generated by "
+                    "gen_nms_dashboards.py — edits will be overwritten.")
+    d["links"] = [{"title": "PDU Outlets", "type": "link", "icon": "bolt",
+                   "url": "/d/sfmix-pdu-outlets/pdu-outlets", "keepTime": True}]
+    return d
+
+
+def pdu_outlets_dashboard():
+    """Per-outlet PDU view — the power analogue of the switch Front Panels.
+    Raritan PX3 meters every outlet, so it gets a per-outlet current-draw strip
+    and trend; ServerTech CDUs are switched-only, so they get a per-outlet
+    on/off state timeline. A given PDU is one vendor, so only the matching
+    section fills in. Driven by the $pdu variable."""
+    D = 'device=~"$pdu"'
+    p = []
+    y = 0
+
+    # ── Raritan: current draw per outlet ──────────────────────────────
+    p.append(row("Current draw per outlet — metered PDUs (Raritan)", y)); y += 1
+    grad = [{"color": "#3d9950", "value": None},
+            {"color": "#e8a33d", "value": 8}, {"color": "#e0226e", "value": 12}]
+    p.append({
+        "type": "bargauge",
+        "title": "Per-outlet current draw (A) — highest first",
+        "description": "pdu:outlet_current_amps for the selected PDU. Only "
+                       "outlet-metered PDUs (Raritan) report this.",
+        "gridPos": {"h": 11, "w": 24, "x": 0, "y": y},
+        "datasource": DATASOURCE,
+        "targets": [{"refId": "A", "datasource": DATASOURCE,
+                     "expr": f'sort_desc(pdu:outlet_current_amps{{{D}}})',
+                     "legendFormat": "outlet {{outlet}} · {{pduName}}",
+                     "instant": True}],
+        "fieldConfig": {"defaults": {
+            "unit": "amp", "min": 0, "decimals": 2,
+            "thresholds": {"mode": "absolute", "steps": grad}}, "overrides": []},
+        "options": {"displayMode": "gradient", "orientation": "horizontal",
+                    "showUnfilled": True, "valueMode": "color",
+                    "reduceOptions": {"calcs": ["lastNotNull"]}},
+    })
+    y += 11
+    p.append(timeseries(
+        "Per-outlet current over time (A)",
+        [target(f'pdu:outlet_current_amps{{{D}}}', "outlet {{outlet}}")],
+        {"h": 8, "w": 24, "x": 0, "y": y}, unit="amp", min_val=0))
+    y += 8
+
+    # ── ServerTech: outlet on/off state ───────────────────────────────
+    p.append(row("Outlet power state — switched PDUs (ServerTech)", y)); y += 1
+    p.append({
+        "type": "state-timeline",
+        "title": "Outlet on/off state",
+        "description": "pdu:outlet_on for the selected PDU. Switched CDUs "
+                       "(ServerTech) report outlet state but not per-outlet "
+                       "current.",
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": y},
+        "datasource": DATASOURCE,
+        "targets": [target(f'pdu:outlet_on{{{D}}}', "outlet {{outlet}}")],
+        "fieldConfig": {"defaults": {
+            "custom": {"fillOpacity": 85, "lineWidth": 0},
+            "mappings": [{"type": "value", "options": {
+                "0": {"text": "Off", "color": C_ADMIN, "index": 0},
+                "1": {"text": "On", "color": C_UP, "index": 1}}}],
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": [
+                {"color": C_ADMIN, "value": None}, {"color": C_UP, "value": 1}]}},
+            "overrides": []},
+        "options": {"showValue": "never", "mergeValues": True,
+                    "alignValue": "left", "rowHeight": 0.9,
+                    "legend": {"displayMode": "list", "placement": "bottom"}},
+    })
+
+    templ = [{
+        "name": "pdu", "label": "PDU", "type": "query", "datasource": DATASOURCE,
+        "query": {"query": "label_values(pdu:up, device)", "refId": "pdu"},
+        "refresh": 2, "sort": 1, "multi": False, "includeAll": False,
+    }]
+    d = dashboard(
+        "sfmix-pdu-outlets", "PDU Outlets", p, templating=templ,
+        description="Per-outlet PDU view: current draw (Raritan, metered) or "
+                    "on/off state (ServerTech, switched). Pick the PDU with the "
+                    "variable. Generated by gen_nms_dashboards.py — edits will "
+                    "be overwritten.")
+    d["links"] = [{"title": "PDU Power", "type": "link", "icon": "bolt",
+                   "url": "/d/sfmix-pdu-power/pdu-power", "keepTime": True}]
+    return d
+
+
 def ensure_folder(gurl, hdrs):
     for f in _get_json(f"{gurl}/api/folders", hdrs):
         if f["title"] == FOLDER_TITLE:
@@ -1215,7 +1410,8 @@ def main():
 
     dashboards = [participant_dashboard(), switch_view_dashboard(),
                   optics_dashboard(),
-                  front_panels_dashboard(devices_ifnames)]
+                  front_panels_dashboard(devices_ifnames),
+                  pdu_dashboard(), pdu_outlets_dashboard()]
     for d in dashboards:
         push(gurl, hdrs, folder, d, ds_uid)
     cleanup_stale(gurl, hdrs, {d["uid"] for d in dashboards})

@@ -17,11 +17,14 @@
   become: true
   notify: Restart prometheus
   ansible.builtin.template:
-    src: rules/sfmix.rules.yml.j2
-    dest: /opt/prometheus/rules/sfmix.rules.yml
+    src: "rules/{{ item }}.j2"
+    dest: "/opt/prometheus/rules/{{ item }}"
     owner: nobody
     group: nogroup
     mode: ugo=r
+  loop:
+    - sfmix.rules.yml
+    - pdu.rules.yml            # cross-vendor PDU power normalisation + alerts
 
 - name: "Prometheus: Template config"
   become: true

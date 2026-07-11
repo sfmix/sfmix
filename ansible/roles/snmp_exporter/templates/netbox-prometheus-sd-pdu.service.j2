@@ -1,0 +1,20 @@
+[Unit]
+Description=Sync NetBox -> Prometheus SNMP file_sd targets (PDUs, vendor-aware)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/snmp_exporter/netbox-sd.env
+# Same syncer as the switches, but enumerating the PDU role and mapping each
+# NetBox manufacturer to its snmp_exporter module. The scrape job relabels the
+# emitted `module` label to __param_module, so one job polls the mixed fleet.
+# Unmapped manufacturers (Generic power feeds/panels, future vendors) are
+# skipped rather than polled with the wrong MIB.
+ExecStart=/usr/bin/python3 /opt/snmp_exporter/netbox_prometheus_sd.py \
+  --role {{ snmp_exporter_pdu_role | default('power-distribution-unit') }} \
+{% for mfr, mod in (snmp_exporter_pdu_module_map | default({'Server Technology': 'pdu_servertech', 'Raritan': 'pdu_raritan'})).items() %}
+  --module-map "{{ mfr }}={{ mod }}" \
+{% endfor %}
+  --output /opt/prometheus/file_sd/pdu_targets.json \
+  --status-file /opt/snmp_exporter/netbox-sd-pdu-status.json
