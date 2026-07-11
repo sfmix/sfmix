@@ -42,8 +42,24 @@ C_UP = "#3d9950"        # link up
 C_DOWN = "#e0226e"      # link down (magenta-red: distinct from green under CVD)
 C_ADMIN = "#565b64"     # administratively down
 C_OTHER = "#c8821f"     # anything else (testing/dormant/lowerLayerDown/...)
+C_EMPTY = "#2c2f36"     # notPresent — an empty cage, not an alarm
 C_TEXT = "#e6e8ea"
 C_CAGE = "#22252b"
+
+# ifOperStatus + 10*(ifAdminStatus==2): 1=up 2=down 6=notPresent 11+=disabled
+STATE_MAPPINGS = [
+    {"type": "value", "options": {
+        "1": {"color": C_UP, "text": "up", "index": 0},
+        "2": {"color": C_DOWN, "text": "down", "index": 1},
+        "6": {"color": C_EMPTY, "text": "empty", "index": 2},
+    }},
+    {"type": "range", "options": {
+        "from": 11, "to": 18,
+        "result": {"color": C_ADMIN, "text": "admin down", "index": 3}}},
+    {"type": "range", "options": {
+        "from": 3, "to": 8,
+        "result": {"color": C_OTHER, "text": "other", "index": 4}}},
+]
 
 # ── HTTP helpers ─────────────────────────────────────────────────────
 
@@ -144,22 +160,37 @@ def layout_eos(model, ifnames):
     return cells, max(1, (max(cages) + 1) // 2 if cages else 1)
 
 
+NOKIA_RE = re.compile(r"^\d+/\d+/c(\d+)(?:/(\d+))?$")
+
+
 def layout_generic(ifnames):
     """Non-EOS gear: physical-looking grid of whatever IF-MIB reports.
 
-    Keeps only plausibly-physical ports (Juniper ge-/xe-/et-, Nokia 1/1/cN).
+    Keeps only physical ports: Juniper ge-/xe-/et- (no logical .subunits),
+    Nokia connectors N/N/cN (lanes share the connector's cage like EOS
+    breakouts).
     """
-    phys = [i for i in ifnames
-            if re.match(r"^(ge-|xe-|et-)\d", i) or re.match(r"^\d+/\d+/c\d+", i)]
-    if not phys:
-        phys = ifnames[:48]
+    juniper = [i for i in ifnames
+               if re.match(r"^(ge-|xe-|et-)\d", i) and "." not in i]
+    nokia = {}
+    for i in ifnames:
+        m = NOKIA_RE.match(i)
+        if m:
+            nokia.setdefault(int(m.group(1)), []).append(i)
+
     cells = []
-    cols = max(1, (len(phys) + 1) // 2)
-    for idx, ifn in enumerate(phys):
+    if nokia:
+        for conn, lanes in nokia.items():
+            lanes.sort(key=lambda s: [int(x) for x in re.findall(r"\d+", s)])
+            cells.append((str(conn), lanes, (conn - 1) // 2, (conn - 1) % 2))
+        return cells, max(1, (max(nokia) + 1) // 2)
+
+    phys = juniper or [i for i in ifnames if "." not in i][:48]
+    for idx, ifn in enumerate(sorted(
+            phys, key=lambda s: [int(x) for x in re.findall(r"\d+", s)])):
         label = re.sub(r"^(ge-|xe-|et-)0/0/", "", ifn)
-        label = re.sub(r"^1/1/c(\d+)(/1)?$", r"\1", label)
         cells.append((label, [ifn], idx // 2, idx % 2))
-    return cells, cols
+    return cells, max(1, (len(phys) + 1) // 2)
 
 
 # ── Canvas faceplate panel ───────────────────────────────────────────
@@ -200,7 +231,7 @@ def faceplate_panel(dev, ifnames, grid_y):
         0, 2, 300, 22, bg_field=False, fixed_bg="rgba(0,0,0,0)", text_size=13))
     for i, (color, lbl) in enumerate(
             [(C_UP, "up"), (C_DOWN, "down"), (C_ADMIN, "admin down"),
-             (C_OTHER, "other")]):
+             (C_EMPTY, "empty"), (C_OTHER, "other")]):
         elements.append(canvas_element(
             f"legend-{lbl}", None, lbl, 330 + i * 105, 4, 96, 18,
             bg_field=False, fixed_bg=color, text_size=10))
@@ -228,21 +259,7 @@ def faceplate_panel(dev, ifnames, grid_y):
             "color": {"mode": "thresholds"},
             "thresholds": {"mode": "absolute",
                            "steps": [{"color": C_OTHER, "value": None}]},
-            "mappings": [
-                {"type": "value", "options": {
-                    "1": {"color": C_UP, "text": "up", "index": 0},
-                    "2": {"color": C_DOWN, "text": "down", "index": 1},
-                }},
-                # oper + 10*admin-down: 11..17 => administratively disabled
-                {"type": "range", "options": {
-                    "from": 11, "to": 18,
-                    "result": {"color": C_ADMIN, "text": "admin down",
-                               "index": 2}}},
-                {"type": "range", "options": {
-                    "from": 3, "to": 8,
-                    "result": {"color": C_OTHER, "text": "other",
-                               "index": 3}}},
-            ],
+            "mappings": STATE_MAPPINGS,
         }, "overrides": []},
         "options": {
             "inlineEditing": False,
@@ -385,40 +402,29 @@ def switch_view_dashboard():
 
     # ── per-port link state over time (the variable-friendly counterpart
     #    of the Front Panels faceplate; that dashboard links here)
+    # physical ports only — no LAGs/subinterfaces/mgmt in the timeline
+    phys_re = r"Ethernet[0-9/]+|(ge-|xe-|et-)[0-9/]+|[0-9]+/[0-9]+/c[0-9/]+"
     p.append({
         "type": "state-timeline",
         "title": "Port link state",
-        "gridPos": {"h": 10, "w": 24, "x": 0, "y": y},
+        "gridPos": {"h": 14, "w": 24, "x": 0, "y": y},
         "datasource": DATASOURCE,
         "targets": [target(
-            f'ifOperStatus{{host="{h}"}}'
-            f' + 10 * (ifAdminStatus{{host="{h}"}} == bool 2)',
+            f'ifOperStatus{{host="{h}", ifname=~"{phys_re}"}}'
+            f' + 10 * (ifAdminStatus{{host="{h}", ifname=~"{phys_re}"}} == bool 2)',
             "{{ifname}}")],
+        # colors come from the value mappings alone — an explicit thresholds
+        # base paints every state with it on this panel type
         "fieldConfig": {"defaults": {
-            "color": {"mode": "thresholds"},
-            "thresholds": {"mode": "absolute",
-                           "steps": [{"color": C_OTHER, "value": None}]},
-            "mappings": [
-                {"type": "value", "options": {
-                    "1": {"color": C_UP, "text": "up", "index": 0},
-                    "2": {"color": C_DOWN, "text": "down", "index": 1}}},
-                {"type": "range", "options": {
-                    "from": 11, "to": 18,
-                    "result": {"color": C_ADMIN, "text": "admin down",
-                               "index": 2}}},
-                {"type": "range", "options": {
-                    "from": 3, "to": 8,
-                    "result": {"color": C_OTHER, "text": "other",
-                               "index": 3}}},
-            ],
+            "mappings": STATE_MAPPINGS,
             "custom": {"fillOpacity": 82, "lineWidth": 0},
         }, "overrides": []},
-        "options": {"showValue": "never", "rowHeight": 0.82,
+        "options": {"showValue": "never", "rowHeight": 0.72,
                     "mergeValues": True,
                     "legend": {"displayMode": "list", "placement": "bottom"},
                     "tooltip": {"mode": "single"}},
     })
-    y += 10
+    y += 14
 
     # ── traffic
     p.append(row("Traffic", y)); y += 1
@@ -518,7 +524,11 @@ def switch_view_dashboard():
             {"id": "organize", "options": {
                 "excludeByName": {"Time": True, "Time 1": True, "Time 2": True,
                                   "Time 3": True, "Time 4": True,
-                                  "Time 5": True, "host": True, "host 1": True,
+                                  "Time 5": True, "__name__": True,
+                                  "__name__ 1": True, "__name__ 2": True,
+                                  "__name__ 3": True, "__name__ 4": True,
+                                  "__name__ 5": True,
+                                  "host": True, "host 1": True,
                                   "host 2": True, "host 3": True,
                                   "host 4": True, "instance": True,
                                   "instance 1": True, "instance 2": True,
