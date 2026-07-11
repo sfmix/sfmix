@@ -1,0 +1,210 @@
+# NetBox schema-as-code: custom fields, choice sets, tags, and custom links.
+#
+# These objects are the structural contract between NetBox and everything that
+# reads it (discovery.py, arouteserver clients.yml, the portal, mapbuild,
+# IX-F export, prometheus file_sd). Field names and tag slugs referenced by
+# code MUST be changed here first, then in the consumers.
+#
+# Run:
+#   NETBOX_API_TOKEN=<write-token> ansible-playbook -i inventory netbox_schema.playbook.yml \
+#     --vault-password-file ~/.sfmix_ansible_vault
+#
+# The vaulted ixp_netbox_api_token is read-only; schema writes need the write
+# token from scripts/.env (exported as NETBOX_API_TOKEN). Supports --check.
+---
+- name: Enforce NetBox schema (custom fields, choice sets, tags, custom links)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    netbox_schema_url: "{{ ixp_netbox_api_endpoint | default('https://netbox.sfmix.org') }}"
+    netbox_schema_token: "{{ lookup('env', 'NETBOX_API_TOKEN') or ixp_netbox_api_token }}"
+
+    netbox_custom_field_choice_sets:
+      - name: "LACP Mode Choices"
+        extra_choices:
+          - ["on", "On"]
+          - ["active", "Active"]
+          - ["passive", "Passive"]
+      - name: "participant_type Choices"
+        extra_choices:
+          - ["Member", "Member"]
+          - ["Exempt", "Exempt"]
+          - ["Infrastructure", "Infrastructure"]
+
+    netbox_custom_fields:
+      # tenancy.tenant: participants
+      - name: as_number
+        label: "AS Number"
+        type: integer
+        object_types: ["tenancy.tenant"]
+      - name: participant_type
+        label: "Participant Type"
+        type: select
+        object_types: ["tenancy.tenant"]
+        choice_set: "participant_type Choices"
+        required: true
+        default: "Member"
+
+      # dcim.interface: peering/backbone ports
+      - name: dot1q_encapsulation_tag
+        label: "802.1Q Encapsulation Tag"
+        type: integer
+        object_types: ["dcim.interface"]
+        description: "The 802.1Q VLAN Tag used to encapsulate traffic on this interface"
+        validation_minimum: 1
+        validation_maximum: 4095
+      - name: lacp_mode
+        label: "LACP Mode"
+        type: select
+        object_types: ["dcim.interface"]
+        choice_set: "LACP Mode Choices"
+        description: "The LACP Mode to set on this LAG-member interface"
+      - name: mac_address_limit
+        type: integer
+        object_types: ["dcim.interface"]
+        description: "The maximum allowable MAC addresses allowed to be learned via this interface"
+      - name: ospf_cost
+        label: "OSPF Cost"
+        type: integer
+        object_types: ["dcim.interface"]
+        validation_minimum: 1
+        validation_maximum: 65535
+      - name: participant
+        label: "Participant"
+        type: object
+        object_types: ["dcim.interface"]
+        related_object_type: "tenancy.tenant"
+      - name: rate_limit_bps
+        type: integer
+        object_types: ["dcim.interface"]
+
+      # ipam.ipaddress: participant addressing
+      - name: participant_lag
+        label: "Participant LAG"
+        type: object
+        object_types: ["ipam.ipaddress"]
+        related_object_type: "dcim.interface"
+      - name: participant_mac_address
+        label: "Participant MAC Address"
+        type: text
+        object_types: ["ipam.ipaddress"]
+
+      # dcim.site
+      - name: peeringdb_facility
+        label: "PeeringDB Facility"
+        type: integer
+        object_types: ["dcim.site"]
+        description: "The PeeringDB ID for this physical facilty"
+      - name: site_id
+        label: "Site ID"
+        type: integer
+        object_types: ["dcim.site"]
+        description: "The numerical Site ID of this Site"
+
+      # dcim.cable
+      - name: serial
+        label: "Serial Number"
+        type: text
+        object_types: ["dcim.cable"]
+        unique: true
+
+      # virtualization.virtualmachine
+      - name: proxmox_vmid
+        label: "Proxmox VMID"
+        type: integer
+        object_types: ["virtualization.virtualmachine"]
+        description: "Proxmox VM id; discovery match key"
+
+    netbox_tags:
+      - {name: admin_port, slug: admin_port, color: "f44336"}
+      - {name: Core Port, slug: core_port, color: "ff5722"}
+      - {name: Encapsulated Peering Port, slug: encapsulated_peering_port, color: "cddc39"}
+      - {name: Encapsulating Peering Port, slug: encapsulating_peering_port, color: "8bc34a"}
+      - {name: IXP Infrastructure, slug: ixp_infrastructure, color: "ff5722"}
+      - {name: IXP Participant, slug: ixp_participant, color: "9c27b0"}
+      - name: "Map: Exclude"
+        slug: map_exclude
+        color: "9e9e9e"
+        description: "Circuit is out-of-scope for the network map builder (not rendered)"
+      - {name: Peering LAN, slug: peering_lan, color: "ba3bff"}
+      - {name: Peering Port, slug: peering_port, color: "ffeb3b"}
+      - {name: proxmox_import, slug: proxmox-import, color: "9e9e9e"}
+      - {name: transit_peer, slug: transit_peer, color: "9c27b0"}
+
+    netbox_custom_links:
+      - name: "Participant Documentation"
+        object_types: ["tenancy.tenant"]
+        link_text: "Participants Documentation"
+        link_url: !unsafe "https://github.com/sfmix/documentation/tree/master/participants/AS{{ object.cf.as_number }}/"
+        button_class: teal
+
+  tasks:
+    - name: Ensure custom field choice sets
+      netbox.netbox.netbox_custom_field_choice_set:
+        netbox_url: "{{ netbox_schema_url }}"
+        netbox_token: "{{ netbox_schema_token }}"
+        data: "{{ item }}"
+        state: present
+      loop: "{{ netbox_custom_field_choice_sets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Ensure custom fields
+      netbox.netbox.netbox_custom_field:
+        netbox_url: "{{ netbox_schema_url }}"
+        netbox_token: "{{ netbox_schema_token }}"
+        # The module has no 'unique' parameter; that flag is enforced below.
+        data: "{{ item | dict2items | rejectattr('key', 'eq', 'unique') | items2dict }}"
+        state: present
+      loop: "{{ netbox_custom_fields }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Read back uniqueness flags on custom fields
+      ansible.builtin.uri:
+        url: "{{ netbox_schema_url }}/api/extras/custom-fields/?name={{ item.name }}"
+        headers:
+          Authorization: "Token {{ netbox_schema_token }}"
+      register: netbox_schema_cf_unique_current
+      check_mode: false
+      loop: "{{ netbox_custom_fields | selectattr('unique', 'defined') }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Enforce uniqueness flags on custom fields
+      ansible.builtin.uri:
+        url: "{{ netbox_schema_url }}/api/extras/custom-fields/{{ item.json.results[0].id }}/"
+        method: PATCH
+        headers:
+          Authorization: "Token {{ netbox_schema_token }}"
+        body_format: json
+        body:
+          unique: "{{ item.item.unique }}"
+      loop: "{{ netbox_schema_cf_unique_current.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when:
+        - item.json.results | length > 0
+        - item.json.results[0].unique != item.item.unique
+      changed_when: true
+
+    - name: Ensure tags
+      netbox.netbox.netbox_tag:
+        netbox_url: "{{ netbox_schema_url }}"
+        netbox_token: "{{ netbox_schema_token }}"
+        data: "{{ item }}"
+        state: present
+      loop: "{{ netbox_tags }}"
+      loop_control:
+        label: "{{ item.slug }}"
+
+    - name: Ensure custom links
+      netbox.netbox.netbox_custom_link:
+        netbox_url: "{{ netbox_schema_url }}"
+        netbox_token: "{{ netbox_schema_token }}"
+        data: "{{ item }}"
+        state: present
+      loop: "{{ netbox_custom_links }}"
+      loop_control:
+        label: "{{ item.name }}"
