@@ -27,3 +27,167 @@ groups:
         expr: sum by (asn, participant) (sfmix:participant_if_bps:in)
       - record: sfmix:participant_bps:out
         expr: sum by (asn, participant) (sfmix:participant_if_bps:out)
+
+{% raw %}
+  # ── Optical degradation ──────────────────────────────────────────────
+  # Smoothed per-lane DOM power in dBm, one sample a minute. Averaging the
+  # raw µW readings over an hour before the dB conversion cancels scrape
+  # noise and most of the diurnal temperature wobble, so the long-horizon
+  # trend math (drift, predict_linear) runs on a clean, cheap series.
+  # The > 0 filter drops dark lanes (EOS reports 0 µW): a dark lane simply
+  # has no sample, so trend windows only ever average lit readings.
+  # max by collapses job/instance — a scrape-job rename must not fork or
+  # duplicate these series (see the snmp-eos -> snmp-eos-health split).
+  - name: sfmix-optics
+    interval: 1m
+    rules:
+      - record: sfmix:optic_rx_dbm:1h
+        expr: >
+          label_replace(
+            10 * log10(
+              (max by (entPhysicalIndex, entPhysicalName, host, device, site)
+                 (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM RX Power Sensor for .*"}[1h]))
+               > 0) / 10000),
+            "ifname", "$1", "entPhysicalName", "DOM RX Power Sensor for (.+)")
+      - record: sfmix:optic_tx_dbm:1h
+        expr: >
+          label_replace(
+            10 * log10(
+              (max by (entPhysicalIndex, entPhysicalName, host, device, site)
+                 (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM TX Power Sensor for .*"}[1h]))
+               > 0) / 10000),
+            "ifname", "$1", "entPhysicalName", "DOM TX Power Sensor for (.+)")
+
+  # Slow-degradation alerts. All are RELATIVE (drift against the lane's own
+  # baseline) so they need no per-optic-type IEEE floor and work identically
+  # on every media type. RX drift = dirt/stress/aging on the inbound path;
+  # TX drift = our own laser aging (and the far end's inbound path).
+  # A lane that goes fully dark stops producing samples, so the current-side
+  # window empties and these alerts resolve rather than masquerade as a
+  # link-down alert.
+  # The 30d alerts self-gate on history (the offset window is empty until
+  # 30 days of data exist); the projection alerts gate explicitly on ≥14d
+  # of samples so a few days of noisy slope can't fire them.
+  # `dashboard` deep-links into the Optical Degradation dashboard with the
+  # switch/port pre-selected and a 90-day window — wire it into the
+  # Alertmanager notification template when Alertmanager lands.
+  - name: sfmix-optics-alerts
+    rules:
+      - alert: OpticRxPowerDegraded30d
+        expr: >
+          (
+            avg_over_time(sfmix:optic_rx_dbm:1h[24h])
+            - avg_over_time(sfmix:optic_rx_dbm:1h[24h] offset 30d)
+          ) < -2
+        for: 6h
+        labels: {severity: warning, component: optics}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.ifname }}: RX power down
+            {{ printf "%.1f" $value }} dB over 30 days
+          description: >-
+            Receive power on {{ $labels.device }} {{ $labels.ifname }} has
+            drifted {{ printf "%.1f" $value }} dB below its level 30 days ago
+            (24h averages). Slow RX loss usually means connector
+            contamination, a stressed fiber, or far-end laser aging — clean
+            and re-seat before it reaches the receiver floor.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+      - alert: OpticTxPowerDegraded30d
+        expr: >
+          (
+            avg_over_time(sfmix:optic_tx_dbm:1h[24h])
+            - avg_over_time(sfmix:optic_tx_dbm:1h[24h] offset 30d)
+          ) < -2
+        for: 6h
+        labels: {severity: warning, component: optics}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.ifname }}: TX power down
+            {{ printf "%.1f" $value }} dB over 30 days
+          description: >-
+            Transmit power on {{ $labels.device }} {{ $labels.ifname }} has
+            drifted {{ printf "%.1f" $value }} dB below its level 30 days ago
+            (24h averages). TX loss is the laser itself aging — plan an optic
+            swap; the far end sees this as their RX degrading.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+      - alert: OpticRxPowerDegradedFast
+        expr: >
+          (
+            avg_over_time(sfmix:optic_rx_dbm:1h[24h])
+            - avg_over_time(sfmix:optic_rx_dbm:1h[24h] offset 7d)
+          ) < -3
+        for: 2h
+        labels: {severity: warning, component: optics}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.ifname }}: RX power down
+            {{ printf "%.1f" $value }} dB in a week
+          description: >-
+            Receive power on {{ $labels.device }} {{ $labels.ifname }} has
+            dropped {{ printf "%.1f" $value }} dB against last week
+            (24h averages) — faster than aging explains. Check for a bent or
+            pinched patch, recent physical work, or a failing far-end laser.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-30d&to=now
+      - alert: OpticTxPowerDegradedFast
+        expr: >
+          (
+            avg_over_time(sfmix:optic_tx_dbm:1h[24h])
+            - avg_over_time(sfmix:optic_tx_dbm:1h[24h] offset 7d)
+          ) < -3
+        for: 2h
+        labels: {severity: warning, component: optics}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.ifname }}: TX power down
+            {{ printf "%.1f" $value }} dB in a week
+          description: >-
+            Transmit power on {{ $labels.device }} {{ $labels.ifname }} has
+            dropped {{ printf "%.1f" $value }} dB against last week
+            (24h averages) — a laser fading this fast is close to failing.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-30d&to=now
+      - alert: OpticRxPowerProjectedLoss
+        expr: >
+          (
+            predict_linear(sfmix:optic_rx_dbm:1h[30d], 90 * 86400)
+            - avg_over_time(sfmix:optic_rx_dbm:1h[6h])
+          ) < -3
+          and count_over_time(sfmix:optic_rx_dbm:1h[30d]) >= 20160
+        for: 6h
+        labels: {severity: info, component: optics}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.ifname }}: RX trending toward
+            {{ printf "%.1f" $value }} dB loss over the next 90 days
+          description: >-
+            On its 30-day slope, receive power on {{ $labels.device }}
+            {{ $labels.ifname }} will lose another
+            {{ printf "%.1f" $value }} dB within 90 days. Not urgent — add
+            this port to the cleaning list for the next visit to
+            {{ $labels.site }}.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+      - alert: OpticTxPowerProjectedLoss
+        expr: >
+          (
+            predict_linear(sfmix:optic_tx_dbm:1h[30d], 90 * 86400)
+            - avg_over_time(sfmix:optic_tx_dbm:1h[6h])
+          ) < -3
+          and count_over_time(sfmix:optic_tx_dbm:1h[30d]) >= 20160
+        for: 6h
+        labels: {severity: info, component: optics}
+        annotations:
+          summary: >-
+            {{ $labels.device }} {{ $labels.ifname }}: TX trending toward
+            {{ printf "%.1f" $value }} dB loss over the next 90 days
+          description: >-
+            On its 30-day slope, transmit power on {{ $labels.device }}
+            {{ $labels.ifname }} will lose another
+            {{ printf "%.1f" $value }} dB within 90 days — stage a spare
+            optic for the next visit to {{ $labels.site }}.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+{% endraw %}

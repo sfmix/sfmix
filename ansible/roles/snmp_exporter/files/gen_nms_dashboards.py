@@ -794,7 +794,209 @@ def switch_view_dashboard():
                     "overwritten.")
     d["links"] = [{"title": "Front Panels", "type": "link", "icon": "bolt",
                    "url": "/d/sfmix-front-panels/front-panels",
-                   "keepTime": True}]
+                   "keepTime": True},
+                  {"title": "Optical Degradation", "type": "link",
+                   "icon": "bolt",
+                   "url": "/d/sfmix-optics/optical-degradation"
+                          "?var-switch=${switch}",
+                   "keepTime": False}]
+    return d
+
+
+# ── Optical Degradation dashboard ────────────────────────────────────
+#
+# Long-horizon DOM trending on the recorded sfmix:optic_{rx,tx}_dbm:1h
+# series (prometheus role rules). The optics alert rules deep-link here as
+# .../d/sfmix-optics/optical-degradation?var-switch=<device>&var-port=<ifname>
+# — keep the uid and the switch/port variable names stable, they are the
+# alert->dashboard contract for Alertmanager notifications.
+
+OPTICS_UID = "sfmix-optics"
+
+
+def _drift_table(title, metric, days, grid):
+    """Fleet table: per-lane dB change vs. `days` ago, worst first."""
+    expr = (f'sort(avg_over_time({metric}{{device=~"$switch"}}[24h])'
+            f' - avg_over_time({metric}{{device=~"$switch"}}[24h]'
+            f' offset {days}d))')
+    return {
+        "type": "table", "title": title,
+        "description": f"24h-average power now minus {days} days ago. "
+                       "Negative = fading. Empty until that much history "
+                       "exists.",
+        "gridPos": grid, "datasource": DATASOURCE,
+        "targets": [target(expr, refid="A", instant=True)],
+        "transformations": [{"id": "organize", "options": {
+            "excludeByName": {"Time": True, "entPhysicalIndex": True,
+                              "entPhysicalName": True, "host": True,
+                              "site": True},
+            "renameByName": {"device": "switch", "ifname": "port",
+                             "Value": "drift (dB)"},
+            "indexByName": {"switch": 0, "port": 1, "drift (dB)": 2},
+        }}],
+        "fieldConfig": {"defaults": {"custom": {"filterable": True}},
+                        "overrides": [
+            {"matcher": {"id": "byName", "options": "drift (dB)"},
+             "properties": [
+                 {"id": "unit", "value": "dB"},
+                 {"id": "decimals", "value": 2},
+                 {"id": "custom.cellOptions",
+                  "value": {"type": "color-background"}},
+                 {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+                     {"color": "#e0226e", "value": None},
+                     {"color": "#e8a33d", "value": -2},
+                     {"color": "#3d9950", "value": -1}]}},
+             ]},
+        ]},
+        "options": {"sortBy": [{"displayName": "drift (dB)", "desc": False}]},
+    }
+
+
+def _projection_table(title, metric, grid):
+    """Fleet table: projected dB change over the next 90 days."""
+    expr = (f'sort(predict_linear({metric}{{device=~"$switch"}}[30d],'
+            f' 90 * 86400) - avg_over_time({metric}{{device=~"$switch"}}[6h]))')
+    return {
+        "type": "table", "title": title,
+        "description": "Linear projection of the 30-day slope, 90 days out. "
+                       "The cleaning/spares work-list, steepest first.",
+        "gridPos": grid, "datasource": DATASOURCE,
+        "targets": [target(expr, refid="A", instant=True)],
+        "transformations": [{"id": "organize", "options": {
+            "excludeByName": {"Time": True, "entPhysicalIndex": True,
+                              "entPhysicalName": True, "host": True,
+                              "site": True},
+            "renameByName": {"device": "switch", "ifname": "port",
+                             "Value": "projected 90d (dB)"},
+            "indexByName": {"switch": 0, "port": 1, "projected 90d (dB)": 2},
+        }}],
+        "fieldConfig": {"defaults": {"custom": {"filterable": True}},
+                        "overrides": [
+            {"matcher": {"id": "byName", "options": "projected 90d (dB)"},
+             "properties": [
+                 {"id": "unit", "value": "dB"},
+                 {"id": "decimals", "value": 2},
+                 {"id": "custom.cellOptions",
+                  "value": {"type": "color-background"}},
+                 {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+                     {"color": "#e0226e", "value": None},
+                     {"color": "#e8a33d", "value": -3},
+                     {"color": "#3d9950", "value": -1}]}},
+             ]},
+        ]},
+        "options": {"sortBy": [{"displayName": "projected 90d (dB)",
+                                "desc": False}]},
+    }
+
+
+def optics_dashboard():
+    rx, tx = "sfmix:optic_rx_dbm:1h", "sfmix:optic_tx_dbm:1h"
+    sel = '{device=~"$switch", ifname=~"$port"}'
+    p = []
+    y = 0
+
+    # ── headline: how many lanes are fading right now (RX left, TX right)
+    for i, (t, metric) in enumerate([("RX", rx), ("TX", tx)]):
+        p.append(stat(
+            f"Lanes fading ({t}, >1 dB / 30d)",
+            f'count((avg_over_time({metric}[24h])'
+            f' - avg_over_time({metric}[24h] offset 30d)) < -1) or vector(0)',
+            {"h": 4, "w": 12, "x": 12 * i, "y": y}, decimals=0,
+            thresholds=[{"color": "#3d9950", "value": None},
+                        {"color": "#e8a33d", "value": 1},
+                        {"color": "#e0226e", "value": 5}],
+            description="Fleet-wide, ignores the switch filter."))
+    y += 4
+    for i, (t, metric) in enumerate([("RX", rx), ("TX", tx)]):
+        p.append(timeseries(
+            f"Weakest {t} lanes (fleet)",
+            [target(f'bottomk(10, {metric})', "{{device}} {{ifname}}")],
+            {"h": 8, "w": 12, "x": 12 * i, "y": y}, unit="dBm",
+            legend_calcs=["lastNotNull", "min"]))
+    y += 8
+
+    # ── degradation triage tables
+    p.append(row("Degradation triage — $switch", y)); y += 1
+    p.append(_drift_table("RX drift vs 30 days ago", rx, 30,
+                          {"h": 10, "w": 12, "x": 0, "y": y}))
+    p.append(_drift_table("TX drift vs 30 days ago", tx, 30,
+                          {"h": 10, "w": 12, "x": 12, "y": y}))
+    y += 10
+    p.append(_projection_table("RX — projected 90-day change",
+                               rx, {"h": 10, "w": 12, "x": 0, "y": y}))
+    p.append(_projection_table("TX — projected 90-day change",
+                               tx, {"h": 10, "w": 12, "x": 12, "y": y}))
+    y += 10
+
+    # ── per-port trend detail (alert deep-links land here)
+    p.append(row("Lane detail — $switch / $port", y)); y += 1
+    p.append(timeseries(
+        "RX power — $switch / $port",
+        [target(rx + sel, "{{device}} {{ifname}} RX")],
+        {"h": 9, "w": 12, "x": 0, "y": y}, unit="dBm",
+        legend_calcs=["lastNotNull", "min", "max"],
+        description="Hourly-smoothed. Widen the time range to see the "
+                    "long-horizon trend an alert fired on."))
+    p.append(timeseries(
+        "TX power — $switch / $port",
+        [target(tx + sel, "{{device}} {{ifname}} TX")],
+        {"h": 9, "w": 12, "x": 12, "y": y}, unit="dBm",
+        legend_calcs=["lastNotNull", "min", "max"],
+        description="Hourly-smoothed. TX fading = the laser itself aging."))
+    y += 9
+    p.append(timeseries(
+        "30-day drift — $switch / $port", [
+            target(f'avg_over_time({rx}{sel}[24h])'
+                   f' - avg_over_time({rx}{sel}[24h] offset 30d)',
+                   "{{device}} {{ifname}} RX", "A"),
+            target(f'avg_over_time({tx}{sel}[24h])'
+                   f' - avg_over_time({tx}{sel}[24h] offset 30d)',
+                   "{{device}} {{ifname}} TX", "B"),
+        ], {"h": 9, "w": 12, "x": 0, "y": y}, unit="dB",
+        description="dB change against the same lane 30 days earlier — the "
+                    "series the *Degraded30d alerts watch (threshold "
+                    "-2 dB)."))
+    p.append(timeseries(
+        "Optic temperature — $switch / $port",
+        [target(
+            'label_replace(max by (entPhysicalIndex, entPhysicalName, host) '
+            '(entPhySensorValue{host=~"($switch).%s", '
+            'entPhysicalName=~"DOM Temperature Sensor for ($port)"}) / 10, '
+            '"ifname", "$1", "entPhysicalName", '
+            '"DOM Temperature Sensor for (.+)")' % DOMAIN,
+            "{{ifname}}")],
+        {"h": 9, "w": 12, "x": 12, "y": y}, unit="celsius",
+        description="Module temperature — power readings are "
+                    "temperature-sensitive, so check this before blaming "
+                    "the fiber."))
+    y += 9
+
+    templ = [
+        {"name": "switch", "label": "Switch", "type": "query",
+         "datasource": DATASOURCE,
+         "query": {"query": f'label_values({rx}, device)',
+                   "refId": "switch"},
+         "refresh": 2, "sort": 1, "multi": False, "includeAll": True,
+         "allValue": ".*", "current": {"text": "All", "value": "$__all"}},
+        {"name": "port", "label": "Port", "type": "query",
+         "datasource": DATASOURCE,
+         "query": {"query": f'label_values({rx}{{device=~"$switch"}}, ifname)',
+                   "refId": "port"},
+         "refresh": 2, "sort": 1, "multi": False, "includeAll": True,
+         "allValue": ".*", "current": {"text": "All", "value": "$__all"}},
+    ]
+    d = dashboard(
+        OPTICS_UID, "Optical Degradation", p, templating=templ,
+        description="Slow-loss trending of every DOM lane, RX and TX: drift "
+                    "against each lane's own 7/30-day baseline plus a 90-day "
+                    "projection of the 30-day slope. The optics alert rules "
+                    "deep-link here with the switch/port pre-selected. "
+                    "Generated by gen_nms_dashboards.py — edits will be "
+                    "overwritten.")
+    d["time"] = {"from": "now-30d", "to": "now"}
+    d["links"] = [{"title": "Switch View", "type": "link", "icon": "bolt",
+                   "url": "/d/sfmix-switch-view/switch-view",
+                   "keepTime": False}]
     return d
 
 
@@ -983,6 +1185,7 @@ def main():
     mirror_faceplate_images([d["model"] for d, _ in devices_ifnames])
 
     dashboards = [participant_dashboard(), switch_view_dashboard(),
+                  optics_dashboard(),
                   front_panels_dashboard(devices_ifnames)]
     for d in dashboards:
         push(gurl, hdrs, folder, d, ds_uid)
