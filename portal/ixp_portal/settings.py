@@ -59,6 +59,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
+    # Starts the NetBox cache background refresh in each worker (also
+    # registers the NetBox/peering-port Prometheus metrics via import).
+    "dashboard.middleware.NetBoxCacheMiddleware",
 ]
 
 # DEBUG-only: auto-login a dev persona on every request so `runserver` comes up
