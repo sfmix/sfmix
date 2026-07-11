@@ -34,8 +34,15 @@ groups:
   # raw µW readings over an hour before the dB conversion cancels scrape
   # noise and most of the diurnal temperature wobble, so the long-horizon
   # trend math (drift, predict_linear) runs on a clean, cheap series.
-  # The > 0 filter drops dark lanes (EOS reports 0 µW): a dark lane simply
-  # has no sample, so trend windows only ever average lit readings.
+  #
+  # Expected-dark lanes are excluded structurally: a lane is recorded only
+  # while its OWNING interface is link-up. The owner is the interface with
+  # the lane's exact name (breakout, or single-lane optic); lanes of a
+  # non-breakout multi-lane optic (sensors X/2..X/4 with no such
+  # interface) belong to X/1. Down/notconnect ports read the receiver
+  # floor (~0.1 µW = -40 dBm) — without the gate they dominate every
+  # "weakest lane" view, and the TX laser of a notconnect port trends
+  # meaninglessly. The > 0 filter still drops the exact-0 sentinel.
   # max by collapses job/instance — a scrape-job rename must not fork or
   # duplicate these series (see the snmp-eos -> snmp-eos-health split).
   - name: sfmix-optics
@@ -43,20 +50,62 @@ groups:
     rules:
       - record: sfmix:optic_rx_dbm:1h
         expr: >
+          (
+            label_replace(
+              10 * log10(
+                (max by (entPhysicalIndex, entPhysicalName, host, device, site)
+                   (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM RX Power Sensor for .*"}[1h]))
+                 > 0) / 10000),
+              "ifname", "$1", "entPhysicalName", "DOM RX Power Sensor for (.+)")
+            and on (host, ifname)
+              (max by (host, ifname) (ifOperStatus) == 1)
+          )
+          or
           label_replace(
-            10 * log10(
-              (max by (entPhysicalIndex, entPhysicalName, host, device, site)
-                 (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM RX Power Sensor for .*"}[1h]))
-               > 0) / 10000),
-            "ifname", "$1", "entPhysicalName", "DOM RX Power Sensor for (.+)")
+            (
+              label_replace(
+                label_replace(
+                  10 * log10(
+                    (max by (entPhysicalIndex, entPhysicalName, host, device, site)
+                       (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM RX Power Sensor for .*"}[1h]))
+                     > 0) / 10000),
+                  "ifname", "$1", "entPhysicalName", "DOM RX Power Sensor for (.+)")
+                unless on (host, ifname) ifOperStatus,
+                "parent", "$1/1", "ifname", "(.+)/[0-9]+")
+              and on (host, parent)
+                (max by (host, parent)
+                   (label_replace(ifOperStatus, "parent", "$1", "ifname", "(.+)")) == 1)
+            ),
+            "parent", "", "", "")
       - record: sfmix:optic_tx_dbm:1h
         expr: >
+          (
+            label_replace(
+              10 * log10(
+                (max by (entPhysicalIndex, entPhysicalName, host, device, site)
+                   (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM TX Power Sensor for .*"}[1h]))
+                 > 0) / 10000),
+              "ifname", "$1", "entPhysicalName", "DOM TX Power Sensor for (.+)")
+            and on (host, ifname)
+              (max by (host, ifname) (ifOperStatus) == 1)
+          )
+          or
           label_replace(
-            10 * log10(
-              (max by (entPhysicalIndex, entPhysicalName, host, device, site)
-                 (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM TX Power Sensor for .*"}[1h]))
-               > 0) / 10000),
-            "ifname", "$1", "entPhysicalName", "DOM TX Power Sensor for (.+)")
+            (
+              label_replace(
+                label_replace(
+                  10 * log10(
+                    (max by (entPhysicalIndex, entPhysicalName, host, device, site)
+                       (avg_over_time(entPhySensorValue{entPhysicalName=~"DOM TX Power Sensor for .*"}[1h]))
+                     > 0) / 10000),
+                  "ifname", "$1", "entPhysicalName", "DOM TX Power Sensor for (.+)")
+                unless on (host, ifname) ifOperStatus,
+                "parent", "$1/1", "ifname", "(.+)/[0-9]+")
+              and on (host, parent)
+                (max by (host, parent)
+                   (label_replace(ifOperStatus, "parent", "$1", "ifname", "(.+)")) == 1)
+            ),
+            "parent", "", "", "")
 
   # Slow-degradation alerts. All are RELATIVE (drift against the lane's own
   # baseline) so they need no per-optic-type IEEE floor and work identically
