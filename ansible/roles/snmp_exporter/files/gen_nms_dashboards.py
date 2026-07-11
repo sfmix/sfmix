@@ -796,7 +796,11 @@ def front_panels_dashboard(devices_ifnames):
     for dev, ifnames in devices_ifnames:
         by_site.setdefault(dev["site"] or "unknown", []).append((dev, ifnames))
     for site in sorted(by_site):
-        p.append(row(site, y)); y += 1
+        # Collapsed rows carry their child panels nested inside the row
+        # object; expanding hoists them into place.
+        site_row = row(site, y); y += 1
+        site_row["collapsed"] = True
+        site_row["panels"] = []
         for dev, ifnames in by_site[site]:
             fp = faceplate_panel(dev, ifnames, y)
             fp["title"] = dev["name"]
@@ -805,8 +809,9 @@ def front_panels_dashboard(devices_ifnames):
                 "url": (f"/d/sfmix-switch-view/switch-view"
                         f"?var-switch={dev['name']}"),
             }]
-            p.append(fp)
+            site_row["panels"].append(fp)
             y += fp["gridPos"]["h"]
+        p.append(site_row)
     d = dashboard(
         "sfmix-front-panels", "Front Panels", p,
         description="Live faceplate of every peering switch — port cells "
