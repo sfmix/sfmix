@@ -190,9 +190,33 @@
 .nm-info-back::before { content: "\2190\00a0"; }  /* ← */
 .nm-info-back:hover { color: var(--nm-text); }
 /* detail rows reuse the popover's row markup, restyled for the dark pane */
-.nm-info-detail-body .nm-pop-row { display: flex; justify-content: space-between; gap: 14px; margin: 3px 0; }
+.nm-info-detail-body .nm-pop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 3px 7px;
+  border-radius: 5px;
+}
+/* zebra stripes so the eye can track a label to its far-side value */
+.nm-info-detail-body .nm-pop-row:nth-child(odd) { background: rgba(142, 166, 179, 0.09); }
 .nm-info-detail-body .nm-pop-row .k { color: #8ea6b3; }
 .nm-info-detail-body .nm-pop-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* utilization as a filled bar: colour + length lead to the number */
+.nm-info-detail-body .nm-util {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 7px 2px;
+}
+.nm-info-detail-body .nm-util-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(8, 17, 24, 0.6);
+  overflow: hidden;
+}
+.nm-info-detail-body .nm-util-fill { height: 100%; border-radius: 4px; transition: width 0.6s, background 0.6s; }
+.nm-info-detail-body .nm-util span { font-variant-numeric: tabular-nums; font-weight: 600; }
 /* parallel-link stepper: ◀ n / m ▶ in the cable detail — steps the selection
    through the bundle's parallel strands */
 .nm-linknav-btn {
