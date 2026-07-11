@@ -8,8 +8,10 @@ scrape_configs:
     # SNMP polling of the peering switches via snmp_exporter. Targets are
     # enumerated from NetBox by the netbox-prometheus-sd timer (file_sd).
     - job_name: snmp-eos
-      scrape_interval: 30s
-      scrape_timeout: 25s
+      # some switches (e.g. switch03/04.sjc01) rate-limit SNMP and take
+      # ~45s for the full walk that others answer in 5s
+      scrape_interval: 60s
+      scrape_timeout: 55s
       metrics_path: /snmp
       params:
           module: [if_mib, eos_health]
