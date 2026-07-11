@@ -74,3 +74,50 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# ── NMS Grafana dashboard generator (systemd timer) ────────────────────
+- name: "SNMP exporter: Install NMS dashboard generator"
+  become: true
+  register: nms_dashboards_script
+  ansible.builtin.copy:
+    src: gen_nms_dashboards.py
+    dest: /opt/snmp_exporter/gen_nms_dashboards.py
+    owner: root
+    group: root
+    mode: ug=rwx,o=rx
+
+- name: "SNMP exporter: Template dashboard generator env"
+  become: true
+  ansible.builtin.template:
+    src: nms-dashboards.env.j2
+    dest: /opt/snmp_exporter/nms-dashboards.env
+    owner: root
+    group: root
+    mode: ug=rw,o=        # contains an API token
+
+- name: "SNMP exporter: Install dashboard generator systemd units"
+  become: true
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: ug=rw,o=r
+  loop:
+    - nms-dashboards.service
+    - nms-dashboards.timer
+
+- name: "SNMP exporter: Enable dashboard generator timer"
+  become: true
+  ansible.builtin.systemd_service:
+    name: nms-dashboards.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: "SNMP exporter: Regenerate dashboards now"
+  become: true
+  when: nms_dashboards_script.changed
+  ansible.builtin.systemd_service:
+    name: nms-dashboards.service
+    state: started

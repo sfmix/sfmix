@@ -1,0 +1,9 @@
+[Unit]
+Description=Regenerate SFMIX NMS Grafana dashboards from NetBox + Prometheus
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/snmp_exporter/nms-dashboards.env
+ExecStart=/usr/bin/python3 /opt/snmp_exporter/gen_nms_dashboards.py
