@@ -134,30 +134,44 @@ def group_eos_ports(ifnames):
     return cages
 
 
-def layout_eos(model, ifnames):
-    """Vendor/model-specific faceplate: list of (label, lanes, col, row).
+# Cage geometry: SFP cages are square; QSFP/QSFP-DD cages carry the wider
+# aspect ratio of the physical connector. Cells are (label, lanes, x_px,
+# row, w_px); layouts compute pixel x so blocks/gaps mirror the real
+# faceplate.
+SFP_W, QSFP_W, CAGE_H, GAP = 30, 52, 30, 5
+BLOCK_GAP = 26          # visual gap between port blocks
 
-    Arista fixed switches place odd ports on the top row, even below.
-    """
-    cages = group_eos_ports(ifnames)
+
+def _zigzag_block(cages, x0, w):
+    """Place ports odd-on-top/even-below starting at x0; returns cells."""
     cells = []
+    for i, (n, lanes) in enumerate(sorted(cages.items())):
+        col, row = i // 2, i % 2
+        cells.append((str(n), lanes, x0 + col * (w + GAP), row, w))
+    return cells
+
+
+def layout_eos(model, ifnames):
+    """Vendor/model-specific faceplate mirroring Arista's physical layouts."""
+    cages = group_eos_ports(ifnames)
     if "7280SR-48C6" in model:
-        # 48x SFP (1-48) then 6x QSFP (49-54) to the right
-        for n, lanes in cages.items():
-            if n <= 48:
-                col, row = (n - 1) // 2, (n - 1) % 2
-            else:
-                col, row = 24.35 + (n - 49) // 2, (n - 49) % 2
-            cells.append((str(n), lanes, col, row))
-        return cells, 27
+        # two blocks of 24x SFP with the 2x3 QSFP block in the middle
+        sfp_l = {n: v for n, v in cages.items() if n <= 24}
+        qsfp = {n: v for n, v in cages.items() if n >= 49}
+        sfp_r = {n: v for n, v in cages.items() if 25 <= n <= 48}
+        x = 0
+        cells = _zigzag_block(sfp_l, x, SFP_W)
+        x += 12 * (SFP_W + GAP) - GAP + BLOCK_GAP
+        cells += _zigzag_block(qsfp, x, QSFP_W)
+        x += 3 * (QSFP_W + GAP) - GAP + BLOCK_GAP
+        cells += _zigzag_block(sfp_r, x, SFP_W)
+        return cells
     if "7280CR3-36S" in model:
-        for n, lanes in cages.items():
-            cells.append((str(n), lanes, (n - 1) // 2, (n - 1) % 2))
-        return cells, 18
-    # generic EOS: zigzag odd/even
-    for n, lanes in cages.items():
-        cells.append((str(n), lanes, (n - 1) // 2, (n - 1) % 2))
-    return cells, max(1, (max(cages) + 1) // 2 if cages else 1)
+        # 36x QSFP, equally spaced, 2 rows of 18
+        return _zigzag_block(cages, 0, QSFP_W)
+    # generic EOS: zigzag, QSFP-width when the port has breakout lanes
+    w = QSFP_W if any(len(v) > 1 for v in cages.values()) else SFP_W
+    return _zigzag_block(cages, 0, w)
 
 
 NOKIA_RE = re.compile(r"^\d+/\d+/c(\d+)(?:/(\d+))?$")
@@ -167,8 +181,8 @@ def layout_generic(ifnames):
     """Non-EOS gear: physical-looking grid of whatever IF-MIB reports.
 
     Keeps only physical ports: Juniper ge-/xe-/et- (no logical .subunits),
-    Nokia connectors N/N/cN (lanes share the connector's cage like EOS
-    breakouts).
+    Nokia connectors N/N/cN (QSFP-DD-wide cages; lanes share the
+    connector's cage like EOS breakouts).
     """
     juniper = [i for i in ifnames
                if re.match(r"^(ge-|xe-|et-)\d", i) and "." not in i]
@@ -178,24 +192,23 @@ def layout_generic(ifnames):
         if m:
             nokia.setdefault(int(m.group(1)), []).append(i)
 
-    cells = []
     if nokia:
-        for conn, lanes in nokia.items():
+        for lanes in nokia.values():
             lanes.sort(key=lambda s: [int(x) for x in re.findall(r"\d+", s)])
-            cells.append((str(conn), lanes, (conn - 1) // 2, (conn - 1) % 2))
-        return cells, max(1, (max(nokia) + 1) // 2)
+        return _zigzag_block(nokia, 0, QSFP_W)
 
     phys = juniper or [i for i in ifnames if "." not in i][:48]
+    cells = []
     for idx, ifn in enumerate(sorted(
             phys, key=lambda s: [int(x) for x in re.findall(r"\d+", s)])):
         label = re.sub(r"^(ge-|xe-|et-)0/0/", "", ifn)
-        cells.append((label, [ifn], idx // 2, idx % 2))
-    return cells, max(1, (len(phys) + 1) // 2)
+        cells.append((label, [ifn], (idx // 2) * (SFP_W + GAP), idx % 2,
+                      SFP_W))
+    return cells
 
 
 # ── Canvas faceplate panel ───────────────────────────────────────────
 
-CAGE_W, CAGE_H, GAP = 38, 30, 5
 FP_TOP = 34   # room for the model label + legend swatches
 
 
@@ -220,9 +233,9 @@ def canvas_element(name, field, text, x, y, w, h, bg_field=True, fixed_bg=None,
 
 def faceplate_panel(dev, ifnames, grid_y):
     if dev["manufacturer"].lower() == "arista":
-        cells, ncols = layout_eos(dev["model"], ifnames)
+        cells = layout_eos(dev["model"], ifnames)
     else:
-        cells, ncols = layout_generic(ifnames)
+        cells = layout_generic(ifnames)
 
     elements = []
     # model tag + state legend swatches (state never color-alone)
@@ -236,15 +249,15 @@ def faceplate_panel(dev, ifnames, grid_y):
             f"legend-{lbl}", None, lbl, 330 + i * 105, 4, 96, 18,
             bg_field=False, fixed_bg=color, text_size=10))
 
-    for label, lanes, col, row in sorted(cells, key=lambda c: (c[3], c[2])):
-        x = int(col * (CAGE_W + GAP))
+    for label, lanes, x, row, cage_w in sorted(cells,
+                                               key=lambda c: (c[3], c[2])):
         y = FP_TOP + row * (CAGE_H + GAP)
-        lane_w = CAGE_W // max(1, len(lanes))
+        lane_w = cage_w // max(1, len(lanes))
         for li, lane in enumerate(lanes):
             txt = label if li == 0 else ""
             elements.append(canvas_element(
                 lane, lane, txt, x + li * lane_w, y,
-                lane_w if li < len(lanes) - 1 else CAGE_W - li * lane_w,
+                lane_w if li < len(lanes) - 1 else cage_w - li * lane_w,
                 CAGE_H))
 
     height_px = FP_TOP + 2 * (CAGE_H + GAP)
