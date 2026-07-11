@@ -792,16 +792,21 @@ def switch_view_dashboard():
 def front_panels_dashboard(devices_ifnames):
     p = []
     y = 0
+    by_site = {}
     for dev, ifnames in devices_ifnames:
-        fp = faceplate_panel(dev, ifnames, y)
-        fp["title"] = dev["name"]
-        fp["links"] = [{
-            "title": f"Switch View — {dev['name']}",
-            "url": (f"/d/sfmix-switch-view/switch-view"
-                    f"?var-switch={dev['name']}"),
-        }]
-        p.append(fp)
-        y += fp["gridPos"]["h"]
+        by_site.setdefault(dev["site"] or "unknown", []).append((dev, ifnames))
+    for site in sorted(by_site):
+        p.append(row(site, y)); y += 1
+        for dev, ifnames in by_site[site]:
+            fp = faceplate_panel(dev, ifnames, y)
+            fp["title"] = dev["name"]
+            fp["links"] = [{
+                "title": f"Switch View — {dev['name']}",
+                "url": (f"/d/sfmix-switch-view/switch-view"
+                        f"?var-switch={dev['name']}"),
+            }]
+            p.append(fp)
+            y += fp["gridPos"]["h"]
     d = dashboard(
         "sfmix-front-panels", "Front Panels", p,
         description="Live faceplate of every peering switch — port cells "
