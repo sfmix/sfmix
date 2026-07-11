@@ -7,14 +7,16 @@ rule_files:
 scrape_configs:
     # SNMP polling of the peering switches via snmp_exporter. Targets are
     # enumerated from NetBox by the netbox-prometheus-sd timer (file_sd).
+    # some switches (e.g. switch03/04.sjc01) rate-limit SNMP and take ~45s
+    # for a walk that others answer in 5s — hence the split into two jobs
+    # (interfaces vs health) with generous timeouts, so neither walk alone
+    # busts the scrape deadline.
     - job_name: snmp-eos
-      # some switches (e.g. switch03/04.sjc01) rate-limit SNMP and take
-      # ~45s for the full walk that others answer in 5s
       scrape_interval: 60s
       scrape_timeout: 55s
       metrics_path: /snmp
       params:
-          module: [if_mib, eos_health]
+          module: [if_mib]
           auth: [sfmix_v2c]
       file_sd_configs:
           - files:
@@ -33,6 +35,25 @@ scrape_configs:
             target_label: ifname
           - regex: ifName
             action: labeldrop
+    - job_name: snmp-eos-health
+      scrape_interval: 120s
+      scrape_timeout: 110s
+      metrics_path: /snmp
+      params:
+          module: [eos_health]
+          auth: [sfmix_v2c]
+      file_sd_configs:
+          - files:
+              - /opt/prometheus/file_sd/snmp_targets.json
+      relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: host
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: 127.0.0.1:9116
     # Portal metrics: NetBox-cache health + sfmix_peering_port_info (the
     # participant/ASN attribution joined onto SNMP series by recording rules).
     - job_name: ixp-portal
