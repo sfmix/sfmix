@@ -252,7 +252,12 @@ body {
 
 /* Physical members (L1) */
 .nd-pmembers { display: flex; flex-direction: column; gap: .65rem; }
-.nd-pmember { border: 1px solid #eee; border-radius: 6px; padding: .5rem .65rem; background: #fafafa; }
+.nd-pmember { border: 1px solid #eee; border-radius: 6px; padding: .5rem .65rem; background: #fafafa;
+  /* Deep-link target from the admin optics pages: land clear of the sticky
+     identity bar + logical-port header stack, and glow briefly so the right
+     port is findable on participants with many of them. */
+  scroll-margin-top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px) + 3.5rem); }
+.nd-pmember:target { border-color: #93c5fd; box-shadow: 0 0 0 3px #dbeafe; }
 .nd-pmember-down { opacity: .6; }
 .nd-pm-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .nd-pm-name { font-family: var(--font-mono); font-size: .82rem; font-weight: 600; color: var(--color-primary); }

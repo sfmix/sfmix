@@ -17,6 +17,7 @@ from django.http import (
     StreamingHttpResponse,
 )
 from django.shortcuts import redirect, render
+from django.utils.text import slugify
 from django.utils.timesince import timesince
 from django.utils.translation import gettext, ngettext
 
@@ -342,6 +343,12 @@ def _optic_band_label(band):
     }.get(band, "—")
 
 
+def _port_anchor(device, iface_name):
+    """Stable fragment id for one physical port, shared by the participant
+    detail page (as an element id) and the pages that deep-link into it."""
+    return "port-" + slugify(f"{device.split('.sfmix.org')[0]} {iface_name}")
+
+
 def _optic_meter_pos(rx_dbm, media_type=""):
     """Compute meter position (0-100%) using the type-specific RX range."""
     if rx_dbm is None:
@@ -640,6 +647,7 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
     phy = {
         "device": device,
         "name": iface_name,
+        "anchor": _port_anchor(device, iface_name),
         "link_status": link_status,
         "speed_mbps": speed_mbps,
         "speed_gbps": _format_speed_gbps(speed_mbps),
@@ -1912,6 +1920,18 @@ def optics_problems_view(request):
     except Exception as e:
         lg_error = str(e)
 
+    # (device, interface) -> participant, so each row can deep-link to the
+    # matching port section on the participant detail page.
+    port_to_participant: dict[tuple[str, str], dict] = {}
+    try:
+        port_to_participant = {
+            (p["device"], p["interface"]): p
+            for p in LookingGlassClient().get_participant_ports(token=token)
+            if p.get("device") and p.get("interface")
+        }
+    except Exception:
+        logger.warning("Failed to fetch participant ports", exc_info=True)
+
     problem_lanes = []
     hot_modules = []
     dark_ports = []
@@ -1921,9 +1941,15 @@ def optics_problems_view(request):
         lanes = entry.get("lanes") or []
         link_status = (entry.get("link_status") or "").lower()
         up = link_status in ("up", "connected")
+        device_full = entry.get("device") or ""
+        port_name = entry.get("name", "")
+        participant = port_to_participant.get((device_full, port_name))
         base = {
-            "device": (entry.get("device") or "").split(".sfmix.org")[0],
-            "port": entry.get("name", ""),
+            "device": device_full.split(".sfmix.org")[0],
+            "port": port_name,
+            "participant_asn": participant["asn"] if participant else None,
+            "participant_name": participant["name"] if participant else "",
+            "port_anchor": _port_anchor(device_full, port_name),
             "description": entry.get("description", "") or "",
             "link_status": entry.get("link_status", "") or "",
             "media_type": media,
