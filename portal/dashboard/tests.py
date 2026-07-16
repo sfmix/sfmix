@@ -229,6 +229,27 @@ class RealRouteserversTests(SimpleTestCase):
         self.assertEqual(len(_real_routeservers(rs)), 2)
 
 
+class AliceUptimeNormalizationTests(SimpleTestCase):
+    """Alice-LG reports uptime as a Go time.Duration (nanoseconds); the client
+    must normalize it to whole seconds before it reaches _format_uptime."""
+
+    def test_get_neighbors_converts_nanoseconds_to_seconds(self):
+        from unittest import mock
+
+        from dashboard.alice_client import AliceLGClient
+
+        client = AliceLGClient(base_url="https://alice.example")
+        # 494154620669700 ns ≈ 5.7 days; idle peer reports 0.
+        payload = {"neighbors": [
+            {"address": "192.0.2.1", "uptime": 494154620669700},
+            {"address": "192.0.2.2", "uptime": 0},
+        ]}
+        with mock.patch.object(client, "_get", return_value=payload):
+            neighbors = client.get_neighbors("rs-linux")
+        self.assertEqual(neighbors[0]["uptime"], 494154)
+        self.assertEqual(neighbors[1]["uptime"], 0)
+
+
 class ParityApplicableTests(SimpleTestCase):
     def test_routeserver_type_excluded(self):
         self.assertFalse(_parity_applicable({

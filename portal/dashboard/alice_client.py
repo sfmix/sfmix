@@ -40,9 +40,17 @@ class AliceLGClient:
 
         Returns list of neighbor dicts with 'address', 'asn', 'state',
         'routes_received', 'routes_accepted', 'routes_filtered', etc.
+
+        Alice-LG reports ``uptime`` as a Go ``time.Duration`` — an int64
+        count of nanoseconds — so we normalize it to whole seconds here,
+        at the single boundary every caller (and the devmock fixtures)
+        passes through.
         """
         data = self._get(f"/api/v1/routeservers/{rs_id}/neighbors")
-        return data.get("neighbors", [])
+        neighbors = data.get("neighbors", [])
+        for neighbor in neighbors:
+            neighbor["uptime"] = _uptime_ns_to_seconds(neighbor.get("uptime", 0))
+        return neighbors
 
     def get_all_neighbors(
         self, routeservers: list[dict[str, Any]] | None = None
@@ -81,6 +89,13 @@ class AliceLGClient:
         Returns a list of dicts, each augmented with 'rs_name' and 'rs_id'.
         """
         return [n for n in self.get_all_neighbors() if n.get("asn") == asn]
+
+
+def _uptime_ns_to_seconds(value: Any) -> int:
+    """Convert an Alice-LG ``uptime`` (Go time.Duration, nanoseconds) to seconds."""
+    if not isinstance(value, (int, float)):
+        return 0
+    return int(value // 1_000_000_000)
 
 
 def get_alice_client() -> AliceLGClient:
