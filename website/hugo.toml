@@ -111,14 +111,9 @@ defaultContentLanguageInSubdir = false
   weight = 1
 
 [[menus.services]]
-  name = "Looking Glass"
-  url = "/looking-glass/"
-  weight = 2
-
-[[menus.services]]
-  name = "Statistics"
+  name = "Statistics & Looking Glass"
   url = "/statistics/"
-  weight = 3
+  weight = 2
 
 [[menus.services]]
   name = "Speed Test"
@@ -126,9 +121,14 @@ defaultContentLanguageInSubdir = false
   weight = 4
 
 [[menus.services]]
+  name = "Participant Portal"
+  url = "https://portal.sfmix.org/"
+  weight = 5
+
+[[menus.services]]
   name = "AS40271 IP Network"
   url = "https://ip.sfmix.org/"
-  weight = 5
+  weight = 6
 
 [[menus.main]]
   # Distinct from the "Connect" dropdown category above so the label isn't
