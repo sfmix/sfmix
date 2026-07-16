@@ -161,10 +161,9 @@ AUTHENTICATION_BACKENDS = [
 if DEV_LOGIN_ENABLED:
     AUTHENTICATION_BACKENDS.append("django.contrib.auth.backends.ModelBackend")
 
-# Send unauthenticated users to the local login page (a safe public placeholder
-# with the SSO button — and the dev-login link in DEBUG), rather than bouncing
-# straight into the Authentik OIDC flow. This keeps gated pages usable in local
-# dev and gives prod a normal login landing instead of an auto-redirect.
+# Send unauthenticated users to /login/, which immediately kicks off the SSO
+# flow (Authentik OIDC in prod, the dev-login persona picker in DEBUG) — there
+# is no interstitial landing page with a button.
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
