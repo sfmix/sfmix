@@ -141,8 +141,16 @@ resource "authentik_provider_oauth2" "portal" {
     },
   ]
 
-  access_code_validity       = "minutes=1"
-  access_token_validity      = "hours=1"
+  access_code_validity = "minutes=1"
+  # 9h to match the portal's 9-hour web session (SESSION_COOKIE_AGE). Authentik
+  # sets the ID token's exp equal to the access-token validity, and the portal's
+  # mozilla-django-oidc SessionRefresh middleware bounces the session back into
+  # the OIDC flow once oidc_id_token_expiration passes (minus its 15-min renew
+  # grace). At the old hours=1 that re-auth fired ~45min in, and once the
+  # Authentik login session had lapsed the silent re-auth failed and logged the
+  # user out mid-day. hours=9 keeps a full working-day session without a re-auth
+  # bounce. Refresh token stays days=30.
+  access_token_validity      = "hours=9"
   refresh_token_validity     = "days=30"
   sub_mode                   = "hashed_user_id"
   issuer_mode                = "per_provider"
