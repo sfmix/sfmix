@@ -18,11 +18,11 @@ resource "authentik_provider_oauth2" "grafana" {
     },
   ]
 
-  access_code_validity   = "minutes=1"
-  access_token_validity  = "hours=1"
-  refresh_token_validity = "days=30"
-  sub_mode               = "hashed_user_id"
-  issuer_mode            = "per_provider"
+  access_code_validity       = "minutes=1"
+  access_token_validity      = "hours=1"
+  refresh_token_validity     = "days=30"
+  sub_mode                   = "hashed_user_id"
+  issuer_mode                = "per_provider"
   include_claims_in_id_token = true
 
   property_mappings = [
@@ -55,11 +55,11 @@ resource "authentik_provider_oauth2" "looking_glass" {
     },
   ]
 
-  access_code_validity   = "minutes=10"
-  access_token_validity  = "hours=1"
-  refresh_token_validity = "days=30"
-  sub_mode               = "hashed_user_id"
-  issuer_mode            = "per_provider"
+  access_code_validity       = "minutes=10"
+  access_token_validity      = "hours=1"
+  refresh_token_validity     = "days=30"
+  sub_mode                   = "hashed_user_id"
+  issuer_mode                = "per_provider"
   include_claims_in_id_token = true
 
   property_mappings = [
@@ -86,11 +86,11 @@ resource "authentik_provider_oauth2" "looking_glass_api" {
     },
   ]
 
-  access_code_validity   = "minutes=5"
-  access_token_validity  = "hours=1"
-  refresh_token_validity = "days=30"
-  sub_mode               = "hashed_user_id"
-  issuer_mode            = "per_provider"
+  access_code_validity       = "minutes=5"
+  access_token_validity      = "hours=1"
+  refresh_token_validity     = "days=30"
+  sub_mode                   = "hashed_user_id"
+  issuer_mode                = "per_provider"
   include_claims_in_id_token = true
 
   property_mappings = [
@@ -116,23 +116,24 @@ resource "authentik_provider_oauth2" "portal" {
       url           = "https://portal.sfmix.org/oidc/callback/"
     },
     {
-      # RP-initiated logout: the portal sends post_logout_redirect_uri=<home>
-      # so Authentik returns the browser to the public portal after ending the
-      # SSO session. Must be redirect_uri_type=logout — Authentik's end_session
-      # only honors post_logout_redirect_uri against LOGOUT-typed URIs (an
-      # authorization-typed entry is silently ignored). Requires provider
-      # >= 2026.x; the 2025.12 provider can't express redirect_uri_type.
-      matching_mode     = "strict"
-      url               = "https://portal.sfmix.org/"
+      # RP-initiated logout: the portal sends post_logout_redirect_uri=<the page
+      # the user signed out from> so Authentik returns the browser there after
+      # ending the SSO session. Regex (not strict) so any portal page validates,
+      # not just the home. Anchored to the portal origin via fullmatch, so it
+      # can't be abused to redirect off-site. Must be redirect_uri_type=logout —
+      # Authentik's end_session only honors post_logout_redirect_uri against
+      # LOGOUT-typed URIs. Requires provider >= 2026.x for redirect_uri_type.
+      matching_mode     = "regex"
+      url               = "https://portal\\.sfmix\\.org/.*"
       redirect_uri_type = "logout"
     },
   ]
 
-  access_code_validity   = "minutes=1"
-  access_token_validity  = "hours=1"
-  refresh_token_validity = "days=30"
-  sub_mode               = "hashed_user_id"
-  issuer_mode            = "per_provider"
+  access_code_validity       = "minutes=1"
+  access_token_validity      = "hours=1"
+  refresh_token_validity     = "days=30"
+  sub_mode                   = "hashed_user_id"
+  issuer_mode                = "per_provider"
   include_claims_in_id_token = true
 
   property_mappings = [

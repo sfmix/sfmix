@@ -18,7 +18,7 @@ from django.http import (
 )
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils.http import urlencode
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.utils.text import slugify
 from django.utils.timesince import timesince
 from django.utils.translation import gettext, ngettext
@@ -85,8 +85,18 @@ def logout_view(request):
     # Capture the OIDC id_token before clearing the session so we can also end
     # the Authentik (IdP) session. Without this, /login/'s immediate SSO bounce
     # would silently re-authenticate the user and "sign out" would appear to do
-    # nothing. Lands the browser back on the portal's public home afterwards.
+    # nothing.
     id_token = request.session.get("oidc_id_token")
+
+    # Land back on the page the user signed out from, if it's a safe same-origin
+    # path; otherwise the portal home. build_absolute_uri turns it into the
+    # post_logout_redirect_uri Authentik validates against its logout allow-list.
+    next_url = request.GET.get("next")
+    if not (next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    )):
+        next_url = "/"
+
     auth_logout(request)
 
     end_session = getattr(settings, "OIDC_OP_END_SESSION_ENDPOINT", "")
@@ -95,10 +105,10 @@ def logout_view(request):
     if end_session and id_token and not dev:
         params = {
             "id_token_hint": id_token,
-            "post_logout_redirect_uri": request.build_absolute_uri("/"),
+            "post_logout_redirect_uri": request.build_absolute_uri(next_url),
         }
         return redirect(f"{end_session}?{urlencode(params)}")
-    return redirect("/")
+    return redirect(next_url)
 
 
 # ── Dashboard views ─────────────────────────────────────────────────
