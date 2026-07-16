@@ -561,14 +561,35 @@ body {
 
 /* z-index establishes a stacking context for the whole nav so its hamburger
    menu and dropdowns always layer above page content — including the sticky
-   participant-detail headers (z-index 30). The template's `relative` class
-   gives it the needed positioning; pinned here too so the CSS is self-contained. */
-.site-nav { background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 50; }
+   participant-detail headers (z-index 30). Sticky + shadow mirror the sfmix.org
+   / ip.sfmix.org header so the portal reads as the same site. The template's
+   `sticky` class gives it the needed positioning; pinned here too so the CSS is
+   self-contained. */
+.site-nav { background: var(--color-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 50; }
 .site-nav-logo { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+/* Regular nav link — full nav height with an orange accent underline on hover,
+   the signature interaction of the sfmix.org / ip.sfmix.org top nav. */
+.site-nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 4rem; /* matches the nav's h-16 so the underline sits on the bar's edge */
+  padding: 0 0.9rem;
+  color: rgba(255,255,255,0.9);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .15s, background .15s, box-shadow .15s;
+}
+.site-nav-link:hover { color: #fff; background: rgba(255,255,255,0.06); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.site-nav-link.is-signin { font-weight: 500; }
+.site-nav-link.is-signin:hover { color: #fff; }
 /* Nav links never wrap or shrink — keeps "Sign out", "Gen Z" etc. on one line,
    and lets the nav measure their true intrinsic width to decide when to collapse. */
 .nav-links { white-space: nowrap; }
 .nav-links > * { flex-shrink: 0; }
+/* In the collapsed mobile panel the links stack, so drop the full bar height and
+   left-align padding — same behavior as the sfmix.org mobile nav. */
+.nav-menu .site-nav-link { height: auto; padding: 0.35rem 0; }
+.nav-menu .site-nav-link:hover { background: transparent; box-shadow: none; }
 /* Drop-down panel shown when the links don't fit inline (class applied only when collapsed). */
 .nav-menu { background: var(--color-primary); box-shadow: 0 8px 16px rgba(0,0,0,0.18); }
 /* Admin menu toggle — indigo accent so it reads as distinct from the regular (teal) nav links. */
