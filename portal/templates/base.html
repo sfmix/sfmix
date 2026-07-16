@@ -70,7 +70,7 @@
             </div>
           </div>
         {% endif %}
-        <a href="{% url 'logout' %}" class="text-white/70 hover:text-white transition">{% translate "Sign out" %}</a>
+        <a href="{% url 'logout' %}?next={{ request.get_full_path|urlencode }}" class="text-white/70 hover:text-white transition">{% translate "Sign out" %}</a>
       {% else %}
         <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="text-white font-medium hover:text-amber-300 transition">{% translate "Sign in" %}</a>
       {% endif %}
