@@ -17,6 +17,8 @@ from django.http import (
     StreamingHttpResponse,
 )
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.text import slugify
 from django.utils.timesince import timesince
 from django.utils.translation import gettext, ngettext
@@ -62,11 +64,21 @@ def _ip_in_trusted_networks(ip_str):
 # ── Auth views ──────────────────────────────────────────────────────
 
 def login_view(request):
+    """Kick straight into SSO — there's no interstitial page.
+
+    In local dev, SSO (Authentik) is unreachable, so we bounce to the dev-login
+    persona picker instead of the real OIDC flow.
+    """
     if request.user.is_authenticated:
         return redirect("/")
-    return render(request, "dashboard/login.html", {
-        "dev_login_enabled": getattr(settings, "DEV_LOGIN_ENABLED", False),
-    })
+    if getattr(settings, "DEV_LOGIN_ENABLED", False):
+        target = reverse("dev_login")
+    else:
+        target = reverse("oidc_authentication_init")
+    next_url = request.GET.get("next")
+    if next_url:
+        target = f"{target}?{urlencode({'next': next_url})}"
+    return redirect(target)
 
 
 def logout_view(request):
