@@ -1,6 +1,6 @@
 ---
 title: "Estadísticas y Looking Glass"
-aliases: ["/looking-glass/"]
+aliases: ["/es/looking-glass/"]
 layout: "video-header"
 video: "video/route-servers-bg.mp4"
 mobile_image: "img/mobile-sf-night.jpg"
