@@ -1,6 +1,6 @@
 ---
 title: "stats & looking glass 📊🔭"
-aliases: ["/looking-glass/"]
+aliases: ["/genz/looking-glass/"]
 layout: "video-header"
 video: "video/route-servers-bg.mp4"
 mobile_image: "img/mobile-sf-night.jpg"
