@@ -115,6 +115,13 @@ resource "authentik_provider_oauth2" "portal" {
       matching_mode = "strict"
       url           = "https://portal.sfmix.org/oidc/callback/"
     },
+    {
+      # RP-initiated logout: the portal sends post_logout_redirect_uri=<home>
+      # so Authentik returns the browser to the public portal after ending the
+      # SSO session. Validated against this same allow-list.
+      matching_mode = "strict"
+      url           = "https://portal.sfmix.org/"
+    },
   ]
 
   access_code_validity   = "minutes=1"
