@@ -161,6 +161,12 @@ AUTHENTICATION_BACKENDS = [
 if DEV_LOGIN_ENABLED:
     AUTHENTICATION_BACKENDS.append("django.contrib.auth.backends.ModelBackend")
 
+# Web sessions last 9 hours (a working day) rather than Django's 2-week
+# default, and the clock resets on each request so an active user is not
+# logged out mid-session.
+SESSION_COOKIE_AGE = 9 * 60 * 60  # 9 hours, in seconds
+SESSION_SAVE_EVERY_REQUEST = True
+
 # Send unauthenticated users to /login/, which immediately kicks off the SSO
 # flow (Authentik OIDC in prod, the dev-login persona picker in DEBUG) — there
 # is no interstitial landing page with a button.
