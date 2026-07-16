@@ -4,11 +4,12 @@ Provides typed access to the Looking Glass REST API for fetching
 live network data (interface status, optics, etc.).
 """
 
-import threading
 from typing import Any
 
 import httpx
 from django.conf import settings
+
+from .http_pool import get_with_retry, pooled_client
 
 # Split timeout: a short connect budget (fail fast if the TLS front-end is
 # unreachable) and a longer read budget (backend device/DB fetches can be slow).
@@ -16,40 +17,13 @@ from django.conf import settings
 # into the connect budget and vice versa.
 _TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=10.0, pool=5.0)
 
-# Connection pooling with keep-alive. Previously a fresh httpx.Client (and thus a
-# full TCP+TLS handshake) was created for *every* API call, so one dashboard
-# render triggered a burst of handshakes from a single source IP — which hammered
-# the LG front-end and surfaced intermittently as
-# "_ssl.c:993: The handshake operation timed out". Reusing connections amortises
-# the handshake across many requests.
-_LIMITS = httpx.Limits(max_keepalive_connections=10, max_connections=20, keepalive_expiry=60.0)
-
-# Transient transport failures worth one retry: a stale pooled connection or a
-# momentarily-saturated front-end. Read timeouts are deliberately excluded — a
-# genuinely slow backend should not be retried into double load.
-_RETRYABLE = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout, httpx.RemoteProtocolError)
-
-# One process-wide client, created lazily. httpx.Client is safe to share across
-# threads, so all worker threads reuse the same connection pool.
-_shared_client: httpx.Client | None = None
-_shared_client_lock = threading.Lock()
-
-
-def _client() -> httpx.Client:
-    global _shared_client
-    if _shared_client is None:
-        with _shared_client_lock:
-            if _shared_client is None:
-                _shared_client = httpx.Client(timeout=_TIMEOUT, limits=_LIMITS)
-    return _shared_client
-
 
 class LookingGlassClient:
     """Client for the Looking Glass REST API."""
 
     def __init__(self, base_url: str | None = None, timeout: float = 10.0):
         self.base_url = (base_url or getattr(settings, "IXP_LOOKING_GLASS_URL", "")).rstrip("/")
-        # Retained for API compatibility; the shared client owns the real timeout.
+        # Retained for API compatibility; the shared pooled client owns the real timeout.
         self.timeout = timeout
 
     def _get(self, path: str, token: str | None = None, params: dict[str, str] | None = None) -> Any:
@@ -67,18 +41,11 @@ class LookingGlassClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        url = f"{self.base_url}{path}"
-        client = _client()
-        last_exc: Exception | None = None
-        for attempt in range(2):  # one initial try + one retry on transient failures
-            try:
-                resp = client.get(url, headers=headers, params=params)
-                resp.raise_for_status()
-                return resp.json()
-            except _RETRYABLE as exc:
-                last_exc = exc
-                continue
-        raise last_exc  # type: ignore[misc]
+        resp = get_with_retry(
+            pooled_client("lg", _TIMEOUT), f"{self.base_url}{path}", headers=headers, params=params
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     def get_interfaces_status(self, token: str | None = None, asn: int | None = None) -> list[dict[str, Any]]:
         """Get interface status summary from all devices."""
@@ -209,7 +176,7 @@ class LookingGlassClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         url = f"{self.base_url}/api/v1/nd-events/{event_id}/pcap"
-        with _client().stream("GET", url, headers=headers) as resp:
+        with pooled_client("lg", _TIMEOUT).stream("GET", url, headers=headers) as resp:
             resp.raise_for_status()
             yield from resp.iter_bytes()
 

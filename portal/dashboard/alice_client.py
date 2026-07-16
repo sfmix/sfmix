@@ -10,7 +10,13 @@ from typing import Any
 import httpx
 from django.conf import settings
 
+from .http_pool import get_with_retry, pooled_client
+
 logger = logging.getLogger(__name__)
+
+# Short connect budget + longer read budget (route-server neighbor dumps can be
+# large). See http_pool for why a pooled, kept-alive client matters.
+_TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=10.0, pool=5.0)
 
 
 class AliceLGClient:
@@ -18,14 +24,14 @@ class AliceLGClient:
 
     def __init__(self, base_url: str | None = None, timeout: float = 10.0):
         self.base_url = (base_url or getattr(settings, "ALICE_LG_URL", "")).rstrip("/")
+        # Retained for API compatibility; the shared pooled client owns the real timeout.
         self.timeout = timeout
 
     def _get(self, path: str) -> Any:
         """Make a GET request to the Alice API."""
-        with httpx.Client(timeout=self.timeout) as client:
-            resp = client.get(f"{self.base_url}{path}")
-            resp.raise_for_status()
-            return resp.json()
+        resp = get_with_retry(pooled_client("alice", _TIMEOUT), f"{self.base_url}{path}")
+        resp.raise_for_status()
+        return resp.json()
 
     def get_routeservers(self) -> list[dict[str, Any]]:
         """List configured route servers.

@@ -22,7 +22,13 @@ from typing import Any
 import httpx
 from django.conf import settings
 
+from .http_pool import get_with_retry, pooled_client
+
 logger = logging.getLogger(__name__)
+
+# Prometheus range queries can be genuinely slow, so the read budget is longer
+# than the other clients'. See http_pool for the pooling rationale.
+_TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=10.0, pool=5.0)
 
 # Range key -> (lookback_window_seconds, step_seconds). Both the window and the
 # resolution are fixed server-side; the client may only choose a key from here.
@@ -43,17 +49,18 @@ class PrometheusClient:
 
     def __init__(self, base_url: str | None = None, timeout: float = 15.0):
         self.base_url = (base_url or getattr(settings, "PROMETHEUS_URL", "")).rstrip("/")
+        # Retained for API compatibility; the shared pooled client owns the real timeout.
         self.timeout = timeout
 
     def query_range(self, query: str, start: int, end: int, step: int) -> list[dict[str, Any]]:
         """Run a range query and return the raw ``data.result`` list."""
-        with httpx.Client(timeout=self.timeout) as client:
-            resp = client.get(
-                f"{self.base_url}/api/v1/query_range",
-                params={"query": query, "start": start, "end": end, "step": f"{step}s"},
-            )
-            resp.raise_for_status()
-            payload = resp.json()
+        resp = get_with_retry(
+            pooled_client("prom", _TIMEOUT),
+            f"{self.base_url}/api/v1/query_range",
+            params={"query": query, "start": start, "end": end, "step": f"{step}s"},
+        )
+        resp.raise_for_status()
+        payload = resp.json()
         if payload.get("status") != "success":
             raise RuntimeError(payload.get("error", "prometheus query failed"))
         return payload["data"]["result"]
