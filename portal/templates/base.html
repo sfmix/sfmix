@@ -72,7 +72,7 @@
         {% endif %}
         <a href="{% url 'logout' %}" class="text-white/70 hover:text-white transition">{% translate "Sign out" %}</a>
       {% else %}
-        <a href="{% url 'login' %}" class="text-white font-medium hover:text-amber-300 transition">{% translate "Sign in" %}</a>
+        <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="text-white font-medium hover:text-amber-300 transition">{% translate "Sign in" %}</a>
       {% endif %}
 
       {# Language picker — posts to the set_language view; it stores the choice in the django_language cookie and redirects back here. #}
