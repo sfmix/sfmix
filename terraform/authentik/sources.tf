@@ -18,6 +18,11 @@ resource "authentik_source_oauth" "github" {
   enrollment_flow     = data.authentik_flow.default_source_enrollment.id
   user_path_template  = "users"
 
+  # Set live in Authentik; declared here to match state (eliminates drift).
+  # NOTE: this is GitHub's *Actions* OIDC JWKS, not the OAuth login source's —
+  # it looks vestigial. Kept to match reality; safe to drop later with an apply.
+  oidc_jwks_url = "https://token.actions.githubusercontent.com/.well-known/jwks"
+
   property_mappings       = [authentik_property_mapping_source_oauth.github_user.id]
   property_mappings_group = [authentik_property_mapping_source_oauth.github_group.id]
 }
@@ -44,6 +49,12 @@ resource "authentik_source_oauth" "peeringdb" {
 
   oidc_well_known_url = "https://auth.peeringdb.com/.well-known/openid-configuration"
   oidc_jwks_url       = "https://auth.peeringdb.com/oauth2/.well-known/jwks.json"
+
+  # Discovered from oidc_well_known_url and populated in Authentik; declared
+  # explicitly here to match state and stop the perpetual plan drift.
+  access_token_url  = "https://auth.peeringdb.com/oauth2/token/"
+  authorization_url = "https://auth.peeringdb.com/oauth2/authorize/"
+  profile_url       = "https://auth.peeringdb.com/oauth2/userinfo/"
 
   property_mappings       = [authentik_property_mapping_source_oauth.peeringdb_user.id]
   property_mappings_group = [authentik_property_mapping_source_oauth.peeringdb_group.id]
