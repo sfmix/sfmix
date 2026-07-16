@@ -99,6 +99,13 @@
         nginx_remove_default_vhost: true
         nginx_server_tokens: "off"
         nginx_extra_http_options: |
+          # Resume repeat TLS sessions instead of doing a full handshake every
+          # time. Clients that open many short connections (e.g. the portal
+          # fetching several LG endpoints per page) were paying a full,
+          # CPU-bound handshake per connection, which under bursts surfaced as
+          # "handshake operation timed out" on the client.
+          ssl_session_cache shared:SSL:10m;
+          ssl_session_timeout 1h;
           limit_req_zone $binary_remote_addr zone=ip:10m rate=5r/s;
         nginx_vhosts: []
 
