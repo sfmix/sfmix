@@ -48,7 +48,21 @@
       <span x-show="!search">{{ events|length }} {% translate "events" %}</span>
     </span>
   </div>
-  <div class="hidden md:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  {# ── Mobile / narrow-viewport sort ──────────────────────────── #}
+  <div class="lg:hidden mb-3">
+    <select @change="mobileSortBy($event.target.value)"
+            class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
+      <option value="opened">{% translate "Sort by Opened" %}</option>
+      <option value="kind">{% translate "Sort by Kind" %}</option>
+      <option value="subject">{% translate "Sort by Subject" %}</option>
+      <option value="participant">{% translate "Sort by Participant" %}</option>
+      <option value="flaps">{% translate "Sort by Flaps" %}</option>
+      <option value="status">{% translate "Sort by Status" %}</option>
+    </select>
+  </div>
+
+  {# ── Desktop table (wide viewports only) ────────────────────── #}
+  <div class="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-left text-gray-500 sticky top-0 z-10">
         <tr>
@@ -146,44 +160,72 @@
     </table>
   </div>
 
-  {# Mobile: compact list, tap to expand. Active events float to the top. #}
-  <div class="md:hidden mr-list">
+  {# Narrow viewports: one compact card per event; grid reflows 1→2 columns. #}
+  <div class="lg:hidden grid gap-3 sm:grid-cols-2">
     {% for ev in events %}
-    <div class="mr-row mx-row{% if not ev.closed and not ev.is_reflection %} is-warn{% endif %}"
-         x-show="rowVisible($el)"
-         x-data="{ open: false }" @click="open = !open"
-         data-search="{{ ev.kind }} {{ ev.classification|default:'' }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}">
-      <div class="mr-top">
-        <span class="mr-dot {% if not ev.closed and not ev.is_reflection %}mr-dot-warn{% else %}mr-dot-up{% endif %}"></span>
-        <span class="mr-id font-mono">{% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}</span>
-        <span class="mc-spacer"></span>
-        <span class="mr-asn">{% if ev.asn %}AS{{ ev.asn }}{% else %}—{% endif %}</span>
-        <span class="mx-chev" :class="open && 'open'">&#9662;</span>
-      </div>
-      <div class="mr-meta">
-        {% if ev.is_reflection %}{% translate "reflection" %}{% elif ev.is_sweep %}{% translate "MAC sweep" %}{% else %}{% translate "new MAC" %}{% endif %}
-        <span class="sep">&middot;</span>{{ ev.opened_display }}
-      </div>
-      <div class="mx-detail" x-show="open" x-cloak @click.stop>
-        <dl class="dl-rows">
-          <div class="dl-row"><dt>{% translate "Opened" %}</dt><dd>{{ ev.opened_display|default:"—" }}</dd></div>
-          <div class="dl-row"><dt>{% translate "Participant" %}</dt><dd style="font-family:inherit">{% if ev.asn %}AS{{ ev.asn }} {{ ev.tenant }}{% else %}{% translate "unassigned" %}{% endif %}</dd></div>
-          {% if ev.is_reflection %}
-          <div class="dl-row"><dt>{% translate "Reflector MAC" %}</dt><dd>{{ ev.new_mac }}</dd></div>
-          <div class="dl-row"><dt>{% translate "Reflected IPs" %}</dt><dd style="font-family:inherit">{{ ev.claimed_ips|join:", " }}</dd></div>
-          {% elif ev.is_sweep %}
-          <div class="dl-row"><dt>{% translate "Offending MAC" %}</dt><dd>{{ ev.new_mac }}</dd></div>
-          <div class="dl-row"><dt>{% translate "Claimed IPs" %}</dt><dd style="font-family:inherit">{{ ev.claimed_ips|join:", " }}</dd></div>
+    <div x-show="rowVisible($el)"
+         class="bg-white border border-gray-200 rounded-lg p-4{% if not ev.closed and not ev.is_reflection %} border-l-4 border-l-red-400{% endif %}"
+         data-search="{{ ev.kind }} {{ ev.classification|default:'' }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}"
+         data-sort-opened="{{ ev.opened_at }}"
+         data-sort-kind="{{ ev.kind }}"
+         data-sort-subject="{% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}"
+         data-sort-participant="{% if ev.asn %}{{ ev.asn }}{% endif %}"
+         data-sort-flaps="{{ ev.flap_count|default:0 }}"
+         data-sort-status="{% if ev.closed %}1{% else %}0{% endif %}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-mono text-sm font-semibold text-gray-900 break-all">
+            {% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}<span class="ml-1 font-sans font-normal text-xs text-gray-400">{{ ev.family }}</span>
+          </div>
+          <div class="mt-1">
+            {% if ev.is_reflection %}
+            <span class="nd-kind-badge nd-kind-reflect" title="{% translate 'A bridging participant re-flooded ND frames verbatim during a flood: the outer source MAC was rewritten to its own, but the NDP link-layer option still carries the original owner’s MAC. Benign flood reflection, not spoofing.' %}">{% translate "reflection" %}</span>
+            {% elif ev.is_sweep %}
+            <span class="nd-kind-badge nd-kind-sweep" title="{% translate 'One MAC claiming many IPs' %}">{% translate "MAC sweep" %}</span>
+            {% else %}
+            <span class="nd-kind-badge nd-kind-newmac" title="{% translate 'A new MAC appeared on an IP that already had others' %}">{% translate "new MAC" %}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="shrink-0 text-right">
+          {% if ev.closed %}
+          <span class="text-xs text-gray-400">{% translate "closed" %}</span>
+          {% elif ev.is_reflection %}
+          <span class="nd-warn-flag nd-warn-flag-info">{% translate "active" %}</span>
           {% else %}
-          <div class="dl-row"><dt>{% translate "Old MAC(s)" %}</dt><dd>{{ ev.old_macs|join:", " }}</dd></div>
-          <div class="dl-row"><dt>{% translate "New MAC" %}</dt><dd>{{ ev.new_mac }}</dd></div>
+          <span class="nd-warn-flag nd-warn-flag-crit">{% translate "active" %}</span>
           {% endif %}
-          <div class="dl-row"><dt>{% translate "Flaps" %}</dt><dd>{{ ev.flap_count|default:"—" }}</dd></div>
-          <div class="dl-row"><dt>{% translate "Status" %}</dt><dd class="{% if not ev.closed and not ev.is_reflection %}crit{% endif %}">{% if ev.closed %}{% translate "closed" %}{% else %}{% translate "active" %}{% endif %}</dd></div>
-          {% if ev.evidence_id %}
-          <div class="dl-row"><dt>{% translate "Evidence" %}</dt><dd style="font-family:inherit"><a href="{% url 'nd_event_pcap' ev.id %}" class="back-link" @click.stop>{% translate "download pcap" %}</a></dd></div>
+          {% if ev.last_seen_ago %}<div class="text-[11px] text-gray-400 mt-0.5">{% blocktranslate with a=ev.last_seen_ago %}last {{ a }} ago{% endblocktranslate %}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
+        <div class="col-span-2">
+          <span class="text-gray-400">{% translate "Participant" %}</span>
+          {% if ev.asn %}
+          <a href="{% url 'participant_detail' ev.asn %}" class="back-link">AS{{ ev.asn }}</a>
+          <span class="text-gray-700">{{ ev.tenant|default:"" }}</span>
+          {% else %}<span class="text-gray-400">{% translate "unassigned" %}</span>{% endif %}
+        </div>
+        <div class="col-span-2">
+          <span class="text-gray-400">{% translate "Detail" %}</span>
+          {% if ev.is_reflection %}
+          <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP reflected{% plural %}{{ n }} IPs reflected{% endblocktranslate %}</span>
+          <span class="font-mono text-[11px] text-gray-500 break-all">{{ ev.claimed_ips|join:", " }}</span>
+          {% elif ev.is_sweep %}
+          <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP claimed{% plural %}{{ n }} IPs claimed{% endblocktranslate %}</span>
+          <span class="font-mono text-[11px] text-gray-500 break-all">{{ ev.claimed_ips|join:", " }}</span>
+          {% else %}
+          <span class="font-mono text-[11px] text-gray-500 break-all">{{ ev.old_macs|join:", " }}</span>
+          <span class="text-gray-400">&rarr;</span>
+          <span class="font-mono text-[11px] text-gray-900 break-all">{{ ev.new_mac }}</span>
           {% endif %}
-        </dl>
+        </div>
+        <div><span class="text-gray-400">{% translate "Opened" %}</span> <span class="text-gray-700">{{ ev.opened_display|default:"—" }}</span></div>
+        <div><span class="text-gray-400">{% translate "Flaps" %}</span> <span class="text-gray-700">{{ ev.flap_count|default:"—" }}</span></div>
+        {% if ev.evidence_id %}
+        <div class="col-span-2"><span class="text-gray-400">{% translate "Evidence" %}</span> <a href="{% url 'nd_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a></div>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
