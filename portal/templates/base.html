@@ -17,9 +17,11 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
-  <nav class="site-nav h-16 px-6 flex items-center justify-between relative gap-4"
+  <nav class="site-nav h-16 px-6 flex items-center justify-between gap-4"
        x-data="responsiveNav()">
-    <a x-ref="logo" href="/" class="flex items-center gap-3 no-underline shrink-0">
+    {% comment %}Logo links back to the main site (sfmix.org), matching ip.sfmix.org's
+    nav — the portal is a section of SFMIX, so the mark returns to the site root.{% endcomment %}
+    <a x-ref="logo" href="https://sfmix.org/" class="flex items-center gap-3 no-underline shrink-0">
       <img src="{% static 'img/sfmix-logo-large.png' %}" alt="SFMIX" class="site-nav-logo h-8">
       <span class="text-white/70 text-sm font-medium hidden sm:inline">{% translate "Participant Portal" %}</span>
     </a>
@@ -37,18 +39,18 @@
          class="nav-links text-sm"
          :class="collapsed
            ? 'nav-menu flex flex-col items-start gap-3 absolute left-0 right-0 top-16 px-6 py-4 z-20'
-           : 'flex flex-row items-center gap-4'">
-      <a href="{% url 'participants_list' %}" class="text-white/70 hover:text-white transition">{% translate "Participants" %}</a>
-      <a href="{% url 'ix_statistics' %}" class="text-white/70 hover:text-white transition">{% translate "Statistics" %}</a>
-      <a href="{% url 'route_server_parity' %}" class="text-white/70 hover:text-white transition">{% translate "Route Servers" %}</a>
+           : 'flex flex-row items-stretch gap-1'">
+      <a href="{% url 'participants_list' %}" class="site-nav-link">{% translate "Participants" %}</a>
+      <a href="{% url 'ix_statistics' %}" class="site-nav-link">{% translate "Statistics" %}</a>
+      <a href="{% url 'route_server_parity' %}" class="site-nav-link">{% translate "Route Servers" %}</a>
       {% if user.is_authenticated %}
-        <span class="text-white/60 hidden sm:inline">{{ user.email }}</span>
+        <span class="text-white/60 hidden sm:flex items-center px-3">{{ user.email }}</span>
         {% if is_ix_admin %}
           {# All admin-only pages live under one dropdown, accented in indigo to set it apart from the regular (teal) nav links. #}
           {% comment %}When collapsed into the mobile panel, the submenu expands inline (accordion,
           indented) instead of as an absolute popover — which, anchored to the narrow left-aligned
           toggle, would overflow off the left edge. Mirrors the sfmix.org mobile nav.{% endcomment %}
-          <div class="relative" :class="collapsed && 'w-full'" x-data="{ open: false }" @click.away="open = false">
+          <div class="relative" :class="collapsed ? 'w-full' : 'flex items-center'" x-data="{ open: false }" @click.away="open = false">
             <button @click="open = !open"
                     class="nav-admin-toggle flex items-center gap-1 px-2.5 py-0.5 rounded text-sm font-medium transition"
                     :aria-expanded="open">
@@ -70,15 +72,15 @@
             </div>
           </div>
         {% endif %}
-        <a href="{% url 'logout' %}?next={{ request.get_full_path|urlencode }}" class="text-white/70 hover:text-white transition">{% translate "Sign out" %}</a>
+        <a href="{% url 'logout' %}?next={{ request.get_full_path|urlencode }}" class="site-nav-link">{% translate "Sign out" %}</a>
       {% else %}
-        <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="text-white font-medium hover:text-amber-300 transition">{% translate "Sign in" %}</a>
+        <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="site-nav-link is-signin">{% translate "Sign in" %}</a>
       {% endif %}
 
       {# Language picker — posts to the set_language view; it stores the choice in the django_language cookie and redirects back here. #}
       {% get_current_language as LANGUAGE_CODE %}
       {% get_language_info_list for LANGUAGES as languages %}
-      <div class="relative" :class="collapsed && 'w-full'" x-data="{ open: false }" @click.away="open = false">
+      <div class="relative" :class="collapsed ? 'w-full' : 'flex items-center'" x-data="{ open: false }" @click.away="open = false">
         <button @click="open = !open" class="flex items-center gap-1 text-white/70 hover:text-white transition" aria-label="{% translate 'Change language' %}">
           {% for lang in languages %}{% if lang.code == LANGUAGE_CODE %}{{ lang.name_local|capfirst }}{% endif %}{% endfor %}
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
