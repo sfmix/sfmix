@@ -2,6 +2,10 @@
 {% load i18n %}
 {% block title %}{% translate "ND Anomaly Events" %} – SFMIX Portal{% endblock %}
 
+{# Wider than the default max-w-5xl so the 8-column table isn't forced into a
+   horizontal scroll on large displays. #}
+{% block container_class %}max-w-[1800px]{% endblock %}
+
 {% block content %}
 <div class="mb-4">
   <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
@@ -128,10 +132,10 @@
           <td class="px-4 py-2 text-xs">
             {% if ev.is_reflection %}
             <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP reflected{% plural %}{{ n }} IPs reflected{% endblocktranslate %}</span>
-            <div class="font-mono text-[11px] text-gray-500 truncate max-w-xs" title="{{ ev.claimed_ips|join:', ' }}">{{ ev.claimed_ips|join:", " }}</div>
+            <div class="font-mono text-[11px] text-gray-500 break-all max-w-md">{{ ev.claimed_ips|join:", " }}</div>
             {% elif ev.is_sweep %}
             <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP claimed{% plural %}{{ n }} IPs claimed{% endblocktranslate %}</span>
-            <div class="font-mono text-[11px] text-gray-500 truncate max-w-xs" title="{{ ev.claimed_ips|join:', ' }}">{{ ev.claimed_ips|join:", " }}</div>
+            <div class="font-mono text-[11px] text-gray-500 break-all max-w-md">{{ ev.claimed_ips|join:", " }}</div>
             {% else %}
             <span class="font-mono text-[11px] text-gray-500">{{ ev.old_macs|join:", " }}</span>
             <span class="text-gray-400">&rarr;</span>
@@ -160,8 +164,8 @@
     </table>
   </div>
 
-  {# Narrow viewports: one compact card per event; grid reflows 1→2 columns. #}
-  <div class="lg:hidden grid gap-3 sm:grid-cols-2">
+  {# Narrow viewports: one compact card per event, always stacked one-per-row. #}
+  <div class="lg:hidden grid gap-3">
     {% for ev in events %}
     <div x-show="rowVisible($el)"
          class="bg-white border border-gray-200 rounded-lg p-4{% if not ev.closed and not ev.is_reflection %} border-l-4 border-l-red-400{% endif %}"
