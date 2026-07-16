@@ -12,13 +12,16 @@ resource "authentik_brand" "sfmix" {
   default          = true
   branding_title   = "SFMIX"
   branding_logo    = "https://sfmix.org/img/sfmix-logo-large.png"
-  branding_favicon = "https://sfmix.org/img/sfmix-logo-large.png"
+  branding_favicon = "https://sfmix.org/favicon.ico"
 
   flow_authentication = authentik_flow.sfmix_authentication.uuid
   flow_invalidation   = data.authentik_flow.default_invalidation.id
   flow_device_code    = authentik_flow.device_code.uuid
 
-  branding_custom_css = <<-CSS
+  # chomp() drops the heredoc's trailing newline so this matches exactly what
+  # Authentik stores (no trailing newline) — otherwise the one-byte difference
+  # shows as perpetual plan drift on every run.
+  branding_custom_css = chomp(<<-CSS
     /*
      * SFMIX Brand — login.sfmix.org
      * Colors from documentation/sfmix-brand-style-guide.md
@@ -56,4 +59,5 @@ resource "authentik_brand" "sfmix" {
       display: none;
     }
   CSS
+  )
 }
