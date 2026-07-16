@@ -82,8 +82,23 @@ def login_view(request):
 
 
 def logout_view(request):
+    # Capture the OIDC id_token before clearing the session so we can also end
+    # the Authentik (IdP) session. Without this, /login/'s immediate SSO bounce
+    # would silently re-authenticate the user and "sign out" would appear to do
+    # nothing. Lands the browser back on the portal's public home afterwards.
+    id_token = request.session.get("oidc_id_token")
     auth_logout(request)
-    return redirect("/login/")
+
+    end_session = getattr(settings, "OIDC_OP_END_SESSION_ENDPOINT", "")
+    dev = getattr(settings, "DEV_LOGIN_ENABLED", False)
+    # Dev-login uses a dummy token and has no real IdP to log out of.
+    if end_session and id_token and not dev:
+        params = {
+            "id_token_hint": id_token,
+            "post_logout_redirect_uri": request.build_absolute_uri("/"),
+        }
+        return redirect(f"{end_session}?{urlencode(params)}")
+    return redirect("/")
 
 
 # ── Dashboard views ─────────────────────────────────────────────────

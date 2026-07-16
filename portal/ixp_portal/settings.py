@@ -180,6 +180,10 @@ OIDC_OP_AUTHORIZATION_ENDPOINT = f"{_OIDC_BASE}/authorize/"
 OIDC_OP_TOKEN_ENDPOINT = f"{_OIDC_BASE}/token/"
 OIDC_OP_USER_ENDPOINT = f"{_OIDC_BASE}/userinfo/"
 OIDC_OP_JWKS_ENDPOINT = f"{_OIDC_ISSUER}/jwks/"
+# RP-initiated logout: ending the portal (Django) session alone leaves the
+# Authentik SSO session alive, so the next /login/ bounce silently re-authms
+# the user. Hitting this endpoint with the id_token also ends the IdP session.
+OIDC_OP_END_SESSION_ENDPOINT = f"{_OIDC_ISSUER}/end-session/"
 
 # Re-check OIDC claims every 15 minutes
 OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = 900
