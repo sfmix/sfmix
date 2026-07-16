@@ -397,9 +397,19 @@ async fn nd_events(
     };
     let limit = filter.limit.unwrap_or(200).clamp(1, 1000);
     let offset = filter.offset.unwrap_or(0).max(0);
-    match store.list_events(filter.asn, filter.ip.as_deref(), limit, offset, chrono::Utc::now()) {
-        Ok(events) => Json(serde_json::json!({ "events": events })).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+    // The SQLite read runs behind a std::sync::Mutex; offload it to a blocking
+    // thread so a contended/slow query never stalls a tokio worker (and, in
+    // turn, the front-end's ability to service new TLS connections).
+    let store = Arc::clone(store);
+    let asn = filter.asn;
+    let ip = filter.ip.clone();
+    let res =
+        tokio::task::spawn_blocking(move || store.list_events(asn, ip.as_deref(), limit, offset, chrono::Utc::now()))
+            .await;
+    match res {
+        Ok(Ok(events)) => Json(serde_json::json!({ "events": events })).into_response(),
+        Ok(Err(e)) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly task failed: {e}")).into_response(),
     }
 }
 
@@ -415,10 +425,14 @@ async fn nd_event_detail(
     let Some(store) = state.lg.anomaly.as_ref() else {
         return (StatusCode::NOT_FOUND, "anomaly recording not configured").into_response();
     };
-    match store.get_event(&id, chrono::Utc::now()) {
-        Ok(Some(event)) => Json(event).into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, "event not found").into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+    // Offload the SQLite read off the tokio worker (see `nd_events`).
+    let store = Arc::clone(store);
+    let res = tokio::task::spawn_blocking(move || store.get_event(&id, chrono::Utc::now())).await;
+    match res {
+        Ok(Ok(Some(event))) => Json(event).into_response(),
+        Ok(Ok(None)) => (StatusCode::NOT_FOUND, "event not found").into_response(),
+        Ok(Err(e)) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly task failed: {e}")).into_response(),
     }
 }
 
@@ -436,13 +450,17 @@ async fn nd_event_pcap(
     let Some(store) = state.lg.anomaly.as_ref() else {
         return (StatusCode::NOT_FOUND, "anomaly recording not configured").into_response();
     };
-    let evidence_id = match store.get_event(&id, chrono::Utc::now()) {
-        Ok(Some(ev)) => match ev.evidence_id {
-            Some(eid) => eid,
-            None => return (StatusCode::NOT_FOUND, "no evidence captured for this event").into_response(),
-        },
-        Ok(None) => return (StatusCode::NOT_FOUND, "event not found").into_response(),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+    // Offload the SQLite read off the tokio worker (see `nd_events`).
+    let store = Arc::clone(store);
+    let ev = match tokio::task::spawn_blocking(move || store.get_event(&id, chrono::Utc::now())).await {
+        Ok(Ok(Some(ev))) => ev,
+        Ok(Ok(None)) => return (StatusCode::NOT_FOUND, "event not found").into_response(),
+        Ok(Err(e)) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly task failed: {e}")).into_response(),
+    };
+    let evidence_id = match ev.evidence_id {
+        Some(eid) => eid,
+        None => return (StatusCode::NOT_FOUND, "no evidence captured for this event").into_response(),
     };
     let Some(sensor_url) = state.lg.anomaly_sensor_url.as_ref() else {
         return (StatusCode::NOT_FOUND, "sensor not configured").into_response();

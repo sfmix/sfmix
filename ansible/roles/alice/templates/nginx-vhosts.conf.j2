@@ -41,13 +41,22 @@ server {
 
     location / {
 {% if vhost.rate_limit | default(true) %}
-        limit_req zone=ip burst=12 delay=8;
+        limit_req zone=ip burst={{ vhost.rate_limit_burst | default(12) }}{% if vhost.rate_limit_nodelay | default(false) %} nodelay{% else %} delay={{ vhost.rate_limit_delay | default(8) }}{% endif %};
 {% endif %}
         proxy_pass http://127.0.0.1:{{ vhost.upstream_port }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+{% if vhost.proxy_connect_timeout is defined %}
+        proxy_connect_timeout {{ vhost.proxy_connect_timeout }};
+{% endif %}
+{% if vhost.proxy_read_timeout is defined %}
+        proxy_read_timeout {{ vhost.proxy_read_timeout }};
+{% endif %}
+{% if vhost.proxy_send_timeout is defined %}
+        proxy_send_timeout {{ vhost.proxy_send_timeout }};
+{% endif %}
 {% if vhost.extra_location_config is defined %}
         {{ vhost.extra_location_config | indent(8) }}
 {% endif %}

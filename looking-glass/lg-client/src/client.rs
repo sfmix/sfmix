@@ -32,10 +32,20 @@ pub struct RpcClient {
 
 impl RpcClient {
     pub fn new(base_url: &str, secret: &str) -> Self {
+        // `connect_timeout` bounds only connection establishment, so it is safe
+        // for the long-lived streaming `execute` path (which must not have a
+        // whole-request timeout). Per-request read timeouts are applied on the
+        // short JSON RPCs in `get_json` — a hung lg-server there must not pin the
+        // request open indefinitely, since that ties up the TLS front-end's
+        // connection slots and starves new handshakes.
+        let http = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .build()
+            .expect("building reqwest RPC client");
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
             secret: secret.to_string(),
-            http: reqwest::Client::new(),
+            http,
         }
     }
 
@@ -148,6 +158,7 @@ impl RpcClient {
             .http
             .get(format!("{}{}", self.base_url, path))
             .header("X-RPC-Secret", &self.secret)
+            .timeout(std::time::Duration::from_secs(15))
             .send()
             .await?;
 

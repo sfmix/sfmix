@@ -28,3 +28,15 @@ alice_additional_vhosts:
   - domain: lg-ng.sfmix.org
     upstream_port: 8080
     rate_limit: true
+    # The portal is legitimate machine traffic: it fetches several LG endpoints
+    # per dashboard render from a single source IP, which the default 5r/s +
+    # burst=12/delay=8 clamps (and, combined with per-request handshakes, showed
+    # up as intermittent TLS handshake timeouts). Allow a larger no-delay burst
+    # so a page's fan-out clears immediately, while the zone still caps sustained
+    # abuse at 5r/s.
+    rate_limit_burst: 40
+    rate_limit_nodelay: true
+    # Bound how long nginx waits on the lg-http upstream so a hung backend can't
+    # pin connection slots (lg-http's own RPC read timeout is 15s).
+    proxy_connect_timeout: 5s
+    proxy_read_timeout: 30s
