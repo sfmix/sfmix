@@ -17,8 +17,12 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans">
-  <nav class="site-nav h-16 px-6 flex items-center justify-between gap-4"
-       x-data="responsiveNav()">
+  {% comment %}Full-bleed teal bar; the logo + links live in a centered content column
+  (max-w-6xl, matching the primary pages) so they align with the page body rather than
+  hugging the viewport edges — mirrors the sfmix.org nav-container.{% endcomment %}
+  <nav class="site-nav">
+   <div class="max-w-6xl mx-auto w-full h-16 px-6 flex items-center justify-between gap-4 relative"
+        x-data="responsiveNav()">
     {% comment %}Logo links back to the main site (sfmix.org), matching ip.sfmix.org's
     nav — the portal is a section of SFMIX, so the mark returns to the site root.{% endcomment %}
     <a x-ref="logo" href="https://sfmix.org/" class="flex items-center gap-3 no-underline shrink-0">
@@ -102,6 +106,7 @@
         </div>
       </div>
     </div>
+   </div>
   </nav>
 
   <main class="flex-1 {% block container_class %}max-w-5xl{% endblock %} mx-auto w-full px-6 py-8">
