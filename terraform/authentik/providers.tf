@@ -13,8 +13,11 @@ resource "authentik_provider_oauth2" "grafana" {
 
   allowed_redirect_uris = [
     {
-      matching_mode = "strict"
-      url           = "https://grafana.sfmix.org/login/generic_oauth"
+      # Set redirect_uri_type explicitly: the 2026.5 server reports it as
+      # "authorization", so omitting it produces perpetual "-> null" plan drift.
+      matching_mode     = "strict"
+      url               = "https://grafana.sfmix.org/login/generic_oauth"
+      redirect_uri_type = "authorization"
     },
   ]
 
@@ -46,12 +49,14 @@ resource "authentik_provider_oauth2" "looking_glass" {
 
   allowed_redirect_uris = [
     {
-      matching_mode = "regex"
-      url           = "http://127\\.0\\.0\\.1:\\d+/auth/callback"
+      matching_mode     = "regex"
+      url               = "http://127\\.0\\.0\\.1:\\d+/auth/callback"
+      redirect_uri_type = "authorization"
     },
     {
-      matching_mode = "regex"
-      url           = "http://localhost:\\d+/callback"
+      matching_mode     = "regex"
+      url               = "http://localhost:\\d+/callback"
+      redirect_uri_type = "authorization"
     },
   ]
 
@@ -81,8 +86,9 @@ resource "authentik_provider_oauth2" "looking_glass_api" {
 
   allowed_redirect_uris = [
     {
-      matching_mode = "regex"
-      url           = "https://lg-ng\\.sfmix\\.org/.*"
+      matching_mode     = "regex"
+      url               = "https://lg-ng\\.sfmix\\.org/.*"
+      redirect_uri_type = "authorization"
     },
   ]
 
@@ -110,11 +116,11 @@ resource "authentik_provider_oauth2" "portal" {
   invalidation_flow  = data.authentik_flow.default_invalidation.id
   signing_key        = data.authentik_certificate_key_pair.self_signed.id
 
+  # Order matters: the authentik provider models allowed_redirect_uris as an
+  # ordered list and the server returns them logout-first, so we list the logout
+  # URI first here to match. Listing it second produced perpetual plan drift that
+  # swapped the two entries on every apply without ever converging.
   allowed_redirect_uris = [
-    {
-      matching_mode = "strict"
-      url           = "https://portal.sfmix.org/oidc/callback/"
-    },
     {
       # RP-initiated logout: the portal sends post_logout_redirect_uri=<the page
       # the user signed out from> so Authentik returns the browser there after
@@ -126,6 +132,12 @@ resource "authentik_provider_oauth2" "portal" {
       matching_mode     = "regex"
       url               = "https://portal\\.sfmix\\.org/.*"
       redirect_uri_type = "logout"
+    },
+    {
+      # Explicit redirect_uri_type avoids the same "-> null" drift as the others.
+      matching_mode     = "strict"
+      url               = "https://portal.sfmix.org/oidc/callback/"
+      redirect_uri_type = "authorization"
     },
   ]
 
