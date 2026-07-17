@@ -595,7 +595,12 @@ body {
 /* Admin menu toggle — indigo accent so it reads as distinct from the regular (teal) nav links. */
 .nav-admin-toggle { background: var(--color-portal-100); color: var(--color-portal-700); }
 .nav-admin-toggle:hover { background: #c7d2fe; color: var(--color-portal-700); }
-.nav-dropdown { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+/* Anchor the popover to the bottom of its wrapper. Without an explicit `top`, an
+   absolutely-positioned box falls back to its auto "static position" — and inside
+   the wrapper's `flex items-center` that vertically centers the tall panel on the
+   ~64px nav line, floating it up and off the top of the screen. `top: 100%` pins it
+   just below the bar instead (the collapsed mobile case uses .nav-submenu-inline). */
+.nav-dropdown { box-shadow: 0 4px 16px rgba(0,0,0,0.12); top: 100%; }
 /* Submenu rendered inline inside the collapsed mobile panel (accordion style): flows within
    the teal panel and indents under its toggle, instead of an absolute popover that would anchor
    to the narrow left-aligned toggle and overflow off-screen. Links re-themed to match the panel.
