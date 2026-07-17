@@ -82,6 +82,11 @@ pub struct ConflictRecord {
     /// True when a brand-new event was opened (vs. a flap rolled into an open
     /// one). Phase 2 uses this to decide whether to trigger a pcap snapshot.
     pub is_new: bool,
+    /// True when this fold added a genuinely new claimed IP to an *already-open*
+    /// sweep (so `is_new` is false but the event's evidence should be extended to
+    /// cover the newly-claimed address). Always false for `new_mac_on_ip` events
+    /// and for freshly-opened events (where `is_new` already triggers capture).
+    pub grew: bool,
 }
 
 /// Durable anomaly event store.
@@ -268,7 +273,7 @@ impl AnomalyStore {
                     rusqlite::params![ev.flap_count as i64, now_str, ev.id],
                 )
                 .context("updating flap_count")?;
-                return Ok(ConflictRecord { event_id: ev.id.clone(), is_new: false });
+                return Ok(ConflictRecord { event_id: ev.id.clone(), is_new: false, grew: false });
             }
         }
 
@@ -288,7 +293,7 @@ impl AnomalyStore {
         )
         .context("inserting nd_event")?;
         open.insert(ip.to_string(), OpenEvent { id: id.clone(), last_seen: now, flap_count: 1 });
-        Ok(ConflictRecord { event_id: id, is_new: true })
+        Ok(ConflictRecord { event_id: id, is_new: true, grew: false })
     }
 
     /// Record a `mac_claims_many_ips` (proxy-ARP / sweep) observation: a single
@@ -345,11 +350,17 @@ impl AnomalyStore {
         // clobbering a value already present.
         if let Some(sw) = open_sweeps.get_mut(mac) {
             if now - sw.last_seen <= self.cooldown {
+                // Track whether the set actually grew: a genuinely new claimed IP
+                // means later frames (proving that claim) exist in the ring, so
+                // the caller should extend this event's evidence pcap.
+                let mut grew = false;
                 for ip in claimed_ips {
                     if sw.ips.len() >= MAX_CLAIMED_IPS {
                         break;
                     }
-                    sw.ips.insert(ip.clone());
+                    if sw.ips.insert(ip.clone()) {
+                        grew = true;
+                    }
                 }
                 sw.flap_count += 1;
                 sw.last_seen = now;
@@ -363,7 +374,7 @@ impl AnomalyStore {
                     rusqlite::params![sw.flap_count as i64, now_str, ips_json, asn, tenant, classification, sw.id],
                 )
                 .context("updating sweep")?;
-                return Ok(ConflictRecord { event_id: sw.id.clone(), is_new: false });
+                return Ok(ConflictRecord { event_id: sw.id.clone(), is_new: false, grew });
             }
         }
 
@@ -386,7 +397,7 @@ impl AnomalyStore {
         )
         .context("inserting sweep event")?;
         open_sweeps.insert(mac.to_string(), OpenSweep { id: id.clone(), last_seen: now, flap_count: 1, ips });
-        Ok(ConflictRecord { event_id: id, is_new: true })
+        Ok(ConflictRecord { event_id: id, is_new: true, grew: false })
     }
 
     /// The rollup/freshness window. Callers use it to decide which MAC sightings
@@ -703,11 +714,13 @@ mod tests {
             .record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.1".into(), "10.0.0.2".into()], None, base)
             .unwrap();
         assert!(r1.is_new);
+        assert!(!r1.grew, "a freshly-opened sweep reports growth via is_new, not grew");
         // More IPs claimed by the same MAC within cooldown → same event, grown set.
         let r2 = s
             .record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.2".into(), "10.0.0.3".into()], None, base + Duration::seconds(60))
             .unwrap();
         assert!(!r2.is_new, "a growing sweep rolls into the open event");
+        assert!(r2.grew, "10.0.0.3 is a new claimed IP → the event grew");
         assert_eq!(r1.event_id, r2.event_id);
 
         let events = s.list_events(None, None, 10, 0, base + Duration::seconds(60)).unwrap();
@@ -718,6 +731,22 @@ mod tests {
         assert_eq!(e.flap_count, 2);
         assert_eq!(e.claimed_ips, vec!["10.0.0.1", "10.0.0.2", "10.0.0.3"], "claimed IPs accumulate (deduped, sorted)");
         assert!(e.ip.is_empty(), "sweep events have no single subject IP");
+    }
+
+    #[test]
+    fn sweep_reclaim_of_known_ips_is_not_growth() {
+        let s = store(600);
+        let base = at("2026-06-19T00:00:00Z");
+        let r1 = s
+            .record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.1".into(), "10.0.0.2".into()], None, base)
+            .unwrap();
+        assert!(r1.is_new);
+        // A later fold that re-asserts only already-known IPs must not report
+        // growth — otherwise every flap would re-trigger an evidence append.
+        let r2 = s
+            .record_mac_sweep("0a:rogue", "", None, None, &["10.0.0.2".into(), "10.0.0.1".into()], None, base + Duration::seconds(60))
+            .unwrap();
+        assert!(!r2.is_new && !r2.grew, "re-claiming known IPs is a flap, not growth");
     }
 
     #[test]

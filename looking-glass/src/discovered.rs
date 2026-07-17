@@ -69,15 +69,19 @@ pub struct SensorObservation {
     pub mismatched_mac: Option<String>,
 }
 
-/// A newly-opened anomaly event that warrants a pcap snapshot. Returned from
+/// An anomaly event that warrants a pcap snapshot. Returned from
 /// [`DiscoveredNeighborStore::update`] so the poll loop can trigger evidence
-/// capture out-of-band (a flap into an existing event yields nothing here).
+/// capture out-of-band. Emitted when an event first opens, and again each poll a
+/// sweep *grows* a new claimed IP — the sensor appends the fresh window to the
+/// event's existing pcap, so the evidence tracks the sweep over its whole life.
+/// A plain flap that adds no new IP yields nothing here.
 #[derive(Debug, Clone)]
 pub struct NewAnomaly {
     pub event_id: String,
     /// MACs to filter the pcap on (the conflicting MACs, or the offending MAC).
     pub macs: Vec<String>,
-    /// Event time, used to centre the extraction window.
+    /// Event time, used to centre the extraction window (on growth, the window
+    /// re-centres on the current poll, where the newly-claimed IP is live).
     pub at: DateTime<Utc>,
 }
 
@@ -411,7 +415,10 @@ impl DiscoveredNeighborStore {
                     let claimed: Vec<String> = ips.iter().map(|s| s.to_string()).collect();
                     let (asn, tenant) = mac_owner.get(mac).copied().unwrap_or((None, None));
                     if let Some(record) = store.record_mac_sweep(mac, "", asn, tenant, &claimed, None, now) {
-                        if record.is_new {
+                        // Snapshot on open, and again whenever the sweep grows: the
+                        // frames proving a newly-claimed IP land in the ring long
+                        // after open, so a single open-time capture misses them.
+                        if record.is_new || record.grew {
                             new_anomalies.push(NewAnomaly {
                                 event_id: record.event_id,
                                 macs: vec![(*mac).to_string()],
@@ -441,7 +448,9 @@ impl DiscoveredNeighborStore {
                     Some(lg_types::structured::EVENT_CLASSIFICATION_REFLECTION),
                     now,
                 ) {
-                    if record.is_new {
+                    // As with a genuine sweep, re-capture as the reflected-victim
+                    // set grows so the evidence pcap covers each new victim IP.
+                    if record.is_new || record.grew {
                         new_anomalies.push(NewAnomaly {
                             event_id: record.event_id,
                             macs: vec![(*reflector_mac).to_string()],

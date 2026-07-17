@@ -85,6 +85,14 @@ impl<W: Write> PcapWriter<W> {
         Ok(Self { inner, frames: 0, bytes: GLOBAL_HEADER_LEN as u64 })
     }
 
+    /// Wrap a writer already positioned at the end of an existing pcap (its
+    /// global header is assumed present). Used to append records to an evidence
+    /// pcap as an anomaly's sweep grows. `frames`/`bytes` count only what this
+    /// appender writes, not what was already in the file.
+    pub fn append(inner: W) -> Self {
+        Self { inner, frames: 0, bytes: 0 }
+    }
+
     pub fn write_frame(&mut self, ts_sec: u32, ts_usec: u32, data: &[u8]) -> std::io::Result<()> {
         write_record(&mut self.inner, ts_sec, ts_usec, data)?;
         self.frames += 1;

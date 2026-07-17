@@ -6,9 +6,18 @@
 //! all L2 broadcast (ARP requests) and all IPv6 multicast (NDP) so the "who was
 //! asking" context is preserved — and nothing else.
 //!
-//! Extraction is expensive (scans the whole ring), so it is guarded: idempotent
-//! by `event_id`, in-flight de-duplicated, globally concurrency-limited, and
+//! Extraction is expensive (scans the whole ring), so it is guarded: in-flight
+//! de-duplicated by `event_id`, globally concurrency-limited, and
 //! deadline-bounded.
+//!
+//! A single anomaly event is not a single moment: a MAC sweep accumulates
+//! claimed IPs over many polls, and the frames proving each new claim land in
+//! the ring long after the event first opened. So a re-request for an
+//! already-captured `event_id` does not no-op — it *appends* the newly-matching
+//! frames (those past the existing pcap's high-water-mark) to the same file, so
+//! one evidence pcap grows to cover the whole life of the event. lg-server only
+//! re-requests when the event actually grew, so an append that finds nothing new
+//! (returning [`SnapshotOutcome::Existing`]) is the exception, not the rule.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -76,7 +85,10 @@ impl EvidenceStore {
     }
 
     /// Extract a filtered pcap for `event_id` over `[start_sec, end_sec]`,
-    /// keeping only frames touching `macs` plus broadcast/IPv6-multicast.
+    /// keeping only frames touching `macs` plus broadcast/IPv6-multicast. When a
+    /// pcap for `event_id` already exists, newly-matching frames past its
+    /// high-water-mark are appended in place rather than re-extracted, so the one
+    /// file accumulates evidence as the event's sweep grows.
     pub async fn snapshot(
         &self,
         event_id: &str,
@@ -86,13 +98,11 @@ impl EvidenceStore {
     ) -> SnapshotOutcome {
         let path = self.pcap_path(event_id);
 
-        // Idempotency + in-flight de-dup under one lock, so concurrent requests
-        // for the same event_id resolve deterministically.
+        // In-flight de-dup under one lock, so concurrent requests for the same
+        // event_id resolve deterministically (the second sees InProgress rather
+        // than racing a second append into the same file).
         {
             let mut inflight = self.inflight.lock().unwrap();
-            if let Some(meta) = meta_for(&path) {
-                return SnapshotOutcome::Existing(meta);
-            }
             if inflight.contains(event_id) {
                 return SnapshotOutcome::InProgress;
             }
@@ -122,25 +132,43 @@ impl EvidenceStore {
         let tmp = path.with_extension("pcap.tmp");
         let out = path.to_path_buf();
         let tmp_for_task = tmp.clone();
+        // Append to an existing pcap (growing sweep) vs. fresh extraction.
+        let append_mode = out.is_file();
+        let existing = out.clone();
 
         let job = tokio::task::spawn_blocking(move || {
-            extract(&ring_dir, &mac_set, start_sec, end_sec, &tmp_for_task)
+            if append_mode {
+                extract_append(&ring_dir, &mac_set, start_sec, end_sec, &existing, &tmp_for_task)
+                    .map(|new_frames| (true, new_frames))
+            } else {
+                extract(&ring_dir, &mac_set, start_sec, end_sec, &tmp_for_task)
+                    .map(|(frames, _bytes)| (false, frames))
+            }
         });
 
         match tokio::time::timeout(EXTRACTION_DEADLINE, job).await {
-            Ok(Ok(Ok((frames, bytes)))) => {
+            Ok(Ok(Ok((appended, new_frames)))) => {
+                // An append that found nothing new leaves the existing pcap
+                // untouched: discard the copy and report it unchanged.
+                if appended && new_frames == 0 {
+                    let _ = std::fs::remove_file(&tmp);
+                    return match meta_for(&out) {
+                        Some(meta) => SnapshotOutcome::Existing(meta),
+                        None => SnapshotOutcome::Busy,
+                    };
+                }
                 if let Err(e) = std::fs::rename(&tmp, &out) {
                     warn!("finalizing evidence {event_id}: {e}");
                     let _ = std::fs::remove_file(&tmp);
                     return SnapshotOutcome::Busy; // transient; caller may retry
                 }
                 self.prune();
-                SnapshotOutcome::Done(EvidenceMeta {
-                    evidence_id: event_id.to_string(),
-                    frame_count: frames,
-                    size_bytes: bytes,
-                    created_at: Utc::now().to_rfc3339(),
-                })
+                // Recompute from the finalized file so the count/size reflect the
+                // whole pcap (prior records + this append), not just what we wrote.
+                match meta_for(&out) {
+                    Some(meta) => SnapshotOutcome::Done(meta),
+                    None => SnapshotOutcome::Busy,
+                }
             }
             Ok(Ok(Err(e))) => {
                 warn!("extracting evidence {event_id}: {e}");
@@ -264,6 +292,56 @@ fn extract(
     });
     writer.flush()?;
     Ok((writer.frames, writer.bytes))
+}
+
+/// Append newly-matching frames to an existing evidence pcap; returns the number
+/// of records appended. Only frames past `existing`'s high-water-mark (its latest
+/// record timestamp) are added, so an overlapping re-scan of the ring window
+/// won't duplicate frames already captured. The existing pcap is first copied to
+/// `out_tmp`, then extended and atomically renamed by the caller — so a crash
+/// mid-append never corrupts the live file.
+fn extract_append(
+    ring_dir: &std::path::Path,
+    macs: &HashSet<[u8; 6]>,
+    start_sec: u32,
+    end_sec: u32,
+    existing: &std::path::Path,
+    out_tmp: &std::path::Path,
+) -> std::io::Result<u64> {
+    std::fs::copy(existing, out_tmp)?;
+    let hwm = max_record_ts(existing);
+    let file = std::fs::OpenOptions::new().append(true).open(out_tmp)?;
+    let mut writer = PcapWriter::append(std::io::BufWriter::new(file));
+    scan_window(ring_dir, start_sec, end_sec, |ts_sec, ts_usec, frame| {
+        if (ts_sec, ts_usec) > hwm && keep_frame(frame, macs) {
+            let _ = writer.write_frame(ts_sec, ts_usec, frame);
+        }
+    });
+    writer.flush()?;
+    Ok(writer.frames)
+}
+
+/// The largest `(ts_sec, ts_usec)` of any record in a pcap, or `(0, 0)` for an
+/// empty/unreadable file. Used as the append high-water-mark. Walks the file the
+/// same way as [`count_frames`], tolerating a truncated trailing record.
+fn max_record_ts(path: &std::path::Path) -> (u32, u32) {
+    let mut best = (0u32, 0u32);
+    let Ok(bytes) = std::fs::read(path) else { return best };
+    let mut i = 24usize; // skip the 24-byte global header
+    while i + 16 <= bytes.len() {
+        let s = u32::from_le_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
+        let u = u32::from_le_bytes([bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]]);
+        let incl = u32::from_le_bytes([bytes[i + 8], bytes[i + 9], bytes[i + 10], bytes[i + 11]]) as usize;
+        let next = i + 16 + incl;
+        if next > bytes.len() {
+            break;
+        }
+        if (s, u) > best {
+            best = (s, u);
+        }
+        i = next;
+    }
+    best
 }
 
 /// Keep a frame if it touches a conflicting MAC, is L2 broadcast, or is IPv6
@@ -398,15 +476,62 @@ mod tests {
             _ => panic!("expected a fresh extraction"),
         }
 
-        // Idempotent: a second request returns the existing snapshot, no re-extract.
+        // Re-requesting the same window adds nothing new (every frame is at or
+        // below the pcap's high-water-mark) → unchanged, no duplication.
         match store.snapshot("evt-1", &macs, 900, 1100).await {
             SnapshotOutcome::Existing(meta) => assert_eq!(meta.frame_count, 3),
-            _ => panic!("expected the existing snapshot"),
+            _ => panic!("expected the existing snapshot, unchanged"),
         }
 
         // The pcap is retrievable and listed.
         assert!(store.evidence_path("evt-1").is_some());
         assert_eq!(store.list().len(), 1);
         assert!(store.evidence_path("../escape").is_none(), "path traversal blocked");
+    }
+
+    #[tokio::test]
+    async fn growing_sweep_appends_later_frames_to_one_pcap() {
+        use crate::ringbuf::{run_ring_writer, CapturedFrame, RingConfig};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let ring_dir = tmp.path().join("ring");
+        let snap_dir = tmp.path().join("snap");
+
+        let rogue = [0xaa, 0xbb, 0xcc, 0x00, 0x00, 0x01];
+        let other = [0x0a, 0, 0, 0, 0, 0x10];
+        let arp = [0x08, 0x06];
+
+        // The ring holds the offending MAC claiming one IP early (ts 1000) and a
+        // second IP an hour later (ts 4600) — the shape of a sweep that grows.
+        let (tx, rx) = std::sync::mpsc::sync_channel::<CapturedFrame>(64);
+        tx.send(CapturedFrame { ts_sec: 1000, ts_usec: 0, data: frame(other, rogue, arp) }).unwrap();
+        tx.send(CapturedFrame { ts_sec: 4600, ts_usec: 0, data: frame(other, rogue, arp) }).unwrap();
+        drop(tx);
+        run_ring_writer(rx, RingConfig::new(ring_dir.clone(), 36000, 100 << 20));
+
+        let store = EvidenceStore::new(snap_dir, ring_dir, 500 << 20).unwrap();
+        let macs = vec!["aa:bb:cc:00:00:01".to_string()];
+
+        // Open-time capture: only the early frame is in window.
+        match store.snapshot("evt-grow", &macs, 900, 1100).await {
+            SnapshotOutcome::Done(meta) => assert_eq!(meta.frame_count, 1),
+            _ => panic!("expected the initial extraction"),
+        }
+
+        // Sweep grew: a later window appends the second frame to the same pcap.
+        match store.snapshot("evt-grow", &macs, 4500, 4700).await {
+            SnapshotOutcome::Done(meta) => {
+                assert_eq!(meta.frame_count, 2, "the later claim is appended, not lost");
+            }
+            _ => panic!("expected an appending extraction"),
+        }
+
+        // Still one file (grown in place), and the union of windows adds nothing
+        // more (both frames are already at/below the high-water-mark).
+        assert_eq!(store.list().len(), 1, "one evidence file per event, appended in place");
+        match store.snapshot("evt-grow", &macs, 900, 4700).await {
+            SnapshotOutcome::Existing(meta) => assert_eq!(meta.frame_count, 2, "no duplication on overlap"),
+            _ => panic!("expected unchanged after a fully-overlapping re-scan"),
+        }
     }
 }
