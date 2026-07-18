@@ -28,6 +28,60 @@ groups:
       - record: sfmix:participant_bps:out
         expr: sum by (asn, participant) (sfmix:participant_if_bps:out)
 
+  # ── Exchange-wide all-time-high traffic ──────────────────────────────
+  # A single "total IXP traffic" estimate and a running record high.
+  #
+  # Total: sum of ONE direction (ingress) of the peering-port, LAG-deduped
+  # participant series above. On the IX fabric every ingress bit is an
+  # egress bit somewhere else, so summing one direction is the conventional
+  # exchange total without double-counting in+out.
+  #
+  # alltime_max is a self-referencing running maximum: it reads its own
+  # prior sample, so it is O(1) per eval — no scanning a long max_over_time
+  # window on the hot path, and (unlike max_over_time) not bounded by the
+  # TSDB retention horizon (which here is size-capped at 80 GB, so it has no
+  # well-defined "all time" anyway). Because it is re-recorded every 30s the
+  # series never ages out, and it survives SIGHUP reloads and restarts via
+  # the WAL. The three-way `or` is: take the current value when it ties or
+  # beats the record (both series share the empty label set, so the later
+  # terms drop); otherwise carry the old record forward; the final term
+  # bootstraps the very first evaluation when no record exists yet.
+  # A full TSDB wipe resets it — snapshot to the textfile collector and add
+  # a fourth `or` fallback here if that ever needs to be bulletproof.
+  # Must stay in this group (evaluated sequentially) so :total is fresh
+  # before :alltime_max reads it.
+  - name: sfmix-ixp-records
+    interval: 30s
+    rules:
+      - record: sfmix:ixp_bps:total
+        expr: sum(sfmix:participant_if_bps:in)
+      - record: sfmix:ixp_bps:alltime_max
+        expr: >
+          (sfmix:ixp_bps:total >= sfmix:ixp_bps:alltime_max)
+          or sfmix:ixp_bps:alltime_max
+          or sfmix:ixp_bps:total
+
+{% raw %}
+  # Fires when the live total beats the record as it stood 10 minutes ago
+  # (offset well above the 30s eval interval, so a genuine new high trips it
+  # rather than the record trivially equalling itself). `for` rides out a
+  # single spiky scrape before declaring a record.
+  - name: sfmix-ixp-records-alerts
+    rules:
+      - alert: IXPTrafficAllTimeHigh
+        expr: sfmix:ixp_bps:total > (sfmix:ixp_bps:alltime_max offset 10m)
+        for: 2m
+        labels: {severity: info, component: traffic}
+        annotations:
+          summary: >-
+            New all-time-high SFMIX traffic: {{ $value | humanize }}bps
+          description: >-
+            Aggregate exchange traffic (peering-port ingress) reached
+            {{ $value | humanize }}bps, beating the previous record.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-participant-traffic/participant-traffic?from=now-24h&to=now
+{% endraw %}
+
 {% raw %}
   # ── Optical degradation ──────────────────────────────────────────────
   # Smoothed per-lane DOM power in dBm, one sample a minute. Averaging the
