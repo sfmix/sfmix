@@ -1,0 +1,6 @@
+---
+# Alertmanager reloads its config, templates, and routing tree live on SIGHUP,
+# so a config/template/token change does not require a container restart (the
+# docker_container task handles restarts when the container spec itself changes).
+- name: Reload alertmanager
+  ansible.builtin.command: docker kill --signal=HUP alertmanager

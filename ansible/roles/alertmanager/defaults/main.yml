@@ -1,0 +1,42 @@
+---
+# Alertmanager (Prometheus) -> Slack notifications.
+#
+# Deployed as a sibling docker container to Prometheus on the metrics host,
+# listening on the loopback-reachable host port below. Prometheus is pointed
+# at it via the `alerting:` block in roles/prometheus/templates/prometheus.yaml.j2.
+
+# Container / listen config.
+alertmanager_image: prom/alertmanager
+alertmanager_listen_port: 9093            # default; Prometheus alerting block must match
+alertmanager_data_retention: 120h         # how long resolved/silenced alerts linger in the UI
+alertmanager_external_url: "https://alertmanager.sfmix.org"   # used for Silence/deep links in Slack buttons
+
+# Slack delivery.
+#
+# We authenticate a *dedicated* Slack app's bot token (chat:write) and post via
+# the Web API (chat.postMessage) rather than a single-channel incoming webhook,
+# so one app can fan out to per-severity channels. The bot must be invited to
+# each channel below (`/invite @sfmix-alerts`).
+#
+# The token itself is NOT stored here — it is a vault secret rendered to a 0600
+# credentials file on the host (see tasks/main.yml). Define it in
+# inventory/group_vars/all.yml as `alertmanager_slack_bot_token: !vault | ...`.
+alertmanager_slack_api_url: "https://slack.com/api/chat.postMessage"
+
+# Fallback target for the "Dashboard" button when an alert carries no `dashboard`
+# annotation (most rules do, via grafana.sfmix.org deep links).
+alertmanager_grafana_url: "https://grafana.sfmix.org"
+
+# Per-severity channel routing. Point several at the same channel to collapse
+# the split, or add component-specific children in the route tree if you want
+# e.g. power alerts in a facilities channel.
+alertmanager_slack_channels:
+  critical: "#sfmix-alerts-critical"
+  warning: "#sfmix-alerts"
+  info: "#sfmix-alerts-info"
+
+# Grouping / cadence. Kept conservative so a flapping alert does not spam Slack.
+alertmanager_group_wait: 30s
+alertmanager_group_interval: 5m
+alertmanager_repeat_interval: 4h
+alertmanager_critical_repeat_interval: 1h
