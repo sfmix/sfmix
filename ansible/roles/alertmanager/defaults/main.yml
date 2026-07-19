@@ -27,13 +27,13 @@ alertmanager_slack_api_url: "https://slack.com/api/chat.postMessage"
 # annotation (most rules do, via grafana.sfmix.org deep links).
 alertmanager_grafana_url: "https://grafana.sfmix.org"
 
-# Per-severity channel routing. Point several at the same channel to collapse
-# the split, or add component-specific children in the route tree if you want
-# e.g. power alerts in a facilities channel.
+# Per-severity channel routing. All three currently point at one channel; split
+# them onto distinct channels later if the single feed gets noisy (the route
+# tree already fans out by severity, so only these values need to change).
 alertmanager_slack_channels:
-  critical: "#sfmix-alerts-critical"
-  warning: "#sfmix-alerts"
-  info: "#sfmix-alerts-info"
+  critical: "#networkalerts"
+  warning: "#networkalerts"
+  info: "#networkalerts"
 
 # Grouping / cadence. Kept conservative so a flapping alert does not spam Slack.
 alertmanager_group_wait: 30s
