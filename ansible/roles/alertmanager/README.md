@@ -21,23 +21,28 @@ renders on:
 
 ## One-time operator setup
 
-1. **Create a dedicated Slack app** (https://api.slack.com/apps → *Create New App* →
-   *From scratch*). Name it e.g. `SFMIX Alertmanager`.
-2. Under **OAuth & Permissions**, add the `chat:write` bot scope, then
-   *Install to Workspace*. Copy the **Bot User OAuth Token** (`xoxb-…`).
-3. **Create the channels** and invite the bot to each (it can only post where it
-   is a member): `/invite @SFMIX Alertmanager` in each of
-   `#sfmix-alerts-critical`, `#sfmix-alerts`, `#sfmix-alerts-info`
-   (or repoint `alertmanager_slack_channels` at whatever channels you prefer —
-   set all three the same to collapse the split into one channel).
-4. **Store the token in the vault** — in `inventory/group_vars/all.yml`:
+Already done:
 
-   ```
-   ansible-vault encrypt_string --vault-password-file ~/.sfmix_ansible_vault \
-     'xoxb-your-token-here' --name 'alertmanager_slack_bot_token'
-   ```
+- The **SFMIX Alertmanager** Slack app is created and installed into the SFMIX
+  workspace with the `chat:write` bot scope.
+- Its bot token is vaulted as `alertmanager_slack_bot_token` in
+  `inventory/group_vars/all.yml`.
+- All severities currently route to a single channel, `#networkalerts`
+  (`alertmanager_slack_channels`).
 
-   Paste the resulting `alertmanager_slack_bot_token: !vault | …` block in.
+Still required before the first deploy:
+
+- **Invite the bot to `#networkalerts`** — it can only post to channels it is a
+  member of: `/invite @SFMIX Alertmanager` in that channel.
+
+To split severities onto separate channels later, edit
+`alertmanager_slack_channels` and invite the bot to each. To rotate the token,
+re-encrypt and replace the vault block:
+
+```
+ansible-vault encrypt_string --vault-password-file ~/.sfmix_ansible_vault \
+  'xoxb-new-token' --name 'alertmanager_slack_bot_token'
+```
 
 ## Deploy
 
