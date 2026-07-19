@@ -4,6 +4,15 @@ global:
     evaluation_interval: 15s
 rule_files:
     - /opt/prometheus/rules/*.yml
+# Firing alerts are pushed to the local Alertmanager (deployed by the
+# `alertmanager` role as a sibling container on this host), which handles
+# grouping, silencing, and Slack delivery. Without this block Prometheus
+# only shows alerts on its own /alerts page and notifies nobody.
+alerting:
+    alertmanagers:
+        - static_configs:
+              - targets:
+                    - 127.0.0.1:9093
 scrape_configs:
     # SNMP polling of the peering switches via snmp_exporter. Targets are
     # enumerated from NetBox by the netbox-prometheus-sd timer (file_sd).

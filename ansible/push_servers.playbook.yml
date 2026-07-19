@@ -55,9 +55,11 @@
   tags:
     - prometheus
     - snmp_exporter
+    - alertmanager
   roles:
     - snmp_exporter
     - prometheus
+    - alertmanager
 
 - name: Metrics Server
   hosts: metrics

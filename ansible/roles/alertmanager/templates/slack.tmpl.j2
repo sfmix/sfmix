@@ -1,0 +1,42 @@
+{#
+  Slack message layout for Alertmanager notifications.
+
+  This whole file is Go text/template (consumed by Alertmanager), so it is
+  wrapped in a single {% raw %} block to shield it from Jinja. The one Ansible
+  substitution is the Grafana fallback URL, spliced in by briefly closing raw.
+#}
+{% raw %}
+{{/* Colour bar down the left of the Slack attachment. */}}
+{{ define "slack.color" -}}
+    {{ if eq .Status "firing" -}}
+        {{ if eq .CommonLabels.severity "critical" -}}danger
+        {{- else if eq .CommonLabels.severity "warning" -}}warning
+        {{- else -}}#439FE0{{- end -}}
+    {{- else -}}good{{- end }}
+{{- end }}
+
+{{/* Title line: [FIRING:2] OpticRxPowerDegraded30d (optics) */}}
+{{ define "slack.title" -}}
+    {{ if eq .Status "firing" }}:rotating_light:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}{{ if .CommonLabels.component }} ({{ .CommonLabels.component }}){{ end }}
+{{- end }}
+
+{{/* Body: one block per alert in the group. */}}
+{{ define "slack.text" -}}
+    {{ range .Alerts -}}
+        {{ if .Annotations.summary }}*{{ .Annotations.summary }}*
+{{ end }}{{ if .Annotations.description }}{{ .Annotations.description }}
+{{ end }}{{ if .Labels.device }}• *Device:* `{{ .Labels.device }}`  {{ end }}{{ if .Labels.instance }}• *Instance:* `{{ .Labels.instance }}`  {{ end }}
+• *Severity:* {{ .Labels.severity }}   • *Component:* {{ .Labels.component }}
+
+    {{ end -}}
+{{- end }}
+
+{{ define "slack.footer" -}}
+    SFMIX Alertmanager
+{{- end }}
+
+{{/* Dashboard button target: the alert's dashboard annotation, else Grafana home. */}}
+{{ define "slack.dashboardurl" -}}
+    {{ if (index .Alerts 0).Annotations.dashboard }}{{ (index .Alerts 0).Annotations.dashboard }}{{ else }}{% endraw %}{{ alertmanager_grafana_url }}{% raw %}{{ end }}
+{{- end }}
+{% endraw %}

@@ -1,0 +1,63 @@
+---
+- name: "Alertmanager: ensure directories"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: ug=rwx,o=rx
+  with_items:
+    - /opt/alertmanager
+    - /opt/alertmanager/data
+    - /opt/alertmanager/templates
+
+# The Slack bot token is a secret, so it is rendered to its own 0600 file and
+# referenced from the config via `credentials_file` — this keeps it out of the
+# world-readable alertmanager.yml. Mirrors the discovery-bot env-file pattern.
+- name: "Alertmanager: install Slack bot token (0600)"
+  become: true
+  no_log: true
+  notify: Reload alertmanager
+  ansible.builtin.copy:
+    content: "{{ alertmanager_slack_bot_token }}"
+    dest: /opt/alertmanager/slack_bot_token
+    owner: nobody
+    group: nogroup
+    mode: u=rw,g=,o=
+
+- name: "Alertmanager: template Slack message layout"
+  become: true
+  notify: Reload alertmanager
+  ansible.builtin.template:
+    src: slack.tmpl.j2
+    dest: /opt/alertmanager/templates/slack.tmpl
+    owner: nobody
+    group: nogroup
+    mode: ugo=r
+
+- name: "Alertmanager: template config"
+  become: true
+  notify: Reload alertmanager
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /opt/alertmanager/alertmanager.yml
+    owner: nobody
+    group: nogroup
+    mode: ugo=r
+
+- name: "Alertmanager: run prom/alertmanager container"
+  community.docker.docker_container:
+    name: alertmanager
+    image: "{{ alertmanager_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/alertmanager:/opt/alertmanager
+    user: nobody
+    command:
+      - --config.file=/opt/alertmanager/alertmanager.yml
+      - --storage.path=/opt/alertmanager/data
+      - "--data.retention={{ alertmanager_data_retention }}"
+      - "--web.listen-address=:{{ alertmanager_listen_port }}"
+      - "--web.external-url={{ alertmanager_external_url }}"

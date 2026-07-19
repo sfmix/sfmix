@@ -1,0 +1,62 @@
+{#
+  Alertmanager config, rendered by Ansible.
+
+  Go-template expressions consumed by Alertmanager itself (title/text/color,
+  {{ .Alerts }} etc.) are wrapped in {% raw %}...{% endraw %} so Jinja leaves
+  them untouched — same convention as the Prometheus rules templates. Bare
+  {{ ... }} are Ansible variables.
+#}
+global:
+    resolve_timeout: 5m
+
+templates:
+    - /opt/alertmanager/templates/*.tmpl
+
+# Route tree: group related alerts, then fan out by severity to per-channel
+# receivers. `continue` is left false so each alert lands in exactly one channel.
+route:
+    group_by: ['alertname', 'component']
+    group_wait: {{ alertmanager_group_wait }}
+    group_interval: {{ alertmanager_group_interval }}
+    repeat_interval: {{ alertmanager_repeat_interval }}
+    receiver: slack-warning        # fallback for anything without a severity match
+    routes:
+        - matchers:
+              - severity = "critical"
+          receiver: slack-critical
+          repeat_interval: {{ alertmanager_critical_repeat_interval }}
+        - matchers:
+              - severity = "warning"
+          receiver: slack-warning
+        - matchers:
+              - severity = "info"
+          receiver: slack-info
+
+# All receivers post to the same Slack app (bot token via chat.postMessage);
+# only the target channel differs. The token lives in a 0600 credentials file
+# so it never lands in this world-readable config.
+receivers:
+{% for sev in ['critical', 'warning', 'info'] %}
+    - name: slack-{{ sev }}
+      slack_configs:
+          - api_url: {{ alertmanager_slack_api_url }}
+            http_config:
+                authorization:
+                    type: Bearer
+                    credentials_file: /opt/alertmanager/slack_bot_token
+            channel: '{{ alertmanager_slack_channels[sev] }}'
+            send_resolved: true
+            short_fields: true
+            color: '{% raw %}{{ template "slack.color" . }}{% endraw %}'
+            title: '{% raw %}{{ template "slack.title" . }}{% endraw %}'
+            title_link: '{{ alertmanager_external_url }}/#/alerts'
+            text: '{% raw %}{{ template "slack.text" . }}{% endraw %}'
+            footer: '{% raw %}{{ template "slack.footer" . }}{% endraw %}'
+            actions:
+                - type: button
+                  text: 'Dashboard :bar_chart:'
+                  url: '{% raw %}{{ template "slack.dashboardurl" . }}{% endraw %}'
+                - type: button
+                  text: 'Silence :no_bell:'
+                  url: '{{ alertmanager_external_url }}/#/silences/new'
+{% endfor %}
