@@ -1076,6 +1076,31 @@ def participant_dashboard():
     y = 0
 
     p.append(row("Exchange overview", y)); y += 1
+    # Exchange-wide total (one direction = ingress; every ingress bit is an
+    # egress bit elsewhere) and its running record high. alltime_max is seeded
+    # from ~13mo of sflow history and ratchets up via the recording rule;
+    # "% of record" flags how close live traffic is to setting a new one.
+    p.append(stat(
+        "Current IXP traffic", 'sfmix:ixp_bps:total',
+        {"h": 4, "w": 8, "x": 0, "y": y}, unit="bps", decimals=1,
+        description="Aggregate exchange traffic — sum of participant-port "
+                    "ingress across the fabric (sfmix:ixp_bps:total)."))
+    p.append(stat(
+        "All-time high", 'sfmix:ixp_bps:alltime_max',
+        {"h": 4, "w": 8, "x": 8, "y": y}, unit="bps", decimals=1,
+        description="Record aggregate ingress since tracking began "
+                    "(sfmix:ixp_bps:alltime_max), seeded from sflow history. "
+                    "A new record trips the IXPTrafficAllTimeHigh alert."))
+    p.append(stat(
+        "% of all-time high",
+        'sfmix:ixp_bps:total / sfmix:ixp_bps:alltime_max * 100',
+        {"h": 4, "w": 8, "x": 16, "y": y}, unit="percent", decimals=1,
+        thresholds=[{"color": "#3d9950", "value": None},
+                    {"color": "#e8a33d", "value": 80},
+                    {"color": "#e0226e", "value": 95}],
+        description="Live traffic as a share of the record — approaches 100% "
+                    "as a new all-time high nears."))
+    y += 4
     p.append(timeseries(
         "Top participants (in)",
         [target('topk(10, sfmix:participant_bps:in)', "{{participant}}")],
