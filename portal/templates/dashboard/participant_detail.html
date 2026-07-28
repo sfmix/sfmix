@@ -285,14 +285,22 @@ its action buttons.
     </div>
     {% endif %}
 
-    {# ── L2: Link · LLDP ────────────────────────────────── #}
+    {# ── L2: Link · LLDP ──────────────────────────────────
+       LLDP neighbours are only served for ports the viewer owns or
+       administers, so for everyone else the pills could only ever read
+       "No LLDP received" — show them to entitled viewers only, where an
+       absent neighbour is real signal. Learned MACs on the peering LAN
+       stay public, so the band itself survives on those; with neither,
+       there is nothing to draw. #}
+    {% if can_see_admin or lp.macs %}
     <div class="nd-lband nd-l2">
       <div class="nd-lband-tag">
         <span class="nd-lt-l">L2</span>
-        <span class="nd-lt-name">{% translate "Link" %} &middot; LLDP</span>
+        <span class="nd-lt-name">{% translate "Link" %}{% if can_see_admin %} &middot; LLDP{% endif %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
       </div>
       <div class="nd-lband-body">
+        {% if can_see_admin %}
         {% for phy in lp.physical %}
         {% if phy.lldp %}
         <div class="nd-lldp-pill{% if phy.link_status != 'up' and phy.link_status != 'connected' and phy.link_status != 'unknown' %} nd-lldp-down{% endif %}">
@@ -334,6 +342,7 @@ its action buttons.
         </div>
         {% endif %}
         {% endfor %}
+        {% endif %}
         {% if lp.macs %}
         <div class="nd-band-title">{% translate "MAC addresses learned on port" %}{% if lp.macs|length > 1 %}<span class="nd-warn-flag" title="{% translate 'A member port should normally present a single MAC' %}">&#9888; {% blocktranslate count n=lp.macs|length %}{{ n }} learned &middot; expected 1{% plural %}{{ n }} learned &middot; expected 1{% endblocktranslate %}</span>{% endif %}</div>
         {# Desktop: table #}
@@ -407,6 +416,7 @@ its action buttons.
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
     {# ── L3: Network · ARP/NDP ──────────────────────────── #}
     <div class="nd-lband nd-l3">
