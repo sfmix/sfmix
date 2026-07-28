@@ -2,8 +2,10 @@
 {% load i18n %}
 {% block title %}{% translate "ND Anomaly Events" %} – SFMIX Portal{% endblock %}
 
-{# Wider than the default max-w-5xl so the 8-column table isn't forced into a
-   horizontal scroll on large displays. #}
+{% comment %}
+Wider than the default max-w-5xl so the 8-column table isn't forced into a
+horizontal scroll on large displays.
+{% endcomment %}
 {% block container_class %}max-w-[1800px]{% endblock %}
 
 {% block content %}
