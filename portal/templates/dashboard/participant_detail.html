@@ -285,13 +285,15 @@ its action buttons.
     </div>
     {% endif %}
 
-    {# ── L2: Link · LLDP ──────────────────────────────────
-       LLDP neighbours are only served for ports the viewer owns or
-       administers, so for everyone else the pills could only ever read
-       "No LLDP received" — show them to entitled viewers only, where an
-       absent neighbour is real signal. Learned MACs on the peering LAN
-       stay public, so the band itself survives on those; with neither,
-       there is nothing to draw. #}
+    {# ── L2: Link · LLDP ────────────────────────────────── #}
+    {% comment %}
+    LLDP neighbours are only served for ports the viewer owns or
+    administers, so for everyone else the pills could only ever read
+    "No LLDP received" — show them to entitled viewers only, where an
+    absent neighbour is real signal. Learned MACs on the peering LAN
+    stay public, so the band itself survives on those; with neither,
+    there is nothing to draw.
+    {% endcomment %}
     {% if can_see_admin or lp.macs %}
     <div class="nd-lband nd-l2">
       <div class="nd-lband-tag">
