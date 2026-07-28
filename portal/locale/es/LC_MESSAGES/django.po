@@ -633,6 +633,22 @@ msgstr "Capacidad:"
 msgid "%(active)sG active"
 msgstr "%(active)sG activos"
 
+#: templates/dashboard/participant_detail.html:34
+#, python-format
+msgid "%(provisioned)sG provisioned"
+msgstr "%(provisioned)sG aprovisionados"
+
+#: templates/dashboard/participant_detail.html:219
+msgid ""
+"No live link state was returned for this port. It may not exist on the "
+"switch, or live status is not available to you."
+msgstr ""
+"No se recibió ningún estado de enlace en vivo para este puerto. Es posible que no exista en el switch o que el estado en vivo no esté disponible para usted."
+
+#: templates/dashboard/participant_detail.html:252
+msgid "No live link state was returned for this interface."
+msgstr "No se recibió ningún estado de enlace en vivo para esta interfaz."
+
 #: templates/dashboard/participant_detail.html:32
 #, python-format
 msgid "%(active)sG active / %(provisioned)sG provisioned"

@@ -628,6 +628,22 @@ msgstr "Cargo hold:"
 msgid "%(active)sG active"
 msgstr "%(active)sG sailin'"
 
+#: templates/dashboard/participant_detail.html:34
+#, python-format
+msgid "%(provisioned)sG provisioned"
+msgstr "%(provisioned)sG stocked"
+
+#: templates/dashboard/participant_detail.html:219
+msgid ""
+"No live link state was returned for this port. It may not exist on the "
+"switch, or live status is not available to you."
+msgstr ""
+"No livin' link state came back for this here port. She may be gone from the switch, or the livin' state be hidden from ye."
+
+#: templates/dashboard/participant_detail.html:252
+msgid "No live link state was returned for this interface."
+msgstr "No livin' link state came back for this here interface."
+
 #: templates/dashboard/participant_detail.html:32
 #, python-format
 msgid "%(active)sG active / %(provisioned)sG provisioned"
