@@ -31,7 +31,9 @@ its action buttons.
     {% if member.participant_type %}<span><b>{% translate "Type:" %}</b> {{ member.participant_type }}</span>{% endif %}
     <span><b>{% translate "Ports:" %}</b> {% blocktranslate with logical=logical_port_count physical=physical_port_count %}{{ logical }} logical, {{ physical }} physical{% endblocktranslate %}</span>
     <span><b>{% translate "Capacity:" %}</b>
-      {% if total_active_gbps == total_provisioned_gbps %}
+      {% if not has_live_state %}
+        {% blocktranslate with provisioned=total_provisioned_gbps|floatformat:0 %}{{ provisioned }}G provisioned{% endblocktranslate %}
+      {% elif total_active_gbps == total_provisioned_gbps %}
         {% blocktranslate with active=total_active_gbps|floatformat:0 %}{{ active }}G active{% endblocktranslate %}
       {% else %}
         {% blocktranslate with active=total_active_gbps|floatformat:0 provisioned=total_provisioned_gbps|floatformat:0 %}{{ active }}G active / {{ provisioned }}G provisioned{% endblocktranslate %}
@@ -62,7 +64,9 @@ its action buttons.
       {% if member.participant_type %}<span><b>{% translate "Type:" %}</b> {{ member.participant_type }}</span>{% endif %}
       <span><b>{% translate "Ports:" %}</b> {% blocktranslate with logical=logical_port_count physical=physical_port_count %}{{ logical }} logical, {{ physical }} physical{% endblocktranslate %}</span>
       <span><b>{% translate "Capacity:" %}</b>
-        {% if total_active_gbps == total_provisioned_gbps %}
+        {% if not has_live_state %}
+          {% blocktranslate with provisioned=total_provisioned_gbps|floatformat:0 %}{{ provisioned }}G provisioned{% endblocktranslate %}
+        {% elif total_active_gbps == total_provisioned_gbps %}
           {% blocktranslate with active=total_active_gbps|floatformat:0 %}{{ active }}G active{% endblocktranslate %}
         {% else %}
           {% blocktranslate with active=total_active_gbps|floatformat:0 provisioned=total_provisioned_gbps|floatformat:0 %}{{ active }}G active / {{ provisioned }}G provisioned{% endblocktranslate %}
@@ -195,7 +199,7 @@ its action buttons.
 
 {# ── Logical Ports ───────────────────────────────────────────── #}
 {% for lp in logical_ports %}
-<div class="nd-lport{% if lp.link_state == 'down' %} nd-lport-down{% endif %}">
+<div class="nd-lport{% if lp.link_state == 'down' %} nd-lport-down{% elif lp.link_state == 'unknown' %} nd-lport-unknown{% endif %}">
 
   {# ─ Logical port header ─ #}
   <div class="nd-lport-head">
@@ -214,10 +218,12 @@ its action buttons.
     <span class="nd-ls-badge nd-ls-up"><i></i> {% translate "Up" %}</span>
     {% elif lp.link_state == "degraded" %}
     <span class="nd-ls-badge nd-ls-degraded"><i></i> {% translate "Degraded" %} {{ lp.members_up }}/{{ lp.members_total }}</span>
+    {% elif lp.link_state == "unknown" %}
+    <span class="nd-ls-badge nd-ls-unknown" title="{% translate 'No live link state was returned for this port. It may not exist on the switch, or live status is not available to you.' %}"><i></i> &mdash; {% translate "No data" %}</span>
     {% else %}
     <span class="nd-ls-badge nd-ls-down"><i></i> {% translate "Down" %}</span>
     {% endif %}
-    {% if lp.link_state != "down" and lp.kind == "lag" %}
+    {% if lp.link_state != "down" and lp.link_state != "unknown" and lp.kind == "lag" %}
     <span class="nd-lp-speed color-text-light">{% blocktranslate with speed=lp.effective_speed_gbps|floatformat:0 %}{{ speed }}G effective{% endblocktranslate %}</span>
     {% endif %}
   </div>
@@ -235,7 +241,7 @@ its action buttons.
       <div class="nd-lband-body">
         <div class="nd-pmembers">
           {% for phy in lp.physical %}
-          <div id="{{ phy.anchor }}" class="nd-pmember{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-pmember-down{% endif %}">
+          <div id="{{ phy.anchor }}" class="nd-pmember{% if phy.link_status == 'unknown' %} nd-pmember-unknown{% elif phy.link_status != 'up' and phy.link_status != 'connected' %} nd-pmember-down{% endif %}">
             <div class="nd-pm-head">
               <span class="nd-pm-name">
                 <span class="nd-dq-d">{{ phy.device|cut:".sfmix.org" }}</span>{{ phy.name }}
@@ -245,6 +251,8 @@ its action buttons.
               <span class="nd-spacer"></span>
               {% if phy.link_status == "up" or phy.link_status == "connected" %}
               <span class="nd-ls-dot nd-ls-dot-up"><i></i> {% translate "Up" %}</span>
+              {% elif phy.link_status == "unknown" %}
+              <span class="nd-ls-dot nd-ls-dot-unknown" title="{% translate 'No live link state was returned for this interface.' %}"><i></i> &mdash; {% translate "No data" %}</span>
               {% else %}
               <span class="nd-ls-dot nd-ls-dot-down"><i></i> {{ phy.link_status|default:_("Down")|title }}</span>
               {% endif %}
@@ -287,7 +295,7 @@ its action buttons.
       <div class="nd-lband-body">
         {% for phy in lp.physical %}
         {% if phy.lldp %}
-        <div class="nd-lldp-pill{% if phy.link_status != 'up' and phy.link_status != 'connected' %} nd-lldp-down{% endif %}">
+        <div class="nd-lldp-pill{% if phy.link_status != 'up' and phy.link_status != 'connected' and phy.link_status != 'unknown' %} nd-lldp-down{% endif %}">
           <div class="nd-llp-side nd-llp-local">
             <div class="nd-llp-label">{% translate "Local" %}</div>
             <div class="nd-llp-host">{{ phy.device|cut:".sfmix.org" }}</div>
@@ -296,6 +304,8 @@ its action buttons.
           <div class="nd-llp-conn">
             {% if phy.link_status == "up" or phy.link_status == "connected" %}
             <span class="nd-llp-dot nd-llp-dot-up"></span>
+            {% elif phy.link_status == "unknown" %}
+            <span class="nd-llp-dot nd-llp-dot-unknown"></span>
             {% else %}
             <span class="nd-llp-dot nd-llp-dot-down"></span>
             {% endif %}

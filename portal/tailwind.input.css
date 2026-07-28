@@ -204,6 +204,7 @@ body {
 /* Logical port card */
 .nd-lport { border: 1px solid var(--color-border); border-radius: var(--radius-card); margin-bottom: 1.5rem; background: #fff; overflow: hidden; }
 .nd-lport-down { opacity: .7; }
+.nd-lport-unknown { opacity: .85; }
 .nd-lport-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .65rem 1rem; background: #f7f8fa; border-bottom: 1px solid #eee; }
 .nd-lp-title { font-family: var(--font-mono); font-size: .9rem; font-weight: 600; color: var(--color-primary); }
 .nd-dq-d { font-weight: 400; color: var(--color-text-light); font-size: .8rem; }
@@ -222,6 +223,9 @@ body {
 .nd-ls-degraded i { background: #d97706; }
 .nd-ls-down { background: #fee2e2; color: #dc2626; }
 .nd-ls-down i { background: #dc2626; }
+/* No live state available — neither up nor down, and not styled as either. */
+.nd-ls-unknown { background: #f1f2f4; color: #6b7280; }
+.nd-ls-unknown i { background: #9ca3af; }
 
 /* Service stackup */
 .nd-stack { display: flex; flex-direction: column; }
@@ -264,6 +268,7 @@ body {
   scroll-margin-top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px) + 3.5rem); }
 .nd-pmember:target { border-color: #93c5fd; box-shadow: 0 0 0 3px #dbeafe; }
 .nd-pmember-down { opacity: .6; }
+.nd-pmember-unknown { opacity: .8; }
 .nd-pm-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .nd-pm-name { font-family: var(--font-mono); font-size: .82rem; font-weight: 600; color: var(--color-primary); }
 .nd-pm-speed { font-family: var(--font-mono); font-size: .78rem; color: var(--color-text-light); }
@@ -276,6 +281,8 @@ body {
 .nd-ls-dot-up i { background: #1d7a3e; }
 .nd-ls-dot-down { color: #dc2626; }
 .nd-ls-dot-down i { background: #dc2626; }
+.nd-ls-dot-unknown { color: #6b7280; }
+.nd-ls-dot-unknown i { background: #9ca3af; }
 
 /* Optic lanes */
 .nd-lanes { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
@@ -311,6 +318,7 @@ body {
 .nd-llp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .nd-llp-dot-up { background: #22c55e; }
 .nd-llp-dot-down { background: #ef4444; }
+.nd-llp-dot-unknown { background: #9ca3af; }
 .nd-llp-dot-na { background: #9ca3af; }
 .nd-llp-arrow { font-size: .85rem; color: var(--color-text-light); }
 .nd-llp-down-label { font-size: .78rem; color: var(--color-text-light); font-style: italic; }

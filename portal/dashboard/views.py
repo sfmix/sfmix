@@ -538,14 +538,19 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
                 dev, iface_name, iface_by_key, optics_by_key, lldp_by_key,
                 can_see_admin, netbox_speed_mbps=speed_mbps))
 
-        # Derive link state from physical members
+        # Derive link state from physical members. When no member has live
+        # data the state is genuinely unknown — never infer it from NetBox's
+        # `enabled` flag, which records provisioning intent, not link state.
+        # A port deleted from the switch but left in NetBox can never match
+        # live data, so inferring would pin it to "Up" forever; anonymous
+        # viewers, who aren't served per-participant interface status, would
+        # likewise see "Up" for every port regardless of reality.
         known = [p for p in physical if p["link_status"] != "unknown"]
         up_count = sum(1 for p in known if p["link_status"] in ("up", "connected"))
         total = len(physical)
         if not known:
-            # No live data — assume up based on enabled state
-            link_state = "up" if port.get("enabled", True) else "down"
-            eff_speed = speed_mbps
+            link_state = "unknown"
+            eff_speed = 0
         elif up_count == 0:
             link_state = "down"
             eff_speed = 0
@@ -1446,20 +1451,25 @@ def participant_detail(request, asn):
         lg_error = str(e)
         logger.exception("Error loading network detail for AS%s", asn)
 
-    # Derive aggregate network status
-    if logical_ports:
-        if all(lp["link_state"] == "down" for lp in logical_ports):
-            net_status = "down"
-        elif any(lp["link_state"] != "up" for lp in logical_ports):
-            net_status = "degraded"
-        else:
-            net_status = "active"
-    else:
+    # Derive aggregate network status from the ports we actually have live
+    # state for. Ports in the "unknown" state carry no signal either way, so
+    # they neither drag the network to "degraded" nor prop it up as "active".
+    known_ports = [lp for lp in logical_ports if lp["link_state"] != "unknown"]
+    if not known_ports:
         net_status = "unknown"
+    elif all(lp["link_state"] == "down" for lp in known_ports):
+        net_status = "down"
+    elif any(lp["link_state"] != "up" for lp in known_ports):
+        net_status = "degraded"
+    else:
+        net_status = "active"
 
     total_physical = sum(len(lp["physical"]) for lp in logical_ports)
     total_active_gbps = sum(lp["effective_speed_gbps"] for lp in logical_ports)
     total_provisioned_gbps = sum(lp["speed_gbps"] for lp in logical_ports)
+    # With no live state anywhere, "0G active" would be a claim we can't make;
+    # the capacity line falls back to provisioned-only.
+    has_live_state = bool(known_ports)
 
     return render(request, "dashboard/participant_detail.html", {
         "asn": asn,
@@ -1471,6 +1481,7 @@ def participant_detail(request, asn):
         "physical_port_count": total_physical,
         "total_active_gbps": total_active_gbps,
         "total_provisioned_gbps": total_provisioned_gbps,
+        "has_live_state": has_live_state,
         "alerts": alerts,
         "has_invalid_ip": has_invalid_ip,
         "rs_parity": rs_parity,

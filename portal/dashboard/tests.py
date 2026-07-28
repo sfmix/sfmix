@@ -5,6 +5,7 @@ import json
 from django.test import SimpleTestCase
 
 from dashboard.views import (
+    _build_logical_ports,
     _build_physical_port,
     _compute_rs_parity,
     _parity_applicable,
@@ -210,6 +211,60 @@ class PhysicalPortLldpTests(SimpleTestCase):
             can_see_admin=False,
         )
         self.assertIsNone(phy["lldp"])
+
+
+class LogicalPortLinkStateTests(SimpleTestCase):
+    """Link state must come from live device data, never from NetBox's
+    `enabled` flag. AS16509 kept two Port-Channels in NetBox after its ports
+    moved to other switches; with no live data to match, the old fallback
+    inferred "up" from `enabled` and the deleted ports rendered as permanently
+    Up. Anonymous viewers, who are not served per-participant interface
+    status, hit the same fallback for every port.
+    """
+
+    DEVICE = "switch02.sjc01.sfmix.org"
+
+    def _port(self, iface="Port-Channel101", member="Ethernet5/1", enabled=True):
+        return {
+            "device": self.DEVICE,
+            "interface": iface,
+            "interface_id": 2269,
+            "enabled": enabled,
+            "speed": 100000,
+            "member_interfaces": [[self.DEVICE, member]],
+        }
+
+    def _build(self, iface_by_key, enabled=True):
+        return _build_logical_ports(
+            [self._port(enabled=enabled)], iface_by_key, {}, {}, {},
+            participant_ips=[], arp_by_ip={}, ndp_by_ip={}, discovered_by_ip={},
+            rs_sessions=[], can_see_admin=False, peering_vlans={"998"},
+        )
+
+    def test_no_live_data_is_unknown_not_up(self):
+        lp = self._build({})[0]
+        self.assertEqual(lp["link_state"], "unknown")
+        self.assertEqual(lp["physical"][0]["link_status"], "unknown")
+
+    def test_no_live_data_claims_no_effective_capacity(self):
+        lp = self._build({})[0]
+        self.assertEqual(lp["effective_speed_gbps"], 0)
+        # Provisioned capacity still reflects NetBox.
+        self.assertEqual(lp["speed_gbps"], 100)
+
+    def test_enabled_flag_does_not_decide_state(self):
+        # Both NetBox intents collapse to "unknown" without live data.
+        self.assertEqual(self._build({}, enabled=False)[0]["link_state"], "unknown")
+        self.assertEqual(self._build({}, enabled=True)[0]["link_state"], "unknown")
+
+    def test_live_data_still_drives_up_and_down(self):
+        key = (self.DEVICE, "Ethernet5/1")
+        up = self._build({key: {"link_status": "connected", "speed": 100000}})[0]
+        self.assertEqual(up["link_state"], "up")
+        self.assertEqual(up["effective_speed_gbps"], 100)
+        # An admin-disabled member is live data, and it means down.
+        down = self._build({key: {"link_status": "disabled", "speed": 100000}})[0]
+        self.assertEqual(down["link_state"], "down")
 
 
 class RealRouteserversTests(SimpleTestCase):
