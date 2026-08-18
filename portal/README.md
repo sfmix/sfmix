@@ -2,6 +2,8 @@
 
 Django-based participant dashboard for SFMIX IX users. Authenticates via Authentik SSO (OIDC) at `login.sfmix.org`, using PeeringDB-sourced ASN group memberships to control which networks a user can view.
 
+See it in action at [portal.sfmix.org](https://portal.sfmix.org/)
+
 ## Architecture
 
 - **Host:** `portal.sfmix.org` (Ansible group `ixp_portal`)
