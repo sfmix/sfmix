@@ -1,3 +1,9 @@
+- name: "Restart grafana docker container"
+  become: true
+  community.docker.docker_container:
+    name: grafana
+    state: started
+    restart: true
 - name: "Restart syslog-ng docker container"
   become: true
   community.docker.docker_container:
