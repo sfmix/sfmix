@@ -15,6 +15,16 @@ use looking_glass::grammar::parse_command;
 use looking_glass::identity::Identity;
 use looking_glass::structured::CommandOutput;
 
+/// How long a frontend waits for lg-server's RPC listener at startup before
+/// giving up and letting systemd restart it.
+///
+/// lg-server binds RPC in about ten seconds now that the device-cache warm runs
+/// in the background rather than gating the bind, so this is pure headroom for a
+/// slow NetBox fetch on the startup path. It was 30s, which was under the ~3.5min
+/// warm and meant every restart churned the frontends through several failed
+/// starts before lg-server was reachable.
+const RPC_READY_TIMEOUT_SECS: u64 = 120;
+
 /// Cached service metadata fetched from lg-server at startup.
 pub struct ServiceContext {
     pub info: ServiceInfo,
@@ -24,7 +34,7 @@ pub struct ServiceContext {
 impl ServiceContext {
     pub async fn connect(rpc_url: &str, rpc_secret: &str) -> Result<Self> {
         let rpc = RpcClient::new(rpc_url, rpc_secret);
-        let info = rpc.wait_for_ready(30).await?;
+        let info = rpc.wait_for_ready(RPC_READY_TIMEOUT_SECS).await?;
         Ok(Self { info, rpc })
     }
 }

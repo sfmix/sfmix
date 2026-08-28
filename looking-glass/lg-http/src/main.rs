@@ -7,6 +7,16 @@ use tracing::info;
 use lg_client::client::RpcClient;
 use looking_glass::oidc::OidcClient;
 
+/// How long a frontend waits for lg-server's RPC listener at startup before
+/// giving up and letting systemd restart it.
+///
+/// lg-server binds RPC in about ten seconds now that the device-cache warm runs
+/// in the background rather than gating the bind, so this is pure headroom for a
+/// slow NetBox fetch on the startup path. It was 30s, which was under the ~3.5min
+/// warm and meant every restart churned the frontends through several failed
+/// starts before lg-server was reachable.
+const RPC_READY_TIMEOUT_SECS: u64 = 120;
+
 mod mcp;
 mod rest;
 
@@ -77,7 +87,7 @@ async fn main() -> Result<()> {
         String::new()
     });
     let rpc = RpcClient::new(&config.rpc_url, &rpc_secret);
-    let svc_info = rpc.wait_for_ready(30).await?;
+    let svc_info = rpc.wait_for_ready(RPC_READY_TIMEOUT_SECS).await?;
     info!(
         "Connected to {} ({} devices)",
         svc_info.name, svc_info.device_count
