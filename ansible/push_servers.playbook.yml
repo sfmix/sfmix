@@ -56,8 +56,10 @@
     - prometheus
     - snmp_exporter
     - alertmanager
+    - blackbox_exporter
   roles:
     - snmp_exporter
+    - blackbox_exporter
     - prometheus
     - alertmanager
 

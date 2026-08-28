@@ -1,0 +1,24 @@
+# Managed by Ansible (roles/blackbox_exporter).
+modules:
+    # Plain TLS handshake, no HTTP semantics. Deliberately not the http_2xx
+    # prober: we want the certificate regardless of what the app behind it
+    # answers, and SFMIX endpoints legitimately reply 200/301/302 depending on
+    # the service. A handshake succeeds or it does not.
+    tls_connect:
+        prober: tcp
+        timeout: 10s
+        tcp:
+            tls: true
+            preferred_ip_protocol: ip4
+            ip_protocol_fallback: true
+
+    # Same probe over IPv6. An IX has no excuse for monitoring only one stack,
+    # and a v6 listener with a stale cert or a broken chain is invisible to the
+    # v4 probe above.
+    tls_connect_ipv6:
+        prober: tcp
+        timeout: 10s
+        tcp:
+            tls: true
+            preferred_ip_protocol: ip6
+            ip_protocol_fallback: false

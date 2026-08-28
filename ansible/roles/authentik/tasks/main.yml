@@ -170,9 +170,10 @@
     mode: "0644"
   notify: Reload nginx
 
-- name: Ensure certbot renewal timer is enabled
-  become: true
-  ansible.builtin.systemd_service:
-    name: certbot.timer
-    enabled: true
-    state: started
+# Single source of truth for the renewal-hooks/deploy plumbing (see
+# sfmix_server/tasks/certbot_hooks.yml for why it is needed). Included here
+# too because this role's own deploy playbook does not run sfmix_server.
+- name: Ensure certbot renewal hooks are installed
+  ansible.builtin.include_role:
+    name: sfmix_server
+    tasks_from: certbot_hooks.yml

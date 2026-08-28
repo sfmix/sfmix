@@ -25,6 +25,7 @@
   loop:
     - sfmix.rules.yml
     - pdu.rules.yml            # cross-vendor PDU power normalisation + alerts
+    - tls.rules.yml            # served-certificate expiry (blackbox_exporter)
 
 - name: "Prometheus: Template config"
   become: true

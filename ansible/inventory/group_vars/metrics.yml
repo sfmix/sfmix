@@ -1,0 +1,39 @@
+---
+# Public TLS endpoints probed by blackbox_exporter for certificate expiry.
+#
+# These are checked over the wire, from outside, exactly as a browser or a
+# peer's automation would see them -- see roles/blackbox_exporter/defaults for
+# why the on-disk cert is not a trustworthy signal.
+#
+# Add a name here whenever a new public HTTPS service goes live; the alert
+# rules in roles/prometheus/templates/rules/tls.rules.yml.j2 pick it up with no
+# further changes. Endpoints that are not publicly reachable (alertmanager,
+# sentry, obscreen as of 2026-08-28) are intentionally absent.
+# Kept here rather than only in the blackbox_exporter role defaults because the
+# prometheus role's config template also needs it, and role defaults are
+# role-scoped.
+blackbox_exporter_listen_port: 9115
+
+blackbox_tls_targets:
+  - sfmix.org:443
+  - www.sfmix.org:443
+  - login.sfmix.org:443
+  - portal.sfmix.org:443
+  - lg.sfmix.org:443
+  - grafana.sfmix.org:443
+  - netbox.sfmix.org:443
+  - alice.sfmix.org:443
+  - snappy.sfmix.org:443
+  - teleport.sfmix.org:443
+
+# Targets to skip in the IPv6 probe job.
+#
+# snappy.sfmix.org publishes AAAA 2620:11a:b002::26 and answers TLS over v6 from
+# outside, but TCP/443 and ICMP6 to it both time out from every SFMIX server
+# (metrics.sfo02, portal, login, alice) as of 2026-08-28. That is a real
+# reachability gap worth fixing, but it is not a certificate problem, and
+# leaving it in the v6 job means TLSProbeFailing fires forever -- which trains
+# everyone to ignore the TLS alerts. Excluded here deliberately: remove this
+# entry the moment v6 to snappy is fixed, so the probe resumes covering it.
+blackbox_tls_ipv6_exclude:
+  - snappy.sfmix.org:443
