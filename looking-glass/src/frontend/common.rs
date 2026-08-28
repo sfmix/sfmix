@@ -101,6 +101,18 @@ enum EscState {
 
 const HISTORY_MAX: usize = 100;
 
+/// Hard cap on a single input line, in bytes.
+///
+/// Shared by the SSH and telnet frontends; telnet is the motivating case since
+/// it is anonymous and public. The editor accumulates printable bytes until it
+/// sees a newline — so without a cap one connection
+/// that streams bytes and never presses Enter grows `buf` (and, once it does
+/// press Enter, a `history` entry) without bound. The connection tracker caps
+/// how MANY sessions an address gets, not how much memory each one may claim.
+/// 4 KiB is far beyond any real command; input past it is dropped silently
+/// rather than echoed, so a normal typist can never reach it.
+const MAX_LINE_LEN: usize = 4096;
+
 pub struct LineEditor {
     buf: String,
     esc_state: EscState,
@@ -353,8 +365,12 @@ impl LineEditor {
 
             // --- Printable characters ---
             c if (0x20..0x7F).contains(&c) => {
-                self.buf.push(c as char);
-                output.push(c);
+                // Drop (don't echo) anything past the cap: echoing would let the
+                // peer keep costing us output bytes for input we discard.
+                if self.buf.len() < MAX_LINE_LEN {
+                    self.buf.push(c as char);
+                    output.push(c);
+                }
                 LineEvent::Continue
             }
 
@@ -554,6 +570,7 @@ pub async fn dispatch_command<W: SessionWriter>(
 
 #[cfg(test)]
 mod tests {
+
     use crate::structured::*;
 
     fn iface(name: &str) -> InterfaceStatus {
@@ -598,5 +615,21 @@ mod tests {
     #[test]
     fn is_empty_optics() {
         assert!(CommandOutput::Optics(vec![]).is_empty());
+    }
+
+    #[test]
+    fn test_line_editor_caps_line_length() {
+        use super::{LineEditor, MAX_LINE_LEN};
+        // The telnet frontend is anonymous: a peer that streams printable bytes
+        // and never sends a newline must not be able to grow the editor buffer
+        // (and thus the process) without bound.
+        let mut ed = LineEditor::new();
+        let mut out = Vec::new();
+        for _ in 0..(MAX_LINE_LEN + 5000) {
+            ed.feed_byte(b'a', &mut out);
+        }
+        assert_eq!(ed.buf().len(), MAX_LINE_LEN, "buffer must stop at the cap");
+        // Over-cap input is dropped, not echoed, so it costs no output either.
+        assert_eq!(out.len(), MAX_LINE_LEN, "over-cap bytes must not be echoed");
     }
 }
