@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 
 use anyhow::Result;
-use russh::server::{self, Auth, Msg, Server as _, Session};
+use russh::server::{self, Auth, ChannelOpenHandle, Msg, Server as _, Session};
 use russh::{Channel, ChannelId, MethodKind};
 use russh::keys::{Certificate, PublicKey};
 use russh::keys::ssh_key::{self, Fingerprint, HashAlg};
@@ -516,15 +516,22 @@ impl server::Handler for SshSessionHandler {
         Ok(Auth::Accept)
     }
 
+    // russh 0.62 replaced the `-> Result<bool>` accept/reject convention with an
+    // explicit `ChannelOpenHandle`: the channel is only opened once `accept()` is
+    // awaited, and dropping the handle rejects it. That is what closes
+    // GHSA-m65r-rprj-r5rg, where channel-scoped callbacks could be reached
+    // without an open channel.
     async fn channel_open_session(
         &mut self,
         channel: Channel<Msg>,
+        reply: ChannelOpenHandle,
         session: &mut Session,
-    ) -> Result<bool, Self::Error> {
+    ) -> Result<(), Self::Error> {
         debug!("SSH channel opened");
         self.channel_id = Some(channel.id());
         self.session_handle = Some(session.handle());
-        Ok(true)
+        reply.accept().await;
+        Ok(())
     }
 
     async fn shell_request(
