@@ -97,6 +97,36 @@ WSGI_APPLICATION = "ixp_portal.wsgi.application"
 # Trust X-Forwarded-Proto from nginx reverse proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# ── Cookie / transport hardening ──
+# nginx terminates TLS, redirects :80 -> :443 and sets HSTS + X-Frame-Options +
+# nosniff (see ansible roles/ixp_portal/templates/nginx-portal.conf.j2), so the
+# redirect and those headers are NOT duplicated here. What nginx cannot do is
+# mark Django's own cookies: without these flags the session and CSRF cookies
+# are still emitted without `Secure`, so a client that reaches http:// once
+# before HSTS is pinned leaks them in cleartext.
+#
+# Tied to `not DEBUG` so `runserver` over plain http still works locally — a
+# Secure cookie is simply never sent back by the browser over http, which would
+# break the dev login loop.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+# The CSRF cookie must stay readable by JS only if a script reads it; nothing
+# here does (Django templates embed the token in the form), so lock it down.
+CSRF_COOKIE_HTTPONLY = True
+# Lax (not Strict) so the OIDC provider's redirect back from login.sfmix.org
+# still carries the session cookie; Strict would drop it on that cross-site
+# top-level navigation and loop the user back through SSO forever.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# Django checks the Origin header against this list for unsafe methods. Behind
+# the proxy the request scheme is https (SECURE_PROXY_SSL_HEADER above), so the
+# origins must be spelled with the scheme.
+CSRF_TRUSTED_ORIGINS = [
+    f"https://{h}" for h in ALLOWED_HOSTS if h not in ("*", "localhost", "127.0.0.1")
+]
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
