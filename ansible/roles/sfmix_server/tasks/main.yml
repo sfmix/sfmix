@@ -46,6 +46,13 @@
   tags:
     - snmp
 
+- name: "SFMIX Server: certbot renewal hooks"
+  when: ansible_facts["system"] == "Linux"
+  ansible.builtin.import_tasks:
+    file: certbot_hooks.yml
+  tags:
+    - certbot
+
 - name: "SFMIX Server: Linux sysctl"
   when: ansible_facts["system"] == "Linux"
   ansible.builtin.import_tasks:

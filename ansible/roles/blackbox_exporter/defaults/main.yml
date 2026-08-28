@@ -1,0 +1,17 @@
+---
+# blackbox_exporter — external "as a client sees it" probing.
+#
+# Deployed as a sibling docker container to Prometheus/Alertmanager on the
+# metrics host. Its job here is narrow and deliberate: measure the certificate
+# each service *actually serves on the wire*, not the one sitting on its disk.
+#
+# Those two drift apart silently. certbot renewing a cert only rewrites the
+# PEMs; a daemon that opened them at startup keeps presenting the old chain
+# until it is reloaded. On 2026-08-28 login.sfmix.org served a cert that had
+# expired the previous day while a perfectly valid one had been on disk since
+# July, and nothing anywhere noticed. Any check that reads the filesystem, or
+# that trusts `certbot renew` exit status, would have reported all clear.
+# probe_ssl_earliest_cert_expiry comes from the TLS handshake, so it cannot.
+blackbox_exporter_image: prom/blackbox-exporter
+blackbox_exporter_listen_port: 9115
+blackbox_exporter_config_dir: /opt/blackbox_exporter

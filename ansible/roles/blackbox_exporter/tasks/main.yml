@@ -1,0 +1,33 @@
+---
+- name: "blackbox_exporter: ensure config directory"
+  become: true
+  ansible.builtin.file:
+    path: "{{ blackbox_exporter_config_dir }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: ug=rwx,o=rx
+
+- name: "blackbox_exporter: template config"
+  become: true
+  notify: Reload blackbox_exporter
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: "{{ blackbox_exporter_config_dir }}/blackbox.yml"
+    owner: nobody
+    group: nogroup
+    mode: ugo=r
+
+- name: "blackbox_exporter: run prom/blackbox-exporter container"
+  become: true
+  community.docker.docker_container:
+    name: blackbox_exporter
+    image: "{{ blackbox_exporter_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "{{ blackbox_exporter_config_dir }}:{{ blackbox_exporter_config_dir }}:ro"
+    user: nobody
+    command:
+      - "--config.file={{ blackbox_exporter_config_dir }}/blackbox.yml"
+      - "--web.listen-address=:{{ blackbox_exporter_listen_port }}"

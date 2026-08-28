@@ -1,0 +1,71 @@
+---
+# Host-global certbot renewal plumbing.
+#
+# certbot renewing a cert only rewrites the PEMs under /etc/letsencrypt/live.
+# A long-running server that opened those files at startup keeps serving the
+# OLD certificate out of memory until it is explicitly reloaded, so a host can
+# sail through months of successful renewals and still hand clients an expired
+# cert. That is exactly what happened to login.sfmix.org on 2026-08-28: the
+# cert on disk was valid (Jul 28 - Oct 26) while the nginx master process from
+# Jun 9 served the expired May 29 - Aug 27 copy. portal.sfmix.org was one day
+# from the same outage.
+#
+# Hooks in renewal-hooks/deploy run after ANY successful renewal on the host,
+# for every cert and every service role, which is why this lives in the base
+# role rather than in each service role that happens to call certbot.
+- name: "Certbot: check whether letsencrypt is present"
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt
+  register: _certbot_letsencrypt_dir
+
+- name: "Certbot: renewal hook plumbing"
+  when: _certbot_letsencrypt_dir.stat.exists
+  block:
+    - name: "Certbot: ensure renewal-hooks/deploy exists"
+      become: true
+      ansible.builtin.file:
+        path: /etc/letsencrypt/renewal-hooks/deploy
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # `is-active` guards keep a stopped/absent unit from failing the hook --
+    # a non-zero deploy hook makes certbot report the whole renewal as failed.
+    # `reload` (not restart) is graceful: nginx re-execs workers without
+    # dropping connections, and both units no-op when not installed.
+    - name: "Certbot: install deploy hook to reload TLS-serving services"
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/letsencrypt/renewal-hooks/deploy/reload-tls-services.sh
+        content: |
+          #!/bin/bash
+          # Managed by Ansible (sfmix_server/tasks/certbot_hooks.yml).
+          # Runs after every successful certbot renewal on this host so that
+          # long-lived daemons stop serving the superseded certificate.
+          set -u
+          for unit in nginx apache2; do
+              if systemctl is-active --quiet "$unit"; then
+                  systemctl reload "$unit" || systemctl restart "$unit" || true
+              fi
+          done
+        owner: root
+        group: root
+        mode: "0755"
+
+    # Superseded by reload-tls-services.sh above; leaving it in place would
+    # just reload nginx twice per renewal.
+    - name: "Certbot: remove superseded per-role nginx reload hook"
+      become: true
+      ansible.builtin.file:
+        path: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+        state: absent
+
+    - name: "Certbot: ensure renewal timer is enabled"
+      become: true
+      ansible.builtin.systemd_service:
+        name: certbot.timer
+        enabled: true
+        state: started
+      failed_when: false

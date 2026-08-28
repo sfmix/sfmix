@@ -1,0 +1,89 @@
+{#
+  TLS certificate expiry alerts, rendered by Ansible.
+
+  Go/PromQL template expressions consumed by Prometheus itself ({{ $labels }},
+  {{ $value }}) are wrapped in {% raw %}...{% endraw %} so Jinja leaves them
+  alone -- same convention as sfmix.rules.yml.j2.
+#}
+---
+groups:
+{% raw %}
+  # ── Served-certificate expiry ────────────────────────────────────────
+  # probe_ssl_earliest_cert_expiry is a unix timestamp read out of the TLS
+  # handshake by blackbox_exporter, so it describes the chain the endpoint is
+  # ACTUALLY presenting -- not whatever is on its disk. This is the whole point
+  # of the check: on 2026-08-28 login.sfmix.org served a cert that expired the
+  # day before while a valid one had been on disk since July, because the nginx
+  # master process had not been reloaded since June. `certbot renew` was green
+  # throughout, and a filesystem check would have been too.
+  #
+  # Thresholds are set against a 90-day Let's Encrypt lifetime that certbot
+  # tries to renew at 30 days remaining:
+  #   < 21d  warning  -- renewal is ~9 days overdue, still lots of runway
+  #   <  7d  critical -- something is genuinely stuck, page someone
+  #   expired         -- customer-visible outage in progress
+  # A cert renewing normally never drops below 30 days, so a warning here
+  # always means a real failure rather than routine churn.
+  - name: sfmix-tls-alerts
+    rules:
+      - alert: TLSCertExpiringSoon
+        expr: >
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 21
+          and (probe_ssl_earliest_cert_expiry - time()) > 0
+        for: 30m
+        labels: {severity: warning, component: tls}
+        annotations:
+          summary: >-
+            {{ $labels.instance }} is serving a cert that expires in
+            {{ printf "%.1f" $value }} days
+          description: >-
+            The certificate {{ $labels.instance }} presents on the wire expires
+            in {{ printf "%.1f" $value }} days. certbot renews at 30 days, so
+            crossing 21 means renewal is failing OR the renewed cert is on disk
+            but the serving daemon was never reloaded. Check both:
+            `sudo certbot certificates` for the on-disk dates, and
+            `openssl s_client -connect {{ $labels.instance }}` for what is
+            actually served. If they disagree, reload nginx -- and check that
+            /etc/letsencrypt/renewal-hooks/deploy/reload-tls-services.sh exists.
+      - alert: TLSCertExpiringCritical
+        expr: >
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 7
+          and (probe_ssl_earliest_cert_expiry - time()) > 0
+        for: 30m
+        labels: {severity: critical, component: tls}
+        annotations:
+          summary: >-
+            {{ $labels.instance }} cert expires in
+            {{ printf "%.1f" $value }} days -- act now
+          description: >-
+            {{ $labels.instance }} is {{ printf "%.1f" $value }} days from
+            serving an expired certificate. Automatic renewal has not fixed
+            this on its own and will not; intervene manually.
+      - alert: TLSCertExpired
+        expr: (probe_ssl_earliest_cert_expiry - time()) <= 0
+        for: 5m
+        labels: {severity: critical, component: tls}
+        annotations:
+          summary: >-
+            {{ $labels.instance }} is serving an EXPIRED certificate
+          description: >-
+            Every browser and API client hitting {{ $labels.instance }} is
+            getting a TLS error right now. If `sudo certbot certificates` shows
+            a valid cert on disk, the fix is `systemctl reload nginx`.
+
+      # A probe that cannot complete a handshake reports no expiry at all, so
+      # the rules above go blind rather than firing. Catch that separately --
+      # otherwise "monitoring is broken" looks identical to "all is well".
+      - alert: TLSProbeFailing
+        expr: probe_success{job=~"blackbox-tls.*"} == 0
+        for: 15m
+        labels: {severity: warning, component: tls}
+        annotations:
+          summary: >-
+            TLS probe of {{ $labels.instance }} is failing ({{ $labels.job }})
+          description: >-
+            blackbox_exporter cannot complete a TLS handshake with
+            {{ $labels.instance }}. While this persists the certificate-expiry
+            alerts for that endpoint are blind, so treat it as a monitoring
+            outage as well as a possible service outage.
+{% endraw %}

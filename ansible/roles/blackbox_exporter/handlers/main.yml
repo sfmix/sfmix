@@ -1,0 +1,7 @@
+---
+# blackbox_exporter re-reads its config on SIGHUP; no need to bounce the
+# container (and lose in-flight probes) for a config-only change.
+- name: Reload blackbox_exporter
+  become: true
+  ansible.builtin.command: docker kill --signal=HUP blackbox_exporter
+  changed_when: true

@@ -206,6 +206,36 @@ scrape_configs:
           regex: '(scl04)'
           target_label: facility_operator
           replacement: opencolo
+    # Served-certificate expiry, probed from outside via blackbox_exporter.
+    # The relabel dance is the standard blackbox pattern: the configured target
+    # becomes the ?target= parameter and the `instance` label, while the actual
+    # scrape address is redirected to the exporter itself.
+    #
+    # Two jobs, one per IP family: a cert is per-name, but the v4 and v6
+    # listeners are separate sockets and can diverge (one reloaded, one not).
+    # `probe_ssl_earliest_cert_expiry` is what the tls.rules.yml alerts read.
+{% for family, module in [('', 'tls_connect'), ('-ipv6', 'tls_connect_ipv6')] %}
+    - job_name: blackbox-tls{{ family }}
+      metrics_path: /probe
+      scrape_interval: 120s
+      scrape_timeout: 15s
+      params:
+          module: [{{ module }}]
+      static_configs:
+          - targets:
+{% for target in blackbox_tls_targets %}
+{% if not (family == '-ipv6' and target in blackbox_tls_ipv6_exclude | default([])) %}
+              - {{ target }}
+{% endif %}
+{% endfor %}
+      relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: 127.0.0.1:{{ blackbox_exporter_listen_port | default(9115) }}
+{% endfor %}
     - job_name: bird_exporer
       scheme: http
       scrape_interval: 60s

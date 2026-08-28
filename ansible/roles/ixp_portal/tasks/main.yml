@@ -139,3 +139,12 @@
 # The network map is built inside the portal now (mapbuild app + Django-Q2), which
 # writes map.json + map-links.json onto the shared db volume — so there is no
 # external rsync from a builder host to receive here anymore.
+
+# --- Certificate renewal plumbing ---
+# Single source of truth for the renewal-hooks/deploy plumbing (see
+# sfmix_server/tasks/certbot_hooks.yml for why it is needed). Included here
+# too because this role's own deploy playbook does not run sfmix_server.
+- name: Ensure certbot renewal hooks are installed
+  ansible.builtin.include_role:
+    name: sfmix_server
+    tasks_from: certbot_hooks.yml
