@@ -1,0 +1,19 @@
+# Managed by Ansible (roles/grafana) — do not edit on the host or in the UI.
+# Source of truth: grafana_datasources in roles/grafana/defaults/main.yml.
+apiVersion: 1
+
+datasources:
+{% for ds in grafana_datasources %}
+  - name: "{{ ds.name }}"
+    uid: "{{ ds.uid }}"
+    type: {{ ds.type }}
+    access: {{ ds.access | default('proxy') }}
+    url: "{{ ds.url }}"
+    orgId: {{ ds.org_id | default(1) }}
+    isDefault: {{ ds.is_default | default(false) | bool | lower }}
+    editable: false
+{% if ds.json_data is defined %}
+    jsonData:
+{{ ds.json_data | to_nice_yaml(indent=2) | indent(6, true) }}
+{% endif %}
+{% endfor %}

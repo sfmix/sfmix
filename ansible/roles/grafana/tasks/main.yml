@@ -102,6 +102,31 @@
         group: nogroup
       when: wm_download is changed
 
+# ── Provisioned datasources ───────────────────────────────────────────────
+# All datasources are declared in grafana_datasources and provisioned from
+# there; the UI-created rows already in the Grafana DB are adopted by matching
+# name + orgId, so their existing uids are preserved.
+- name: "Grafana: ensure datasource provisioning directory"
+  become: true
+  tags: [datasources]
+  ansible.builtin.file:
+    path: /opt/grafana/provisioning/datasources
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: ug=rwx,o=rx
+
+- name: "Grafana: provision datasources"
+  become: true
+  tags: [datasources]
+  notify: "Restart grafana docker container"
+  ansible.builtin.template:
+    src: datasources.yaml.j2
+    dest: /opt/grafana/provisioning/datasources/datasources.yaml
+    owner: nobody
+    group: nogroup
+    mode: ug=rw,o=r
+
 - name: "Grafana: run grafana-image-renderer container"
   community.docker.docker_container:
     name: grafana-renderer
@@ -122,9 +147,15 @@
     network_mode: host
     volumes:
       - /opt/grafana:/var/lib/grafana
+      # Mount only the datasources subdir so Grafana's other stock provisioning
+      # dirs (dashboards, alerting, plugins, ...) keep their image defaults.
+      - /opt/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
     user: nobody
     env:
-      GF_INSTALL_PLUGINS: "esnet-matrix-panel"
+      # marcusolsson-json-datasource was installed by hand into the plugins
+      # volume; declare it so the provisioned datasource of that type always
+      # has its plugin present (provisioning errors out if it is missing).
+      GF_INSTALL_PLUGINS: "esnet-matrix-panel,marcusolsson-json-datasource"
       GF_RENDERING_SERVER_URL: "http://127.0.0.1:8081/render"
       GF_RENDERING_CALLBACK_URL: "http://127.0.0.1:3000/"
       GF_RENDERING_RENDERER_TOKEN: "{{ grafana_renderer_token }}"

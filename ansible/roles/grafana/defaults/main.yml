@@ -34,6 +34,47 @@ grafana_renderer_token: !vault |
           39383735396137623766386264383862646132636137326532373139353261613235613839363430
           34353033653531666566656130313331653434326131336662353064623932386135396562363539
           613434373365353136346535623861666430
+# ── Provisioned datasources ───────────────────────────────────────────────
+# The full set of Grafana datasources, rendered to a provisioning file. These
+# were originally hand-created in the UI; the `uid`s below are the ones already
+# in the Grafana DB and MUST NOT change — every saved dashboard panel references
+# its datasource by uid. Names are likewise the provisioning match key
+# (name + orgId), so renaming one here creates a duplicate rather than a rename.
+#
+# Provisioning only manages the datasources declared here; anything else in the
+# DB is left alone (nothing is deleted unless listed under deleteDatasources).
+grafana_datasources:
+  - name: Prometheus
+    uid: y22GmBEVk
+    type: prometheus
+    url: "http://metrics.sfo02.sfmix.org:9090/"
+    is_default: true
+    json_data:
+      httpMethod: POST
+  - name: Loki
+    uid: a2bf0538-2e14-48c6-9d6e-6d20690057f6
+    type: loki
+    url: "http://metrics.sfo02.sfmix.org:3100"
+  # Infrastructure-JSON plugin datasource (sflow-rt's user->ASN lookup). Kept
+  # for parity with the DB; no dashboard currently references it.
+  - name: marcusolsson-json-datasource
+    uid: db566469-c6cf-4024-b1c9-f8d46ec939e6
+    type: marcusolsson-json-datasource
+    url: "https://sflow-rt.com/user_to_asn.php"
+  # Alertmanager runs as a sibling host-networked container on this same host
+  # (roles/alertmanager), so reach it over loopback rather than through the
+  # public https://alertmanager.sfmix.org name.
+  - name: "SFMIX Alertmanager"
+    uid: sfmix-alertmanager
+    type: alertmanager
+    url: "http://127.0.0.1:{{ alertmanager_listen_port | default(9093) }}"
+    json_data:
+      # Upstream Prometheus Alertmanager, not the Grafana-flavoured API.
+      implementation: prometheus
+      # Alerts here come from Prometheus itself; Grafana-managed alerts are not
+      # routed through it, so don't offer it as a target for them.
+      handleGrafanaManagedAlerts: false
+
 grafana_loki_image: grafana/loki:3.0.0
 grafana_promtail_image: grafana/promtail:3.0.0
 grafana_syslog_ng_image: balabit/syslog-ng:4.8.0
