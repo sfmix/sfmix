@@ -205,7 +205,8 @@ fn classify_llc(dst: &[u8], p: &[u8]) -> Option<Detection> {
         if oui == 0x00000c {
             return match pid {
                 0x2000 => det("cdp", cdp_device_id(body)),
-                0x010b => det("stp", stp_root(body.get(3..)?)),
+                // SNAP body already starts at the BPDU (no LLC header to skip).
+                0x010b => det("stp", stp_root(body)),
                 0x2003 => det("cisco_l2", Some("VTP".into())),
                 0x2004 => det("cisco_l2", Some("DTP".into())),
                 0x0104 => det("cisco_l2", Some("PAgP".into())),
@@ -935,10 +936,14 @@ mod tests {
         let d = classify(&eth([0x01, 0x00, 0x0c, 0xcc, 0xcc, 0xcc], 0x0040, &cdp), &ctx()).unwrap();
         assert_eq!(d.proto.key, "cdp");
         assert_eq!(d.detail.as_deref(), Some("device core1"));
-        // PVST+ is STP; VTP is cisco_l2.
+        // PVST+ is STP (as captured on the fabric: RSTP BPDU, root priority 0x23e7
+        // = 8192 + VLAN 999); VTP is cisco_l2.
         let mut pvst = vec![0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x01, 0x0b];
-        pvst.extend_from_slice(&[0; 40]);
-        assert_eq!(key(&eth([0x01, 0x00, 0x0c, 0xcc, 0xcc, 0xcd], 0x0040, &pvst)), Some("stp"));
+        pvst.extend_from_slice(&[0x00, 0x00, 0x02, 0x02, 0x7e, 0x23, 0xe7, 0x98, 0x5d, 0x82, 0x3b, 0xf2, 0xdb]);
+        pvst.extend_from_slice(&[0; 30]);
+        let d = classify(&eth([0x01, 0x00, 0x0c, 0xcc, 0xcc, 0xcd], 0x0032, &pvst), &ctx()).unwrap();
+        assert_eq!(d.proto.key, "stp");
+        assert_eq!(d.detail.as_deref(), Some("type 0x02 root 23e7.98:5d:82:3b:f2:db"));
         let vtp = [0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x03, 0, 0, 0, 0];
         assert_eq!(key(&eth([0x01, 0x00, 0x0c, 0xcc, 0xcc, 0xcc], 0x0040, &vtp)), Some("cisco_l2"));
         // LLDP with system name TLV.
