@@ -74,7 +74,7 @@ looking_glass_discovered_mac_ttl_secs: 1800
 # the infrastructure MACs are collected into
 # sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs; then flip to
 # true to start recording durable events + portal banners.
-looking_glass_discovered_bum_enabled: false
+looking_glass_discovered_bum_enabled: true
 # Allow the sensor (rs-linux mgmt IP) through UFW to reach lg-server RPC.
 looking_glass_rpc_allow_from: "10.1.1.18"
 looking_glass_public_vlans:
