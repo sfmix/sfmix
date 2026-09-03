@@ -744,7 +744,15 @@ pub fn spawn_poll_loop(
             }
             // LAN-hygiene detections: fold the sensor's current rows into durable
             // `bum_protocol` events, attributed to the source MAC's participant.
-            if bum_enabled {
+            // Wait for the device-state cache to hold at least one switch MAC
+            // table: attribution (and infrastructure suppression) is decided at
+            // record time, and on a cold start the first polls would otherwise
+            // open events as "unattributed" and let infra MACs slip through.
+            let mac_tables_ready = lg.device_state_cache.load().values().any(|dc| !dc.mac_table.is_empty());
+            if bum_enabled && !mac_tables_ready {
+                tracing::debug!("hygiene poll skipped: switch MAC tables not cached yet");
+            }
+            if bum_enabled && mac_tables_ready {
                 if let Some(anomaly) = lg.anomaly.as_deref() {
                     match fetch_bum(&sensor_url).await {
                         Ok(rows) => {
