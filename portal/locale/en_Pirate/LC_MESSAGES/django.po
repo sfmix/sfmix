@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sfmix-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-19 01:48-0500\n"
-"PO-Revision-Date: 2026-06-16\n"
+"POT-Creation-Date: 2026-09-02 22:27-0500\n"
+"PO-Revision-Date: 2026-09-02\n"
 "Last-Translator: jof Lassoff <jof@thejof.com>\n"
 "Language-Team: Pirate\n"
 "Language: en-pirate\n"
@@ -17,71 +17,102 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: dashboard/views.py:78
+#: dashboard/views.py:125
 msgid "You do not have access to this network."
 msgstr "Avast! Ye be barred from boardin' this here network."
 
-#: dashboard/views.py:119 dashboard/views.py:1244 dashboard/views.py:1263
-#: dashboard/views.py:1308
+#: dashboard/views.py:166 dashboard/views.py:343 dashboard/views.py:2010
+#: dashboard/views.py:2063 dashboard/views.py:2104 dashboard/views.py:2226
+#: mapbuild/views.py:53 mapbuild/views.py:70
 msgid "IX Administrators only."
 msgstr "IX Cap'ns only, ye scallywag."
 
-#: dashboard/views.py:126 dashboard/views.py:1270
+#: dashboard/views.py:173 dashboard/views.py:303 dashboard/views.py:347
+#: dashboard/views.py:2033
 msgid "Looking Glass not configured"
 msgstr "The spyglass be not yet rigged"
 
-#: dashboard/views.py:223
+#: dashboard/views.py:431
 msgid "Nominal"
 msgstr "Shipshape"
 
-#: dashboard/views.py:224
+#: dashboard/views.py:432
 msgid "Marginal"
 msgstr "Listin' a bit"
 
-#: dashboard/views.py:225
+#: dashboard/views.py:433
 msgid "Out of range"
 msgstr "Lost at sea"
 
-#: dashboard/views.py:546
+#: dashboard/views.py:434
+msgid "Port down"
+msgstr "Port be sunk"
+
+#: dashboard/views.py:486
+msgid "Link down — no light"
+msgstr "Link be sunk — nary a glimmer"
+
+#: dashboard/views.py:490
+#, python-format
+msgid "RX power out of range for %(media)s"
+msgstr "Incomin' light be lost at sea for %(media)s"
+
+#: dashboard/views.py:490 dashboard/views.py:492
+msgid "this optic"
+msgstr "this here spyglass"
+
+#: dashboard/views.py:492
+#, python-format
+msgid "RX power marginal for %(media)s"
+msgstr "Incomin' light be listin' a bit for %(media)s"
+
+#: dashboard/views.py:494
+msgid "Module temperature elevated"
+msgstr "Module be runnin' hot as a galley stove"
+
+#: dashboard/views.py:860
 msgid "IPv6"
 msgstr "IPv6"
 
-#: dashboard/views.py:546
+#: dashboard/views.py:860
 msgid "IPv4"
 msgstr "IPv4"
 
-#: dashboard/views.py:612
+#: dashboard/views.py:931
 msgid "Not peered with any SFMIX route server."
 msgstr "Not parlayin' with any SFMIX route server."
 
-#: dashboard/views.py:622
+#: dashboard/views.py:953
 #, python-format
 msgid "No %(af)s session with %(rs)s."
 msgstr "Nary a %(af)s session with %(rs)s."
 
-#: dashboard/views.py:625
+#: dashboard/views.py:956
 #, python-format
 msgid "%(af)s session with %(rs)s is %(state)s."
 msgstr "%(af)s session with %(rs)s be %(state)s."
 
-#: dashboard/views.py:627
+#: dashboard/views.py:958
 msgid "down"
 msgstr "scuttled"
 
-#: dashboard/views.py:643
+#: dashboard/views.py:975
 #, python-format
 msgid ""
-"%(af)s received-prefix counts differ across route servers (%(lo)s vs %(hi)s)."
-msgstr "%(af)s received-prefix tallies differ 'twixt route servers (%(lo)s vs %(hi)s)."
+"%(af)s received-prefix counts differ across route servers (%(lo)s vs "
+"%(hi)s)."
+msgstr ""
+"%(af)s received-prefix tallies differ 'twixt route servers (%(lo)s vs "
+"%(hi)s)."
 
-#: dashboard/views.py:676
+#: dashboard/views.py:1035
 #, python-format
 msgid "%(port)s is bound to an unassigned IP"
 msgid_plural "%(port)s is bound to unassigned IPs"
 msgstr[0] "%(port)s be lashed to an unchartered IP"
 msgstr[1] "%(port)s be lashed to unchartered IPs"
 
-#: dashboard/views.py:681
+#: dashboard/views.py:1040
 #, python-format
 msgid ""
 "A MAC learned on this port is sourcing an address that is not assigned on "
@@ -92,12 +123,12 @@ msgstr ""
 "(%(pairs)s). Sailin' under an unclaimed peerin'-LAN IP be forbidden an' can "
 "run other mates aground — set yer interface riggin' to rights."
 
-#: dashboard/views.py:692
+#: dashboard/views.py:1051
 #, python-format
 msgid "%(port)s is down"
 msgstr "%(port)s has gone to Davy Jones' locker"
 
-#: dashboard/views.py:693
+#: dashboard/views.py:1052
 msgid ""
 "All member links are offline. Route-server sessions are idle and no traffic "
 "is passing on this logical port."
@@ -105,12 +136,12 @@ msgstr ""
 "All the crew's links be offline. Route-server parlays lie idle an' nary a "
 "soul sails through this logical port."
 
-#: dashboard/views.py:700
+#: dashboard/views.py:1059
 #, python-format
 msgid "%(port)s degraded — %(up)s/%(total)s members up"
 msgstr "%(port)s be takin' on water — %(up)s/%(total)s crew still afloat"
 
-#: dashboard/views.py:706
+#: dashboard/views.py:1065
 #, python-format
 msgid ""
 "A member link is down; the bundle is running at %(effective)sG of "
@@ -119,12 +150,12 @@ msgstr ""
 "A crew link be sunk; the bundle sails at %(effective)sG o' %(total)sG. Yer "
 "spare riggin' be lost 'til the link be mended."
 
-#: dashboard/views.py:725
+#: dashboard/views.py:1084
 #, python-format
 msgid "%(port)s optic %(band)s on %(lane)s"
 msgstr "%(port)s spyglass %(band)s on %(lane)s"
 
-#: dashboard/views.py:730
+#: dashboard/views.py:1089
 #, python-format
 msgid ""
 "RX %(rx)s dBm is outside the nominal window. Inspect the fiber / patch or "
@@ -133,10 +164,11 @@ msgstr ""
 "RX %(rx)s dBm be outside the shipshape range. Inspect the fiber / patch or "
 "order a fresh spyglass, matey."
 
-#: dashboard/views.py:749
+#: dashboard/views.py:1108
 #, python-format
 msgid ""
-"%(count)s route rejected on %(port)s across %(rs_session_count)s %(sessions)s"
+"%(count)s route rejected on %(port)s across %(rs_session_count)s "
+"%(sessions)s"
 msgid_plural ""
 "%(count)s routes rejected on %(port)s across %(rs_session_count)s "
 "%(sessions)s"
@@ -147,68 +179,88 @@ msgstr[1] ""
 "%(count)s routes tossed overboard on %(port)s across %(rs_session_count)s "
 "%(sessions)s"
 
-#: dashboard/views.py:756
+#: dashboard/views.py:1115
 msgid "session"
 msgid_plural "sessions"
 msgstr[0] "voyage"
 msgstr[1] "voyages"
 
-#: dashboard/views.py:758
+#: dashboard/views.py:1117
 msgid ""
 "Prefixes are being filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
 "Advertised routes may not be reaching peers as expected."
 msgstr ""
-"Yer prefixes be gettin' filtered (IRR / RPKI-invalid, bogon, or max-prefix). "
-"Charted routes may not be reachin' yer fellow mateys as ye reckon."
+"Yer prefixes be gettin' filtered (IRR / RPKI-invalid, bogon, or max-prefix)."
+" Charted routes may not be reachin' yer fellow mateys as ye reckon."
 
-#: templates/base.html:22
+#: templates/base.html:32
 msgid "Participant Portal"
 msgstr "Crew Member Portal"
 
-#: templates/base.html:25 templates/dashboard/netbox_status.html:73
+#: templates/base.html:38
+msgid "Toggle navigation"
+msgstr "Hoist or strike the nav"
+
+#: templates/base.html:49 templates/dashboard/netbox_status.html:73
 #: templates/dashboard/participants_list.html:3
 #: templates/dashboard/participants_list.html:8
 msgid "Participants"
 msgstr "Crew Mates"
 
-#: templates/base.html:26 templates/dashboard/participant_detail.html:340
+#: templates/base.html:50
+msgid "Statistics"
+msgstr "Ship's Tallies"
+
+#: templates/base.html:51 templates/dashboard/participant_detail.html:563
 msgid "Route Servers"
 msgstr "Route Cap'ns"
 
-#: templates/base.html:30 templates/dashboard/participant_detail.html:144
+#: templates/base.html:52 templates/dashboard/lan_events.html:3
+#: templates/dashboard/lan_events.html:16
+msgid "LAN Events"
+msgstr "Happenin's on the LAN"
+
+#: templates/base.html:65 templates/dashboard/participant_detail.html:205
+#: templates/dashboard/participant_detail.html:273
+#: templates/dashboard/participant_detail.html:439
 msgid "Admin"
 msgstr "Cap'n"
 
-#: templates/base.html:31
+#: templates/base.html:72
 msgid "LLDP"
 msgstr "LLDP"
 
-#: templates/base.html:32 templates/dashboard/device_cache_status.html:78
-#: templates/dashboard/optics.html:3 templates/dashboard/optics.html:11
+#: templates/base.html:73 templates/dashboard/device_cache_status.html:78
+#: templates/dashboard/optics.html:3 templates/dashboard/optics.html:12
 msgid "Optics"
 msgstr "Spyglasses"
 
-#: templates/base.html:35 templates/dashboard/netbox_status.html:45
-msgid "Cache"
-msgstr "Booty Stash"
+#: templates/base.html:74 templates/dashboard/optics_problems.html:3
+#: templates/dashboard/optics_problems.html:12
+msgid "Optic problems"
+msgstr "Spyglass troubles"
 
-#: templates/base.html:39
-msgid "Devices"
-msgstr "Riggin'"
+#: templates/base.html:76
+msgid "Device cache"
+msgstr "Vessel cache"
 
-#: templates/base.html:40
+#: templates/base.html:77
 msgid "NetBox"
 msgstr "NetBox"
 
-#: templates/base.html:44
+#: templates/base.html:78
+msgid "Map build"
+msgstr "Chart-makin'"
+
+#: templates/base.html:82
 msgid "Sign out"
 msgstr "Abandon ship"
 
-#: templates/base.html:46
+#: templates/base.html:84
 msgid "Sign in"
 msgstr "Climb aboard"
 
-#: templates/base.html:53
+#: templates/base.html:91
 msgid "Change language"
 msgstr "Change yer tongue"
 
@@ -218,8 +270,9 @@ msgid "Device Cache Status"
 msgstr "Riggin' Stash Status"
 
 #: templates/dashboard/device_cache_status.html:7
-#: templates/dashboard/lldp_neighbors.html:7
+#: templates/dashboard/lldp_neighbors.html:8
 #: templates/dashboard/netbox_status.html:7 templates/dashboard/optics.html:8
+#: templates/dashboard/optics_problems.html:8 templates/mapbuild/status.html:7
 msgid "Back to dashboard"
 msgstr "Back to the helm"
 
@@ -279,13 +332,13 @@ msgstr "not stashed"
 
 #: templates/dashboard/device_cache_status.html:58
 #: templates/dashboard/lldp_neighbors.html:3
-#: templates/dashboard/lldp_neighbors.html:10
+#: templates/dashboard/lldp_neighbors.html:11
 msgid "LLDP Neighbors"
 msgstr "LLDP Shipmates"
 
 #: templates/dashboard/device_cache_status.html:68
 #: templates/dashboard/network_mac_table.html:3
-#: templates/dashboard/participant_detail.html:54
+#: templates/dashboard/participant_detail.html:97
 msgid "MAC Table"
 msgstr "MAC Chart"
 
@@ -321,92 +374,388 @@ msgstr "No crew fleets be found in these waters."
 #: templates/dashboard/index.html:11
 msgid ""
 "Your account is not associated with any ASNs that are SFMIX participants.\n"
-"    If you believe this is an error, contact <a href=\"mailto:tech-c@sfmix."
-"org\" class=\"underline\">tech-c@sfmix.org</a>."
+"    If you believe this is an error, contact <a href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
 msgstr ""
 "Yer account be lashed to no ASNs sailin' under the SFMIX flag.\n"
-"    If ye reckon this be an error, send a message in a bottle to <a "
-"href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
+"    If ye reckon this be an error, send a message in a bottle to <a href=\"mailto:tech-c@sfmix.org\" class=\"underline\">tech-c@sfmix.org</a>."
 
 #: templates/dashboard/index.html:17
 msgid "Your PeeringDB account is associated with these ASNs:"
 msgstr "Yer PeeringDB log be tied to these ASNs:"
 
-#: templates/dashboard/lldp_neighbors.html:14
-msgid "Unable to fetch LLDP data:"
-msgstr "Can't haul up the LLDP booty:"
+#: templates/dashboard/ix_statistics.html:4
+#: templates/dashboard/ix_statistics.html:8
+msgid "Exchange Statistics"
+msgstr "Tallies o' the Whole Fleet"
 
-#: templates/dashboard/lldp_neighbors.html:21
-msgid "Filter neighbors…"
-msgstr "Sift the shipmates…"
+#: templates/dashboard/ix_statistics.html:17
+msgid "Aggregate fabric traffic"
+msgstr "All traffic 'cross the fabric"
 
-#: templates/dashboard/lldp_neighbors.html:25
-msgid "neighbors"
-msgstr "shipmates"
+#: templates/dashboard/ix_statistics.html:18
+#: templates/dashboard/participant_detail.html:207
+#: templates/dashboard/participant_detail.html:440
+msgid "Time range"
+msgstr "Span o' time"
 
-#: templates/dashboard/lldp_neighbors.html:35
-#: templates/dashboard/network_mac_table.html:67
-#: templates/dashboard/optics.html:36
-msgid "Device"
-msgstr "Riggin'"
+#: templates/dashboard/ix_statistics.html:25
+msgid ""
+"Exchange-wide &middot; live from sFlow &middot; drawn in-page, not embedded"
+msgstr ""
+"Fleet-wide &middot; live from sFlow &middot; drawn right here on deck, not "
+"smuggled in"
 
-#: templates/dashboard/lldp_neighbors.html:40
-msgid "Local Interface"
-msgstr "Home Gangway"
+#: templates/dashboard/ix_statistics.html:30
+msgid "Aggregate traffic"
+msgstr "All the traffic"
 
-#: templates/dashboard/lldp_neighbors.html:45
-msgid "Description"
-msgstr "Yarn"
+#: templates/dashboard/ix_statistics.html:31
+msgid "ingress &uarr; / egress &darr;"
+msgstr "comin' aboard &uarr; / castin' off &darr;"
 
-#: templates/dashboard/lldp_neighbors.html:50
-msgid "Neighbor Device"
-msgstr "Shipmate's Riggin'"
+#: templates/dashboard/ix_statistics.html:38
+msgid "Traffic by protocol"
+msgstr "Traffic by protocol"
 
-#: templates/dashboard/lldp_neighbors.html:55
-msgid "Neighbor Port"
-msgstr "Shipmate's Port"
+#: templates/dashboard/ix_statistics.html:39
+msgid "by ethertype &middot; stacked"
+msgstr "by ethertype &middot; stacked like cargo"
 
-#: templates/dashboard/lldp_neighbors.html:65
-#: templates/dashboard/participants_list.html:82
-#: templates/dashboard/route_server_parity.html:36
+#: templates/dashboard/ix_statistics.html:46
+msgid "Packet size distribution"
+msgstr "How big the packets be"
+
+#: templates/dashboard/ix_statistics.html:47
+msgid "percent of packets &middot; stacked"
+msgstr "share o' packets &middot; stacked like cargo"
+
+#: templates/dashboard/ix_statistics.html:54
+msgid "Observed BGP connections"
+msgstr "BGP parlays spied"
+
+#: templates/dashboard/ix_statistics.html:55
+msgid "peering sessions seen on the fabric"
+msgstr "peerin' parlays spied on the fabric"
+
+#: templates/dashboard/lan_events.html:13
+#: templates/dashboard/participant_detail.html:8
+#: templates/dashboard/route_server_parity.html:8
+msgid "Back to participants"
+msgstr "Back to the crew mates"
+
+#: templates/dashboard/lan_events.html:18
+msgid ""
+"What the fabric sensor hears on the peering LAN. Neighbor-discovery "
+"anomalies: a new MAC appearing on an existing IP, or a single MAC claiming "
+"many IPs (proxy-ARP); events tagged “reflection” are benign re-flooding "
+"after a fabric flap. LAN-hygiene detections: a participant MAC sourcing a "
+"protocol that does not belong on an exchange (IPv6 router advertisements, "
+"DHCP, IGP hellos, discovery protocols…), toned by severity, with the fix."
+msgstr ""
+"What the lookout in the crow's nest hears on the peerin' LAN. Neighbour-"
+"discovery oddities: a new MAC turnin' up on an IP already spoken for, or one"
+" MAC layin' claim to a heap o' IPs (proxy-ARP); happenin's marked "
+"“reflection” be harmless echoes after the fabric took a tumble. LAN-hygiene "
+"sightin's: a crew's MAC flyin' a protocol that's got no business on an "
+"exchange (IPv6 router advertisements, DHCP, IGP hellos, discovery "
+"protocols…), coloured by how dire it be, with the remedy."
+
+#: templates/dashboard/lan_events.html:23
+msgid "Unable to fetch LAN events:"
+msgstr "Couldn't haul in the LAN happenin's:"
+
+#: templates/dashboard/lan_events.html:30
+#: templates/dashboard/lan_events.html:105
+msgid "Kind"
+msgstr "Sort"
+
+#: templates/dashboard/lan_events.html:32
+msgid "All kinds"
+msgstr "All sorts"
+
+#: templates/dashboard/lan_events.html:33
+msgid "LAN hygiene"
+msgstr "LAN hygiene"
+
+#: templates/dashboard/lan_events.html:34
+msgid "new MAC on IP"
+msgstr "new MAC on an IP"
+
+#: templates/dashboard/lan_events.html:35
+msgid "MAC sweep / reflection"
+msgstr "MAC sweep / echo"
+
+#: templates/dashboard/lan_events.html:39
+msgid "Protocol"
+msgstr "Protocol"
+
+#: templates/dashboard/lan_events.html:41
+msgid "any"
+msgstr "any ol' one"
+
+#: templates/dashboard/lan_events.html:46
+#: templates/dashboard/participant_detail.html:474
+msgid "IP address"
+msgstr "IP bearin'"
+
+#: templates/dashboard/lan_events.html:51
+#: templates/dashboard/participant_detail.html:390
+#: templates/dashboard/participant_detail.html:475
+#: templates/dashboard/participant_detail.html:520
+#: templates/dashboard/participant_detail.html:544
+msgid "MAC"
+msgstr "MAC"
+
+#: templates/dashboard/lan_events.html:56
+msgid "ASN"
+msgstr "ASN"
+
+#: templates/dashboard/lan_events.html:61
+msgid "active only"
+msgstr "only the lively ones"
+
+#: templates/dashboard/lan_events.html:64
+#: templates/dashboard/network_mac_table.html:18
+msgid "Filter"
+msgstr "Sift"
+
+#: templates/dashboard/lan_events.html:67
+#: templates/dashboard/network_mac_table.html:20
+msgid "Clear"
+msgstr "Swab clean"
+
+#: templates/dashboard/lan_events.html:74
+msgid "Filter this page…"
+msgstr "Sift this page, matey…"
+
+#: templates/dashboard/lan_events.html:78
+msgid "events"
+msgstr "happenin's"
+
+#: templates/dashboard/lan_events.html:85
+msgid "Sort by Opened"
+msgstr "Sort by when it were spied"
+
+#: templates/dashboard/lan_events.html:86
+msgid "Sort by Kind"
+msgstr "Sort by sort"
+
+#: templates/dashboard/lan_events.html:87
+msgid "Sort by Subject"
+msgstr "Sort by the matter at hand"
+
+#: templates/dashboard/lan_events.html:88
+msgid "Sort by Participant"
+msgstr "Sort by crew"
+
+#: templates/dashboard/lan_events.html:89
+msgid "Sort by Count"
+msgstr "Sort by tally"
+
+#: templates/dashboard/lan_events.html:90
+#: templates/dashboard/participants_list.html:63
+msgid "Sort by Status"
+msgstr "Sort by Status"
+
+#: templates/dashboard/lan_events.html:101
+#: templates/dashboard/lan_events.html:274
+msgid "Opened"
+msgstr "First spied"
+
+#: templates/dashboard/lan_events.html:109
+msgid "Subject"
+msgstr "The matter"
+
+#: templates/dashboard/lan_events.html:113
+#: templates/dashboard/lan_events.html:250
+#: templates/dashboard/lldp_neighbors.html:51
+#: templates/dashboard/lldp_neighbors.html:119
+#: templates/dashboard/participants_list.html:75
+#: templates/dashboard/route_server_parity.html:37
 msgid "Participant"
 msgstr "Crew Mate"
 
-#: templates/dashboard/lldp_neighbors.html:105
+#: templates/dashboard/lan_events.html:115
+#: templates/dashboard/lan_events.html:257
+msgid "Detail"
+msgstr "The particulars"
+
+#: templates/dashboard/lan_events.html:118
+#: templates/dashboard/lan_events.html:275
+msgid "Count"
+msgstr "Tally"
+
+#: templates/dashboard/lan_events.html:122 templates/dashboard/optics.html:49
+#: templates/dashboard/optics_problems.html:172
+#: templates/dashboard/participants_list.html:105
+msgid "Status"
+msgstr "Status"
+
+#: templates/dashboard/lan_events.html:124
+#: templates/dashboard/lan_events.html:277
+msgid "Evidence"
+msgstr "The proof"
+
+#: templates/dashboard/lan_events.html:144
+#: templates/dashboard/lan_events.html:226
+msgid ""
+"A bridging participant re-flooded ND frames verbatim during a flood: the "
+"outer source MAC was rewritten to its own, but the NDP link-layer option "
+"still carries the original owner’s MAC. Benign flood reflection, not "
+"spoofing."
+msgstr ""
+"A bridgin' crew echoed ND frames word for word durin' a flood: the outer "
+"source MAC were swapped fer their own, but the NDP link-layer option still "
+"bears the rightful owner's MAC. Harmless echo o' the flood, not a false "
+"flag."
+
+#: templates/dashboard/lan_events.html:144
+#: templates/dashboard/lan_events.html:226
+msgid "reflection"
+msgstr "echo"
+
+#: templates/dashboard/lan_events.html:146
+#: templates/dashboard/lan_events.html:228
+msgid "One MAC claiming many IPs"
+msgstr "One MAC layin' claim to a heap o' IPs"
+
+#: templates/dashboard/lan_events.html:146
+#: templates/dashboard/lan_events.html:228
+msgid "MAC sweep"
+msgstr "MAC sweep"
+
+#: templates/dashboard/lan_events.html:148
+#: templates/dashboard/lan_events.html:230
+msgid "A new MAC appeared on an IP that already had others"
+msgstr "A new MAC turned up on an IP already spoken for"
+
+#: templates/dashboard/lan_events.html:148
+#: templates/dashboard/lan_events.html:230
+msgid "new MAC"
+msgstr "new MAC"
+
+#: templates/dashboard/lan_events.html:159
+#: templates/dashboard/lan_events.html:254
+msgid "unassigned"
+msgstr "unchartered"
+
+#: templates/dashboard/lan_events.html:167
+#: templates/dashboard/lan_events.html:263
+#, python-format
+msgid "%(n)s IP reflected"
+msgid_plural "%(n)s IPs reflected"
+msgstr[0] "%(n)s IP echoed"
+msgstr[1] "%(n)s IPs echoed"
+
+#: templates/dashboard/lan_events.html:170
+#: templates/dashboard/lan_events.html:266
+#, python-format
+msgid "%(n)s IP claimed"
+msgid_plural "%(n)s IPs claimed"
+msgstr[0] "%(n)s IP claimed"
+msgstr[1] "%(n)s IPs claimed"
+
+#: templates/dashboard/lan_events.html:181
+#: templates/dashboard/lan_events.html:236
+msgid "closed"
+msgstr "laid to rest"
+
+#: templates/dashboard/lan_events.html:183
+#: templates/dashboard/lan_events.html:185
+#: templates/dashboard/lan_events.html:187
+#: templates/dashboard/lan_events.html:238
+#: templates/dashboard/lan_events.html:240
+#: templates/dashboard/lan_events.html:242
+msgid "active"
+msgstr "lively"
+
+#: templates/dashboard/lan_events.html:189
+#: templates/dashboard/lan_events.html:244
+#: templates/dashboard/participant_detail.html:538
+#, python-format
+msgid "last %(a)s ago"
+msgstr "last spied %(a)s past"
+
+#: templates/dashboard/lan_events.html:194
+#: templates/dashboard/lan_events.html:277
+msgid "pcap"
+msgstr "pcap"
+
+#: templates/dashboard/lan_events.html:288
+msgid "Newer"
+msgstr "Fresher"
+
+#: templates/dashboard/lan_events.html:291
+msgid "Older"
+msgstr "Saltier"
+
+#: templates/dashboard/lan_events.html:298
+msgid "No LAN events match this filter."
+msgstr "Nary a LAN happenin' matches yer sieve."
+
+#: templates/dashboard/lan_events.html:298
+msgid "No LAN events recorded."
+msgstr "Nary a LAN happenin' in the log."
+
+#: templates/dashboard/lldp_neighbors.html:15
+msgid "Unable to fetch LLDP data:"
+msgstr "Can't haul up the LLDP booty:"
+
+#: templates/dashboard/lldp_neighbors.html:22
+msgid "Filter neighbors…"
+msgstr "Sift the shipmates…"
+
+#: templates/dashboard/lldp_neighbors.html:26
+msgid "neighbors"
+msgstr "shipmates"
+
+#: templates/dashboard/lldp_neighbors.html:36
+#: templates/dashboard/participant_detail.html:345
+#: templates/dashboard/participant_detail.html:368
+msgid "Local"
+msgstr "Home"
+
+#: templates/dashboard/lldp_neighbors.html:41
+#: templates/dashboard/lldp_neighbors.html:115
+msgid "Description"
+msgstr "Yarn"
+
+#: templates/dashboard/lldp_neighbors.html:46
+msgid "Neighbor"
+msgstr "Neighbourin' vessel"
+
+#: templates/dashboard/lldp_neighbors.html:100
+msgid "Neighbour not matched to a participant"
+msgstr "Neighbour matched to no crew"
+
+#: templates/dashboard/lldp_neighbors.html:100
+#, python-format
+msgid "TTL expiring (%(ttl)ss)"
+msgstr "TTL nigh run out (%(ttl)ss)"
+
+#: templates/dashboard/lldp_neighbors.html:113
+msgid "Local device"
+msgstr "Our own vessel"
+
+#: templates/dashboard/lldp_neighbors.html:114
+msgid "Local interface"
+msgstr "Our own riggin'"
+
+#: templates/dashboard/lldp_neighbors.html:116
+msgid "Neighbor device"
+msgstr "Neighbourin' vessel"
+
+#: templates/dashboard/lldp_neighbors.html:117
+msgid "Neighbor port"
+msgstr "Neighbourin' port"
+
+#: templates/dashboard/lldp_neighbors.html:119
+msgid "— unmatched"
+msgstr "— unmatched"
+
+#: templates/dashboard/lldp_neighbors.html:128
 msgid "No LLDP neighbors found."
 msgstr "No LLDP shipmates be found in these waters."
-
-#: templates/dashboard/login.html:3
-msgid "Sign In"
-msgstr "Climb Aboard"
-
-#: templates/dashboard/login.html:8
-msgid "SFMIX Participant Portal"
-msgstr "SFMIX Crew Member Portal"
-
-#: templates/dashboard/login.html:9
-msgid "Sign in with your PeeringDB or GitHub account via SFMIX SSO."
-msgstr "Climb aboard with yer PeeringDB or GitHub log by way o' SFMIX SSO."
-
-#: templates/dashboard/login.html:12
-msgid "Sign in with SFMIX SSO"
-msgstr "Climb aboard with SFMIX SSO"
-
-#: templates/dashboard/login.html:14
-msgid ""
-"Authenticated by <a href=\"https://login.sfmix.org\" "
-"class=\"underline\">login.sfmix.org</a>"
-msgstr ""
-"Vouched for by <a href=\"https://login.sfmix.org\" class=\"underline\">login."
-"sfmix.org</a>"
-
-#: templates/dashboard/login.html:17
-msgid "Local dev only"
-msgstr "Drydock only"
-
-#: templates/dashboard/login.html:18
-msgid "Dev login (bypass SSO)"
-msgstr "Drydock boardin' (skip the SSO gate)"
 
 #: templates/dashboard/netbox_status.html:3
 msgid "NetBox Status"
@@ -421,8 +770,9 @@ msgid "Healthy"
 msgstr "Hale an' hearty"
 
 #: templates/dashboard/netbox_status.html:29
-#: templates/dashboard/participant_detail.html:39
-#: templates/dashboard/participant_detail.html:127
+#: templates/dashboard/participant_detail.html:46
+#: templates/dashboard/participant_detail.html:82
+#: templates/dashboard/participant_detail.html:254
 msgid "Degraded"
 msgstr "Takin' on water"
 
@@ -431,8 +781,14 @@ msgid "Not configured"
 msgstr "Not yet rigged"
 
 #: templates/dashboard/netbox_status.html:37
+#: templates/dashboard/participant_detail.html:256
+#: templates/dashboard/participant_detail.html:289
 msgid "No data"
 msgstr "No booty"
+
+#: templates/dashboard/netbox_status.html:45
+msgid "Cache"
+msgstr "Booty Stash"
 
 #: templates/dashboard/netbox_status.html:48
 msgid "Source URL"
@@ -496,14 +852,6 @@ msgstr "Sift by VLAN:"
 msgid "e.g. 998"
 msgstr "e.g. 998"
 
-#: templates/dashboard/network_mac_table.html:18
-msgid "Filter"
-msgstr "Sift"
-
-#: templates/dashboard/network_mac_table.html:20
-msgid "Clear"
-msgstr "Swab clean"
-
 #: templates/dashboard/network_mac_table.html:26
 msgid "Unable to fetch MAC table:"
 msgstr "Can't haul up the MAC chart:"
@@ -517,14 +865,23 @@ msgid "MAC Address"
 msgstr "MAC Address"
 
 #: templates/dashboard/network_mac_table.html:57
-#: templates/dashboard/participant_detail.html:260
+#: templates/dashboard/participant_detail.html:392
+#: templates/dashboard/participant_detail.html:421
 msgid "Type"
 msgstr "Sort"
 
 #: templates/dashboard/network_mac_table.html:62
-#: templates/dashboard/optics.html:41
+#: templates/dashboard/optics.html:44
 msgid "Interface"
 msgstr "Gangway"
+
+#: templates/dashboard/network_mac_table.html:67
+#: templates/dashboard/optics.html:39
+#: templates/dashboard/optics_problems.html:55
+#: templates/dashboard/optics_problems.html:125
+#: templates/dashboard/optics_problems.html:170
+msgid "Device"
+msgstr "Riggin'"
 
 #: templates/dashboard/network_mac_table.html:93
 #, python-format
@@ -535,361 +892,702 @@ msgstr "No MAC address marks be found for VLAN %(vlan)s."
 msgid "No MAC address entries found."
 msgstr "No MAC address marks be found in these waters."
 
-#: templates/dashboard/optics.html:15
+#: templates/dashboard/optics.html:13
+msgid "Problem lanes overview"
+msgstr "Troubled lanes at a glance"
+
+#: templates/dashboard/optics.html:18
+#: templates/dashboard/optics_problems.html:19
 msgid "Unable to fetch optics data:"
 msgstr "Can't haul up the spyglass booty:"
 
-#: templates/dashboard/optics.html:22
+#: templates/dashboard/optics.html:25
 msgid "Filter by interface, vendor, model…"
 msgstr "Sift by gangway, merchant, model…"
 
-#: templates/dashboard/optics.html:26
+#: templates/dashboard/optics.html:29
 msgid "transceivers"
 msgstr "spyglasses"
 
-#: templates/dashboard/optics.html:46
-#: templates/dashboard/participants_list.html:118
-msgid "Status"
-msgstr "Status"
-
-#: templates/dashboard/optics.html:51
+#: templates/dashboard/optics.html:54
 msgid "Media Type"
 msgstr "Media Sort"
 
-#: templates/dashboard/optics.html:56
+#: templates/dashboard/optics.html:59
 msgid "Vendor"
 msgstr "Merchant"
 
-#: templates/dashboard/optics.html:61
+#: templates/dashboard/optics.html:64
 msgid "Model"
 msgstr "Model"
 
-#: templates/dashboard/optics.html:66
+#: templates/dashboard/optics.html:69
 msgid "Serial"
 msgstr "Serial"
 
-#: templates/dashboard/optics.html:71
+#: templates/dashboard/optics.html:74
+#: templates/dashboard/optics_problems.html:128
 msgid "Temp (°C)"
 msgstr "Temp (°C)"
 
-#: templates/dashboard/optics.html:76
+#: templates/dashboard/optics.html:79
 msgid "Voltage (V)"
 msgstr "Voltage (V)"
 
-#: templates/dashboard/optics.html:91
+#: templates/dashboard/optics.html:94
+#: templates/dashboard/optics_problems.html:63
 msgid "Bias (mA)"
 msgstr "Bias (mA)"
 
-#: templates/dashboard/optics.html:180
+#: templates/dashboard/optics.html:183
 msgid "Lane values shown for lane 1; ×N indicates multi-lane optic"
 msgstr "Lane readin's shown for lane 1; ×N marks a many-laned spyglass"
 
-#: templates/dashboard/optics.html:184
+#: templates/dashboard/optics.html:214
+msgid "RX power"
+msgstr "Incomin' light"
+
+#: templates/dashboard/optics.html:225
+msgid "TX power"
+msgstr "Outgoin' light"
+
+#: templates/dashboard/optics.html:237
+msgid "Temp"
+msgstr "Heat"
+
+#: templates/dashboard/optics.html:241
+msgid "Voltage"
+msgstr "Voltage"
+
+#: templates/dashboard/optics.html:245
+msgid "Bias"
+msgstr "Bias"
+
+#: templates/dashboard/optics.html:259
 msgid "No optics data found."
 msgstr "No spyglass booty be found in these waters."
 
+#: templates/dashboard/optics_problems.html:9
+msgid "Full transceiver inventory"
+msgstr "Full spyglass manifest"
+
+#: templates/dashboard/optics_problems.html:14
+msgid ""
+"Every DOM lane on a link-up port, classified against the IEEE receive window"
+" for its optic type. Down and disabled ports read no light by design and are"
+" listed separately below rather than flagged."
+msgstr ""
+"Every DOM lane on a port that's up, judged against the IEEE receive window "
+"fer its sort o' optic. Sunk an' disabled ports read no light by design, so "
+"they be listed below on their own rather than flagged."
+
+#: templates/dashboard/optics_problems.html:27
+msgid "lanes out of range"
+msgstr "lanes lost at sea"
+
+#: templates/dashboard/optics_problems.html:31
+msgid "lanes marginal"
+msgstr "lanes listin' a bit"
+
+#: templates/dashboard/optics_problems.html:35
+msgid "hot modules"
+msgstr "hot modules"
+
+#: templates/dashboard/optics_problems.html:39
+msgid "dark ports with optics"
+msgstr "dark ports with optics"
+
+#: templates/dashboard/optics_problems.html:43
+msgid "live lanes scanned"
+msgstr "live lanes surveyed"
+
+#: templates/dashboard/optics_problems.html:48
+msgid "Problem lanes"
+msgstr "Troubled lanes"
+
+#: templates/dashboard/optics_problems.html:54
+msgid "Severity"
+msgstr "How dire"
+
+#: templates/dashboard/optics_problems.html:56
+#: templates/dashboard/optics_problems.html:126
+#: templates/dashboard/optics_problems.html:171
+msgid "Port"
+msgstr "Port"
+
+#: templates/dashboard/optics_problems.html:57
+#: templates/dashboard/optics_problems.html:127
+#: templates/dashboard/optics_problems.html:173
+msgid "Media"
+msgstr "Riggin'"
+
+#: templates/dashboard/optics_problems.html:58
+msgid "Lane"
+msgstr "Lane"
+
+#: templates/dashboard/optics_problems.html:60
+msgid "Expected window"
+msgstr "Window we expected"
+
+#: templates/dashboard/optics_problems.html:61
+msgid "Excursion"
+msgstr "How far off course"
+
+#: templates/dashboard/optics_problems.html:64
+#: templates/dashboard/optics_problems.html:129
+msgid "Module"
+msgstr "Module"
+
+#: templates/dashboard/optics_problems.html:82
+#: templates/dashboard/optics_problems.html:140
+#: templates/dashboard/optics_problems.html:186
+#, python-format
+msgid "View this port on the %(name)s participant page"
+msgstr "Spy this port on the %(name)s crew page"
+
+#: templates/dashboard/optics_problems.html:99
+msgid "below"
+msgstr "below"
+
+#: templates/dashboard/optics_problems.html:99
+msgid "above"
+msgstr "above"
+
+#: templates/dashboard/optics_problems.html:114
+msgid "All lanes on link-up ports are within their expected receive windows."
+msgstr ""
+"All lanes on ports that be up sit snug within their receive windows. "
+"Shipshape!"
+
+#: templates/dashboard/optics_problems.html:120
+msgid "Hot modules"
+msgstr "Hot modules"
+
+#: templates/dashboard/optics_problems.html:163
+msgid "Dark ports with optics installed"
+msgstr "Dark ports with optics aboard"
+
+#: templates/dashboard/optics_problems.html:164
+msgid "expected to read no light; not counted as problems"
+msgstr "meant to read no light; not counted as troubles"
+
+#: templates/dashboard/optics_problems.html:175
+msgid "Laser"
+msgstr "Laser"
+
+#: templates/dashboard/optics_problems.html:200
+msgid "Transmitter is firing into a down port — check cabling / far end"
+msgstr ""
+"Transmitter be firin' into a sunk port — check yer lines / the far shore"
+
+#: templates/dashboard/optics_problems.html:200
+msgid "firing"
+msgstr "firin'"
+
+#: templates/dashboard/optics_problems.html:202
+msgid "off"
+msgstr "doused"
+
+#: templates/dashboard/optics_problems.html:214
+msgid ""
+"Windows are per-lane IEEE 802.3 receiver sensitivity → overload, with a 1.5 "
+"dB “marginal” margin inside each edge. Copper and DAC media never flag. Some"
+" 4-lane modules report total power in every lane slot (~6 dB high), which "
+"the ceilings tolerate."
+msgstr ""
+"Windows be per-lane IEEE 802.3 receiver sensitivity → overload, with a 1.5 "
+"dB “listin'” margin inside each edge. Copper an' DAC riggin' never get "
+"flagged. Some 4-lane modules report the whole ship's power in every lane "
+"slot (~6 dB high), which the ceilin's abide."
+
 #: templates/dashboard/participant_detail.html:3
-#: templates/dashboard/participant_detail.html:285
+#: templates/dashboard/participant_detail.html:463
 msgid "Network"
 msgstr "Fleet"
-
-#: templates/dashboard/participant_detail.html:8
-#: templates/dashboard/route_server_parity.html:8
-msgid "Back to participants"
-msgstr "Back to the crew mates"
 
 #: templates/dashboard/participant_detail.html:14
 msgid "Unable to fetch some data:"
 msgstr "Can't haul up some o' the booty:"
 
-#: templates/dashboard/participant_detail.html:22
+#: templates/dashboard/participant_detail.html:28
+#: templates/dashboard/participant_detail.html:63
 msgid "Unknown Network"
 msgstr "Ghost Fleet"
 
-#: templates/dashboard/participant_detail.html:26
+#: templates/dashboard/participant_detail.html:31
+#: templates/dashboard/participant_detail.html:67
 msgid "Type:"
 msgstr "Sort:"
 
-#: templates/dashboard/participant_detail.html:27
+#: templates/dashboard/participant_detail.html:32
+#: templates/dashboard/participant_detail.html:68
 msgid "Ports:"
 msgstr "Ports:"
 
-#: templates/dashboard/participant_detail.html:27
+#: templates/dashboard/participant_detail.html:32
+#: templates/dashboard/participant_detail.html:68
 #, python-format
 msgid "%(logical)s logical, %(physical)s physical"
 msgstr "%(logical)s logical, %(physical)s physical"
 
-#: templates/dashboard/participant_detail.html:28
+#: templates/dashboard/participant_detail.html:33
+#: templates/dashboard/participant_detail.html:69
 msgid "Capacity:"
 msgstr "Cargo hold:"
 
-#: templates/dashboard/participant_detail.html:30
-#, python-format
-msgid "%(active)sG active"
-msgstr "%(active)sG sailin'"
-
-#: templates/dashboard/participant_detail.html:34
+#: templates/dashboard/participant_detail.html:35
+#: templates/dashboard/participant_detail.html:71
 #, python-format
 msgid "%(provisioned)sG provisioned"
 msgstr "%(provisioned)sG stocked"
 
-#: templates/dashboard/participant_detail.html:219
-msgid ""
-"No live link state was returned for this port. It may not exist on the "
-"switch, or live status is not available to you."
-msgstr ""
-"No livin' link state came back for this here port. She may be gone from the switch, or the livin' state be hidden from ye."
+#: templates/dashboard/participant_detail.html:37
+#: templates/dashboard/participant_detail.html:73
+#, python-format
+msgid "%(active)sG active"
+msgstr "%(active)sG sailin'"
 
-#: templates/dashboard/participant_detail.html:252
-msgid "No live link state was returned for this interface."
-msgstr "No livin' link state came back for this here interface."
-
-#: templates/dashboard/participant_detail.html:32
+#: templates/dashboard/participant_detail.html:39
+#: templates/dashboard/participant_detail.html:75
 #, python-format
 msgid "%(active)sG active / %(provisioned)sG provisioned"
 msgstr "%(active)sG sailin' / %(provisioned)sG stocked"
 
-#: templates/dashboard/participant_detail.html:38
-#: templates/dashboard/participants_list.html:150
-#: templates/dashboard/participants_list.html:191
+#: templates/dashboard/participant_detail.html:45
+#: templates/dashboard/participant_detail.html:81
+#: templates/dashboard/participants_list.html:134
+#: templates/dashboard/participants_list.html:172
 msgid "Active"
 msgstr "Sailin'"
 
-#: templates/dashboard/participant_detail.html:40
-#: templates/dashboard/participant_detail.html:129
-#: templates/dashboard/participant_detail.html:160
-#: templates/dashboard/participant_detail.html:367
-#: templates/dashboard/participant_detail.html:392
-#: templates/dashboard/participant_detail.html:415
+#: templates/dashboard/participant_detail.html:47
+#: templates/dashboard/participant_detail.html:83
+#: templates/dashboard/participant_detail.html:258
+#: templates/dashboard/participant_detail.html:291
+#: templates/dashboard/participant_detail.html:590
+#: templates/dashboard/participant_detail.html:615
+#: templates/dashboard/participant_detail.html:638
 msgid "Down"
 msgstr "Sunk"
 
-#: templates/dashboard/participant_detail.html:41
+#: templates/dashboard/participant_detail.html:48
+#: templates/dashboard/participant_detail.html:84
 msgid "Unknown"
 msgstr "A mystery"
 
-#: templates/dashboard/participant_detail.html:45
+#: templates/dashboard/participant_detail.html:52
+#: templates/dashboard/participant_detail.html:88
 msgid "A MAC on this network is sourcing an IP that is not assigned on the IX"
 msgstr ""
 "A MAC on this here network be flyin' an IP that ain't charted on the IX"
 
-#: templates/dashboard/participant_detail.html:45
+#: templates/dashboard/participant_detail.html:52
+#: templates/dashboard/participant_detail.html:88
 msgid "Invalid IP"
 msgstr "Cursed IP"
 
-#: templates/dashboard/participant_detail.html:51
+#: templates/dashboard/participant_detail.html:55
+msgid ""
+"This network is sending protocols into the exchange LAN that do not belong "
+"there (see below)"
+msgstr ""
+"This network be flyin' protocols into the exchange LAN that've no business "
+"there (see below)"
+
+#: templates/dashboard/participant_detail.html:55
+#, python-format
+msgid "%(n)s LAN hygiene issue"
+msgid_plural "%(n)s LAN hygiene issues"
+msgstr[0] "%(n)s LAN hygiene trouble"
+msgstr[1] "%(n)s LAN hygiene troubles"
+
+#: templates/dashboard/participant_detail.html:94
 msgid "Website"
 msgstr "Port o' call"
 
-#: templates/dashboard/participant_detail.html:65
+#: templates/dashboard/participant_detail.html:108
 msgid "Not peered with the SFMIX route servers"
 msgstr "Not parlayin' with the SFMIX route servers"
 
-#: templates/dashboard/participant_detail.html:66
+#: templates/dashboard/participant_detail.html:109
 msgid "Route-server redundancy at risk"
 msgstr "Route-server backup be in peril"
 
-#: templates/dashboard/participant_detail.html:67
+#: templates/dashboard/participant_detail.html:110
 msgid "Route-server prefix counts disagree"
 msgstr "Route-server prefix tallies don't agree"
 
-#: templates/dashboard/participant_detail.html:69
+#: templates/dashboard/participant_detail.html:112
 msgid ""
 "Peering with both SFMIX route servers is required. This network currently "
 "has no route-server sessions."
-msgstr "Ye must parlay with both SFMIX route servers. This here network has nary a route-server session at present."
+msgstr ""
+"Ye must parlay with both SFMIX route servers. This here network has nary a "
+"route-server session at present."
 
-#: templates/dashboard/participant_detail.html:70
+#: templates/dashboard/participant_detail.html:113
 msgid ""
 "This network is not established on both route servers. If the remaining "
 "route server fails, it will lose route-server connectivity entirely."
-msgstr "This here network ain't 'stablished on both route servers. Should one of the servers capsize, all 'yer packet-vessels will lose passage."
+msgstr ""
+"This here network ain't 'stablished on both route servers. Should one of the"
+" servers capsize, all 'yer packet-vessels will lose passage."
 
-#: templates/dashboard/participant_detail.html:71
+#: templates/dashboard/participant_detail.html:114
 msgid ""
 "This network's sessions are established on both route servers but receive a "
 "different number of prefixes — a sign of asymmetric filtering or "
 "misconfiguration."
-msgstr "This network's sessions be established on both route servers, yet they take a different count o' prefixes — a sign o' lopsided filterin' or a botched riggin'."
+msgstr ""
+"This network's sessions be established on both route servers, yet they take "
+"a different count o' prefixes — a sign o' lopsided filterin' or a botched "
+"riggin'."
 
-#: templates/dashboard/participant_detail.html:77
-#: templates/dashboard/participant_detail.html:88
+#: templates/dashboard/participant_detail.html:120
+#: templates/dashboard/participant_detail.html:180
 msgid "route servers"
 msgstr "route servers"
 
-#: templates/dashboard/participant_detail.html:85
+#: templates/dashboard/participant_detail.html:130
+msgid "Reflecting neighbor-discovery traffic onto the fabric"
+msgstr "Echoin' neighbour-discovery traffic back onto the fabric"
+
+#: templates/dashboard/participant_detail.html:132
+#, python-format
+msgid ""
+"This network's connection is currently re-flooding neighbor-discovery frames"
+" for %(n)s other member IP back onto the exchange."
+msgid_plural ""
+"This network's connection is currently re-flooding neighbor-discovery frames"
+" for %(n)s other member IPs back onto the exchange."
+msgstr[0] ""
+"This network's line be echoin' neighbour-discovery frames fer %(n)s other "
+"crew's IP back onto the exchange right now."
+msgstr[1] ""
+"This network's line be echoin' neighbour-discovery frames fer %(n)s other "
+"crews' IPs back onto the exchange right now."
+
+#: templates/dashboard/participant_detail.html:134
+#, python-format
+msgid ""
+"This network's connection recently re-flooded neighbor-discovery frames for "
+"%(n)s other member IP back onto the exchange (last seen %(ago)s ago)."
+msgid_plural ""
+"This network's connection recently re-flooded neighbor-discovery frames for "
+"%(n)s other member IPs back onto the exchange (last seen %(ago)s ago)."
+msgstr[0] ""
+"This network's line lately echoed neighbour-discovery frames fer %(n)s other"
+" crew's IP back onto the exchange (last spied %(ago)s past)."
+msgstr[1] ""
+"This network's line lately echoed neighbour-discovery frames fer %(n)s other"
+" crews' IPs back onto the exchange (last spied %(ago)s past)."
+
+#: templates/dashboard/participant_detail.html:136
+msgid ""
+"This is typically a virtualized/bridged uplink with an internal loop re-"
+"transmitting frames it receives but doesn't own; it usually appears after a "
+"fabric flap and clears on its own. It's benign (not spoofing), but it adds "
+"needless broadcast load — disabling the loop (bridge loop-protection / non-"
+"reflecting mode) stops it."
+msgstr ""
+"'Tis usually a virtualized or bridged uplink with a loop in its belly, "
+"shoutin' back frames it heard but don't own; it tends to show after the "
+"fabric takes a tumble an' settles on its own. Harmless (no false flag), but "
+"it heaps needless broadcast on the fleet — cuttin' the loop (bridge loop-"
+"protection / non-reflectin' mode) puts a stop to it."
+
+#: templates/dashboard/participant_detail.html:137
+#, python-format
+msgid "Reflector MAC: %(mac)s"
+msgstr "Echoin' MAC: %(mac)s"
+
+#: templates/dashboard/participant_detail.html:138
+#: templates/dashboard/participant_detail.html:169
+msgid "LAN events"
+msgstr "Happenin's on the LAN"
+
+#: templates/dashboard/participant_detail.html:148
+#, python-format
+msgid "Sending %(label)s into the exchange LAN"
+msgstr "Flyin' %(label)s into the exchange LAN"
+
+#: templates/dashboard/participant_detail.html:158
+msgid "How to fix"
+msgstr "How to set it to rights"
+
+#: templates/dashboard/participant_detail.html:165
+#, python-format
+msgid "Source MAC: %(macs)s"
+msgstr "Source MAC: %(macs)s"
+
+#: templates/dashboard/participant_detail.html:166
+#, python-format
+msgid "last heard %(ago)s ago"
+msgstr "last heard %(ago)s past"
+
+#: templates/dashboard/participant_detail.html:167
+#, python-format
+msgid "%(n)s frame"
+msgid_plural "%(n)s frames"
+msgstr[0] "%(n)s frame"
+msgstr[1] "%(n)s frames"
+
+#: templates/dashboard/participant_detail.html:177
 msgid "Reading this page"
 msgstr "Readin' this here scroll"
 
-#: templates/dashboard/participant_detail.html:86
+#: templates/dashboard/participant_detail.html:178
 msgid "Public &mdash; visible to anyone"
 msgstr "Public &mdash; seen by any soul"
 
-#: templates/dashboard/participant_detail.html:87
+#: templates/dashboard/participant_detail.html:179
 msgid "Admin &mdash; network &amp; IX admins only"
 msgstr "Cap'n &mdash; fleet &amp; IX cap'ns only"
 
-#: templates/dashboard/participant_detail.html:88
+#: templates/dashboard/participant_detail.html:180
 msgid "Stack:"
 msgstr "Stack:"
 
-#: templates/dashboard/participant_detail.html:88
+#: templates/dashboard/participant_detail.html:180
 msgid "physical"
 msgstr "physical"
 
-#: templates/dashboard/participant_detail.html:88
+#: templates/dashboard/participant_detail.html:180
 msgid "link/LLDP"
 msgstr "link/LLDP"
 
-#: templates/dashboard/participant_detail.html:88
+#: templates/dashboard/participant_detail.html:180
 msgid "ARP/NDP"
 msgstr "ARP/NDP"
 
-#: templates/dashboard/participant_detail.html:120
+#: templates/dashboard/participant_detail.html:204
+msgid "Peer-to-peer traffic"
+msgstr "Traffic 'twixt mates"
+
+#: templates/dashboard/participant_detail.html:214
+msgid ""
+"Network-wide &middot; live from sFlow &middot; drawn in-page, not embedded"
+msgstr ""
+"Whole network &middot; live from sFlow &middot; drawn right here on deck, "
+"not smuggled in"
+
+#: templates/dashboard/participant_detail.html:218
+msgid "Top peers &mdash; ingress"
+msgstr "Top mates &mdash; comin' aboard"
+
+#: templates/dashboard/participant_detail.html:219
+msgid "from peer &middot; stacked"
+msgstr "from mate &middot; stacked like cargo"
+
+#: templates/dashboard/participant_detail.html:225
+msgid "Top peers &mdash; egress"
+msgstr "Top mates &mdash; castin' off"
+
+#: templates/dashboard/participant_detail.html:226
+msgid "to peer &middot; stacked"
+msgstr "to mate &middot; stacked like cargo"
+
+#: templates/dashboard/participant_detail.html:247
 msgid "Single"
 msgstr "Lone"
 
-#: templates/dashboard/participant_detail.html:125
-#: templates/dashboard/participant_detail.html:158
+#: templates/dashboard/participant_detail.html:252
+#: templates/dashboard/participant_detail.html:287
 msgid "Up"
 msgstr "Afloat"
 
-#: templates/dashboard/participant_detail.html:132
+#: templates/dashboard/participant_detail.html:256
+msgid ""
+"No live link state was returned for this port. It may not exist on the "
+"switch, or live status is not available to you."
+msgstr ""
+"No livin' link state came back for this here port. She may be gone from the "
+"switch, or the livin' state be hidden from ye."
+
+#: templates/dashboard/participant_detail.html:261
 #, python-format
 msgid "%(speed)sG effective"
 msgstr "%(speed)sG in truth"
 
-#: templates/dashboard/participant_detail.html:143
+#: templates/dashboard/participant_detail.html:272
 msgid "Physical"
 msgstr "Physical"
 
-#: templates/dashboard/participant_detail.html:165
+#: templates/dashboard/participant_detail.html:289
+msgid "No live link state was returned for this interface."
+msgstr "No livin' link state came back for this here interface."
+
+#: templates/dashboard/participant_detail.html:296
 msgid "Temp:"
 msgstr "Temp:"
 
-#: templates/dashboard/participant_detail.html:166
+#: templates/dashboard/participant_detail.html:297
 msgid "Serial:"
 msgstr "Serial:"
 
-#: templates/dashboard/participant_detail.html:195
+#: templates/dashboard/participant_detail.html:336
 msgid "Link"
 msgstr "Link"
 
-#: templates/dashboard/participant_detail.html:196
-#: templates/dashboard/participant_detail.html:286
-#: templates/dashboard/participant_detail.html:341
+#: templates/dashboard/participant_detail.html:337
+#: templates/dashboard/participant_detail.html:464
+#: templates/dashboard/participant_detail.html:564
 msgid "Public"
 msgstr "Public"
 
-#: templates/dashboard/participant_detail.html:203
-#: templates/dashboard/participant_detail.html:224
-#: templates/dashboard/participant_detail.html:239
-msgid "Local"
-msgstr "Home"
-
-#: templates/dashboard/participant_detail.html:216
+#: templates/dashboard/participant_detail.html:360
 msgid "Remote"
 msgstr "Yonder"
 
-#: templates/dashboard/participant_detail.html:287
+#: templates/dashboard/participant_detail.html:377
 msgid "No LLDP received"
 msgstr "No LLDP hailed, matey"
 
-#: templates/dashboard/participant_detail.html:254
-#, fuzzy
-#| msgid "No MAC address entries found."
+#: templates/dashboard/participant_detail.html:384
 msgid "MAC addresses learned on port"
-msgstr "No MAC address marks be found in these waters."
+msgstr "MACs spied on this port"
 
-#: templates/dashboard/participant_detail.html:254
+#: templates/dashboard/participant_detail.html:384
 msgid "A member port should normally present a single MAC"
-msgstr ""
+msgstr "A crew's port ought to fly but a single MAC"
 
-#: templates/dashboard/participant_detail.html:254
+#: templates/dashboard/participant_detail.html:384
 #, python-format
 msgid "%(n)s learned &middot; expected 1"
 msgid_plural "%(n)s learned &middot; expected 1"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(n)s spied &middot; expected 1"
+msgstr[1] "%(n)s spied &middot; expected 1"
 
-#: templates/dashboard/participant_detail.html:258
-#: templates/dashboard/participant_detail.html:295
-msgid "MAC"
-msgstr ""
-
-#: templates/dashboard/participant_detail.html:261
-#: templates/dashboard/participant_detail.html:296
+#: templates/dashboard/participant_detail.html:393
+#: templates/dashboard/participant_detail.html:422
+#: templates/dashboard/participant_detail.html:476
+#: templates/dashboard/participant_detail.html:521
+#: templates/dashboard/participant_detail.html:545
 msgid "First seen"
 msgstr "First spied"
 
-#: templates/dashboard/participant_detail.html:262
-#: templates/dashboard/participant_detail.html:297
+#: templates/dashboard/participant_detail.html:394
+#: templates/dashboard/participant_detail.html:423
+#: templates/dashboard/participant_detail.html:477
+#: templates/dashboard/participant_detail.html:522
+#: templates/dashboard/participant_detail.html:546
 msgid "Last seen"
 msgstr "Last spied"
 
-#: templates/dashboard/participant_detail.html:272
-#: templates/dashboard/participant_detail.html:312
-#: templates/dashboard/participant_detail.html:324
-#, fuzzy, python-format
-#| msgid "seen %(a)s ago"
+#: templates/dashboard/participant_detail.html:404
+#: templates/dashboard/participant_detail.html:423
+#: templates/dashboard/participant_detail.html:493
+#: templates/dashboard/participant_detail.html:505
+#: templates/dashboard/participant_detail.html:522
+#: templates/dashboard/participant_detail.html:546
+#, python-format
 msgid "%(a)s ago"
-msgstr "spied %(a)s ago, arr"
+msgstr "%(a)s past"
 
-#: templates/dashboard/participant_detail.html:290
+#: templates/dashboard/participant_detail.html:416
+#, python-format
+msgid "Sources %(ips)s — an IP not assigned on the IX"
+msgstr "Be flyin' %(ips)s — an IP that ain't charted on the IX"
+
+#: templates/dashboard/participant_detail.html:439
+msgid "Throughput"
+msgstr "Flow"
+
+#: templates/dashboard/participant_detail.html:447
+msgid "physical &middot; out &uarr; / in &darr; &middot; live from sFlow"
+msgstr "physical &middot; out &uarr; / in &darr; &middot; live from sFlow"
+
+#: templates/dashboard/participant_detail.html:468
 msgid "Heard on the fabric &middot; ARP/NDP"
-msgstr ""
+msgstr "Heard on the fabric &middot; ARP/NDP"
 
-#: templates/dashboard/participant_detail.html:294
-#, fuzzy
-#| msgid "MAC Address"
-msgid "IP address"
-msgstr "MAC Address"
-
-#: templates/dashboard/participant_detail.html:307
+#: templates/dashboard/participant_detail.html:487
 msgid "More than one MAC has been heard claiming this IP"
 msgstr "More than one MAC be claimin' this here IP, arr"
 
-#: templates/dashboard/participant_detail.html:307
+#: templates/dashboard/participant_detail.html:487
 msgid "multiple MACs"
 msgstr "a mess o' MACs"
 
-#: templates/dashboard/participant_detail.html:320
+#: templates/dashboard/participant_detail.html:488
+msgid "View this IP in the LAN event log"
+msgstr "Spy this IP in the LAN happenin's log"
+
+#: templates/dashboard/participant_detail.html:488
+#: templates/dashboard/participant_detail.html:532
+#, python-format
+msgid "%(n)s event &middot; history"
+msgid_plural "%(n)s events &middot; history"
+msgstr[0] "%(n)s happenin' &middot; the log"
+msgstr[1] "%(n)s happenin's &middot; the log"
+
+#: templates/dashboard/participant_detail.html:491
+msgid "Not heard recently; excluded from the conflict flag"
+msgstr "Not heard of late; left out o' the conflict flag"
+
+#: templates/dashboard/participant_detail.html:491
+#: templates/dashboard/participant_detail.html:537
+#: templates/dashboard/participant_detail.html:544
+msgid "stale"
+msgstr "gone stale"
+
+#: templates/dashboard/participant_detail.html:501
 msgid "This IP is not assigned to any participant on the IX"
 msgstr "This IP ain't charted to any mate on the IX"
 
-#: templates/dashboard/participant_detail.html:320
+#: templates/dashboard/participant_detail.html:501
 msgid "not assigned on the IX"
 msgstr "ain't charted on the IX"
 
-#: templates/dashboard/participant_detail.html:330
-msgid "No neighbors heard on the fabric (ARP/NDP) for this port."
-msgstr ""
+#: templates/dashboard/participant_detail.html:517
+msgid "Not assigned to any participant on the IX"
+msgstr "Charted to no crew on the IX"
 
-#: templates/dashboard/participant_detail.html:348
+#: templates/dashboard/participant_detail.html:529
+msgid "More than one MAC is claiming this IP"
+msgstr "More than one MAC be layin' claim to this IP"
+
+#: templates/dashboard/participant_detail.html:531
+#, python-format
+msgid "%(n)s MAC"
+msgid_plural "%(n)s MACs"
+msgstr[0] "%(n)s MAC"
+msgstr[1] "%(n)s MACs"
+
+#: templates/dashboard/participant_detail.html:538
+#, python-format
+msgid "since %(f)s"
+msgstr "since %(f)s"
+
+#: templates/dashboard/participant_detail.html:553
+msgid "No neighbors heard on the fabric (ARP/NDP) for this port."
+msgstr "Nary a neighbour heard on the fabric (ARP/NDP) fer this port."
+
+#: templates/dashboard/participant_detail.html:571
 msgid "Route Server"
 msgstr "Route Server"
 
-#: templates/dashboard/participant_detail.html:349
+#: templates/dashboard/participant_detail.html:572
 msgid "State"
 msgstr "State"
 
-#: templates/dashboard/participant_detail.html:350
+#: templates/dashboard/participant_detail.html:573
 msgid "Uptime"
 msgstr "Time afloat"
 
-#: templates/dashboard/participant_detail.html:352
+#: templates/dashboard/participant_detail.html:575
 msgid "Received"
 msgstr "Hauled in"
 
-#: templates/dashboard/participant_detail.html:353
+#: templates/dashboard/participant_detail.html:576
 msgid "Accepted"
 msgstr "Welcomed aboard"
 
-#: templates/dashboard/participant_detail.html:354
+#: templates/dashboard/participant_detail.html:577
 msgid "Rejected"
 msgstr "Tossed overboard"
 
-#: templates/dashboard/participant_detail.html:449
+#: templates/dashboard/participant_detail.html:672
 #, python-format
 msgid "No ports found for AS%(asn)s. This network may not yet be provisioned."
 msgstr ""
@@ -900,73 +1598,86 @@ msgstr ""
 msgid "Networks peering at the San Francisco Metropolitan Internet eXchange"
 msgstr "Fleets peerin' at the San Francisco Metropolitan Internet eXchange"
 
-#: templates/dashboard/participants_list.html:32
+#: templates/dashboard/participants_list.html:29
 msgid "Unable to fetch participant list:"
 msgstr "Can't haul up the crew roster:"
 
-#: templates/dashboard/participants_list.html:42
+#: templates/dashboard/participants_list.html:39
 msgid "Search name, ASN, or IP…"
 msgstr "Hunt by name, ASN, or IP…"
 
-#: templates/dashboard/participants_list.html:49
+#: templates/dashboard/participants_list.html:45
 msgid "participants"
 msgstr "crew mates"
 
-#: templates/dashboard/participants_list.html:54
+#: templates/dashboard/participants_list.html:48
 msgid "IX-F Member Export (JSON)"
 msgstr "IX-F Crew Export (JSON)"
 
-#: templates/dashboard/participants_list.html:64
+#: templates/dashboard/participants_list.html:58
 msgid "Sort by IPv4"
 msgstr "Sort by IPv4"
 
-#: templates/dashboard/participants_list.html:65
+#: templates/dashboard/participants_list.html:59
 msgid "Sort by Name"
 msgstr "Sort by Name"
 
-#: templates/dashboard/participants_list.html:66
+#: templates/dashboard/participants_list.html:60
 msgid "Sort by ASN"
 msgstr "Sort by ASN"
 
-#: templates/dashboard/participants_list.html:67
+#: templates/dashboard/participants_list.html:61
 msgid "Sort by Speed"
 msgstr "Sort by Speed"
 
-#: templates/dashboard/participants_list.html:68
+#: templates/dashboard/participants_list.html:62
 msgid "Sort by Site"
 msgstr "Sort by Site"
 
-#: templates/dashboard/participants_list.html:69
-msgid "Sort by Status"
-msgstr "Sort by Status"
-
-#: templates/dashboard/participants_list.html:106
-#: templates/dashboard/participants_list.html:203
+#: templates/dashboard/participants_list.html:95
+#: templates/dashboard/participants_list.html:184
 msgid "Speed"
 msgstr "Speed"
 
-#: templates/dashboard/participants_list.html:112
-#: templates/dashboard/participants_list.html:205
+#: templates/dashboard/participants_list.html:100
+#: templates/dashboard/participants_list.html:186
 msgid "Site"
 msgstr "Port"
 
-#: templates/dashboard/participants_list.html:152
-#: templates/dashboard/participants_list.html:193
+#: templates/dashboard/participants_list.html:123
+#: templates/dashboard/participants_list.html:166
+#, python-format
+msgid ""
+"Sending %(n)s protocol into the exchange LAN that does not belong there"
+msgid_plural ""
+"Sending %(n)s protocols into the exchange LAN that do not belong there"
+msgstr[0] ""
+"Flyin' %(n)s protocol into the exchange LAN that's got no business there"
+msgstr[1] ""
+"Flyin' %(n)s protocols into the exchange LAN that've got no business there"
+
+#: templates/dashboard/participants_list.html:123
+#: templates/dashboard/participants_list.html:166
+msgid "LAN"
+msgstr "LAN"
+
+#: templates/dashboard/participants_list.html:136
+#: templates/dashboard/participants_list.html:174
 msgid "Provisioning"
 msgstr "Stockin' the hold"
 
-#: templates/dashboard/participants_list.html:154
-#: templates/dashboard/participants_list.html:195
+#: templates/dashboard/participants_list.html:138
+#: templates/dashboard/participants_list.html:176
 msgid "Infrastructure"
 msgstr "Riggin'"
 
-#: templates/dashboard/participants_list.html:156
-#: templates/dashboard/participants_list.html:197
+#: templates/dashboard/participants_list.html:140
+#: templates/dashboard/participants_list.html:178
 msgid "Inactive"
 msgstr "Becalmed"
 
-#: templates/dashboard/participants_list.html:213
-#: templates/dashboard/route_server_parity.html:86
+#: templates/dashboard/participants_list.html:194
+#: templates/dashboard/route_server_parity.html:135
 msgid "No participants found."
 msgstr "No mateys be found in these waters."
 
@@ -977,11 +1688,15 @@ msgstr "Route Server Even Keel"
 
 #: templates/dashboard/route_server_parity.html:14
 msgid ""
-"SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering "
-"with both is required so that a single route-server failure never cuts a "
+"SFMIX runs two route servers (BIRD and OpenBGPD) for redundancy, and peering"
+" with both is required so that a single route-server failure never cuts a "
 "network off. Networks that are not established on both servers — or whose "
 "received-prefix counts disagree — are listed first."
-msgstr "SFMIX sails two route servers (BIRD an' OpenBGPD) for backup, an' ye must parlay with both, so a single route server goin' under never maroons 'yer network. Networks not established on both — or whose received-prefix tallies disagree — be listed first."
+msgstr ""
+"SFMIX sails two route servers (BIRD an' OpenBGPD) for backup, an' ye must "
+"parlay with both, so a single route server goin' under never maroons 'yer "
+"network. Networks not established on both — or whose received-prefix tallies"
+" disagree — be listed first."
 
 #: templates/dashboard/route_server_parity.html:21
 msgid "Unable to fetch parity data:"
@@ -996,42 +1711,102 @@ msgid "at risk"
 msgstr "in peril"
 
 #: templates/dashboard/route_server_parity.html:29
-#: templates/dashboard/route_server_parity.html:73
+#: templates/dashboard/route_server_parity.html:74
+#: templates/dashboard/route_server_parity.html:107
 msgid "OK"
 msgstr "Aye"
 
-#: templates/dashboard/route_server_parity.html:40
+#: templates/dashboard/route_server_parity.html:41
 msgid "Parity"
 msgstr "Even Keel"
 
-#: templates/dashboard/route_server_parity.html:60
+#: templates/dashboard/route_server_parity.html:61
+#: templates/dashboard/route_server_parity.html:122
 msgid "no session"
 msgstr "nary a session"
 
-#: templates/dashboard/route_server_parity.html:69
+#: templates/dashboard/route_server_parity.html:70
+#: templates/dashboard/route_server_parity.html:103
 msgid "Critical"
 msgstr "Dire"
 
-#: templates/dashboard/route_server_parity.html:71
+#: templates/dashboard/route_server_parity.html:72
+#: templates/dashboard/route_server_parity.html:105
 msgid "At risk"
 msgstr "In peril"
 
-#~ msgid "MACs learned"
-#~ msgstr "MACs spied"
+#: templates/mapbuild/status.html:3 templates/mapbuild/status.html:11
+msgid "Network Map Build"
+msgstr "Chart-Makin'"
 
-#, python-format
-#~ msgid "VLAN %(vlan)s"
-#~ msgstr "VLAN %(vlan)s"
+#: templates/mapbuild/status.html:16
+msgid "Rebuild now"
+msgstr "Redraw the chart now"
 
-#, python-format
-#~ msgid "first seen %(d)s"
-#~ msgstr "first spied %(d)s"
+#: templates/mapbuild/status.html:23
+msgid "Background-job tables unavailable (run migrations?):"
+msgstr "Below-decks job tables be missin' (run yer migrations?):"
 
-#~ msgid "No IPs assigned"
-#~ msgstr "No IPs handed out"
+#: templates/mapbuild/status.html:29
+msgid "Current map.json"
+msgstr "Current map.json"
 
-#~ msgid "Heard on LAN (ARP/NDP)"
-#~ msgstr "Heard 'cross the LAN (ARP/NDP)"
+#: templates/mapbuild/status.html:31
+msgid "cables"
+msgstr "lines"
 
-#~ msgid "Bound to unassigned IP"
-#~ msgstr "Lashed to an unchartered IP"
+#: templates/mapbuild/status.html:31
+msgid "sites"
+msgstr "harbours"
+
+#: templates/mapbuild/status.html:33
+msgid "generated"
+msgstr "drawn up"
+
+#: templates/mapbuild/status.html:35
+msgid "not built yet"
+msgstr "not yet drawn"
+
+#: templates/mapbuild/status.html:39
+msgid "Next scheduled build"
+msgstr "Next chart-makin' on the orders"
+
+#: templates/mapbuild/status.html:42
+msgid "daily"
+msgstr "every day"
+
+#: templates/mapbuild/status.html:44
+msgid "no schedule"
+msgstr "no sailin' orders"
+
+#: templates/mapbuild/status.html:48
+msgid "Queued now"
+msgstr "Queued this instant"
+
+#: templates/mapbuild/status.html:53
+msgid "Recent successful builds"
+msgstr "Charts lately drawn true"
+
+#: templates/mapbuild/status.html:58
+msgid "Finished"
+msgstr "Done"
+
+#: templates/mapbuild/status.html:59
+msgid "Generation"
+msgstr "Drawin' up"
+
+#: templates/mapbuild/status.html:60
+msgid "Cables"
+msgstr "Lines"
+
+#: templates/mapbuild/status.html:61
+msgid "Drift"
+msgstr "Drift"
+
+#: templates/mapbuild/status.html:73
+msgid "No successful builds recorded yet."
+msgstr "Nary a chart drawn true yet."
+
+#: templates/mapbuild/status.html:80
+msgid "Recent failures"
+msgstr "Recent wrecks"
