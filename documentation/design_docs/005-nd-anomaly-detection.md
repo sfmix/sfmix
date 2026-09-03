@@ -5,7 +5,7 @@
 > **See also** [Design Doc 008](008-lan-hygiene-bum-detection.md), which extends
 > this sensor and event store with LAN-hygiene (BUM-traffic) detection and
 > renames the user-facing surface from "ND events" to **LAN events**
-> (`/rpc/v1/lan-events`, `/api/v1/lan-events`, portal Admin ▸ LAN Events,
+> (`/rpc/v1/lan-events`, `/api/v1/lan-events`, the public portal LAN Events page,
 > `show lan-events`). The ND anomaly semantics below are unchanged.
 
 ## Overview
@@ -23,7 +23,7 @@ It spans three codebases:
   server (Rust).
 - **`looking-glass`** (lib + `lg-server` + `lg-http` + `lg-client`) — detection,
   the durable event store, evidence orchestration, and the RPC/REST API.
-- **`portal`** — the admin "LAN Events" page (née "ND Events") and participant-detail integration
+- **`portal`** — the public "LAN Events" page (née the admin "ND Events" page) and participant-detail integration
   (Django).
 
 Deployment is driven by the `sfmix_route_server_linux`, `looking_glass`, and
@@ -100,7 +100,7 @@ the ad-hoc tooling.
                 │ HTTPS (OIDC bearer)
                 ▼
 ┌─────────────────────────────────────────────┐
-│ portal (portal.sfmix.org, Django)            │   Admin ▸ LAN Events
+│ portal (portal.sfmix.org, Django)            │   LAN Events (public)
 │  dashboard/views.py  lan_events / lan_event_pcap│ participant_detail: stale MACs,
 │  templates/dashboard/lan_events.html         │  "N events · history" badges
 └─────────────────────────────────────────────┘
@@ -171,7 +171,7 @@ Data flow for one anomaly:
 
 - **lg-http** proxies `/api/v1/lan-events[/{id}[/pcap]]` to lg-server. The pcap
   path streams (via `lg-client::get_raw` → `Body::from_stream`), never buffering.
-- **portal** — admin-only `lan_events` list view (IP/ASN/MAC/kind filters, paging, all
+- **portal** — public `lan_events` list view (IP/ASN/MAC/kind filters, paging, all
   event kinds, streaming `nd_event_pcap` download) and participant-detail
   integration: conflict IPs show a "N events · history" badge, and stale MACs
   render dimmed and are excluded from the conflict flag.
@@ -336,7 +336,7 @@ the next startup. `DiscoveredMac` gained `stale: bool` similarly.
 | lg-server `GET /rpc/v1/lan-events` | X-RPC-Secret | list (`?asn`, `?ip`, `?mac`, `?kind`, `?protocol`, `?active`, `?limit`, `?offset`) |
 | lg-server `GET /rpc/v1/lan-events/{id}[/pcap]` | X-RPC-Secret | one event / its pcap (inline BLOB or streamed from the sensor) |
 | lg-http `GET /api/v1/lan-events[/{id}[/pcap]]` | OIDC bearer | portal-facing proxy |
-| portal `/admin/lan-events/[{id}/pcap/]` | session (IX admin) | UI + download |
+| portal `/lan-events/` | public | UI (pcap download `/lan-events/{id}/pcap/` is IX-admin only) |
 
 ## Configuration reference
 

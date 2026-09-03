@@ -135,7 +135,7 @@ its action buttons.
     {% endif %}
     {% translate "This is typically a virtualized/bridged uplink with an internal loop re-transmitting frames it receives but doesn't own; it usually appears after a fabric flap and clears on its own. It's benign (not spoofing), but it adds needless broadcast load — disabling the loop (bridge loop-protection / non-reflecting mode) stops it." %}
     {% if reflection_notice.reflector_mac %}<span class="nd-alert-where" style="opacity:1">{% blocktranslate with mac=reflection_notice.reflector_mac %}Reflector MAC: {{ mac }}{% endblocktranslate %}</span>{% endif %}
-    {% if is_ix_admin %}<span class="nd-alert-where"><a href="{% url 'lan_events' %}?asn={{ asn }}" class="back-link">L3 · {% translate "LAN events" %} &rarr;</a></span>{% else %}<span class="nd-alert-where">L3 · {% translate "neighbor discovery" %}</span>{% endif %}
+    <span class="nd-alert-where"><a href="{% url 'lan_events' %}?asn={{ asn }}" class="back-link">L3 · {% translate "LAN events" %} &rarr;</a></span>
   </div>
 </div>
 {% endif %}
@@ -166,7 +166,7 @@ its action buttons.
       {% if issue.last_seen_ago %}&middot; {% blocktranslate with ago=issue.last_seen_ago %}last heard {{ ago }} ago{% endblocktranslate %}{% endif %}
       {% if issue.count %}&middot; {% blocktranslate count n=issue.count %}{{ n }} frame{% plural %}{{ n }} frames{% endblocktranslate %}{% endif %}
     </span>
-    {% if is_ix_admin %}<span class="nd-alert-where"><a href="{% url 'lan_events' %}?asn={{ asn }}&kind=bum_protocol" class="back-link">L2 · {% translate "LAN events" %} &rarr;</a></span>{% else %}<span class="nd-alert-where">L2 · {% translate "LAN hygiene" %}</span>{% endif %}
+    <span class="nd-alert-where"><a href="{% url 'lan_events' %}?asn={{ asn }}&kind=bum_protocol" class="back-link">L2 · {% translate "LAN events" %} &rarr;</a></span>
   </div>
 </div>
 {% endfor %}

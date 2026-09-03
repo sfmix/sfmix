@@ -18,38 +18,34 @@ groups:
   # last heard) and neighwatch_bum_frames_by_protocol_total{protocol,severity}
   # (process-lifetime, stable series).
   #
-  # Only `critical` protocols page: those are the ones that can redirect other
-  # members' traffic (RA = free default route, DHCP = rogue gateway) or merge
-  # routing tables (IGP hellos) or disrupt the port (STP). Warning/info
-  # protocols (CDP/LLDP/MNDP chatter, mDNS, …) stay portal-only -- they are a
-  # participant-education issue, not an incident.
+  # Detection alerting is DISABLED for now: with a dozen-plus members sending
+  # RAs at any given time it is a standing condition, not an incident, and it
+  # was too much noise for the pager. The detections stay visible on the portal
+  # (LAN Events page, participant banners) and in these metrics; re-enable the
+  # rule below once the fabric is clean enough that a new critical source is
+  # worth a page.
   #
-  # `increase(...[10m]) > 0` with `for: 2m`: RAs default to one every ~200 s
-  # and IGP hellos to every 10 s, so a live source registers within one window
-  # and a single stray frame (a router booting with a default config for a
-  # minute) does not page. Alerts resolve on their own once the sensor row
-  # expires or the source stops.
+  #      - alert: IxLanCriticalProtocolSeen
+  #        expr: >
+  #          sum by (protocol, src_mac) (
+  #            increase(neighwatch_bum_frames_total{severity="critical"}[10m])
+  #          ) > 0
+  #        for: 2m
+  #        labels: {severity: critical, component: peering-lan}
+  #        annotations:
+  #          summary: >-
+  #            {{ $labels.protocol }} heard on the peering LAN from {{ $labels.src_mac }}
+  #          description: >-
+  #            {{ printf "%.0f" $value }} {{ $labels.protocol }} frames in the last
+  #            10 minutes from source MAC {{ $labels.src_mac }} on the SFMIX peering
+  #            VLAN. Attribution, sample details and an evidence pcap are on the
+  #            portal (LAN Events, kind bum_protocol). If the source is SFMIX
+  #            infrastructure, add the MAC to ignore_src_macs in group_vars/rs_linux.yml.
+  #          dashboard: https://portal.sfmix.org/lan-events/?kind=bum_protocol&active=1
+  #
+  # What remains are the two operational alerts about the sensor itself.
   - name: sfmix-lan-hygiene-alerts
     rules:
-      - alert: IxLanCriticalProtocolSeen
-        expr: >
-          sum by (protocol, src_mac) (
-            increase(neighwatch_bum_frames_total{severity="critical"}[10m])
-          ) > 0
-        for: 2m
-        labels: {severity: critical, component: peering-lan}
-        annotations:
-          summary: >-
-            {{ $labels.protocol }} heard on the peering LAN from {{ $labels.src_mac }}
-          description: >-
-            {{ printf "%.0f" $value }} {{ $labels.protocol }} frames in the last
-            10 minutes from source MAC {{ $labels.src_mac }} on the SFMIX peering
-            VLAN. Attribution, sample details and an evidence pcap are on the
-            portal: Admin > LAN Events (kind bum_protocol), and the participant's
-            page shows the remediation. If the source is SFMIX infrastructure,
-            add the MAC to ignore_src_macs in group_vars/rs_linux.yml.
-          dashboard: https://portal.sfmix.org/admin/lan-events/?kind=bum_protocol&active=1
-
       # The sensor shares rs-linux with BIRD. If the kernel is dropping frames
       # before the sensor reads them, the host is under capture load (a
       # broadcast storm, or promiscuous mode seeing more than expected) and the
@@ -67,7 +63,7 @@ groups:
             under capture load. Check `neighwatch_capture_frames_total` for the
             frame rate and the bum_flood rows on the sensor for a storm source;
             consider capture_mode: allmulti in the sfmix_route_server_linux vars.
-          dashboard: https://portal.sfmix.org/admin/lan-events/?kind=bum_protocol
+          dashboard: https://portal.sfmix.org/lan-events/?kind=bum_protocol
 
       # Sensor down = no hygiene visibility and no ND anomaly detection.
       - alert: NeighwatchDown

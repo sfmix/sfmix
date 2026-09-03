@@ -269,19 +269,19 @@ def _lan_event_display(ev):
     return ev
 
 
-@login_required
 def lan_events(request):
-    """Durable LAN event log (admin only).
+    """Durable LAN event log (public).
 
     Lists ND anomalies (new-MAC-on-an-existing-IP conflicts, one-MAC-many-IP
     sweeps) and LAN-hygiene detections (``bum_protocol``), newest-first, with
     IP/ASN/MAC/kind/protocol filters, an active-only toggle and offset paging.
+    Public so a participant can follow the banner on their network page to the
+    full record; only the evidence pcaps stay admin-only (``lan_event_pcap``).
     """
-    if not _is_ix_admin(request):
-        return HttpResponseForbidden(gettext("IX Administrators only."))
+    is_admin = _is_ix_admin(request) if request.user.is_authenticated else False
     events = []
     lg_error = None
-    token = request.session.get("oidc_id_token")
+    token = request.session.get("oidc_id_token") if request.user.is_authenticated else None
     ip_filter = (request.GET.get("ip") or "").strip()
     asn_filter = (request.GET.get("asn") or "").strip()
     mac_filter = (request.GET.get("mac") or "").strip().lower()
@@ -332,7 +332,7 @@ def lan_events(request):
         "page": page,
         "has_prev": page > 0,
         "has_next": len(events) == limit,
-        "is_ix_admin": True,
+        "is_ix_admin": is_admin,
     })
 
 
