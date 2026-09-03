@@ -241,6 +241,13 @@ _BUM_PROTOCOLS = (
 _LAN_EVENT_KINDS = ("new_mac_on_ip", "mac_claims_many_ips", "bum_protocol")
 
 
+def _remediation_steps(text):
+    """Split the catalog's ``;``-separated remediation hint into one step per
+    vendor, so the template can render them as separate lines instead of a
+    run-on block. Empty input yields an empty list."""
+    return [step.strip() for step in (text or "").split(";") if step.strip()]
+
+
 def _lan_event_display(ev):
     """Attach human-readable timestamps + kind flags to a LAN event."""
     opened = _parse_rfc3339(ev.get("opened_at"))
@@ -258,6 +265,7 @@ def _lan_event_display(ev):
     ev["is_bum"] = ev.get("kind") == "bum_protocol"
     sev = ev.get("severity") or "info"
     ev["severity_class"] = sev if sev in _BUM_SEVERITY_ORDER else "info"
+    ev["remediation_steps"] = _remediation_steps(ev.get("remediation"))
     return ev
 
 
@@ -1270,6 +1278,7 @@ def _hygiene_issues_from_events(events):
     issues = list(by_proto.values())
     for it in issues:
         it["severity_class"] = it["severity"] if it["severity"] in _BUM_SEVERITY_ORDER else "info"
+        it["remediation_steps"] = _remediation_steps(it["remediation"])
         it["last_seen_ago"] = timesince(it["last_seen"]) if it["last_seen"] else ""
         it["has_evidence"] = any(
             e.get("has_evidence") for e in events if e.get("id") in it["event_ids"]
