@@ -35,12 +35,25 @@
     var v = getComputedStyle(document.documentElement).getPropertyValue(name);
     return (v && v.trim()) || fallback;
   }
-  var TEAL = cssVar("--color-primary-light", "#1a6070");
-  var AMBER = cssVar("--color-accent", "#e8913a");
-  var BORDER = cssVar("--color-border", "#dee2e6");
-  var TEXT_LIGHT = cssVar("--color-text-light", "#666666");
-  // Distinct bands for the stacked peer chart (teal/amber-leaning, colour-blind-ish safe).
-  var PALETTE = [TEAL, AMBER, "#2a5a8c", "#1d7a3e", "#8B2FC9", "#c2701f", "#5a8ca0", "#a03b6a", "#9ca3af"];
+  var TEAL, AMBER, BORDER, TEXT_LIGHT, PALETTE;
+  // Re-read on load and whenever the light/dark scheme flips (base.html fires
+  // "sfmix:theme"); the draw functions read these at draw time.
+  function refreshPalette() {
+    TEAL = cssVar("--color-primary-light", "#1a6070");
+    AMBER = cssVar("--color-accent", "#e8913a");
+    BORDER = cssVar("--color-border", "#dee2e6");
+    TEXT_LIGHT = cssVar("--color-text-light", "#666666");
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    // Distinct bands for the stacked peer chart (teal/amber-leaning, colour-blind-ish safe).
+    PALETTE = dark
+      ? ["#5fb0c4", AMBER, "#7aa7d6", "#4ade80", "#c084fc", "#e8a25a", "#8fb8c8", "#d17aa3", "#9ca3af"]
+      : [TEAL, AMBER, "#2a5a8c", "#1d7a3e", "#8B2FC9", "#c2701f", "#5a8ca0", "#a03b6a", "#9ca3af"];
+  }
+  refreshPalette();
+  document.addEventListener("sfmix:theme", function () {
+    refreshPalette();
+    document.querySelectorAll("sfmix-chart").forEach(function (c) { if (c.applyTz) c.applyTz(); });
+  });
 
   // ── Time zone ───────────────────────────────────────────────────────────
   // One page-global choice ("sf" = US/Pacific, "utc"). Remembered across visits;
@@ -537,7 +550,7 @@
       this.range = r;
       this.load();
     }
-    // Redraw from cached data (no re-query) — used by the time-zone toggle.
+    // Redraw from cached data (no re-query) — used by the time-zone and theme toggles.
     applyTz() { if (this._data) this._render(); }
     // Pin (or clear) the held point in time and refresh the readout + line.
     _setHeld(idx) { this._heldIdx = idx; this._refresh(); }

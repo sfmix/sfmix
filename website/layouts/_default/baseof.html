@@ -17,7 +17,7 @@
   <meta name="twitter:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="{{ .Site.Params.theme_color }}">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <link rel="canonical" href="{{ .Permalink }}">
   {{/* hreflang alternates: tell search engines about every translation of this page. */}}
   {{ range .AllTranslations }}
@@ -46,6 +46,13 @@
   {{ range .AllTranslations }}{{ $trans = merge $trans (dict .Language.Lang .RelPermalink) }}{{ end }}
   <script>
   (function () {
+    /* Color scheme: apply an explicit light/dark pick before first paint.
+       With no pick the attribute stays unset and CSS follows prefers-color-scheme.
+       nav.html wires the toggle button. */
+    try {
+      var theme = localStorage.getItem("sfmix-theme");
+      if (theme === "dark" || theme === "light") document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {}
     try {
       var current = {{ .Site.Language.Lang }};
       var translations = {{ $trans }};

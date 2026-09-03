@@ -262,6 +262,10 @@ msgstr "Abmelden"
 msgid "Sign in"
 msgstr "Anmelden"
 
+#: templates/base.html
+msgid "Toggle dark mode"
+msgstr "Dunkelmodus umschalten"
+
 #: templates/base.html:91
 msgid "Change language"
 msgstr "Sprache ändern"

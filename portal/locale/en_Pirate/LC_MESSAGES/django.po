@@ -260,6 +260,10 @@ msgstr "Abandon ship"
 msgid "Sign in"
 msgstr "Climb aboard"
 
+#: templates/base.html
+msgid "Toggle dark mode"
+msgstr "Douse or light the lanterns"
+
 #: templates/base.html:91
 msgid "Change language"
 msgstr "Change yer tongue"

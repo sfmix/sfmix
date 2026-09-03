@@ -263,6 +263,10 @@ msgstr "Cerrar sesión"
 msgid "Sign in"
 msgstr "Iniciar sesión"
 
+#: templates/base.html
+msgid "Toggle dark mode"
+msgstr "Cambiar modo oscuro"
+
 #: templates/base.html:91
 msgid "Change language"
 msgstr "Cambiar idioma"
