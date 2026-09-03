@@ -17,3 +17,10 @@ ring_buffer_secs: {{ sfmix_route_server_linux_lg_neighborhood_watch_ring_buffer_
 ring_buffer_max_bytes: {{ sfmix_route_server_linux_lg_neighborhood_watch_ring_buffer_max_bytes }}
 evidence_max_bytes: {{ sfmix_route_server_linux_lg_neighborhood_watch_evidence_max_bytes }}
 {% endif %}
+capture_mode: {{ sfmix_route_server_linux_lg_neighborhood_watch_capture_mode }}
+bum_ttl_secs: {{ sfmix_route_server_linux_lg_neighborhood_watch_bum_ttl_secs }}
+bum_flood_pps: {{ sfmix_route_server_linux_lg_neighborhood_watch_bum_flood_pps }}
+ignore_src_macs:
+{% for mac in sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs %}
+  - "{{ mac }}"
+{% endfor %}

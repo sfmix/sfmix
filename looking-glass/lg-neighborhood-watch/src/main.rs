@@ -19,6 +19,8 @@ use clap::Parser;
 use lg_client::client::RpcClient;
 use tracing::info;
 
+mod afpacket;
+mod bum;
 mod capture;
 mod config;
 mod evidence;
@@ -101,12 +103,58 @@ async fn main() -> Result<()> {
         (None, None)
     };
 
-    // Capture threads, one per interface.
-    for iface in &cfg.interfaces {
-        capture::spawn_capture(iface.clone(), tx.clone(), dropped.clone(), ring_tx.clone());
+    // LAN-hygiene classifier: detections + per-second rate samples from the
+    // capture threads fold into one bounded table (bum.rs).
+    let bum_table = Arc::new(ArcSwap::from_pointee(bum::BumSnapshot::default()));
+    let bum_frames: bum::FrameStore = Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
+    let bum_dropped = Arc::new(AtomicU64::new(0));
+    let kernel_frames = Arc::new(AtomicU64::new(0));
+    let kernel_drops = Arc::new(AtomicU64::new(0));
+    let (bum_tx, bum_rx) = tokio::sync::mpsc::channel::<bum::BumMsg>(4096);
+    {
+        let (table, frames) = (bum_table.clone(), bum_frames.clone());
+        let (ttl, pps) = (cfg.bum_ttl_secs, cfg.bum_flood_pps);
+        tokio::spawn(async move { bum::run_writer(bum_rx, table, frames, ttl, pps).await });
     }
-    drop(tx); // capture threads hold their own clones
-    drop(ring_tx); // capture threads hold their own clones
+    let ignore_src_macs: std::collections::HashSet<[u8; 6]> = cfg
+        .ignore_src_macs
+        .iter()
+        .filter_map(|m| {
+            let parsed = afpacket::parse_mac(m);
+            if parsed.is_none() {
+                tracing::warn!("ignore_src_macs: unparseable MAC {m:?} skipped");
+            }
+            parsed
+        })
+        .collect();
+    let classify_ctx = Arc::new(ArcSwap::from_pointee(bum::ClassifyCtx {
+        ignore_src_macs: ignore_src_macs.clone(),
+        ..Default::default()
+    }));
+    info!(
+        "LAN-hygiene classifier enabled ({} mode, ttl {}s, flood {} pps, {} ignored MACs)",
+        cfg.capture_mode.as_str(),
+        cfg.bum_ttl_secs,
+        cfg.bum_flood_pps,
+        ignore_src_macs.len()
+    );
+
+    // Capture threads, one per interface.
+    let sinks = capture::CaptureSinks {
+        obs_tx: tx,
+        ring_tx,
+        bum_tx,
+        ctx: classify_ctx.clone(),
+        mode: cfg.capture_mode,
+        dropped: dropped.clone(),
+        bum_dropped: bum_dropped.clone(),
+        kernel_frames: kernel_frames.clone(),
+        kernel_drops: kernel_drops.clone(),
+    };
+    for iface in &cfg.interfaces {
+        capture::spawn_capture(iface.clone(), sinks.clone());
+    }
+    drop(sinks); // capture threads hold their own clones
 
     // Solicitation: warn early if raw sockets are unavailable, then sweep.
     solicit::preflight();
@@ -116,13 +164,14 @@ async fn main() -> Result<()> {
         tokio::spawn(async move { solicit::run(targets, interval, pace).await });
     }
 
-    // lg-server poll: refresh the assigned-IP (solicit target) set.
+    // lg-server poll: refresh the assigned-IP (solicit target) set + IX prefixes.
     {
         let rpc = rpc.clone();
         let targets = targets.clone();
         let last_sync = last_lg_sync.clone();
         let interval = cfg.lg_poll_interval_secs;
-        tokio::spawn(async move { lgpoll::run(rpc, targets, last_sync, interval).await });
+        let ctx = classify_ctx.clone();
+        tokio::spawn(async move { lgpoll::run(rpc, targets, last_sync, interval, ctx, ignore_src_macs).await });
     }
 
     let state = http::AppState {
@@ -132,6 +181,12 @@ async fn main() -> Result<()> {
         dropped,
         ifaces: cfg.interfaces.clone(),
         evidence: evidence_store,
+        bum: bum_table,
+        bum_frames,
+        bum_dropped,
+        kernel_frames,
+        kernel_drops,
+        capture_mode: cfg.capture_mode.as_str(),
     };
     let app = http::router(state);
 

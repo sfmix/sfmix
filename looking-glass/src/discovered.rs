@@ -69,16 +69,96 @@ pub struct SensorObservation {
     pub mismatched_mac: Option<String>,
 }
 
-/// A newly-opened anomaly event that warrants a pcap snapshot. Returned from
-/// [`DiscoveredNeighborStore::update`] so the poll loop can trigger evidence
-/// capture out-of-band (a flap into an existing event yields nothing here).
+/// A newly-opened anomaly event that warrants evidence capture. Returned from
+/// [`DiscoveredNeighborStore::update`] (ND kinds) or built by the poll loop
+/// (`bum_protocol`), so the snapshot worker can fetch evidence out-of-band (a
+/// flap into an existing event yields nothing here).
 #[derive(Debug, Clone)]
 pub struct NewAnomaly {
     pub event_id: String,
-    /// MACs to filter the pcap on (the conflicting MACs, or the offending MAC).
+    /// MACs to filter the ring-buffer pcap on (the conflicting MACs, or the
+    /// offending MAC). Unused for `bum_pcap` events.
     pub macs: Vec<String>,
     /// Event time, used to centre the extraction window.
     pub at: DateTime<Utc>,
+    /// `Some((mac, protocol))` for a `bum_protocol` event: fetch the sensor's
+    /// stored frames for that detection instead of a ring-buffer extraction.
+    pub bum_pcap: Option<(String, String)>,
+}
+
+/// One row as reported by the sensor's `GET /bum` (LAN-hygiene detections).
+#[derive(Debug, Clone, Deserialize)]
+pub struct SensorBumRow {
+    pub src_mac: String,
+    pub protocol: String,
+    #[serde(default)]
+    pub severity: String,
+    #[serde(default)]
+    pub iface: String,
+    #[serde(default)]
+    pub first_seen: String,
+    #[serde(default)]
+    pub last_seen: String,
+    #[serde(default)]
+    pub count: u64,
+    #[serde(default)]
+    pub details: Vec<String>,
+    #[serde(default)]
+    pub frame_count: usize,
+}
+
+/// Who a MAC belongs to, for attributing a hygiene detection.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MacAttribution {
+    pub asn: Option<u32>,
+    pub tenant: Option<String>,
+    /// The MAC is SFMIX infrastructure (learned on an admin-only port): never a
+    /// participant's problem, so the detection is suppressed.
+    pub infra: bool,
+}
+
+/// Bare lowercase hex of a MAC in any common notation (`aa:bb:…`, `aabb.ccdd.eeff`).
+fn norm_mac(s: &str) -> String {
+    s.chars().filter(|c| c.is_ascii_hexdigit()).flat_map(|c| c.to_lowercase()).collect()
+}
+
+/// Attribute a MAC to a participant. Authoritative first: the switch MAC tables
+/// (from the device-state cache) say which port learned it, and the NetBox
+/// port map says whose port that is. A MAC seen only on core (inter-switch)
+/// ports is behind another switch and tells us nothing; one on an admin-only
+/// port is infrastructure. Fallback: the MAC's own clean ARP/NDP sightings on
+/// NetBox-assigned IPs (`owner_of_mac`), which catches a router that ARPs for
+/// its assigned address but whose port is not (yet) in NetBox.
+pub fn attribute_mac(
+    lg: &crate::service::LookingGlass,
+    store: &DiscoveredNeighborStore,
+    mac: &str,
+) -> MacAttribution {
+    let want = norm_mac(mac);
+    let cache = lg.device_state_cache.load();
+    let pmap = lg.port_map.load();
+    let participants = lg.netbox_participants.load();
+    let mut infra = false;
+    for (device, dc) in cache.iter() {
+        for e in &dc.mac_table {
+            if norm_mac(&e.mac_address) != want {
+                continue;
+            }
+            match pmap.classify(device, &e.interface) {
+                Some(crate::participants::PortClass::Participant { asn }) => {
+                    let tenant = participants.iter().find(|p| p.asn == *asn).map(|p| p.name.clone());
+                    return MacAttribution { asn: Some(*asn), tenant, infra: false };
+                }
+                Some(crate::participants::PortClass::AdminOnly) => infra = true,
+                Some(crate::participants::PortClass::Core) | None => {}
+            }
+        }
+    }
+    if infra {
+        return MacAttribution { asn: None, tenant: None, infra: true };
+    }
+    let (asn, tenant) = store.owner_of_mac(mac);
+    MacAttribution { asn, tenant, infra: false }
 }
 
 /// An IP→tenant assignment, as resolved from the NetBox participant cache.
@@ -347,7 +427,7 @@ impl DiscoveredNeighborStore {
                         if record.is_new {
                             let mut macs = old_macs;
                             macs.push(obs.mac.clone());
-                            new_anomalies.push(NewAnomaly { event_id: record.event_id, macs, at: now });
+                            new_anomalies.push(NewAnomaly { event_id: record.event_id, macs, at: now, bum_pcap: None });
                         }
                     }
                 }
@@ -416,6 +496,7 @@ impl DiscoveredNeighborStore {
                                 event_id: record.event_id,
                                 macs: vec![(*mac).to_string()],
                                 at: now,
+                                bum_pcap: None,
                             });
                         }
                     }
@@ -446,6 +527,7 @@ impl DiscoveredNeighborStore {
                             event_id: record.event_id,
                             macs: vec![(*reflector_mac).to_string()],
                             at: now,
+                            bum_pcap: None,
                         });
                     }
                 }
@@ -504,6 +586,18 @@ impl DiscoveredNeighborStore {
     }
 
     /// Record a failed sensor poll without disturbing the retained data.
+    /// The participant a MAC belongs to, from its sightings on NetBox-assigned
+    /// IPs (any record whose assignment is known and whose MAC set contains it).
+    pub fn owner_of_mac(&self, mac: &str) -> (Option<u32>, Option<String>) {
+        let want = norm_mac(mac);
+        self.records
+            .values()
+            .filter(|r| r.asn.is_some())
+            .find(|r| r.macs.keys().any(|m| norm_mac(m) == want))
+            .map(|r| (r.asn, r.tenant.clone()))
+            .unwrap_or((None, None))
+    }
+
     pub fn set_error(&mut self, err: impl Into<String>) {
         self.last_error = Some(err.into());
     }
@@ -603,8 +697,10 @@ pub fn spawn_poll_loop(
 
     let sensor_url = cfg.sensor_url.clone();
     let interval_secs = cfg.poll_interval_secs;
+    let bum_enabled = cfg.bum_enabled;
     info!(
-        "Discovered-neighbor poll enabled (sensor: {sensor_url}, interval: {interval_secs}s)"
+        "Discovered-neighbor poll enabled (sensor: {sensor_url}, interval: {interval_secs}s, hygiene events: {})",
+        if bum_enabled { "on" } else { "off" }
     );
 
     // Evidence-snapshot trigger worker: a single serialized consumer so a burst of
@@ -646,6 +742,49 @@ pub fn spawn_poll_loop(
                     store.set_error(e.to_string());
                 }
             }
+            // LAN-hygiene detections: fold the sensor's current rows into durable
+            // `bum_protocol` events, attributed to the source MAC's participant.
+            if bum_enabled {
+                if let Some(anomaly) = lg.anomaly.as_deref() {
+                    match fetch_bum(&sensor_url).await {
+                        Ok(rows) => {
+                            let now = chrono::Utc::now();
+                            for row in rows {
+                                let attribution = attribute_mac(&lg, &store, &row.src_mac);
+                                if attribution.infra {
+                                    continue;
+                                }
+                                let Some(record) = anomaly.record_bum(
+                                    &row.src_mac,
+                                    &row.protocol,
+                                    &row.severity,
+                                    attribution.asn,
+                                    attribution.tenant.as_deref(),
+                                    &row.details,
+                                    row.count,
+                                    now,
+                                ) else {
+                                    continue;
+                                };
+                                if record.is_new && row.frame_count > 0 {
+                                    if let Some(ref tx) = snap_tx {
+                                        let ev = NewAnomaly {
+                                            event_id: record.event_id,
+                                            macs: Vec::new(),
+                                            at: now,
+                                            bum_pcap: Some((row.src_mac.to_ascii_lowercase(), row.protocol.clone())),
+                                        };
+                                        if tx.try_send(ev).is_err() {
+                                            tracing::warn!("evidence-snapshot queue full; dropping a hygiene trigger");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => tracing::warn!("hygiene sensor poll failed: {e}"),
+                    }
+                }
+            }
             lg.discovered.store(std::sync::Arc::new(store.snapshot()));
             if let Err(e) = store.save() {
                 tracing::warn!("Failed to save discovered-neighbor store: {e}");
@@ -675,6 +814,26 @@ fn spawn_snapshot_worker(
         };
         let url = format!("{}/evidence/snapshot", sensor_url.trim_end_matches('/'));
         while let Some(ev) = rx.recv().await {
+            // Hygiene events: the sensor already holds the first frames of the
+            // detection; fetch that tiny pcap and store it inline on the event.
+            if let Some((mac, proto)) = &ev.bum_pcap {
+                let pcap_url = format!("{}/bum/{}/{}/pcap", sensor_url.trim_end_matches('/'), mac, proto);
+                match client.get(&pcap_url).send().await {
+                    Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                        Ok(bytes) => {
+                            if let Some(store) = lg.anomaly.as_ref() {
+                                if let Err(e) = store.set_evidence_pcap(&ev.event_id, &bytes) {
+                                    tracing::warn!("storing hygiene evidence for {}: {e}", ev.event_id);
+                                }
+                            }
+                        }
+                        Err(e) => tracing::warn!("reading hygiene evidence for {}: {e}", ev.event_id),
+                    },
+                    Ok(resp) => tracing::debug!("hygiene evidence for {} returned {}", ev.event_id, resp.status()),
+                    Err(e) => tracing::warn!("hygiene evidence GET for {} failed: {e}", ev.event_id),
+                }
+                continue;
+            }
             // ±5 minutes around the event.
             let window = chrono::Duration::minutes(5);
             let body = serde_json::json!({
@@ -736,6 +895,21 @@ pub async fn fetch_sensor(base_url: &str) -> Result<Vec<SensorObservation>> {
     }
     let observations: Vec<SensorObservation> = resp.json().await.context("decoding sensor response")?;
     Ok(observations)
+}
+
+/// Fetch current LAN-hygiene detections from the sensor's `GET /bum`.
+pub async fn fetch_bum(base_url: &str) -> Result<Vec<SensorBumRow>> {
+    let url = format!("{}/bum", base_url.trim_end_matches('/'));
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .context("building HTTP client")?;
+    let resp = client.get(&url).send().await.with_context(|| format!("GET {url}"))?;
+    if !resp.status().is_success() {
+        anyhow::bail!("sensor returned {} for {url}", resp.status());
+    }
+    let rows: Vec<SensorBumRow> = resp.json().await.context("decoding sensor /bum response")?;
+    Ok(rows)
 }
 
 /// Evict oldest-by-last_seen MACs until the per-IP cap is satisfied.
@@ -1054,7 +1228,7 @@ mod tests {
             Some(&anomaly),
             at("2026-06-19T00:00:00Z"),
         );
-        assert!(anomaly.list_events(None, None, 10, 0, at("2026-06-19T00:00:00Z")).unwrap().is_empty());
+        assert!(anomaly.list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 10, offset: 0, ..Default::default() }, at("2026-06-19T00:00:00Z")).unwrap().is_empty());
 
         // A second, different MAC on the same IP: anomaly recorded.
         store.update_at(
@@ -1063,7 +1237,7 @@ mod tests {
             Some(&anomaly),
             at("2026-06-19T00:01:00Z"),
         );
-        let events = anomaly.list_events(None, None, 10, 0, at("2026-06-19T00:01:00Z")).unwrap();
+        let events = anomaly.list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 10, offset: 0, ..Default::default() }, at("2026-06-19T00:01:00Z")).unwrap();
         assert_eq!(events.len(), 1, "new MAC on existing IP must record one event");
         assert_eq!(events[0].ip, "10.0.0.1");
         assert_eq!(events[0].asn, Some(64500));
@@ -1082,7 +1256,7 @@ mod tests {
             Some(&anomaly),
             at("2026-06-19T00:02:00Z"),
         );
-        let events = anomaly.list_events(None, None, 10, 0, at("2026-06-19T00:02:00Z")).unwrap();
+        let events = anomaly.list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 10, offset: 0, ..Default::default() }, at("2026-06-19T00:02:00Z")).unwrap();
         assert_eq!(events.len(), 1, "re-hearing known MACs must not open a new event");
         assert_eq!(events[0].flap_count, 1, "re-hearing must not bump flap_count");
         assert_eq!(
@@ -1123,7 +1297,7 @@ mod tests {
             Some(&anomaly),
             at("2026-06-19T00:01:00Z"),
         );
-        assert_eq!(anomaly.list_events(None, None, 10, 0, at("2026-06-19T00:01:00Z")).unwrap().len(), 1);
+        assert_eq!(anomaly.list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 10, offset: 0, ..Default::default() }, at("2026-06-19T00:01:00Z")).unwrap().len(), 1);
 
         // Poll every minute for 40 minutes. The old device is gone, so the sensor
         // keeps emitting aa:aa with its frozen last_heard=t0 while bb:bb stays live.
@@ -1145,7 +1319,7 @@ mod tests {
         }
 
         // No second event opened (bb:bb was only ever one new MAC).
-        let events = anomaly.list_events(None, None, 10, 0, at("2026-06-19T00:40:00Z")).unwrap();
+        let events = anomaly.list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 10, offset: 0, ..Default::default() }, at("2026-06-19T00:40:00Z")).unwrap();
         assert_eq!(events.len(), 1, "no duplicate events for a single migration");
         // The window stopped extending once aa:aa aged out (its last_heald froze
         // at t0, so it left the 600s freshness window ~10 min in).
@@ -1186,7 +1360,7 @@ mod tests {
         }
 
         // The durable event is still there (closed, but recorded).
-        let events = anomaly.list_events(None, None, 10, 0, at("2026-06-19T02:00:00Z")).unwrap();
+        let events = anomaly.list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 10, offset: 0, ..Default::default() }, at("2026-06-19T02:00:00Z")).unwrap();
         assert_eq!(events.len(), 1, "the brief conflict must be recorded durably");
         assert_eq!(events[0].new_mac, "bb:bb");
         assert!(events[0].closed, "long-quiet conflict reads closed");
@@ -1279,7 +1453,7 @@ mod tests {
 
     fn sweep_events(anomaly: &crate::anomaly::AnomalyStore, now: &str) -> Vec<lg_types::structured::AnomalyEvent> {
         anomaly
-            .list_events(None, None, 100, 0, at(now))
+            .list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 100, offset: 0, ..Default::default() }, at(now))
             .unwrap()
             .into_iter()
             .filter(|e| e.kind == lg_types::structured::EVENT_KIND_MAC_SWEEP)
@@ -1369,7 +1543,7 @@ mod tests {
 
     fn new_mac_events(anomaly: &crate::anomaly::AnomalyStore, now: &str) -> Vec<lg_types::structured::AnomalyEvent> {
         anomaly
-            .list_events(None, None, 100, 0, at(now))
+            .list_events(&crate::anomaly::EventFilter { asn: None, ip: None, limit: 100, offset: 0, ..Default::default() }, at(now))
             .unwrap()
             .into_iter()
             .filter(|e| e.kind == lg_types::structured::EVENT_KIND_NEW_MAC)
@@ -1510,5 +1684,16 @@ mod tests {
         let snap = store.snapshot();
         assert_eq!(snap.neighbors.len(), 1);
         assert_eq!(snap.last_error.as_deref(), Some("connection refused"));
+    }
+
+    #[test]
+    fn owner_of_mac_resolves_from_assigned_sightings_in_any_notation() {
+        let mut store = DiscoveredNeighborStore::load(None);
+        let assignments = vec![assign("10.0.0.1", 64500, "Acme")];
+        store.update(&[obs("10.0.0.1", "aa:bb:cc:dd:ee:01", "2026-06-19T00:00:00Z", "2026-06-19T00:00:00Z")], &assignments, None);
+        assert_eq!(store.owner_of_mac("AA:BB:CC:DD:EE:01"), (Some(64500), Some("Acme".to_string())));
+        assert_eq!(store.owner_of_mac("aabb.ccdd.ee01"), (Some(64500), Some("Acme".to_string())));
+        assert_eq!(store.owner_of_mac("aa:bb:cc:dd:ee:02"), (None, None));
+        assert_eq!(norm_mac("AA:BB.cc-dd ee01"), "aabbccddee01");
     }
 }

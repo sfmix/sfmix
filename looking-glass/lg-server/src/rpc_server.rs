@@ -39,9 +39,9 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/participant-ports", get(participant_ports))
         .route("/rpc/v1/ix-ip-assignments", get(ix_ip_assignments))
         .route("/rpc/v1/discovered-neighbors", get(discovered_neighbors))
-        .route("/rpc/v1/nd-events", get(nd_events))
-        .route("/rpc/v1/nd-events/{id}", get(nd_event_detail))
-        .route("/rpc/v1/nd-events/{id}/pcap", get(nd_event_pcap))
+        .route("/rpc/v1/lan-events", get(lan_events))
+        .route("/rpc/v1/lan-events/{id}", get(lan_event_detail))
+        .route("/rpc/v1/lan-events/{id}/pcap", get(lan_event_pcap))
         .route("/rpc/v1/netbox/status", get(netbox_status))
         .route("/rpc/v1/device-cache/status", get(device_cache_status))
         .route("/rpc/v1/peeringdb-cache", get(peeringdb_cache))
@@ -371,50 +371,68 @@ async fn discovered_neighbors(
     }
 }
 
-/// Query filter for the ND-anomaly event listing.
+/// Query filter for the LAN-event listing.
 #[derive(serde::Deserialize)]
-struct NdEventFilter {
+struct LanEventFilter {
     asn: Option<u32>,
     ip: Option<String>,
+    mac: Option<String>,
+    kind: Option<String>,
+    protocol: Option<String>,
+    /// `1`/`true`: only events whose liveness window has not lapsed.
+    active: Option<String>,
     limit: Option<i64>,
     offset: Option<i64>,
 }
 
-/// GET /rpc/v1/nd-events — durable ND-anomaly events (new MAC on an existing IP),
-/// newest-first. `?asn=`/`?ip=` narrow; `?limit=`/`?offset=` page (default 200/0,
-/// limit capped at 1000).
-async fn nd_events(
+/// GET /rpc/v1/lan-events — durable LAN events (ND anomalies + LAN-hygiene
+/// detections), newest-first. `?asn=`/`?ip=`/`?mac=`/`?kind=`/`?protocol=`
+/// narrow, `?active=1` keeps only live events; `?limit=`/`?offset=` page
+/// (default 200/0, limit capped at 1000).
+async fn lan_events(
     State(state): State<Arc<RpcState>>,
     headers: HeaderMap,
-    Query(filter): Query<NdEventFilter>,
+    Query(filter): Query<LanEventFilter>,
 ) -> impl IntoResponse {
     if let Err(e) = check_secret(&headers, &state.rpc_secret) {
         return e.into_response();
     }
     let Some(store) = state.lg.anomaly.as_ref() else {
-        // Anomaly recording not configured: present an empty, well-formed result.
+        // Recording not configured: present an empty, well-formed result.
         return Json(serde_json::json!({ "events": [] })).into_response();
     };
     let limit = filter.limit.unwrap_or(200).clamp(1, 1000);
     let offset = filter.offset.unwrap_or(0).max(0);
+    let active_only = matches!(filter.active.as_deref(), Some("1") | Some("true"));
     // The SQLite read runs behind a std::sync::Mutex; offload it to a blocking
     // thread so a contended/slow query never stalls a tokio worker (and, in
     // turn, the front-end's ability to service new TLS connections).
     let store = Arc::clone(store);
-    let asn = filter.asn;
-    let ip = filter.ip.clone();
-    let res =
-        tokio::task::spawn_blocking(move || store.list_events(asn, ip.as_deref(), limit, offset, chrono::Utc::now()))
-            .await;
+    let res = tokio::task::spawn_blocking(move || {
+        store.list_events(
+            &looking_glass::anomaly::EventFilter {
+                asn: filter.asn,
+                ip: filter.ip.as_deref(),
+                mac: filter.mac.as_deref(),
+                kind: filter.kind.as_deref(),
+                protocol: filter.protocol.as_deref(),
+                active_only,
+                limit,
+                offset,
+            },
+            chrono::Utc::now(),
+        )
+    })
+    .await;
     match res {
         Ok(Ok(events)) => Json(serde_json::json!({ "events": events })).into_response(),
-        Ok(Err(e)) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly task failed: {e}")).into_response(),
+        Ok(Err(e)) => (StatusCode::INTERNAL_SERVER_ERROR, format!("event query failed: {e}")).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("event task failed: {e}")).into_response(),
     }
 }
 
-/// GET /rpc/v1/nd-events/{id} — one ND-anomaly event by UUID.
-async fn nd_event_detail(
+/// GET /rpc/v1/lan-events/{id} — one LAN event by UUID.
+async fn lan_event_detail(
     State(state): State<Arc<RpcState>>,
     headers: HeaderMap,
     Path(id): Path<String>,
@@ -425,7 +443,7 @@ async fn nd_event_detail(
     let Some(store) = state.lg.anomaly.as_ref() else {
         return (StatusCode::NOT_FOUND, "anomaly recording not configured").into_response();
     };
-    // Offload the SQLite read off the tokio worker (see `nd_events`).
+    // Offload the SQLite read off the tokio worker (see `lan_events`).
     let store = Arc::clone(store);
     let res = tokio::task::spawn_blocking(move || store.get_event(&id, chrono::Utc::now())).await;
     match res {
@@ -436,10 +454,11 @@ async fn nd_event_detail(
     }
 }
 
-/// GET /rpc/v1/nd-events/{id}/pcap — stream the event's evidence pcap from the
-/// sensor. Resolves the event's `evidence_id`, then proxies (streaming) the
+/// GET /rpc/v1/lan-events/{id}/pcap — the event's evidence pcap. A hygiene
+/// (`bum_protocol`) event carries its small pcap inline and is served from the
+/// store; an ND event resolves its `evidence_id` and proxies (streaming) the
 /// sensor's `GET /evidence/{evidence_id}`.
-async fn nd_event_pcap(
+async fn lan_event_pcap(
     State(state): State<Arc<RpcState>>,
     headers: HeaderMap,
     Path(id): Path<String>,
@@ -450,7 +469,7 @@ async fn nd_event_pcap(
     let Some(store) = state.lg.anomaly.as_ref() else {
         return (StatusCode::NOT_FOUND, "anomaly recording not configured").into_response();
     };
-    // Offload the SQLite read off the tokio worker (see `nd_events`).
+    // Offload the SQLite read off the tokio worker (see `lan_events`).
     let store = Arc::clone(store);
     let ev = match tokio::task::spawn_blocking(move || store.get_event(&id, chrono::Utc::now())).await {
         Ok(Ok(Some(ev))) => ev,
@@ -458,6 +477,16 @@ async fn nd_event_pcap(
         Ok(Err(e)) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly query failed: {e}")).into_response(),
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("anomaly task failed: {e}")).into_response(),
     };
+    if ev.has_evidence {
+        let store = Arc::clone(state.lg.anomaly.as_ref().expect("checked above"));
+        let id = ev.id.clone();
+        return match tokio::task::spawn_blocking(move || store.evidence_pcap(&id)).await {
+            Ok(Ok(Some(bytes))) => ([("content-type", "application/vnd.tcpdump.pcap")], bytes).into_response(),
+            Ok(Ok(None)) => (StatusCode::NOT_FOUND, "no evidence captured for this event").into_response(),
+            Ok(Err(e)) => (StatusCode::INTERNAL_SERVER_ERROR, format!("evidence query failed: {e}")).into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("evidence task failed: {e}")).into_response(),
+        };
+    }
     let evidence_id = match ev.evidence_id {
         Some(eid) => eid,
         None => return (StatusCode::NOT_FOUND, "no evidence captured for this event").into_response(),

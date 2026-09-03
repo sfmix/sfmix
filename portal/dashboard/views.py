@@ -223,8 +223,26 @@ def lldp_neighbors(request):
     })
 
 
-def _nd_event_display(ev):
-    """Attach human-readable timestamps + a kind flag to an ND-anomaly event."""
+# Severity → CSS/tone for LAN-hygiene events. The catalog (label, why,
+# remediation) travels with the event from lg-server; the portal only owns
+# presentation.
+_BUM_SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
+
+# Catalog keys for the protocol filter dropdown (kept in step with
+# lg-types BUM_CATALOG; the API rejects unknown keys harmlessly).
+_BUM_PROTOCOLS = (
+    "ipv6_ra", "dhcpv4", "dhcpv6", "ospf", "isis", "eigrp", "rip", "ldp", "pim", "vrrp", "hsrp", "glbp", "stp",
+    "cdp", "cisco_l2", "lldp", "mndp", "romon", "mac_telnet", "mdns", "llmnr", "ssdp", "netbios", "igmp_query",
+    "mld_query", "ntp_broadcast", "dot1q_tagged", "foreign_arp", "foreign_ipv4_broadcast", "bum_flood",
+    "ipv6_rs", "lacp", "dns_broadcast", "icmpv6_echo_allnodes", "dec_mop", "loop_detect", "unknown_ethertype",
+    "unknown_unicast_flood",
+)
+
+_LAN_EVENT_KINDS = ("new_mac_on_ip", "mac_claims_many_ips", "bum_protocol")
+
+
+def _lan_event_display(ev):
+    """Attach human-readable timestamps + kind flags to a LAN event."""
     opened = _parse_rfc3339(ev.get("opened_at"))
     last = _parse_rfc3339(ev.get("last_seen"))
     ev["opened_display"] = opened.strftime("%Y-%m-%d %H:%M") if opened else ""
@@ -235,15 +253,21 @@ def _nd_event_display(ev):
     # a bridging participant re-flooded others' ND frames verbatim. Present it as
     # informational rather than as an impersonation/proxy-ARP alarm.
     ev["is_reflection"] = ev.get("classification") == "reflection"
+    # A LAN-hygiene detection: a participant MAC sourcing a protocol from the
+    # catalog (RA, DHCP, IGP hello, …). Severity drives the row tone.
+    ev["is_bum"] = ev.get("kind") == "bum_protocol"
+    sev = ev.get("severity") or "info"
+    ev["severity_class"] = sev if sev in _BUM_SEVERITY_ORDER else "info"
     return ev
 
 
 @login_required
-def nd_events(request):
-    """Durable ND-anomaly event log (admin only).
+def lan_events(request):
+    """Durable LAN event log (admin only).
 
-    Lists new-MAC-on-an-existing-IP conflicts and one-MAC-many-IP (proxy-ARP)
-    sweeps, newest-first, with IP/ASN filters and offset paging.
+    Lists ND anomalies (new-MAC-on-an-existing-IP conflicts, one-MAC-many-IP
+    sweeps) and LAN-hygiene detections (``bum_protocol``), newest-first, with
+    IP/ASN/MAC/kind/protocol filters, an active-only toggle and offset paging.
     """
     if not _is_ix_admin(request):
         return HttpResponseForbidden(gettext("IX Administrators only."))
@@ -252,6 +276,14 @@ def nd_events(request):
     token = request.session.get("oidc_id_token")
     ip_filter = (request.GET.get("ip") or "").strip()
     asn_filter = (request.GET.get("asn") or "").strip()
+    mac_filter = (request.GET.get("mac") or "").strip().lower()
+    kind_filter = (request.GET.get("kind") or "").strip()
+    if kind_filter not in _LAN_EVENT_KINDS:
+        kind_filter = ""
+    protocol_filter = (request.GET.get("protocol") or "").strip()
+    if protocol_filter not in _BUM_PROTOCOLS:
+        protocol_filter = ""
+    active_only = request.GET.get("active") in ("1", "on", "true")
     try:
         page = max(int(request.GET.get("page", 0)), 0)
     except (ValueError, TypeError):
@@ -263,17 +295,32 @@ def nd_events(request):
             lg_error = gettext("Looking Glass not configured")
         else:
             asn = int(asn_filter) if asn_filter.isdigit() else None
-            data = lg.get_nd_events(
-                token=token, asn=asn, ip=ip_filter or None, limit=limit, offset=page * limit
+            data = lg.get_lan_events(
+                token=token, asn=asn, ip=ip_filter or None, mac=mac_filter or None,
+                kind=kind_filter or None, protocol=protocol_filter or None, active=active_only,
+                limit=limit, offset=page * limit,
             )
-            events = [_nd_event_display(e) for e in data.get("events", [])]
+            events = [_lan_event_display(e) for e in data.get("events", [])]
     except Exception as e:
         lg_error = str(e)
-    return render(request, "dashboard/nd_events.html", {
+    # Query string carried by the pager links (everything but page).
+    qs = {k: v for k, v in (
+        ("ip", ip_filter), ("asn", asn_filter), ("mac", mac_filter), ("kind", kind_filter),
+        ("protocol", protocol_filter), ("active", "1" if active_only else ""),
+    ) if v}
+    return render(request, "dashboard/lan_events.html", {
         "events": events,
         "lg_error": lg_error,
         "ip_filter": ip_filter,
         "asn_filter": asn_filter,
+        "mac_filter": mac_filter,
+        "kind_filter": kind_filter,
+        "protocol_filter": protocol_filter,
+        "active_only": active_only,
+        "kinds": _LAN_EVENT_KINDS,
+        "protocols": _BUM_PROTOCOLS,
+        "filter_qs": urlencode(qs),
+        "has_filter": bool(qs),
         "page": page,
         "has_prev": page > 0,
         "has_next": len(events) == limit,
@@ -282,8 +329,8 @@ def nd_events(request):
 
 
 @login_required
-def nd_event_pcap(request, event_id):
-    """Stream an ND-anomaly event's evidence pcap to the browser (admin only)."""
+def lan_event_pcap(request, event_id):
+    """Stream a LAN event's evidence pcap to the browser (admin only)."""
     if not _is_ix_admin(request):
         return HttpResponseForbidden(gettext("IX Administrators only."))
     token = request.session.get("oidc_id_token")
@@ -291,10 +338,10 @@ def nd_event_pcap(request, event_id):
     if not lg.base_url:
         return HttpResponseForbidden(gettext("Looking Glass not configured"))
     resp = StreamingHttpResponse(
-        lg.stream_nd_event_pcap(event_id, token=token),
+        lg.stream_lan_event_pcap(event_id, token=token),
         content_type="application/vnd.tcpdump.pcap",
     )
-    resp["Content-Disposition"] = f'attachment; filename="nd-event-{event_id}.pcap"'
+    resp["Content-Disposition"] = f'attachment; filename="lan-event-{event_id}.pcap"'
     return resp
 
 
@@ -1169,33 +1216,104 @@ def _fetch_ndp_by_ip(lg, token):
     return ndp_by_ip
 
 
-def _fetch_nd_events_for_asn(lg, token, asn):
-    """Fetch this participant's ND-anomaly events in one server-side, ASN-filtered
-    call. lg-server indexes ``nd_events`` by ASN and filters upstream, so this
-    returns only this ASN's events — fetch it once per page and reuse it (for the
-    per-IP history counts and the reflection notice) rather than round-tripping
-    the Looking Glass twice.
+def _fetch_lan_events_for_asn(lg, token, asn):
+    """Fetch this participant's LAN events (ND anomalies + hygiene detections)
+    in one server-side, ASN-filtered call. lg-server indexes events by ASN and
+    filters upstream, so this returns only this ASN's events — fetch it once per
+    page and reuse it (per-IP history counts, the reflection notice and the
+    hygiene banners) rather than round-tripping the Looking Glass repeatedly.
     """
     try:
-        return lg.get_nd_events(token=token, asn=asn, limit=500).get("events", [])
+        return lg.get_lan_events(token=token, asn=asn, limit=500).get("events", [])
     except Exception:
-        logger.warning("Failed to fetch ND events for AS%s", asn, exc_info=True)
+        logger.warning("Failed to fetch LAN events for AS%s", asn, exc_info=True)
         return []
 
 
-def _fetch_discovered_by_ip(lg, token, asn, nd_events):
+def _hygiene_issues_from_events(events):
+    """Summarize this participant's *active* LAN-hygiene detections
+    (``bum_protocol`` events that have not closed), one entry per protocol,
+    ordered critical → warning → info then by label. Each carries the catalog
+    text that travelled with the event (label / why / remediation), the source
+    MAC(s), the sensor's sample details and the most recent sighting, so the
+    participant page can render a self-contained "fix this" banner. Public: what
+    a network leaks onto a shared LAN is visible to every other member anyway.
+    """
+    by_proto = {}
+    for ev in events:
+        if ev.get("kind") != "bum_protocol" or ev.get("closed"):
+            continue
+        key = ev.get("protocol") or "unknown"
+        entry = by_proto.setdefault(key, {
+            "protocol": key,
+            "label": ev.get("label") or key,
+            "severity": ev.get("severity") or "info",
+            "why": ev.get("why") or "",
+            "remediation": ev.get("remediation") or "",
+            "macs": [],
+            "details": [],
+            "count": 0,
+            "last_seen": None,
+            "event_ids": [],
+        })
+        mac = ev.get("new_mac")
+        if mac and mac not in entry["macs"]:
+            entry["macs"].append(mac)
+        for d in ev.get("detail") or []:
+            if d not in entry["details"] and len(entry["details"]) < 8:
+                entry["details"].append(d)
+        entry["count"] += int(ev.get("flap_count") or 0)
+        entry["event_ids"].append(ev.get("id"))
+        last = _parse_rfc3339(ev.get("last_seen"))
+        if last and (entry["last_seen"] is None or last > entry["last_seen"]):
+            entry["last_seen"] = last
+    issues = list(by_proto.values())
+    for it in issues:
+        it["severity_class"] = it["severity"] if it["severity"] in _BUM_SEVERITY_ORDER else "info"
+        it["last_seen_ago"] = timesince(it["last_seen"]) if it["last_seen"] else ""
+        it["has_evidence"] = any(
+            e.get("has_evidence") for e in events if e.get("id") in it["event_ids"]
+        )
+    issues.sort(key=lambda it: (_BUM_SEVERITY_ORDER.get(it["severity"], 9), it["label"]))
+    return issues
+
+
+def _hygiene_by_asn(lg):
+    """Worst active hygiene severity per ASN, for the participant list badges:
+    ``{asn: {"severity": str, "count": int}}``. Anonymous-safe (no token: the
+    listing is public data) and best-effort — an error just hides the badges.
+    """
+    out = {}
+    try:
+        data = lg.get_lan_events(kind="bum_protocol", active=True, limit=1000)
+    except Exception:
+        logger.warning("Failed to fetch active hygiene events", exc_info=True)
+        return out
+    for ev in data.get("events", []):
+        asn = ev.get("asn")
+        if asn is None or ev.get("closed"):
+            continue
+        sev = ev.get("severity") or "info"
+        cur = out.setdefault(asn, {"severity": sev, "count": 0})
+        cur["count"] += 1
+        if _BUM_SEVERITY_ORDER.get(sev, 9) < _BUM_SEVERITY_ORDER.get(cur["severity"], 9):
+            cur["severity"] = sev
+    return out
+
+
+def _fetch_discovered_by_ip(lg, token, asn, lan_events):
     """Fetch discovered ARP/NDP neighbors for an ASN, indexed by IP address.
 
     Returns {ip_str: {"macs": [...], "conflict": bool}} where each MAC entry
     carries display-ready first/last-seen strings. Distinct from ARP/NDP above:
     this is what was passively *heard* on the fabric, so an IP may have several
     MACs (a conflict) rather than the single one the kernel chose. Per-IP event
-    counts come from ``nd_events`` (already fetched once by the caller).
+    counts come from ``lan_events`` (already fetched once by the caller).
     """
     discovered_by_ip = {}
     # Count durable anomaly events per IP so the detail page can link to history.
     event_counts: dict[str, int] = {}
-    for ev in nd_events:
+    for ev in lan_events:
         addr = ev.get("ip")
         if addr:
             event_counts[addr] = event_counts.get(addr, 0) + 1
@@ -1221,7 +1339,7 @@ def _fetch_discovered_by_ip(lg, token, asn, nd_events):
 _REFLECTION_NOTICE_MAX_AGE = timedelta(days=30)
 
 
-def _reflection_notice_from_events(nd_events):
+def _reflection_notice_from_events(lan_events):
     """Summarize flood-reflection attributed to this participant, from its already
     fetched ND events. Reflection events are ``mac_claims_many_ips`` events
     classified ``reflection`` (a bridging stack re-flooding others' ND frames
@@ -1231,7 +1349,7 @@ def _reflection_notice_from_events(nd_events):
     isn't (and hasn't recently been) reflecting. Informational — an L2-hygiene
     nudge, not an alarm.
     """
-    reflections = [e for e in nd_events if e.get("classification") == "reflection"]
+    reflections = [e for e in lan_events if e.get("classification") == "reflection"]
     if not reflections:
         return None
     # A live (open) reflection always wins; else fall back to the most recent one.
@@ -1332,6 +1450,7 @@ def participant_detail(request, asn):
     has_invalid_ip = False
     rs_parity = None
     reflection_notice = None
+    hygiene_issues = []
     lg_error = None
 
     try:
@@ -1389,15 +1508,20 @@ def participant_detail(request, asn):
             # 6. ARP + NDP (kernel-chosen MAC) and passively-heard neighbors
             arp_by_ip = _fetch_arp_by_ip(lg, token)
             ndp_by_ip = _fetch_ndp_by_ip(lg, token)
-            # Fetch this ASN's ND-anomaly events once; reuse for per-IP history
-            # counts and the reflection notice (one round-trip, not two).
-            nd_events = _fetch_nd_events_for_asn(lg, token, asn)
-            discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn, nd_events)
+            # Fetch this ASN's LAN events once; reuse for per-IP history counts,
+            # the reflection notice and the hygiene banners (one round-trip).
+            lan_events = _fetch_lan_events_for_asn(lg, token, asn)
+            discovered_by_ip = _fetch_discovered_by_ip(lg, token, asn, lan_events)
 
             # 6b. Is this participant reflecting flooded ND traffic back onto the
             #     fabric (now, or recently)? Informational banner for admins / member.
             if can_see_admin:
-                reflection_notice = _reflection_notice_from_events(nd_events)
+                reflection_notice = _reflection_notice_from_events(lan_events)
+
+            # 6c. LAN-hygiene detections (RAs, DHCP, IGP hellos, discovery
+            #     protocols heard from this network's MACs). Public: anyone can
+            #     see what a network is leaking onto the exchange and how to fix it.
+            hygiene_issues = _hygiene_issues_from_events(lan_events)
 
             # 7. Route-server sessions + configured RS list from Alice-LG
             rs_sessions, routeservers = _fetch_rs_data(asn)
@@ -1486,6 +1610,8 @@ def participant_detail(request, asn):
         "has_invalid_ip": has_invalid_ip,
         "rs_parity": rs_parity,
         "reflection_notice": reflection_notice,
+        "hygiene_issues": hygiene_issues,
+        "hygiene_worst": hygiene_issues[0]["severity_class"] if hygiene_issues else "",
         "lg_error": lg_error,
         "can_see_admin": can_see_admin,
         "is_own_network": asn in user_asns,
@@ -1773,6 +1899,12 @@ def participants_list(request):
             except Exception:
                 pass
             flat = [_flatten_participant(p, pdb_networks) for p in all_participants]
+            # Hygiene badge: worst active LAN-hygiene severity per network.
+            hygiene = _hygiene_by_asn(lg)
+            for p in flat:
+                h = hygiene.get(p["asn"])
+                p["hygiene_severity"] = h["severity"] if h else ""
+                p["hygiene_count"] = h["count"] if h else 0
             entries = sorted(flat, key=lambda p: p["v4_sort"])
             if request.user.is_authenticated:
                 user_asns = set(request.session.get("oidc_asns", []))

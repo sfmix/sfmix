@@ -1640,6 +1640,8 @@ dependencies = [
  "chrono",
  "clap",
  "lg-client",
+ "lg-types",
+ "libc",
  "pnet",
  "serde",
  "serde_json",

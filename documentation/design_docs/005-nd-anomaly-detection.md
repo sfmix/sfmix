@@ -2,6 +2,12 @@
 
 ## Status: Implemented & deployed (2026-06-24)
 
+> **See also** [Design Doc 008](008-lan-hygiene-bum-detection.md), which extends
+> this sensor and event store with LAN-hygiene (BUM-traffic) detection and
+> renames the user-facing surface from "ND events" to **LAN events**
+> (`/rpc/v1/lan-events`, `/api/v1/lan-events`, portal Admin ▸ LAN Events,
+> `show lan-events`). The ND anomaly semantics below are unchanged.
+
 ## Overview
 
 A system that passively watches ARP/NDP on the SFMIX peering fabric, records
@@ -17,7 +23,7 @@ It spans three codebases:
   server (Rust).
 - **`looking-glass`** (lib + `lg-server` + `lg-http` + `lg-client`) — detection,
   the durable event store, evidence orchestration, and the RPC/REST API.
-- **`portal`** — the admin "ND Events" page and participant-detail integration
+- **`portal`** — the admin "LAN Events" page (née "ND Events") and participant-detail integration
   (Django).
 
 Deployment is driven by the `sfmix_route_server_linux`, `looking_glass`, and
@@ -84,19 +90,19 @@ the ad-hoc tooling.
 │    • mac_ttl staleness in snapshot()         │
 │    • trigger evidence snapshot on new events │
 │  anomaly.rs     SQLite event store (WAL)     │   nd-anomalies.sqlite
-│  rpc_server.rs  /rpc/v1/nd-events[/{id}[/pcap]]
+│  rpc_server.rs  /rpc/v1/lan-events[/{id}[/pcap]]
 └───────────────┬──────────────────────────────┘
                 │ RPC (X-RPC-Secret)
                 ▼
 ┌─────────────────────────────────────────────┐
-│ lg-http (alice, 127.0.0.1:8080)              │   /api/v1/nd-events[/{id}[/pcap]]
+│ lg-http (alice, 127.0.0.1:8080)              │   /api/v1/lan-events[/{id}[/pcap]]
 └───────────────┬──────────────────────────────┘   (streams pcap, never buffers)
                 │ HTTPS (OIDC bearer)
                 ▼
 ┌─────────────────────────────────────────────┐
-│ portal (portal.sfmix.org, Django)            │   Admin ▸ ND Events
-│  dashboard/views.py  nd_events / nd_event_pcap│  participant_detail: stale MACs,
-│  templates/dashboard/nd_events.html          │  "N events · history" badges
+│ portal (portal.sfmix.org, Django)            │   Admin ▸ LAN Events
+│  dashboard/views.py  lan_events / lan_event_pcap│ participant_detail: stale MACs,
+│  templates/dashboard/lan_events.html         │  "N events · history" badges
 └─────────────────────────────────────────────┘
 ```
 
@@ -152,8 +158,8 @@ Data flow for one anomaly:
 - **`anomaly.rs`** — `AnomalyStore`, the durable SQLite (WAL) event store and
   rollup engine. See [Detection semantics](#detection-semantics) and
   [Data model](#data-model).
-- **`rpc_server.rs`** — internal RPC: `GET /rpc/v1/nd-events`,
-  `/rpc/v1/nd-events/{id}`, and `/rpc/v1/nd-events/{id}/pcap` (resolves the
+- **`rpc_server.rs`** — internal RPC: `GET /rpc/v1/lan-events`,
+  `/rpc/v1/lan-events/{id}`, and `/rpc/v1/lan-events/{id}/pcap` (resolves the
   event's `evidence_id` and streams the pcap from the sensor).
 - **Poll loop / snapshot worker** (`spawn_poll_loop`, `spawn_snapshot_worker`) —
   after `update()`, newly-opened events are handed to a **single serialized
@@ -163,9 +169,9 @@ Data flow for one anomaly:
 
 ### lg-http (alice) & portal
 
-- **lg-http** proxies `/api/v1/nd-events[/{id}[/pcap]]` to lg-server. The pcap
+- **lg-http** proxies `/api/v1/lan-events[/{id}[/pcap]]` to lg-server. The pcap
   path streams (via `lg-client::get_raw` → `Body::from_stream`), never buffering.
-- **portal** — admin-only `nd_events` list view (IP/ASN filters, paging, both
+- **portal** — admin-only `lan_events` list view (IP/ASN/MAC/kind filters, paging, all
   event kinds, streaming `nd_event_pcap` download) and participant-detail
   integration: conflict IPs show a "N events · history" badge, and stale MACs
   render dimmed and are excluded from the conflict flag.
@@ -327,10 +333,10 @@ the next startup. `DiscoveredMac` gained `stale: bool` similarly.
 | sensor `POST /evidence/snapshot` | internal | extract filtered pcap → `{evidence_id, frame_count, size_bytes}` |
 | sensor `GET /evidence/{id}` | internal | stream pcap (`application/vnd.tcpdump.pcap`) |
 | sensor `GET /evidence` | internal | list snapshots |
-| lg-server `GET /rpc/v1/nd-events` | X-RPC-Secret | list (`?asn`, `?ip`, `?limit`, `?offset`) |
-| lg-server `GET /rpc/v1/nd-events/{id}[/pcap]` | X-RPC-Secret | one event / stream its pcap |
-| lg-http `GET /api/v1/nd-events[/{id}[/pcap]]` | OIDC bearer | portal-facing proxy |
-| portal `/admin/nd-events/[{id}/pcap/]` | session (IX admin) | UI + download |
+| lg-server `GET /rpc/v1/lan-events` | X-RPC-Secret | list (`?asn`, `?ip`, `?mac`, `?kind`, `?protocol`, `?active`, `?limit`, `?offset`) |
+| lg-server `GET /rpc/v1/lan-events/{id}[/pcap]` | X-RPC-Secret | one event / its pcap (inline BLOB or streamed from the sensor) |
+| lg-http `GET /api/v1/lan-events[/{id}[/pcap]]` | OIDC bearer | portal-facing proxy |
+| portal `/admin/lan-events/[{id}/pcap/]` | session (IX admin) | UI + download |
 
 ## Configuration reference
 
@@ -390,7 +396,7 @@ Deployed values live in `ansible/inventory/group_vars/rs_linux.yml` and
 ## Operations
 
 - **Verify the chain:** sensor `GET /healthz` + `/neighbors`; lg-http
-  `GET /api/v1/nd-events` → `{"events":[]}` when quiet; `discovered-neighbors`
+  `GET /api/v1/lan-events` → `{"events":[]}` when quiet; `discovered-neighbors`
   reports stale-MAC counts when aging is active.
 - **Trigger a test detection (safely):** from rs-linux, emit gratuitous ARP for a
   **verified-dark** unused IP (not assigned, not in `/neighbors`, no ping reply)
@@ -428,5 +434,5 @@ auto-closed afterward).
 - Sensor: `looking-glass/lg-neighborhood-watch/src/{capture,solicit,store,ringbuf,evidence,http,config}.rs`
 - lg-server: `looking-glass/src/{anomaly,discovered,config,service}.rs`, `looking-glass/lg-server/src/rpc_server.rs`
 - Types/proxy: `looking-glass/lg-types/src/structured.rs`, `looking-glass/lg-http/src/rest.rs`, `looking-glass/lg-client/src/client.rs`
-- Portal: `portal/dashboard/{views,urls,lg_client}.py`, `portal/templates/dashboard/nd_events.html`, `portal/templates/base.html`, `portal/templates/dashboard/participant_detail.html`
+- Portal: `portal/dashboard/{views,urls,lg_client}.py`, `portal/templates/dashboard/lan_events.html`, `portal/templates/base.html`, `portal/templates/dashboard/participant_detail.html`
 - Deploy: `ansible/roles/sfmix_route_server_linux/`, `ansible/roles/looking_glass/`, `ansible/inventory/group_vars/{rs_linux,looking_glass_rust}.yml`

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}{% translate "ND Anomaly Events" %} – SFMIX Portal{% endblock %}
+{% block title %}{% translate "LAN Events" %} – SFMIX Portal{% endblock %}
 
 {% comment %}
 Wider than the default max-w-5xl so the 8-column table isn't forced into a
@@ -13,34 +13,58 @@ horizontal scroll on large displays.
   <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
 </div>
 
-<h1 class="page-title text-2xl font-bold mb-2">{% translate "ND Anomaly Events" %}</h1>
+<h1 class="page-title text-2xl font-bold mb-2">{% translate "LAN Events" %}</h1>
 <p class="text-sm text-gray-500 mb-6">
-  {% translate "Neighbor-discovery anomalies heard on the IX fabric: a new MAC appearing on an existing IP, or a single MAC claiming many IPs (proxy-ARP). Events tagged “reflection” are benign — a participant’s stack re-flooded others’ ND frames verbatim (typically after a fabric flap), not spoofing." %}
+  {% translate "What the fabric sensor hears on the peering LAN. Neighbor-discovery anomalies: a new MAC appearing on an existing IP, or a single MAC claiming many IPs (proxy-ARP); events tagged “reflection” are benign re-flooding after a fabric flap. LAN-hygiene detections: a participant MAC sourcing a protocol that does not belong on an exchange (IPv6 router advertisements, DHCP, IGP hellos, discovery protocols…), toned by severity, with the fix." %}
 </p>
 
 {% if lg_error %}
 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-6">
-  {% translate "Unable to fetch ND events:" %} {{ lg_error }}
+  {% translate "Unable to fetch LAN events:" %} {{ lg_error }}
 </div>
 {% endif %}
 
-{# Server-side filters (IP / ASN) — the listing is paginated upstream. #}
+{# Server-side filters — the listing is paginated upstream. #}
 <form method="get" class="flex flex-wrap items-end gap-3 mb-4">
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{% translate "Kind" %}</label>
+    <select name="kind" class="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+      <option value="">{% translate "All kinds" %}</option>
+      <option value="bum_protocol" {% if kind_filter == "bum_protocol" %}selected{% endif %}>{% translate "LAN hygiene" %}</option>
+      <option value="new_mac_on_ip" {% if kind_filter == "new_mac_on_ip" %}selected{% endif %}>{% translate "new MAC on IP" %}</option>
+      <option value="mac_claims_many_ips" {% if kind_filter == "mac_claims_many_ips" %}selected{% endif %}>{% translate "MAC sweep / reflection" %}</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{% translate "Protocol" %}</label>
+    <select name="protocol" class="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white font-mono">
+      <option value="">{% translate "any" %}</option>
+      {% for k in protocols %}<option value="{{ k }}" {% if protocol_filter == k %}selected{% endif %}>{{ k }}</option>{% endfor %}
+    </select>
+  </div>
   <div>
     <label class="block text-xs text-gray-500 mb-1">{% translate "IP address" %}</label>
     <input type="text" name="ip" value="{{ ip_filter }}" placeholder="192.0.2.10"
-           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2">
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-2">
+  </div>
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{% translate "MAC" %}</label>
+    <input type="text" name="mac" value="{{ mac_filter }}" placeholder="aa:bb:cc:dd:ee:ff"
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-44 font-mono focus:outline-none focus:ring-2">
   </div>
   <div>
     <label class="block text-xs text-gray-500 mb-1">{% translate "ASN" %}</label>
     <input type="text" name="asn" value="{{ asn_filter }}" placeholder="64496" inputmode="numeric"
-           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2">
+           class="ring-primary border border-gray-300 rounded px-3 py-1.5 text-sm w-28 focus:outline-none focus:ring-2">
   </div>
+  <label class="flex items-center gap-1.5 text-sm text-gray-700 pb-1.5">
+    <input type="checkbox" name="active" value="1" {% if active_only %}checked{% endif %}> {% translate "active only" %}
+  </label>
   <button type="submit" class="bg-gray-800 text-white text-sm rounded px-4 py-1.5 hover:bg-gray-700 transition">
     {% translate "Filter" %}
   </button>
-  {% if ip_filter or asn_filter %}
-  <a href="{% url 'nd_events' %}" class="back-link text-sm">{% translate "Clear" %}</a>
+  {% if has_filter %}
+  <a href="{% url 'lan_events' %}" class="back-link text-sm">{% translate "Clear" %}</a>
   {% endif %}
 </form>
 
@@ -62,7 +86,7 @@ horizontal scroll on large displays.
       <option value="kind">{% translate "Sort by Kind" %}</option>
       <option value="subject">{% translate "Sort by Subject" %}</option>
       <option value="participant">{% translate "Sort by Participant" %}</option>
-      <option value="flaps">{% translate "Sort by Flaps" %}</option>
+      <option value="flaps">{% translate "Sort by Count" %}</option>
       <option value="status">{% translate "Sort by Status" %}</option>
     </select>
   </div>
@@ -91,7 +115,7 @@ horizontal scroll on large displays.
           <th class="px-4 py-2 font-medium">{% translate "Detail" %}</th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'flaps' ? 'text-gray-900' : ''" @click="sortBy('flaps')">
-            {% translate "Flaps" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('flaps')"></span>
+            {% translate "Count" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('flaps')"></span>
           </th>
           <th class="px-4 py-2 font-medium cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
               :class="sortCol === 'status' ? 'text-gray-900' : ''" @click="sortBy('status')">
@@ -103,17 +127,20 @@ horizontal scroll on large displays.
       <tbody class="divide-y divide-gray-100">
         {% for ev in events %}
         <tr x-show="rowVisible($el)"
-            class="{% if not ev.closed and not ev.is_reflection %}nd-disc-conflict{% endif %}"
-            data-search="{{ ev.kind }} {{ ev.classification|default:'' }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}"
+            class="{% if not ev.closed and not ev.is_reflection and not ev.is_bum %}nd-disc-conflict{% elif not ev.closed and ev.is_bum and ev.severity_class == 'critical' %}nd-disc-conflict{% endif %}"
+            data-search="{{ ev.kind }} {{ ev.protocol|default:'' }} {{ ev.severity|default:'' }} {{ ev.label|default:''|lower }} {{ ev.classification|default:'' }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}"
             data-sort-opened="{{ ev.opened_at }}"
-            data-sort-kind="{{ ev.kind }}"
-            data-sort-subject="{% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}"
+            data-sort-kind="{{ ev.kind }}{% if ev.is_bum %}:{{ ev.severity_class }}:{{ ev.protocol }}{% endif %}"
+            data-sort-subject="{% if ev.is_sweep or ev.is_bum %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}"
             data-sort-participant="{% if ev.asn %}{{ ev.asn }}{% endif %}"
             data-sort-flaps="{{ ev.flap_count|default:0 }}"
             data-sort-status="{% if ev.closed %}1{% else %}0{% endif %}">
           <td class="px-4 py-2 text-xs whitespace-nowrap">{{ ev.opened_display|default:"—" }}</td>
           <td class="px-4 py-2 text-xs">
-            {% if ev.is_reflection %}
+            {% if ev.is_bum %}
+            <span class="nd-kind-badge nd-kind-bum-{{ ev.severity_class }}" title="{{ ev.why|default:'' }}">{{ ev.protocol }}</span>
+            <div class="text-[10px] text-gray-400 mt-0.5">{{ ev.severity }}</div>
+            {% elif ev.is_reflection %}
             <span class="nd-kind-badge nd-kind-reflect" title="{% translate 'A bridging participant re-flooded ND frames verbatim during a flood: the outer source MAC was rewritten to its own, but the NDP link-layer option still carries the original owner’s MAC. Benign flood reflection, not spoofing.' %}">{% translate "reflection" %}</span>
             {% elif ev.is_sweep %}
             <span class="nd-kind-badge nd-kind-sweep" title="{% translate 'One MAC claiming many IPs' %}">{% translate "MAC sweep" %}</span>
@@ -122,7 +149,7 @@ horizontal scroll on large displays.
             {% endif %}
           </td>
           <td class="px-4 py-2 font-mono text-xs">
-            {% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}
+            {% if ev.is_sweep or ev.is_bum %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}
             <span class="text-gray-400">{{ ev.family }}</span>
           </td>
           <td class="px-4 py-2 text-xs">
@@ -132,7 +159,11 @@ horizontal scroll on large displays.
             {% else %}<span class="text-gray-400">{% translate "unassigned" %}</span>{% endif %}
           </td>
           <td class="px-4 py-2 text-xs">
-            {% if ev.is_reflection %}
+            {% if ev.is_bum %}
+            <div class="text-gray-900">{{ ev.label|default:ev.protocol }}</div>
+            {% for d in ev.detail %}<div class="font-mono text-[11px] text-gray-500 break-all max-w-md">{{ d }}</div>{% endfor %}
+            {% if ev.remediation %}<div class="text-[11px] text-gray-500 mt-0.5 max-w-md"><span class="text-gray-400">{% translate "Fix:" %}</span> {{ ev.remediation }}</div>{% endif %}
+            {% elif ev.is_reflection %}
             <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP reflected{% plural %}{{ n }} IPs reflected{% endblocktranslate %}</span>
             <div class="font-mono text-[11px] text-gray-500 break-all max-w-md">{{ ev.claimed_ips|join:", " }}</div>
             {% elif ev.is_sweep %}
@@ -148,16 +179,18 @@ horizontal scroll on large displays.
           <td class="px-4 py-2 text-xs whitespace-nowrap">
             {% if ev.closed %}
             <span class="text-gray-400">{% translate "closed" %}</span>
-            {% elif ev.is_reflection %}
+            {% elif ev.is_reflection or ev.severity_class == 'info' and ev.is_bum %}
             <span class="nd-warn-flag nd-warn-flag-info">{% translate "active" %}</span>
+            {% elif ev.is_bum and ev.severity_class == 'warning' %}
+            <span class="nd-warn-flag">{% translate "active" %}</span>
             {% else %}
             <span class="nd-warn-flag nd-warn-flag-crit">{% translate "active" %}</span>
             {% endif %}
             {% if ev.last_seen_ago %}<div class="text-[11px] text-gray-400">{% blocktranslate with a=ev.last_seen_ago %}last {{ a }} ago{% endblocktranslate %}</div>{% endif %}
           </td>
           <td class="px-4 py-2 text-xs">
-            {% if ev.evidence_id %}
-            <a href="{% url 'nd_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a>
+            {% if ev.evidence_id or ev.has_evidence %}
+            <a href="{% url 'lan_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a>
             {% else %}<span class="text-gray-300">—</span>{% endif %}
           </td>
         </tr>
@@ -170,11 +203,11 @@ horizontal scroll on large displays.
   <div class="lg:hidden grid gap-3">
     {% for ev in events %}
     <div x-show="rowVisible($el)"
-         class="bg-white border border-gray-200 rounded-lg p-4{% if not ev.closed and not ev.is_reflection %} border-l-4 border-l-red-400{% endif %}"
-         data-search="{{ ev.kind }} {{ ev.classification|default:'' }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}"
+         class="bg-white border border-gray-200 rounded-lg p-4{% if not ev.closed and not ev.is_reflection and not ev.is_bum %} border-l-4 border-l-red-400{% elif not ev.closed and ev.is_bum and ev.severity_class == 'critical' %} border-l-4 border-l-red-400{% elif not ev.closed and ev.is_bum and ev.severity_class == 'warning' %} border-l-4 border-l-amber-400{% endif %}"
+         data-search="{{ ev.kind }} {{ ev.protocol|default:'' }} {{ ev.severity|default:'' }} {{ ev.label|default:''|lower }} {{ ev.classification|default:'' }} {{ ev.ip|lower }} {{ ev.new_mac|lower }} {% for m in ev.old_macs %}{{ m|lower }} {% endfor %}{% for cip in ev.claimed_ips %}{{ cip|lower }} {% endfor %}{% if ev.asn %}as{{ ev.asn }} {{ ev.tenant|default:''|lower }}{% endif %}"
          data-sort-opened="{{ ev.opened_at }}"
-         data-sort-kind="{{ ev.kind }}"
-         data-sort-subject="{% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}"
+         data-sort-kind="{{ ev.kind }}{% if ev.is_bum %}:{{ ev.severity_class }}:{{ ev.protocol }}{% endif %}"
+         data-sort-subject="{% if ev.is_sweep or ev.is_bum %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}"
          data-sort-participant="{% if ev.asn %}{{ ev.asn }}{% endif %}"
          data-sort-flaps="{{ ev.flap_count|default:0 }}"
          data-sort-status="{% if ev.closed %}1{% else %}0{% endif %}">
@@ -184,7 +217,10 @@ horizontal scroll on large displays.
             {% if ev.is_sweep %}{{ ev.new_mac }}{% else %}{{ ev.ip }}{% endif %}<span class="ml-1 font-sans font-normal text-xs text-gray-400">{{ ev.family }}</span>
           </div>
           <div class="mt-1">
-            {% if ev.is_reflection %}
+            {% if ev.is_bum %}
+            <span class="nd-kind-badge nd-kind-bum-{{ ev.severity_class }}" title="{{ ev.why|default:'' }}">{{ ev.protocol }}</span>
+            <div class="text-[10px] text-gray-400 mt-0.5">{{ ev.severity }}</div>
+            {% elif ev.is_reflection %}
             <span class="nd-kind-badge nd-kind-reflect" title="{% translate 'A bridging participant re-flooded ND frames verbatim during a flood: the outer source MAC was rewritten to its own, but the NDP link-layer option still carries the original owner’s MAC. Benign flood reflection, not spoofing.' %}">{% translate "reflection" %}</span>
             {% elif ev.is_sweep %}
             <span class="nd-kind-badge nd-kind-sweep" title="{% translate 'One MAC claiming many IPs' %}">{% translate "MAC sweep" %}</span>
@@ -196,8 +232,10 @@ horizontal scroll on large displays.
         <div class="shrink-0 text-right">
           {% if ev.closed %}
           <span class="text-xs text-gray-400">{% translate "closed" %}</span>
-          {% elif ev.is_reflection %}
+          {% elif ev.is_reflection or ev.severity_class == 'info' and ev.is_bum %}
           <span class="nd-warn-flag nd-warn-flag-info">{% translate "active" %}</span>
+          {% elif ev.is_bum and ev.severity_class == 'warning' %}
+          <span class="nd-warn-flag">{% translate "active" %}</span>
           {% else %}
           <span class="nd-warn-flag nd-warn-flag-crit">{% translate "active" %}</span>
           {% endif %}
@@ -215,7 +253,11 @@ horizontal scroll on large displays.
         </div>
         <div class="col-span-2">
           <span class="text-gray-400">{% translate "Detail" %}</span>
-          {% if ev.is_reflection %}
+          {% if ev.is_bum %}
+          <span class="text-gray-900">{{ ev.label|default:ev.protocol }}</span>
+          {% for d in ev.detail %}<span class="font-mono text-[11px] text-gray-500 break-all block">{{ d }}</span>{% endfor %}
+          {% if ev.remediation %}<span class="text-[11px] text-gray-500 block"><span class="text-gray-400">{% translate "Fix:" %}</span> {{ ev.remediation }}</span>{% endif %}
+          {% elif ev.is_reflection %}
           <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP reflected{% plural %}{{ n }} IPs reflected{% endblocktranslate %}</span>
           <span class="font-mono text-[11px] text-gray-500 break-all">{{ ev.claimed_ips|join:", " }}</span>
           {% elif ev.is_sweep %}
@@ -228,9 +270,9 @@ horizontal scroll on large displays.
           {% endif %}
         </div>
         <div><span class="text-gray-400">{% translate "Opened" %}</span> <span class="text-gray-700">{{ ev.opened_display|default:"—" }}</span></div>
-        <div><span class="text-gray-400">{% translate "Flaps" %}</span> <span class="text-gray-700">{{ ev.flap_count|default:"—" }}</span></div>
-        {% if ev.evidence_id %}
-        <div class="col-span-2"><span class="text-gray-400">{% translate "Evidence" %}</span> <a href="{% url 'nd_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a></div>
+        <div><span class="text-gray-400">{% translate "Count" %}</span> <span class="text-gray-700">{{ ev.flap_count|default:"—" }}</span></div>
+        {% if ev.evidence_id or ev.has_evidence %}
+        <div class="col-span-2"><span class="text-gray-400">{% translate "Evidence" %}</span> <a href="{% url 'lan_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a></div>
         {% endif %}
       </div>
     </div>
@@ -241,17 +283,17 @@ horizontal scroll on large displays.
   {% if has_prev or has_next %}
   <div class="flex items-center justify-between mt-4 text-sm">
     {% if has_prev %}
-    <a href="?{% if ip_filter %}ip={{ ip_filter }}&{% endif %}{% if asn_filter %}asn={{ asn_filter }}&{% endif %}page={{ page|add:'-1' }}" class="back-link">&larr; {% translate "Newer" %}</a>
+    <a href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page|add:'-1' }}" class="back-link">&larr; {% translate "Newer" %}</a>
     {% else %}<span></span>{% endif %}
     {% if has_next %}
-    <a href="?{% if ip_filter %}ip={{ ip_filter }}&{% endif %}{% if asn_filter %}asn={{ asn_filter }}&{% endif %}page={{ page|add:'1' }}" class="back-link">{% translate "Older" %} &rarr;</a>
+    <a href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}page={{ page|add:'1' }}" class="back-link">{% translate "Older" %} &rarr;</a>
     {% endif %}
   </div>
   {% endif %}
 </div>
 {% elif not lg_error %}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
-  {% if ip_filter or asn_filter %}{% translate "No ND events match this filter." %}{% else %}{% translate "No ND anomaly events recorded." %}{% endif %}
+  {% if has_filter %}{% translate "No LAN events match this filter." %}{% else %}{% translate "No LAN events recorded." %}{% endif %}
 </div>
 {% endif %}
 {% endblock %}

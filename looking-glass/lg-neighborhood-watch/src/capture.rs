@@ -1,15 +1,21 @@
-//! Passive ARP/NDP capture via AF_PACKET (pnet).
+//! Passive capture via a raw AF_PACKET socket (see [`crate::afpacket`]).
 //!
-//! One blocking capture loop runs per interface on a dedicated OS thread and
-//! hands parsed observations to the async writer via a bounded channel. We only
-//! read frames — nothing is transmitted here. Promiscuous mode is left OFF:
-//! broadcast ARP, multicast NDP, and replies to our own kernel-issued solicits
-//! are delivered without it.
+//! One blocking capture loop runs per interface on a dedicated OS thread. Each
+//! frame is fanned out to up to three consumers, none of which may block it:
+//!   - ARP/NDP observations → the neighbor table (`store.rs`), plus the raw
+//!     ARP/NDP frame → the evidence ring buffer;
+//!   - the LAN-hygiene classifier (`bum.rs`) → one detection per offending frame;
+//!   - per-source broadcast / unknown-unicast counts, flushed once a second, for
+//!     the rate-based flood detections.
+//!
+//! We only read frames — nothing is transmitted here.
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
-use pnet::datalink::{self, Channel, Config};
+use arc_swap::ArcSwap;
 use pnet::packet::arp::ArpPacket;
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::icmpv6::{Icmpv6Packet, Icmpv6Types};
@@ -23,71 +29,141 @@ use pnet::util::MacAddr;
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
+use crate::afpacket::{RawSocket, RxMode};
+use crate::bum::{self, BumMsg, BumObservation, ClassifyCtx, RateSample};
 use crate::ringbuf::CapturedFrame;
 use crate::store::Observation;
 
+/// Largest frame we read (jumbo frames are truncated; nothing we parse is that deep).
+const RECV_BUF: usize = 2048;
+
+/// Where a capture thread delivers what it sees. Every send is non-blocking
+/// (drop + count on backpressure).
+#[derive(Clone)]
+pub struct CaptureSinks {
+    pub obs_tx: mpsc::Sender<Observation>,
+    pub ring_tx: Option<std::sync::mpsc::SyncSender<CapturedFrame>>,
+    pub bum_tx: mpsc::Sender<BumMsg>,
+    pub ctx: Arc<ArcSwap<ClassifyCtx>>,
+    pub mode: RxMode,
+    /// Observations dropped on backpressure (neighbor table channel).
+    pub dropped: Arc<AtomicU64>,
+    /// Hygiene detections dropped on backpressure.
+    pub bum_dropped: Arc<AtomicU64>,
+    /// Frames the kernel delivered to our socket (PACKET_STATISTICS).
+    pub kernel_frames: Arc<AtomicU64>,
+    /// Frames the kernel dropped for lack of socket buffer.
+    pub kernel_drops: Arc<AtomicU64>,
+}
+
 /// Spawn a dedicated OS thread capturing on `iface`. Returns immediately.
-/// When `ring_tx` is `Some`, every ARP/NDP frame's raw bytes are also teed to the
-/// ring buffer for later evidence extraction.
-pub fn spawn_capture(
-    iface: String,
-    tx: mpsc::Sender<Observation>,
-    dropped: Arc<AtomicU64>,
-    ring_tx: Option<std::sync::mpsc::SyncSender<CapturedFrame>>,
-) {
+pub fn spawn_capture(iface: String, sinks: CaptureSinks) {
     std::thread::Builder::new()
         .name(format!("capture-{iface}"))
         .spawn(move || {
-            if let Err(e) = capture_loop(&iface, &tx, &dropped, ring_tx.as_ref()) {
+            if let Err(e) = capture_loop(&iface, &sinks) {
                 warn!("capture on {iface} stopped: {e}");
             }
         })
         .expect("spawn capture thread");
 }
 
-fn capture_loop(
-    iface: &str,
-    tx: &mpsc::Sender<Observation>,
-    dropped: &Arc<AtomicU64>,
-    ring_tx: Option<&std::sync::mpsc::SyncSender<CapturedFrame>>,
-) -> anyhow::Result<()> {
-    let interface = datalink::interfaces()
-        .into_iter()
-        .find(|i| i.name == iface)
-        .ok_or_else(|| anyhow::anyhow!("interface {iface} not found"))?;
+fn capture_loop(iface: &str, sinks: &CaptureSinks) -> anyhow::Result<()> {
+    let sock = RawSocket::open(iface, sinks.mode)?;
+    let own_mac = sock.own_mac();
+    info!("capturing on {iface} ({} mode, own MAC {})", sinks.mode.as_str(), crate::afpacket::fmt_mac(&own_mac));
 
-    // Default config: promiscuous OFF, read-only use of the channel.
-    let cfg = Config { promiscuous: false, ..Default::default() };
-    let mut rx = match datalink::channel(&interface, cfg) {
-        Ok(Channel::Ethernet(_tx, rx)) => rx,
-        Ok(_) => anyhow::bail!("unsupported channel type on {iface}"),
-        Err(e) => anyhow::bail!("opening channel on {iface}: {e}"),
-    };
-    info!("capturing ARP/NDP on {iface}");
+    let mut buf = vec![0u8; RECV_BUF];
+    // Per-source (broadcast/multicast, unknown-unicast) counts since the last flush.
+    let mut rates: HashMap<[u8; 6], (u32, u32)> = HashMap::new();
+    let mut last_flush = Instant::now();
 
     loop {
-        match rx.next() {
-            Ok(frame) => {
-                // Tee raw ARP/NDP frames to the ring buffer (incl. ARP requests
-                // and DAD probes that `parse_frame` discards — they're the
-                // "who was asking" context evidence needs). Never block: drop on
-                // backpressure (ring writer is best-effort).
-                if let Some(ring) = ring_tx {
-                    if is_arp_or_ndp(frame) {
-                        let (ts_sec, ts_usec) = now_ts();
-                        let _ = ring.try_send(CapturedFrame { ts_sec, ts_usec, data: frame.to_vec() });
-                    }
-                }
-                if let Some(obs) = parse_frame(frame, iface) {
-                    // Never block the capture thread: drop and count on backpressure.
-                    if tx.try_send(obs).is_err() {
-                        dropped.fetch_add(1, Ordering::Relaxed);
-                    }
-                }
+        match sock.recv(&mut buf) {
+            Ok(Some(n)) => {
+                let frame = &buf[..n];
+                handle_frame(frame, iface, own_mac, sinks, &mut rates);
             }
+            Ok(None) => {} // 1 s receive timeout: fall through to the flush check
             Err(e) => {
                 warn!("capture read error on {iface}: {e}");
+                std::thread::sleep(std::time::Duration::from_millis(100));
             }
+        }
+        if last_flush.elapsed() >= std::time::Duration::from_secs(1) {
+            last_flush = Instant::now();
+            if !rates.is_empty() {
+                let counts: Vec<([u8; 6], u32, u32)> = rates.drain().map(|(m, (b, u))| (m, b, u)).collect();
+                let _ = sinks.bum_tx.try_send(BumMsg::Rates(RateSample { iface: iface.to_string(), counts }));
+            }
+            if let Ok((pkts, drops)) = sock.stats() {
+                sinks.kernel_frames.fetch_add(pkts, Ordering::Relaxed);
+                sinks.kernel_drops.fetch_add(drops, Ordering::Relaxed);
+            }
+        }
+    }
+}
+
+/// Fan one frame out to the neighbor table, the ring buffer, the classifier and
+/// the rate counters.
+fn handle_frame(
+    frame: &[u8],
+    iface: &str,
+    own_mac: [u8; 6],
+    sinks: &CaptureSinks,
+    rates: &mut HashMap<[u8; 6], (u32, u32)>,
+) {
+    if frame.len() < 14 {
+        return;
+    }
+    let mut src = [0u8; 6];
+    src.copy_from_slice(&frame[6..12]);
+    let is_bum = frame[0] & 1 == 1;
+
+    // Our own frames (kernel-issued solicits etc.) are never hygiene evidence.
+    if src != own_mac {
+        if is_bum {
+            rates.entry(src).or_default().0 += 1;
+        } else if frame[0..6] != own_mac {
+            rates.entry(src).or_default().1 += 1;
+        }
+        // Bound the per-thread map against a spoofed-source storm; the writer
+        // has its own cap, this just protects the hot path's memory.
+        if rates.len() > bum::MAX_KEYS {
+            rates.clear();
+        }
+        let ctx = sinks.ctx.load();
+        if let Some(detection) = bum::classify(frame, &ctx) {
+            let (ts_sec, ts_usec) = now_ts();
+            let keep = frame.len().min(bum::FRAME_SNAPLEN);
+            let obs = BumObservation {
+                src_mac: src,
+                iface: iface.to_string(),
+                detection,
+                frame: frame[..keep].to_vec(),
+                ts_sec,
+                ts_usec,
+            };
+            if sinks.bum_tx.try_send(BumMsg::Hit(Box::new(obs))).is_err() {
+                sinks.bum_dropped.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    }
+
+    // Tee raw ARP/NDP frames to the ring buffer (incl. ARP requests and DAD
+    // probes that `parse_frame` discards — they're the "who was asking" context
+    // evidence needs). Never block: drop on backpressure (ring writer is
+    // best-effort).
+    if let Some(ring) = &sinks.ring_tx {
+        if is_arp_or_ndp(frame) {
+            let (ts_sec, ts_usec) = now_ts();
+            let _ = ring.try_send(CapturedFrame { ts_sec, ts_usec, data: frame.to_vec() });
+        }
+    }
+    if let Some(obs) = parse_frame(frame, iface) {
+        // Never block the capture thread: drop and count on backpressure.
+        if sinks.obs_tx.try_send(obs).is_err() {
+            sinks.dropped.fetch_add(1, Ordering::Relaxed);
         }
     }
 }

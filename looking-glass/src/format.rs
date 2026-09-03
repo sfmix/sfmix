@@ -471,6 +471,7 @@ pub fn format_participant_detail(
 fn nd_kind_label(kind: &str) -> &'static str {
     match kind {
         lg_types::structured::EVENT_KIND_MAC_SWEEP => "mac-sweep",
+        lg_types::structured::EVENT_KIND_BUM_PROTOCOL => "hygiene",
         _ => "new-mac",
     }
 }
@@ -495,7 +496,7 @@ fn human_bytes(bytes: u64) -> String {
 /// from the store).
 pub fn format_nd_events(events: &[AnomalyEvent], mode: ColorMode) -> String {
     if events.is_empty() {
-        return "No ND anomaly events.\n".to_string();
+        return "No LAN events.\n".to_string();
     }
 
     let mut builder = Builder::default();
@@ -512,12 +513,19 @@ pub fn format_nd_events(events: &[AnomalyEvent], mode: ColorMode) -> String {
     for e in events {
         // For a per-IP event the subject is the IP; for a MAC sweep it is the set
         // of claimed IPs (the MAC is the actor, shown in its own column).
+        // For a hygiene event it is the protocol (plus severity).
         let subject = if e.kind == lg_types::structured::EVENT_KIND_MAC_SWEEP {
             match e.claimed_ips.len() {
                 0 => "(no IPs)".to_string(),
                 1 => e.claimed_ips[0].clone(),
                 n => format!("{n} IPs"),
             }
+        } else if e.kind == lg_types::structured::EVENT_KIND_BUM_PROTOCOL {
+            format!(
+                "{} ({})",
+                e.protocol.as_deref().unwrap_or("?"),
+                e.severity.as_deref().unwrap_or("?")
+            )
         } else {
             e.ip.clone()
         };
@@ -557,7 +565,7 @@ pub fn format_nd_event_detail(
     mode: ColorMode,
 ) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "{}", bold_str("ND Anomaly Event", mode));
+    let _ = writeln!(out, "{}", bold_str("LAN Event", mode));
     let _ = writeln!(out, "  ID:             {}", event.id);
     let _ = writeln!(out, "  Kind:           {} ({})", nd_kind_label(&event.kind), event.kind);
     if let Some(class) = event.classification.as_deref() {
@@ -578,6 +586,19 @@ pub fn format_nd_event_detail(
         for ip in &event.claimed_ips {
             let _ = writeln!(out, "                    {ip}");
         }
+    } else if event.kind == lg_types::structured::EVENT_KIND_BUM_PROTOCOL {
+        let key = event.protocol.as_deref().unwrap_or("?");
+        let proto = lg_types::structured::bum_proto(key);
+        let _ = writeln!(out, "  Source MAC:     {}", event.new_mac);
+        let _ = writeln!(out, "  Protocol:       {} — {}", key, proto.map(|p| p.label).unwrap_or("unknown"));
+        let _ = writeln!(out, "  Severity:       {}", event.severity.as_deref().unwrap_or("?"));
+        if let Some(p) = proto {
+            let _ = writeln!(out, "  Why it matters: {}", p.why);
+            let _ = writeln!(out, "  Remediation:    {}", p.remediation);
+        }
+        for d in &event.detail {
+            let _ = writeln!(out, "  Detail:         {d}");
+        }
     } else {
         let _ = writeln!(out, "  IP:             {}", event.ip);
         let _ = writeln!(out, "  New MAC:        {}", event.new_mac);
@@ -591,13 +612,17 @@ pub fn format_nd_event_detail(
     let _ = writeln!(out, "  Opened at:      {}", event.opened_at);
     let _ = writeln!(out, "  Last seen:      {}", event.last_seen);
 
+    if event.has_evidence {
+        let _ = writeln!(out, "  Evidence:       inline pcap (via portal: /api/v1/lan-events/{}/pcap)", event.id);
+        return out;
+    }
     match (&event.evidence_id, evidence) {
         (Some(eid), Some(meta)) => {
             let _ = writeln!(out, "  Evidence:       {eid}");
             let _ = writeln!(out, "    Frames:       {}", meta.frame_count);
             let _ = writeln!(out, "    Size:         {}", human_bytes(meta.size_bytes));
             let _ = writeln!(out, "    Captured at:  {}", meta.created_at);
-            let _ = writeln!(out, "    (pcap via portal: /api/v1/nd-events/{}/pcap)", event.id);
+            let _ = writeln!(out, "    (pcap via portal: /api/v1/lan-events/{}/pcap)", event.id);
         }
         (Some(eid), None) => {
             let _ = writeln!(out, "  Evidence:       {eid} (metadata unavailable from sensor)");
