@@ -26,6 +26,7 @@
     - sfmix.rules.yml
     - pdu.rules.yml            # cross-vendor PDU power normalisation + alerts
     - tls.rules.yml            # served-certificate expiry (blackbox_exporter)
+    - lan-hygiene.rules.yml    # peering-LAN hygiene: RAs/DHCP/IGP hellos heard from members (008)
 
 - name: "Prometheus: Template config"
   become: true

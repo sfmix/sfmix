@@ -58,3 +58,18 @@ sfmix_route_server_linux_lg_neighborhood_watch_evidence_dir: ""
 sfmix_route_server_linux_lg_neighborhood_watch_ring_buffer_secs: 1800
 sfmix_route_server_linux_lg_neighborhood_watch_ring_buffer_max_bytes: 104857600   # 100 MiB
 sfmix_route_server_linux_lg_neighborhood_watch_evidence_max_bytes: 524288000      # 500 MiB
+# LAN-hygiene (BUM) classifier — design doc 008. How the AF_PACKET socket
+# subscribes to frames: promisc (everything, incl. unknown-unicast flooding),
+# allmulti (all broadcast + multicast), or unicast (own-MAC/broadcast/joined
+# multicast only: the pre-hygiene behaviour, useful as a load baseline). A
+# kernel BPF prefilter drops this host's own unicast IP traffic in every mode.
+sfmix_route_server_linux_lg_neighborhood_watch_capture_mode: promisc
+# Seconds a (src_mac, protocol) detection stays in /bum after last heard.
+sfmix_route_server_linux_lg_neighborhood_watch_bum_ttl_secs: 7200
+# Per-source broadcast/multicast (or unknown-unicast) frames/s, averaged over
+# 60 s, above which a synthetic flood detection is raised.
+sfmix_route_server_linux_lg_neighborhood_watch_bum_flood_pps: 50
+# Source MACs the classifier ignores entirely (SFMIX switch SVIs/CPUs, the
+# sibling route server, collectors). The capture interface's own MAC is always
+# ignored. Populate per host in group_vars.
+sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs: []

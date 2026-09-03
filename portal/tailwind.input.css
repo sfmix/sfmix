@@ -363,6 +363,10 @@ body {
 .nd-kind-sweep { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
 /* Reflection: informational, neutral sky palette — not an impersonation alarm. */
 .nd-kind-reflect { color: #075985; background: #f0f9ff; border: 1px solid #bae6fd; }
+/* LAN-hygiene detections, toned by catalog severity. */
+.nd-kind-bum-critical { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+.nd-kind-bum-warning { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
+.nd-kind-bum-info { color: #075985; background: #f0f9ff; border: 1px solid #bae6fd; }
 
 /* Route-server table (L4) */
 .nd-rs-table { width: 100%; border-collapse: collapse; font-size: .82rem; }

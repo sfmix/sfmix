@@ -51,6 +51,9 @@ its action buttons.
   {% if has_invalid_ip %}
   <span class="nd-ov-chip nd-ov-bad nd-sid-only" title="{% translate 'A MAC on this network is sourcing an IP that is not assigned on the IX' %}">&#9940; {% translate "Invalid IP" %}</span>
   {% endif %}
+  {% if hygiene_issues %}
+  <span class="nd-ov-chip {% if hygiene_worst == 'critical' %}nd-ov-bad{% endif %} nd-sid-only" title="{% translate 'This network is sending protocols into the exchange LAN that do not belong there (see below)' %}">&#9888; {% blocktranslate count n=hygiene_issues|length %}{{ n }} LAN hygiene issue{% plural %}{{ n }} LAN hygiene issues{% endblocktranslate %}</span>
+  {% endif %}
 </div>
 
 {# ── Network Header ─────────────────────────────────────────── #}
@@ -132,10 +135,36 @@ its action buttons.
     {% endif %}
     {% translate "This is typically a virtualized/bridged uplink with an internal loop re-transmitting frames it receives but doesn't own; it usually appears after a fabric flap and clears on its own. It's benign (not spoofing), but it adds needless broadcast load — disabling the loop (bridge loop-protection / non-reflecting mode) stops it." %}
     {% if reflection_notice.reflector_mac %}<span class="nd-alert-where" style="opacity:1">{% blocktranslate with mac=reflection_notice.reflector_mac %}Reflector MAC: {{ mac }}{% endblocktranslate %}</span>{% endif %}
-    {% if is_ix_admin %}<span class="nd-alert-where"><a href="{% url 'nd_events' %}?asn={{ asn }}" class="back-link">L3 · {% translate "ND anomaly events" %} &rarr;</a></span>{% else %}<span class="nd-alert-where">L3 · {% translate "neighbor discovery" %}</span>{% endif %}
+    {% if is_ix_admin %}<span class="nd-alert-where"><a href="{% url 'lan_events' %}?asn={{ asn }}" class="back-link">L3 · {% translate "LAN events" %} &rarr;</a></span>{% else %}<span class="nd-alert-where">L3 · {% translate "neighbor discovery" %}</span>{% endif %}
   </div>
 </div>
 {% endif %}
+
+{# ── LAN-hygiene banners (public) ────────────────────────────── #}
+{% for issue in hygiene_issues %}
+<div class="nd-alert {% if issue.severity_class == 'critical' %}crit{% elif issue.severity_class == 'warning' %}warn{% else %}info{% endif %} mb-3">
+  <span class="nd-alert-icon">{% if issue.severity_class == 'critical' %}&#9940;{% elif issue.severity_class == 'warning' %}&#9888;{% else %}&#8505;{% endif %}</span>
+  <div class="nd-alert-body">
+    <b>{% blocktranslate with label=issue.label %}Sending {{ label }} into the exchange LAN{% endblocktranslate %}</b>
+    <span class="nd-kind-badge nd-kind-bum-{{ issue.severity_class }} ml-1">{{ issue.severity }}</span>
+    {% if issue.why %}<div class="mt-1">{{ issue.why }}</div>{% endif %}
+    {% if issue.details %}
+    <ul class="nd-alert-list">
+      {% for d in issue.details %}<li class="font-mono text-[11px]">{{ d }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if issue.remediation %}
+    <div class="mt-1"><b>{% translate "How to fix:" %}</b> <code class="text-[11px]">{{ issue.remediation }}</code></div>
+    {% endif %}
+    <span class="nd-alert-where" style="opacity:1">
+      {% blocktranslate with macs=issue.macs|join:", " %}Source MAC: {{ macs }}{% endblocktranslate %}
+      {% if issue.last_seen_ago %}&middot; {% blocktranslate with ago=issue.last_seen_ago %}last heard {{ ago }} ago{% endblocktranslate %}{% endif %}
+      {% if issue.count %}&middot; {% blocktranslate count n=issue.count %}{{ n }} frame{% plural %}{{ n }} frames{% endblocktranslate %}{% endif %}
+    </span>
+    {% if is_ix_admin %}<span class="nd-alert-where"><a href="{% url 'lan_events' %}?asn={{ asn }}&kind=bum_protocol" class="back-link">L2 · {% translate "LAN events" %} &rarr;</a></span>{% else %}<span class="nd-alert-where">L2 · {% translate "LAN hygiene" %}</span>{% endif %}
+  </div>
+</div>
+{% endfor %}
 
 {# ── Scope Legend ────────────────────────────────────────────── #}
 {% if can_see_admin %}
@@ -449,7 +478,7 @@ its action buttons.
                 <td class="nd-mac-ip"{% if dn.macs|length > 1 %} rowspan="{{ dn.macs|length }}"{% endif %}>
                   {{ dn.ip }}
                   {% if dn.conflict %}<span class="nd-warn-flag nd-warn-flag-crit" title="{% translate 'More than one MAC has been heard claiming this IP' %}">&#9888; {% translate "multiple MACs" %}</span>{% endif %}
-                  {% if dn.event_count %}<a href="{% url 'nd_events' %}?ip={{ dn.ip }}" class="nd-event-badge" title="{% translate 'View this IP in the ND anomaly event log' %}">{% blocktranslate count n=dn.event_count %}{{ n }} event &middot; history{% plural %}{{ n }} events &middot; history{% endblocktranslate %}</a>{% endif %}
+                  {% if dn.event_count %}<a href="{% url 'lan_events' %}?ip={{ dn.ip }}" class="nd-event-badge" title="{% translate 'View this IP in the LAN event log' %}">{% blocktranslate count n=dn.event_count %}{{ n }} event &middot; history{% plural %}{{ n }} events &middot; history{% endblocktranslate %}</a>{% endif %}
                 </td>
                 {% endif %}
                 <td class="nd-mac-addr{% if m.stale %} nd-mac-stale{% endif %}">{{ m.mac }}{% if m.stale %} <span class="nd-stale-tag" title="{% translate 'Not heard recently; excluded from the conflict flag' %}">({% translate "stale" %})</span>{% endif %}</td>
@@ -493,7 +522,7 @@ its action buttons.
             <div class="mc-flag crit"><span class="mc-flag-ic">&#9888;</span> {% translate "More than one MAC is claiming this IP" %}</div>
             {% endif %}
             <div class="mc-head"><div><div class="mc-id{% if dn.conflict %} crit{% endif %}">{{ dn.ip }}</div><div class="mc-sub">{% if ":" in dn.ip %}IPv6{% else %}IPv4{% endif %}{% if dn.macs|length > 1 %} &middot; {% blocktranslate count n=dn.macs|length %}{{ n }} MAC{% plural %}{{ n }} MACs{% endblocktranslate %}{% endif %}</div></div></div>
-            {% if dn.event_count %}<a href="{% url 'nd_events' %}?ip={{ dn.ip }}" class="nd-event-badge">{% blocktranslate count n=dn.event_count %}{{ n }} event &middot; history{% plural %}{{ n }} events &middot; history{% endblocktranslate %}</a>{% endif %}
+            {% if dn.event_count %}<a href="{% url 'lan_events' %}?ip={{ dn.ip }}" class="nd-event-badge">{% blocktranslate count n=dn.event_count %}{{ n }} event &middot; history{% plural %}{{ n }} events &middot; history{% endblocktranslate %}</a>{% endif %}
             {% if dn.macs|length > 1 %}
             <div class="mc-submac">
               {% for m in dn.macs %}

@@ -25,6 +25,13 @@ sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://10.2.1.26:909
 # StateDirectory (/var/lib/lg-neighborhood-watch). Persisted here so deploys keep
 # it enabled (the role default is empty/off).
 sfmix_route_server_linux_lg_neighborhood_watch_evidence_dir: "/var/lib/lg-neighborhood-watch/evidence"
+# LAN-hygiene classifier (design doc 008). Source MACs that are SFMIX
+# infrastructure and must never be reported as a participant's problem: the
+# peering-switch SVI/system MACs on the IX VLAN and the sibling route server.
+# Populate from `show interfaces vlan <ix>` / `show version` on each switch and
+# `ip link` on rs2 during the dry-run week (lg-server `bum_enabled: false`),
+# using the /bum rows that show up as a checklist. Empty until then.
+sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs: []
 # Same shared RPC secret as alice's lg-server (decrypts with the same vault key).
 sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: !vault |
           $ANSIBLE_VAULT;1.1;AES256

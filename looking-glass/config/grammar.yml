@@ -100,8 +100,8 @@ commands:
             name: "<asn>"
             help: Filter to a specific participant ASN (e.g. 13335, AS13335)
             command: { verb: show, resource: discovered_neighbors, filter_asn: "$arg" }
-      nd-events:
-        help: ND anomaly events (new MAC on an IP, or a MAC claiming many IPs)
+      lan-events:
+        help: LAN events — ND anomalies (new MAC on an IP, MAC sweeps) and LAN-hygiene detections (RAs, DHCP, IGP hellos, discovery protocols)
         command: { verb: show, resource: nd_events }
         children:
           ip:
@@ -116,7 +116,7 @@ commands:
             children:
               _arg:
                 name: "<event-id>"
-                help: Event UUID from 'show nd-events'
+                help: Event UUID from 'show lan-events'
                 command: { verb: show, resource: nd_event_detail, target: "$arg" }
           evidence:
             help: Captured evidence pcap metadata (size, frames, time) — no packets

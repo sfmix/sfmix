@@ -243,3 +243,13 @@ scrape_configs:
       static_configs:
         - targets:
             - 10.1.1.18:9324
+    # lg-neighborhood-watch on rs-linux (mgmt IP): ARP/NDP sensor health plus
+    # the LAN-hygiene (BUM) detection counters that drive the
+    # lan-hygiene.rules.yml alerts (design doc 008).
+    - job_name: lg-neighborhood-watch
+      scheme: http
+      scrape_interval: 60s
+      scrape_timeout: 15s
+      static_configs:
+        - targets:
+            - 10.1.1.18:29185

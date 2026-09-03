@@ -1,0 +1,83 @@
+{#
+  Peering-LAN hygiene alerts (design doc 008), rendered by Ansible.
+
+  Go/PromQL template expressions consumed by Prometheus itself ({{ $labels }},
+  {{ $value }}) are wrapped in {% raw %}...{% endraw %} so Jinja leaves them
+  alone -- same convention as sfmix.rules.yml.j2.
+#}
+---
+groups:
+{% raw %}
+  # ── LAN hygiene ──────────────────────────────────────────────────────
+  # lg-neighborhood-watch (rs-linux) classifies broadcast/multicast frames on
+  # the IX VLAN against a catalog of protocols that have no business on a
+  # peering LAN (IPv6 RAs, DHCP, OSPF/IS-IS/EIGRP hellos, VRRP/HSRP, STP, …).
+  # Each detection is exported as
+  #   neighwatch_bum_frames_total{protocol,severity,src_mac}
+  # (a per-source counter that lives as long as the sensor row does, 2 h after
+  # last heard) and neighwatch_bum_frames_by_protocol_total{protocol,severity}
+  # (process-lifetime, stable series).
+  #
+  # Only `critical` protocols page: those are the ones that can redirect other
+  # members' traffic (RA = free default route, DHCP = rogue gateway) or merge
+  # routing tables (IGP hellos) or disrupt the port (STP). Warning/info
+  # protocols (CDP/LLDP/MNDP chatter, mDNS, …) stay portal-only -- they are a
+  # participant-education issue, not an incident.
+  #
+  # `increase(...[10m]) > 0` with `for: 2m`: RAs default to one every ~200 s
+  # and IGP hellos to every 10 s, so a live source registers within one window
+  # and a single stray frame (a router booting with a default config for a
+  # minute) does not page. Alerts resolve on their own once the sensor row
+  # expires or the source stops.
+  - name: sfmix-lan-hygiene-alerts
+    rules:
+      - alert: IxLanCriticalProtocolSeen
+        expr: >
+          sum by (protocol, src_mac) (
+            increase(neighwatch_bum_frames_total{severity="critical"}[10m])
+          ) > 0
+        for: 2m
+        labels: {severity: critical, component: peering-lan}
+        annotations:
+          summary: >-
+            {{ $labels.protocol }} heard on the peering LAN from {{ $labels.src_mac }}
+          description: >-
+            {{ printf "%.0f" $value }} {{ $labels.protocol }} frames in the last
+            10 minutes from source MAC {{ $labels.src_mac }} on the SFMIX peering
+            VLAN. Attribution, sample details and an evidence pcap are on the
+            portal: Admin > LAN Events (kind bum_protocol), and the participant's
+            page shows the remediation. If the source is SFMIX infrastructure,
+            add the MAC to ignore_src_macs in group_vars/rs_linux.yml.
+          dashboard: https://portal.sfmix.org/admin/lan-events/?kind=bum_protocol&active=1
+
+      # The sensor shares rs-linux with BIRD. If the kernel is dropping frames
+      # before the sensor reads them, the host is under capture load (a
+      # broadcast storm, or promiscuous mode seeing more than expected) and the
+      # detections are no longer trustworthy. Fall back to capture_mode allmulti.
+      - alert: NeighwatchCaptureDrops
+        expr: increase(neighwatch_capture_kernel_drops_total[10m]) > 1000
+        for: 10m
+        labels: {severity: warning, component: peering-lan}
+        annotations:
+          summary: >-
+            lg-neighborhood-watch is dropping frames in-kernel
+            ({{ printf "%.0f" $value }} in 10m)
+          description: >-
+            The AF_PACKET socket on rs-linux is overflowing: the route server is
+            under capture load. Check `neighwatch_capture_frames_total` for the
+            frame rate and the bum_flood rows on the sensor for a storm source;
+            consider capture_mode: allmulti in the sfmix_route_server_linux vars.
+          dashboard: https://portal.sfmix.org/admin/lan-events/?kind=bum_protocol
+
+      # Sensor down = no hygiene visibility and no ND anomaly detection.
+      - alert: NeighwatchDown
+        expr: up{job="lg-neighborhood-watch"} == 0
+        for: 10m
+        labels: {severity: warning, component: peering-lan}
+        annotations:
+          summary: lg-neighborhood-watch on rs-linux is not answering scrapes
+          description: >-
+            Prometheus cannot reach the sensor at 10.1.1.18:29185. ND anomaly
+            detection and LAN-hygiene detection are both blind until it is back.
+            `systemctl status lg-neighborhood-watch` on rs-linux.
+{% endraw %}

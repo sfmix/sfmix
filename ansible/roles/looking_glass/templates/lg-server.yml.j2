@@ -107,6 +107,11 @@ discovered:
   mac_ttl_secs: {{ looking_glass_discovered_mac_ttl_secs }}
 {% endif %}
   max_ips_per_mac: {{ looking_glass_discovered_max_ips_per_mac | default(8) }}
+  # LAN-hygiene detections (design doc 008): poll the sensor's /bum rows into
+  # durable bum_protocol events. Set bum_enabled false to dry-run the sensor
+  # while tuning its ignore_src_macs list.
+  bum_enabled: {{ looking_glass_discovered_bum_enabled | default(true) | to_json }}
+  bum_active_secs: {{ looking_glass_discovered_bum_active_secs | default(7200) }}
 {% endif %}
 
 rate_limits:

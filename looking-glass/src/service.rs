@@ -159,18 +159,20 @@ impl LookingGlass {
 
         if command.resource == Resource::NdEvents {
             // `target` (when present) narrows to one IP; otherwise `filter_asn`
-            // narrows to one participant. Mirrors the /rpc/v1/nd-events endpoint.
+            // narrows to one participant. Mirrors the /rpc/v1/lan-events endpoint.
             let text = match self.anomaly.as_ref() {
-                None => "ND anomaly recording is not configured.\n".to_string(),
+                None => "LAN event recording is not configured.\n".to_string(),
                 Some(store) => match store.list_events(
-                    command.filter_asn,
-                    command.target.as_deref(),
-                    200,
-                    0,
+                    &crate::anomaly::EventFilter {
+                        asn: command.filter_asn,
+                        ip: command.target.as_deref(),
+                        limit: 200,
+                        ..Default::default()
+                    },
                     chrono::Utc::now(),
                 ) {
                     Ok(events) => crate::format::format_nd_events(&events, ColorMode::Plain),
-                    Err(e) => format!("Error querying ND events: {e}\n"),
+                    Err(e) => format!("Error querying LAN events: {e}\n"),
                 },
             };
             return Ok(vec![DeviceResult {
@@ -186,7 +188,7 @@ impl LookingGlass {
                 .as_deref()
                 .ok_or_else(|| Error::BadRequest("missing event id".to_string()))?;
             let text = match self.anomaly.as_ref() {
-                None => "ND anomaly recording is not configured.\n".to_string(),
+                None => "LAN event recording is not configured.\n".to_string(),
                 Some(store) => match store.get_event(id, chrono::Utc::now()) {
                     Ok(Some(event)) => {
                         // Resolve the captured-evidence metadata (if any) from the
@@ -201,8 +203,8 @@ impl LookingGlass {
                         };
                         crate::format::format_nd_event_detail(&event, evidence.as_ref(), ColorMode::Plain)
                     }
-                    Ok(None) => format!("No ND event with id {id}.\n"),
-                    Err(e) => format!("Error querying ND event: {e}\n"),
+                    Ok(None) => format!("No LAN event with id {id}.\n"),
+                    Err(e) => format!("Error querying LAN event: {e}\n"),
                 },
             };
             return Ok(vec![DeviceResult {
@@ -383,7 +385,7 @@ impl LookingGlass {
 
     /// Fetch the captured-evidence pcap listing (metadata only) from the
     /// lg-neighborhood-watch sensor. Used to enrich ND-event detail and to back
-    /// `show nd-events evidence`. Never returns pcap bytes.
+    /// `show lan-events evidence`. Never returns pcap bytes.
     async fn fetch_evidence_metas(&self) -> Result<Vec<EvidenceMeta>, String> {
         let Some(url) = self.anomaly_sensor_url.as_ref() else {
             return Err("sensor not configured".to_string());

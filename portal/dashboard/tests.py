@@ -495,11 +495,22 @@ _NDEV = {
             "opened_at": "2026-06-17T21:10:00+00:00", "last_seen": "2026-06-17T21:18:00+00:00",
             "flap_count": 2, "evidence_id": None, "closed": True,
         },
+        {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "kind": "bum_protocol", "ip": "", "family": "",
+            "asn": 64496, "tenant": "Example Networks", "old_macs": [], "new_mac": "02:00:5e:10:0a:01",
+            "claimed_ips": [], "opened_at": "2026-09-02T10:00:00+00:00", "last_seen": "2026-09-02T11:55:00+00:00",
+            "flap_count": 37, "evidence_id": None, "closed": False, "classification": None,
+            "protocol": "ipv6_ra", "severity": "critical", "detail": ["lifetime 1800s M prefix 2001:db8:beef::/64"],
+            "has_evidence": True, "label": "IPv6 Router Advertisement",
+            "why": "Advertises this router as a default gateway to every other member on the exchange.",
+            "remediation": "Arista: ipv6 nd ra disabled all; Cisco: ipv6 nd ra suppress all",
+        },
     ]
 }
 
 
-def _admin_request(path="/admin/nd-events/", admin=True):
+def _admin_request(path="/admin/lan-events/", admin=True):
     req = RequestFactory().get(path)
     req.user = SimpleNamespace(is_authenticated=True)
     req.session = {"oidc_is_ix_admin": admin, "oidc_id_token": "tok"}
@@ -507,34 +518,109 @@ def _admin_request(path="/admin/nd-events/", admin=True):
 
 
 @_PLAIN_STATIC
-class NdEventsViewTests(SimpleTestCase):
+class LanEventsViewTests(SimpleTestCase):
     @mock.patch("dashboard.views.LookingGlassClient")
-    def test_renders_both_event_kinds(self, MockLG):
+    def test_renders_all_event_kinds(self, MockLG):
         inst = MockLG.return_value
         inst.base_url = "http://lg"
-        inst.get_nd_events.return_value = _NDEV
-        resp = views.nd_events(_admin_request())
+        inst.get_lan_events.return_value = _NDEV
+        resp = views.lan_events(_admin_request())
         self.assertEqual(resp.status_code, 200)
         html = resp.content.decode()
         self.assertIn("MAC sweep", html)
         self.assertIn("new MAC", html)
         self.assertIn("2001:db8:0:1::10", html)      # per-IP subject
         self.assertIn("0200.5eaa.bbbb", html)         # sweep offending MAC
-        self.assertIn("/admin/nd-events/11111111-1111-4111-8111-111111111111/pcap/", html)  # evidence link
+        self.assertIn("/admin/lan-events/11111111-1111-4111-8111-111111111111/pcap/", html)  # ring evidence link
         self.assertIn("active", html)                 # open event status
+        # Hygiene event: protocol badge, catalog label, detail, remediation, inline evidence.
+        self.assertIn("nd-kind-bum-critical", html)
+        self.assertIn("IPv6 Router Advertisement", html)
+        self.assertIn("prefix 2001:db8:beef::/64", html)
+        self.assertIn("ipv6 nd ra disabled all", html)
+        self.assertIn("/admin/lan-events/44444444-4444-4444-8444-444444444444/pcap/", html)
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_filters_are_validated_and_passed_through(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        inst.get_lan_events.return_value = {"events": []}
+        req = _admin_request("/admin/lan-events/?kind=bum_protocol&protocol=ipv6_ra&active=1&mac=AA:BB:CC:DD:EE:FF&asn=64496")
+        resp = views.lan_events(req)
+        self.assertEqual(resp.status_code, 200)
+        kwargs = inst.get_lan_events.call_args.kwargs
+        self.assertEqual(kwargs["kind"], "bum_protocol")
+        self.assertEqual(kwargs["protocol"], "ipv6_ra")
+        self.assertTrue(kwargs["active"])
+        self.assertEqual(kwargs["mac"], "aa:bb:cc:dd:ee:ff")
+        self.assertEqual(kwargs["asn"], 64496)
+        # Unknown kind/protocol values are dropped rather than forwarded.
+        views.lan_events(_admin_request("/admin/lan-events/?kind=bogus&protocol=../etc"))
+        kwargs = inst.get_lan_events.call_args.kwargs
+        self.assertIsNone(kwargs["kind"])
+        self.assertIsNone(kwargs["protocol"])
 
     def test_non_admin_is_forbidden(self):
-        resp = views.nd_events(_admin_request(admin=False))
+        resp = views.lan_events(_admin_request(admin=False))
         self.assertEqual(resp.status_code, 403)
 
     @mock.patch("dashboard.views.LookingGlassClient")
     def test_empty_when_no_events(self, MockLG):
         inst = MockLG.return_value
         inst.base_url = "http://lg"
-        inst.get_nd_events.return_value = {"events": []}
-        resp = views.nd_events(_admin_request())
+        inst.get_lan_events.return_value = {"events": []}
+        resp = views.lan_events(_admin_request())
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("No ND anomaly events recorded", resp.content.decode())
+        self.assertIn("No LAN events recorded", resp.content.decode())
+
+
+class HygieneIssuesTests(SimpleTestCase):
+    def test_groups_active_bum_events_by_protocol_ordered_by_severity(self):
+        events = [
+            {"kind": "bum_protocol", "protocol": "mndp", "severity": "warning", "label": "MikroTik ND",
+             "new_mac": "02:00:00:00:00:02", "detail": ["identity r1"], "flap_count": 5, "closed": False,
+             "last_seen": "2026-09-02T11:00:00+00:00", "id": "b"},
+            {"kind": "bum_protocol", "protocol": "ipv6_ra", "severity": "critical", "label": "IPv6 RA",
+             "new_mac": "02:00:00:00:00:01", "detail": ["lifetime 1800s"], "flap_count": 3, "closed": False,
+             "last_seen": "2026-09-02T11:30:00+00:00", "id": "a", "has_evidence": True,
+             "remediation": "ipv6 nd ra disabled all", "why": "default route"},
+            # Same protocol, second MAC: folds into one issue.
+            {"kind": "bum_protocol", "protocol": "ipv6_ra", "severity": "critical", "label": "IPv6 RA",
+             "new_mac": "02:00:00:00:00:03", "detail": ["lifetime 1800s", "prefix 2001:db8::/64"], "flap_count": 4,
+             "closed": False, "last_seen": "2026-09-02T11:40:00+00:00", "id": "c"},
+            # Closed: ignored.
+            {"kind": "bum_protocol", "protocol": "cdp", "severity": "warning", "new_mac": "x", "closed": True,
+             "last_seen": "2026-09-01T00:00:00+00:00", "id": "d"},
+            # ND kinds: ignored.
+            {"kind": "new_mac_on_ip", "ip": "10.0.0.1", "closed": False, "id": "e"},
+        ]
+        issues = views._hygiene_issues_from_events(events)
+        self.assertEqual([i["protocol"] for i in issues], ["ipv6_ra", "mndp"])
+        ra = issues[0]
+        self.assertEqual(ra["severity_class"], "critical")
+        self.assertEqual(ra["macs"], ["02:00:00:00:00:01", "02:00:00:00:00:03"])
+        self.assertEqual(ra["details"], ["lifetime 1800s", "prefix 2001:db8::/64"])
+        self.assertEqual(ra["count"], 7)
+        self.assertTrue(ra["has_evidence"])
+        self.assertEqual(ra["remediation"], "ipv6 nd ra disabled all")
+        self.assertTrue(ra["last_seen_ago"])
+        self.assertEqual(issues[1]["severity_class"], "warning")
+        self.assertEqual(views._hygiene_issues_from_events([]), [])
+
+    def test_hygiene_by_asn_keeps_worst_severity(self):
+        lg = mock.Mock()
+        lg.get_lan_events.return_value = {"events": [
+            {"asn": 1, "severity": "warning", "closed": False},
+            {"asn": 1, "severity": "critical", "closed": False},
+            {"asn": 2, "severity": "info", "closed": False},
+            {"asn": 3, "severity": "critical", "closed": True},
+            {"asn": None, "severity": "critical", "closed": False},
+        ]}
+        out = views._hygiene_by_asn(lg)
+        self.assertEqual(out, {1: {"severity": "critical", "count": 2}, 2: {"severity": "info", "count": 1}})
+        lg.get_lan_events.assert_called_once_with(kind="bum_protocol", active=True, limit=1000)
+        lg.get_lan_events.side_effect = RuntimeError("down")
+        self.assertEqual(views._hygiene_by_asn(lg), {})
 
 
 class NdEventCountEnrichmentTests(SimpleTestCase):

@@ -163,9 +163,13 @@ struct MacTableQuery {
 }
 
 #[derive(Debug, Deserialize)]
-struct NdEventQuery {
+struct LanEventQuery {
     asn: Option<u32>,
     ip: Option<String>,
+    mac: Option<String>,
+    kind: Option<String>,
+    protocol: Option<String>,
+    active: Option<String>,
     limit: Option<i64>,
     offset: Option<i64>,
 }
@@ -432,18 +436,30 @@ async fn get_discovered_neighbors(
     }
 }
 
-/// Proxy ND-anomaly events from lg-server. `?asn=`/`?ip=` narrow; `?limit=`/`?offset=` page.
-async fn get_nd_events(
+/// Proxy LAN events (ND anomalies + LAN-hygiene detections) from lg-server.
+/// `?asn=`/`?ip=`/`?mac=`/`?kind=`/`?protocol=` narrow, `?active=1` keeps only
+/// live events; `?limit=`/`?offset=` page.
+async fn get_lan_events(
     State(state): State<HttpState>,
-    Query(query): Query<NdEventQuery>,
+    Query(query): Query<LanEventQuery>,
 ) -> impl IntoResponse {
     let mut params: Vec<String> = Vec::new();
     if let Some(asn) = query.asn {
         params.push(format!("asn={asn}"));
     }
-    if let Some(ref ip) = query.ip {
-        // IP literals (incl. IPv6 colons) are query-safe; no reserved chars.
-        params.push(format!("ip={ip}"));
+    // Only pass through token-safe values; the string filters are all closed
+    // vocabularies (IP/MAC literals, catalog keys) so anything else is dropped.
+    let safe = |v: &str| v.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '.' | '_' | '-'));
+    for (name, value) in [
+        ("ip", query.ip.as_deref()),
+        ("mac", query.mac.as_deref()),
+        ("kind", query.kind.as_deref()),
+        ("protocol", query.protocol.as_deref()),
+        ("active", query.active.as_deref()),
+    ] {
+        if let Some(v) = value.filter(|v| !v.is_empty() && safe(v)) {
+            params.push(format!("{name}={v}"));
+        }
     }
     if let Some(limit) = query.limit {
         params.push(format!("limit={limit}"));
@@ -452,9 +468,9 @@ async fn get_nd_events(
         params.push(format!("offset={offset}"));
     }
     let path = if params.is_empty() {
-        "/rpc/v1/nd-events".to_string()
+        "/rpc/v1/lan-events".to_string()
     } else {
-        format!("/rpc/v1/nd-events?{}", params.join("&"))
+        format!("/rpc/v1/lan-events?{}", params.join("&"))
     };
     match state.rpc.get_json(&path).await {
         Ok(v) => Json(v).into_response(),
@@ -462,28 +478,28 @@ async fn get_nd_events(
     }
 }
 
-/// Proxy a single ND-anomaly event by id from lg-server.
-async fn get_nd_event_detail(
+/// Proxy a single LAN event by id from lg-server.
+async fn get_lan_event_detail(
     State(state): State<HttpState>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    match state.rpc.get_json(&format!("/rpc/v1/nd-events/{id}")).await {
+    match state.rpc.get_json(&format!("/rpc/v1/lan-events/{id}")).await {
         Ok(v) => Json(v).into_response(),
         Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
     }
 }
 
-/// Stream an ND-anomaly event's evidence pcap from lg-server (which in turn
+/// Stream a LAN event's evidence pcap from lg-server (which serves it inline or
 /// streams it from the sensor). Not buffered in memory.
-async fn get_nd_event_pcap(
+async fn get_lan_event_pcap(
     State(state): State<HttpState>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    match state.rpc.get_raw(&format!("/rpc/v1/nd-events/{id}/pcap")).await {
+    match state.rpc.get_raw(&format!("/rpc/v1/lan-events/{id}/pcap")).await {
         Ok(resp) => (
             [
                 ("content-type", "application/vnd.tcpdump.pcap".to_string()),
-                ("content-disposition", format!("attachment; filename=\"nd-event-{id}.pcap\"")),
+                ("content-disposition", format!("attachment; filename=\"lan-event-{id}.pcap\"")),
             ],
             axum::body::Body::from_stream(resp.bytes_stream()),
         )
@@ -650,9 +666,9 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/participant-ports", get(get_participant_ports))
         .route("/api/v1/ix-ip-assignments", get(get_ix_ip_assignments))
         .route("/api/v1/discovered-neighbors", get(get_discovered_neighbors))
-        .route("/api/v1/nd-events", get(get_nd_events))
-        .route("/api/v1/nd-events/{id}", get(get_nd_event_detail))
-        .route("/api/v1/nd-events/{id}/pcap", get(get_nd_event_pcap))
+        .route("/api/v1/lan-events", get(get_lan_events))
+        .route("/api/v1/lan-events/{id}", get(get_lan_event_detail))
+        .route("/api/v1/lan-events/{id}/pcap", get(get_lan_event_pcap))
         .route("/api/v1/netbox/status", get(get_netbox_status))
         .route("/api/v1/device-cache/status", get(get_device_cache_status))
         .route("/api/v1/peeringdb-cache", get(get_peeringdb_cache))

@@ -62,6 +62,20 @@ pub struct DiscoveredNeighborsConfig {
     /// for ≥2 distinct ASNs' IPs) always trigger regardless of this. Default 8.
     #[serde(default = "default_max_ips_per_mac")]
     pub max_ips_per_mac: u64,
+    /// Poll the sensor's `/bum` LAN-hygiene detections and record them as
+    /// durable `bum_protocol` events. Default true; set false to dry-run the
+    /// sensor (rows visible on the sensor only) while tuning `ignore_src_macs`.
+    #[serde(default = "default_true")]
+    pub bum_enabled: bool,
+    /// Liveness window (seconds) for `bum_protocol` events: a detection re-heard
+    /// within this long of the event's last sighting rolls into it, and an
+    /// event reads as closed once unheard for this long. Default 7200 (2 h).
+    #[serde(default = "default_bum_active_secs")]
+    pub bum_active_secs: u64,
+}
+
+fn default_bum_active_secs() -> u64 {
+    7200
 }
 
 fn default_max_ips_per_mac() -> u64 {

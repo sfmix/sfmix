@@ -110,7 +110,7 @@
         {% for p in entries %}
         <tr x-show="rowVisible($el)"
             class="pt-row transition-colors"
-            data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}"
+            data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}{% if p.hygiene_severity %} hygiene {{ p.hygiene_severity }}{% endif %}"
             data-sort-name="{{ p.name|lower }}"
             data-sort-asn="{{ p.asn }}"
             data-sort-v4="{{ p.v4_sort }}"
@@ -120,6 +120,7 @@
             data-sort-status="{{ p.status }}">
           <td class="pt-td">
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
+            {% if p.hygiene_severity %}<span class="nd-warn-flag{% if p.hygiene_severity == 'critical' %} nd-warn-flag-crit{% elif p.hygiene_severity == 'info' %} nd-warn-flag-info{% endif %}" title="{% blocktranslate count n=p.hygiene_count %}Sending {{ n }} protocol into the exchange LAN that does not belong there{% plural %}Sending {{ n }} protocols into the exchange LAN that do not belong there{% endblocktranslate %}">&#9888; {% translate "LAN" %}</span>{% endif %}
           </td>
           <td class="pt-td">
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-asn">AS{{ p.asn }}</a>
@@ -150,7 +151,7 @@
     {% for p in entries %}
     <div x-show="rowVisible($el)"
          class="bg-white border border-gray-200 rounded-lg p-4"
-         data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}"
+         data-search="as{{ p.asn }} {{ p.name|lower }} {{ p.v4 }} {{ p.v6 }} {{ p.speed|lower }} {{ p.site|lower }} {{ p.status|lower }}{% if p.hygiene_severity %} hygiene {{ p.hygiene_severity }}{% endif %}"
          data-sort-name="{{ p.name|lower }}"
          data-sort-asn="{{ p.asn }}"
          data-sort-v4="{{ p.v4_sort }}"
@@ -162,6 +163,7 @@
         <div>
           <div class="pt-card-name">
             <a href="{% url 'participant_detail' p.asn %}" class="lnk-name">{{ p.name }}</a>
+            {% if p.hygiene_severity %}<span class="nd-warn-flag{% if p.hygiene_severity == 'critical' %} nd-warn-flag-crit{% elif p.hygiene_severity == 'info' %} nd-warn-flag-info{% endif %}" title="{% blocktranslate count n=p.hygiene_count %}Sending {{ n }} protocol into the exchange LAN that does not belong there{% plural %}Sending {{ n }} protocols into the exchange LAN that do not belong there{% endblocktranslate %}">&#9888; {% translate "LAN" %}</span>{% endif %}
           </div>
           <a href="{% url 'participant_detail' p.asn %}" class="pt-card-asn lnk-asn">AS{{ p.asn }}</a>
         </div>

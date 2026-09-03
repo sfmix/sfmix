@@ -45,6 +45,37 @@ pub struct Config {
     /// Hard byte cap on saved evidence pcaps (oldest pruned first). Default 500 MiB.
     #[serde(default = "default_evidence_max_bytes")]
     pub evidence_max_bytes: u64,
+    /// How the AF_PACKET socket subscribes to frames: `promisc` (default; sees
+    /// everything incl. unknown-unicast flooding), `allmulti` (all broadcast +
+    /// multicast), or `unicast` (own-MAC/broadcast/joined-multicast only — the
+    /// pre-hygiene behaviour, useful as a load baseline). A kernel BPF prefilter
+    /// drops this host's own unicast IP traffic in every mode.
+    #[serde(default = "default_capture_mode")]
+    pub capture_mode: crate::afpacket::RxMode,
+    /// Seconds a `(src_mac, protocol)` hygiene row stays in `/bum` after it was
+    /// last heard. Default 7200 (2 h).
+    #[serde(default = "default_bum_ttl_secs")]
+    pub bum_ttl_secs: u64,
+    /// Per-source broadcast/multicast (or unknown-unicast) frames per second,
+    /// averaged over 60 s, above which a synthetic `bum_flood` /
+    /// `unknown_unicast_flood` detection is raised. Default 50.
+    #[serde(default = "default_bum_flood_pps")]
+    pub bum_flood_pps: u32,
+    /// Source MACs the hygiene classifier ignores entirely: SFMIX switch
+    /// SVIs/CPUs, the sibling route server, collectors. The capture interface's
+    /// own MAC is always ignored.
+    #[serde(default)]
+    pub ignore_src_macs: Vec<String>,
+}
+
+fn default_capture_mode() -> crate::afpacket::RxMode {
+    crate::afpacket::RxMode::Promisc
+}
+fn default_bum_ttl_secs() -> u64 {
+    7200
+}
+fn default_bum_flood_pps() -> u32 {
+    50
 }
 
 fn default_ring_buffer_secs() -> u64 {

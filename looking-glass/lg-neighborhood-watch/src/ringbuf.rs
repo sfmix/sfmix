@@ -92,6 +92,12 @@ impl<W: Write> PcapWriter<W> {
         Ok(())
     }
 
+    /// Finish writing and hand back the underlying writer (e.g. a `Vec<u8>`).
+    pub fn into_inner(mut self) -> W {
+        let _ = self.inner.flush();
+        self.inner
+    }
+
     pub fn flush(&mut self) -> std::io::Result<()> {
         self.inner.flush()
     }
