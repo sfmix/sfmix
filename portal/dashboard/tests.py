@@ -510,7 +510,7 @@ _NDEV = {
 }
 
 
-def _admin_request(path="/admin/lan-events/", admin=True):
+def _admin_request(path="/lan-events/", admin=True):
     req = RequestFactory().get(path)
     req.user = SimpleNamespace(is_authenticated=True)
     req.session = {"oidc_is_ix_admin": admin, "oidc_id_token": "tok"}
@@ -531,7 +531,7 @@ class LanEventsViewTests(SimpleTestCase):
         self.assertIn("new MAC", html)
         self.assertIn("2001:db8:0:1::10", html)      # per-IP subject
         self.assertIn("0200.5eaa.bbbb", html)         # sweep offending MAC
-        self.assertIn("/admin/lan-events/11111111-1111-4111-8111-111111111111/pcap/", html)  # ring evidence link
+        self.assertIn("/lan-events/11111111-1111-4111-8111-111111111111/pcap/", html)  # ring evidence link
         self.assertIn("active", html)                 # open event status
         # Hygiene event: protocol badge, catalog label, detail, remediation, inline evidence.
         self.assertIn("nd-kind-bum-critical", html)
@@ -539,14 +539,14 @@ class LanEventsViewTests(SimpleTestCase):
         self.assertIn("prefix 2001:db8:beef::/64", html)
         self.assertIn("<li><code>Arista: ipv6 nd ra disabled all</code></li>", html)
         self.assertIn("<li><code>Cisco: ipv6 nd ra suppress all</code></li>", html)
-        self.assertIn("/admin/lan-events/44444444-4444-4444-8444-444444444444/pcap/", html)
+        self.assertIn("/lan-events/44444444-4444-4444-8444-444444444444/pcap/", html)
 
     @mock.patch("dashboard.views.LookingGlassClient")
     def test_filters_are_validated_and_passed_through(self, MockLG):
         inst = MockLG.return_value
         inst.base_url = "http://lg"
         inst.get_lan_events.return_value = {"events": []}
-        req = _admin_request("/admin/lan-events/?kind=bum_protocol&protocol=ipv6_ra&active=1&mac=AA:BB:CC:DD:EE:FF&asn=64496")
+        req = _admin_request("/lan-events/?kind=bum_protocol&protocol=ipv6_ra&active=1&mac=AA:BB:CC:DD:EE:FF&asn=64496")
         resp = views.lan_events(req)
         self.assertEqual(resp.status_code, 200)
         kwargs = inst.get_lan_events.call_args.kwargs
@@ -556,13 +556,34 @@ class LanEventsViewTests(SimpleTestCase):
         self.assertEqual(kwargs["mac"], "aa:bb:cc:dd:ee:ff")
         self.assertEqual(kwargs["asn"], 64496)
         # Unknown kind/protocol values are dropped rather than forwarded.
-        views.lan_events(_admin_request("/admin/lan-events/?kind=bogus&protocol=../etc"))
+        views.lan_events(_admin_request("/lan-events/?kind=bogus&protocol=../etc"))
         kwargs = inst.get_lan_events.call_args.kwargs
         self.assertIsNone(kwargs["kind"])
         self.assertIsNone(kwargs["protocol"])
 
-    def test_non_admin_is_forbidden(self):
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_public_listing_hides_pcap_links(self, MockLG):
+        inst = MockLG.return_value
+        inst.base_url = "http://lg"
+        inst.get_lan_events.return_value = _NDEV
+        # Non-admin (and anonymous) visitors see the events but no evidence links.
         resp = views.lan_events(_admin_request(admin=False))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn("IPv6 Router Advertisement", html)
+        self.assertNotIn("/pcap/", html)
+        anon = RequestFactory().get("/lan-events/")
+        anon.user = SimpleNamespace(is_authenticated=False)
+        anon.session = {}
+        resp = views.lan_events(anon)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("/pcap/", resp.content.decode())
+        self.assertIsNone(inst.get_lan_events.call_args.kwargs["token"])
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_pcap_is_admin_only(self, MockLG):
+        MockLG.return_value.base_url = "http://lg"
+        resp = views.lan_event_pcap(_admin_request(admin=False), "11111111-1111-4111-8111-111111111111")
         self.assertEqual(resp.status_code, 403)
 
     @mock.patch("dashboard.views.LookingGlassClient")

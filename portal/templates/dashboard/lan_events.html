@@ -3,14 +3,14 @@
 {% block title %}{% translate "LAN Events" %} – SFMIX Portal{% endblock %}
 
 {% comment %}
-Wider than the default max-w-5xl so the 8-column table isn't forced into a
+Wider than the default max-w-5xl so the wide table isn't forced into a
 horizontal scroll on large displays.
 {% endcomment %}
 {% block container_class %}max-w-[1800px]{% endblock %}
 
 {% block content %}
 <div class="mb-4">
-  <a href="/" class="back-link text-sm">&larr; {% translate "Back to dashboard" %}</a>
+  <a href="{% url 'participants_list' %}" class="back-link text-sm">&larr; {% translate "Back to participants" %}</a>
 </div>
 
 <h1 class="page-title text-2xl font-bold mb-2">{% translate "LAN Events" %}</h1>
@@ -121,7 +121,7 @@ horizontal scroll on large displays.
               :class="sortCol === 'status' ? 'text-gray-900' : ''" @click="sortBy('status')">
             {% translate "Status" %}<span class="sort-indicator text-xs ml-1" x-text="indicator('status')"></span>
           </th>
-          <th class="px-4 py-2 font-medium">{% translate "Evidence" %}</th>
+          {% if is_ix_admin %}<th class="px-4 py-2 font-medium">{% translate "Evidence" %}</th>{% endif %}
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
@@ -188,11 +188,13 @@ horizontal scroll on large displays.
             {% endif %}
             {% if ev.last_seen_ago %}<div class="text-[11px] text-gray-400">{% blocktranslate with a=ev.last_seen_ago %}last {{ a }} ago{% endblocktranslate %}</div>{% endif %}
           </td>
+          {% if is_ix_admin %}
           <td class="px-4 py-2 text-xs">
             {% if ev.evidence_id or ev.has_evidence %}
             <a href="{% url 'lan_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a>
             {% else %}<span class="text-gray-300">—</span>{% endif %}
           </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
@@ -271,7 +273,7 @@ horizontal scroll on large displays.
         </div>
         <div><span class="text-gray-400">{% translate "Opened" %}</span> <span class="text-gray-700">{{ ev.opened_display|default:"—" }}</span></div>
         <div><span class="text-gray-400">{% translate "Count" %}</span> <span class="text-gray-700">{{ ev.flap_count|default:"—" }}</span></div>
-        {% if ev.evidence_id or ev.has_evidence %}
+        {% if is_ix_admin and ev.evidence_id or is_ix_admin and ev.has_evidence %}
         <div class="col-span-2"><span class="text-gray-400">{% translate "Evidence" %}</span> <a href="{% url 'lan_event_pcap' ev.id %}" class="back-link">{% translate "pcap" %}</a></div>
         {% endif %}
       </div>

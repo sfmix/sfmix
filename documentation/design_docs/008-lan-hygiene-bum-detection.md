@@ -33,8 +33,8 @@ with BIRD, so it must stay receive-only, bounded, and cheap under a flood.
    falling back to the MAC's own ARP/NDP sightings on assigned IPs.
 3. Durable events with a two-hour liveness window, a bounded set of sanitized sample details
    (advertised prefix, MikroTik identity, …), and the first frames as evidence.
-4. Public participant-page banners with the fix; an admin event log with filters; Slack alerts
-   for the critical class only.
+4. Public participant-page banners with the fix and a public event log with filters (evidence
+   pcaps stay admin-only); Prometheus metrics for the sensor and detections.
 5. Host sympathy: in-kernel prefilter, bounded tables, per-second rate sampling, drop counters,
    and an alert when the kernel starts dropping frames.
 
@@ -80,12 +80,12 @@ with BIRD, so it must stay receive-only, bounded, and cheap under a flood.
                │ HTTPS (OIDC bearer; listing is also anonymous-safe)
                ▼
 ┌────────────────────────────────────────────────────────────────┐
-│ portal   Admin ▸ LAN Events (kind/protocol/MAC/active filters) │
+│ portal   LAN Events, public (kind/protocol/MAC/active filters)  │
 │          participant page: public hygiene banners + fix        │
 │          participants list: ⚠ LAN badge per network            │
 └────────────────────────────────────────────────────────────────┘
  Prometheus (metrics.sfo02) scrapes 10.1.1.18:29185 → lan-hygiene.rules.yml
-   → Alertmanager → #networkalerts (critical protocols, capture drops, sensor down)
+   → Alertmanager → #networkalerts (sensor health only; detection alerting is commented out)
 ```
 
 ## Components
@@ -162,9 +162,11 @@ portal never carry a copy. `EVENT_KIND_BUM_PROTOCOL = "bum_protocol"`.
 
 ### Portal
 
-- **Admin ▸ LAN Events** (`/admin/lan-events/`, née ND Events): kind, protocol, IP, MAC, ASN and
-  "active only" filters carried through paging; hygiene rows show a severity-toned protocol badge,
-  the catalog label, sample details, the fix, and a pcap link when inline evidence exists.
+- **LAN Events** (`/lan-events/`, public, née the admin ND Events page): kind, protocol, IP, MAC,
+  ASN and "active only" filters carried through paging; hygiene rows show a severity-toned protocol
+  badge, the catalog label, sample details and the fix as one line per vendor. The evidence pcap
+  column and download (`/lan-events/{id}/pcap/`) render only for IX admins. Public so a participant
+  can follow the banner on their own page to the full record.
 - **Participant page** (public): one banner per active protocol, ordered critical → warning →
   info, with why-it-matters, sample details, the remediation as code, source MAC(s), last heard and
   frame count; a sticky-bar chip counts the issues. Visible to anyone.
@@ -260,7 +262,7 @@ deserialize unchanged. Example:
 | lg-server `GET /rpc/v1/lan-events` | X-RPC-Secret | list; `?asn ?ip ?mac ?kind ?protocol ?active=1 ?limit ?offset` |
 | lg-server `GET /rpc/v1/lan-events/{id}[/pcap]` | X-RPC-Secret | one event / its pcap |
 | lg-http `GET /api/v1/lan-events[/{id}[/pcap]]` | OIDC bearer | portal-facing proxy |
-| portal `/admin/lan-events/[{id}/pcap/]` | session (IX admin) | UI + download |
+| portal `/lan-events/` | public | UI; `/lan-events/{id}/pcap/` download is IX-admin only |
 | portal `/participants/<asn>/`, `/participants/` | public | hygiene banners / badges |
 
 ## Configuration reference
@@ -284,7 +286,10 @@ lg-server (`discovered:`):
 Ansible: `sfmix_route_server_linux_lg_neighborhood_watch_{capture_mode,bum_ttl_secs,bum_flood_pps,ignore_src_macs}`
 (role defaults + `group_vars/rs_linux.yml`), `looking_glass_discovered_{bum_enabled,bum_active_secs}`
 (`group_vars/looking_glass_rust.yml`, **currently `bum_enabled: false`** for the dry run),
-Prometheus job `lg-neighborhood-watch` + `rules/lan-hygiene.rules.yml.j2`.
+Prometheus job `lg-neighborhood-watch` + `rules/lan-hygiene.rules.yml.j2`. The per-detection
+alert (`IxLanCriticalProtocolSeen`) is **commented out**: with a dozen-plus RA senders at any time
+it is a standing condition, not an incident, and paged too much; only the sensor-health alerts
+(`NeighwatchCaptureDrops`, `NeighwatchDown`) are active.
 
 ## Deployment & rollout
 
@@ -303,7 +308,8 @@ Staged, deliberately slow:
    server to appear; collect those MACs into `ignore_src_macs`. Sanity-check the RA sender set
    against a manual tcpdump on the sensor host.
 3. **Enable.** Deploy Prometheus (scrape + rules), flip `bum_enabled: true`, deploy lg-server,
-   then the portal. Events, banners and Slack alerts go live together.
+   then the portal. Events and banners go live together; re-enable the detection alert only once
+   the fabric is clean enough that a new critical source is worth a page.
 
 ## Security & safety
 
@@ -326,7 +332,7 @@ Staged, deliberately slow:
 
 - **Is it working?** Sensor `/healthz` shows `capture_mode` and `bum_rows`; `/bum` lists rows;
   Prometheus `neighwatch_bum_sources`; `show lan-events` on the LG; portal Admin ▸ LAN Events with
-  kind = LAN hygiene.
+  kind = LAN hygiene (public page).
 - **A detection is SFMIX infrastructure.** Add the MAC to
   `sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs`, redeploy the sensor. MACs
   learned on NetBox admin-only ports are already suppressed by `attribute_mac`.
