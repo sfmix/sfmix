@@ -260,6 +260,10 @@ msgstr "Dip"
 msgid "Sign in"
 msgstr "Pull up"
 
+#: templates/base.html
+msgid "Toggle dark mode"
+msgstr "flip the lights 🌙"
+
 #: templates/base.html:91
 msgid "Change language"
 msgstr "Switch the lingo"
