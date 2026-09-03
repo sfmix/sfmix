@@ -153,8 +153,13 @@ its action buttons.
       {% for d in issue.details %}<li class="font-mono text-[11px]">{{ d }}</li>{% endfor %}
     </ul>
     {% endif %}
-    {% if issue.remediation %}
-    <div class="mt-1"><b>{% translate "How to fix:" %}</b> <code class="text-[11px]">{{ issue.remediation }}</code></div>
+    {% if issue.remediation_steps %}
+    <div class="nd-fix">
+      <b>{% translate "How to fix" %}</b>
+      <ul class="nd-fix-list">
+        {% for step in issue.remediation_steps %}<li><code>{{ step }}</code></li>{% endfor %}
+      </ul>
+    </div>
     {% endif %}
     <span class="nd-alert-where" style="opacity:1">
       {% blocktranslate with macs=issue.macs|join:", " %}Source MAC: {{ macs }}{% endblocktranslate %}

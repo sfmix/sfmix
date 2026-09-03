@@ -162,7 +162,7 @@ horizontal scroll on large displays.
             {% if ev.is_bum %}
             <div class="text-gray-900">{{ ev.label|default:ev.protocol }}</div>
             {% for d in ev.detail %}<div class="font-mono text-[11px] text-gray-500 break-all max-w-md">{{ d }}</div>{% endfor %}
-            {% if ev.remediation %}<div class="text-[11px] text-gray-500 mt-0.5 max-w-md"><span class="text-gray-400">{% translate "Fix:" %}</span> {{ ev.remediation }}</div>{% endif %}
+            {% if ev.remediation_steps %}<ul class="nd-fix-list nd-fix-list-compact max-w-md">{% for step in ev.remediation_steps %}<li><code>{{ step }}</code></li>{% endfor %}</ul>{% endif %}
             {% elif ev.is_reflection %}
             <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP reflected{% plural %}{{ n }} IPs reflected{% endblocktranslate %}</span>
             <div class="font-mono text-[11px] text-gray-500 break-all max-w-md">{{ ev.claimed_ips|join:", " }}</div>
@@ -256,7 +256,7 @@ horizontal scroll on large displays.
           {% if ev.is_bum %}
           <span class="text-gray-900">{{ ev.label|default:ev.protocol }}</span>
           {% for d in ev.detail %}<span class="font-mono text-[11px] text-gray-500 break-all block">{{ d }}</span>{% endfor %}
-          {% if ev.remediation %}<span class="text-[11px] text-gray-500 block"><span class="text-gray-400">{% translate "Fix:" %}</span> {{ ev.remediation }}</span>{% endif %}
+          {% if ev.remediation_steps %}<ul class="nd-fix-list nd-fix-list-compact">{% for step in ev.remediation_steps %}<li><code>{{ step }}</code></li>{% endfor %}</ul>{% endif %}
           {% elif ev.is_reflection %}
           <span class="text-gray-600">{% blocktranslate count n=ev.claimed_ips|length %}{{ n }} IP reflected{% plural %}{{ n }} IPs reflected{% endblocktranslate %}</span>
           <span class="font-mono text-[11px] text-gray-500 break-all">{{ ev.claimed_ips|join:", " }}</span>

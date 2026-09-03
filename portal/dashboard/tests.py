@@ -537,7 +537,8 @@ class LanEventsViewTests(SimpleTestCase):
         self.assertIn("nd-kind-bum-critical", html)
         self.assertIn("IPv6 Router Advertisement", html)
         self.assertIn("prefix 2001:db8:beef::/64", html)
-        self.assertIn("ipv6 nd ra disabled all", html)
+        self.assertIn("<li><code>Arista: ipv6 nd ra disabled all</code></li>", html)
+        self.assertIn("<li><code>Cisco: ipv6 nd ra suppress all</code></li>", html)
         self.assertIn("/admin/lan-events/44444444-4444-4444-8444-444444444444/pcap/", html)
 
     @mock.patch("dashboard.views.LookingGlassClient")
@@ -603,6 +604,12 @@ class HygieneIssuesTests(SimpleTestCase):
         self.assertEqual(ra["count"], 7)
         self.assertTrue(ra["has_evidence"])
         self.assertEqual(ra["remediation"], "ipv6 nd ra disabled all")
+        self.assertEqual(ra["remediation_steps"], ["ipv6 nd ra disabled all"])
+        self.assertEqual(
+            views._remediation_steps("Arista: a b; Cisco: c d;  Junos: e "),
+            ["Arista: a b", "Cisco: c d", "Junos: e"],
+        )
+        self.assertEqual(views._remediation_steps(None), [])
         self.assertTrue(ra["last_seen_ago"])
         self.assertEqual(issues[1]["severity_class"], "warning")
         self.assertEqual(views._hygiene_issues_from_events([]), [])

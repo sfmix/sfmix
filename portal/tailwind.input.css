@@ -367,6 +367,14 @@ body {
 .nd-kind-bum-critical { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
 .nd-kind-bum-warning { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
 .nd-kind-bum-info { color: #075985; background: #f0f9ff; border: 1px solid #bae6fd; }
+/* "How to fix" panel: one row per vendor, each its own bordered code line, so
+   the remediation reads as a checklist rather than a run-on paragraph. */
+.nd-fix { margin-top: .6rem; padding-top: .5rem; border-top: 1px solid rgba(0,0,0,.08); }
+.nd-fix > b { display: block; font-weight: 600; margin-bottom: .3rem; }
+.nd-fix-list { display: flex; flex-direction: column; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.nd-fix-list li code { display: block; font-size: .72rem; line-height: 1.35; padding: .3rem .5rem; border-radius: 4px; background: rgba(255,255,255,.7); border: 1px solid rgba(0,0,0,.08); color: #1f2937; overflow-wrap: anywhere; }
+.nd-fix-list-compact { gap: .2rem; margin-top: .25rem; }
+.nd-fix-list-compact li code { font-size: .68rem; padding: .2rem .4rem; background: #f9fafb; border-color: #e5e7eb; color: #374151; }
 
 /* Route-server table (L4) */
 .nd-rs-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
