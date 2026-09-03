@@ -30,8 +30,10 @@ sfmix_route_server_linux_lg_neighborhood_watch_evidence_dir: "/var/lib/lg-neighb
 # peering-switch SVI/system MACs on the IX VLAN and the sibling route server.
 # Populate from `show interfaces vlan <ix>` / `show version` on each switch and
 # `ip link` on rs2 during the dry-run week (lg-server `bum_enabled: false`),
-# using the /bum rows that show up as a checklist. Empty until then.
-sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs: []
+# using the /bum rows that show up as a checklist.
+sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs:
+  - "98:5d:82:3b:f3:06"   # Arista peering switch: PVST+ BPDUs on VLAN 999 (seen 2026-09-03)
+  - "06:c6:aa:af:d4:11"   # pve01-paulave200-sfo.sfmix.org hypervisor: LLDP (seen 2026-09-03)
 # Same shared RPC secret as alice's lg-server (decrypts with the same vault key).
 sfmix_route_server_linux_lg_neighborhood_watch_rpc_secret: !vault |
           $ANSIBLE_VAULT;1.1;AES256
