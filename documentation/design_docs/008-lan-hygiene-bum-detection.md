@@ -331,7 +331,7 @@ Staged, deliberately slow:
 ## Operations
 
 - **Is it working?** Sensor `/healthz` shows `capture_mode` and `bum_rows`; `/bum` lists rows;
-  Prometheus `neighwatch_bum_sources`; `show lan-events` on the LG; portal Admin ▸ LAN Events with
+  Prometheus `neighwatch_bum_sources`; `show lan-events` on the LG; the portal LAN Events page with
   kind = LAN hygiene (public page).
 - **A detection is SFMIX infrastructure.** Add the MAC to
   `sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs`, redeploy the sensor. MACs
