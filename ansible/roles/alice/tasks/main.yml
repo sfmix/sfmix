@@ -117,3 +117,16 @@
         group: root
         mode: "0644"
       notify: Reload nginx
+
+    # Pre-2026-04 versions of this role wrote the Alice vhost via geerlingguy's
+    # nginx_vhosts into sites-enabled/. Those files duplicate the server_name
+    # now defined in conf.d/vhosts.conf; nginx ignores them with a
+    # "conflicting server name" warning, but they are misleading to operators.
+    - name: "Remove stale sites-enabled Alice vhost files"
+      ansible.builtin.file:
+        path: "/etc/nginx/sites-enabled/{{ item }}"
+        state: absent
+      loop:
+        - "{{ alice_domain }}.conf"
+        - "{{ alice_domain }}.conf.bak"
+      notify: Reload nginx

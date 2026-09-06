@@ -23,6 +23,16 @@ alice_git_repo_url: "https://github.com/jof/alice-lg.git"
 alice_theme_repo_url: https://github.com/sfmix/alice-theme
 alice_theme_repo_version: sfmix
 
+# A cold load of the Alice SPA issues ~20 requests within about a second
+# (shell, theme CSS/JS, three fonts, three images, manifest, config, then
+# routeservers + four status calls). Static assets carry no cache headers, so
+# every visit is a cold load. With the role default burst=12, requests 13+ get
+# a 503; when that lands on /api/v1/config the UI renders as broken. Match the
+# lg-ng vhost: a large no-delay burst so one page fan-out clears immediately,
+# while the zone still caps sustained abuse at 5r/s.
+alice_rate_limit_burst: 40
+alice_rate_limit_nodelay: true
+
 # Additional nginx vhosts on this host
 alice_additional_vhosts:
   - domain: lg-ng.sfmix.org

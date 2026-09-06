@@ -19,7 +19,7 @@ server {
     ssl_dhparam /etc/ssl/certs/dhparam.pem;
 
     location / {
-        limit_req zone=ip burst=12 delay=8;
+        limit_req zone=ip burst={{ alice_rate_limit_burst }}{% if alice_rate_limit_nodelay %} nodelay{% else %} delay={{ alice_rate_limit_delay }}{% endif %};
         proxy_pass http://127.0.0.1:7340;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
