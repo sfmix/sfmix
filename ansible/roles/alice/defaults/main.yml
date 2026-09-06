@@ -3,6 +3,12 @@ alice_git_repo_version: "6.0.0"
 alice_git_repo_url: "https://github.com/alice-lg/alice-lg.git"
 
 alice_domain: alice.sfmix.org
+# Per-IP request limiting for the Alice vhost (zone "ip" is 5r/s, defined in
+# the nginx http block). burst = how many requests above the rate a single
+# client may have in flight before nginx answers 503.
+alice_rate_limit_burst: 12
+alice_rate_limit_delay: 8
+alice_rate_limit_nodelay: false
 alice_config_file: /opt/alice/alice.conf
 alice_theme_directory: /opt/alice/theme
 alice_theme_repo_url: https://github.com/alice-lg/alice-theme-example
