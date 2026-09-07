@@ -9,6 +9,15 @@ alice_domain: alice.sfmix.org
 alice_rate_limit_burst: 12
 alice_rate_limit_delay: 8
 alice_rate_limit_nodelay: false
+
+# Paths crawlers are told to stay out of (served as /robots.txt by nginx).
+alice_robots_disallow:
+  - /search
+  - /api/
+  - /routeservers/
+# Browser cache lifetime for theme and font assets (seconds). /static/ is
+# content-hashed and always cached for a year.
+alice_static_cache_max_age: 604800
 alice_config_file: /opt/alice/alice.conf
 alice_theme_directory: /opt/alice/theme
 alice_theme_repo_url: https://github.com/alice-lg/alice-theme-example
