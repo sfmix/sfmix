@@ -73,15 +73,19 @@ embedded outpost on `login.sfmix.org` terminates the session and reverse-proxies
 to the internal service. Authorization is the same shared admin-group policy
 Grafana uses.
 
-1. Add an `authentik_provider_proxy` in `providers.tf` (`mode = "proxy"`,
-   `external_host` = the public name, `internal_host` = the upstream URL)
-2. Add an `authentik_application` in `applications.tf`
-3. Bind `authentik_policy_expression.require_admin_group` to it in `policies.tf`
-4. Add the provider to `authentik_outpost.embedded` in `outposts.tf`
-5. Outside terraform: a CNAME to `login` in the `sfmix_dns` zone, and the
+1. Add an entry to `var.proxied_apps` in `variables.tf` (key = slug and
+   `<key>.sfmix.org` hostname; `internal_host` = the upstream URL). The
+   provider, application, admin-group binding and outpost membership are all
+   derived from that map.
+2. Outside terraform: a CNAME to `login` in the `sfmix_dns` zone, the
    hostname in `authentik_proxied_hosts` (ansible role `authentik`), which
-   renders the nginx vhost and obtains the cert. Then
-   `terraform apply` and `ansible-playbook deploy_login.playbook.yml`.
+   renders the nginx vhost and obtains the cert, and the name in
+   `blackbox_tls_targets` (metrics group_vars).
+3. `terraform apply`, then add `import` blocks for the new provider
+   (numeric id), application (slug) and binding (uuid) so the next
+   fresh-state run imports rather than re-creates them.
+4. Push DNS (`push_servers.playbook.yml --tags dns`) before
+   `deploy_login.playbook.yml`, so certbot's challenge resolves.
 
 ### Importing a resource created in the UI
 

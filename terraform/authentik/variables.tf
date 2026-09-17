@@ -37,14 +37,30 @@ variable "admin_group_name" {
   default     = "IX Administrators"
 }
 
-variable "alertmanager_external_host" {
-  description = "Public URL the Alertmanager proxy is served on (nginx vhost on login.sfmix.org)"
-  type        = string
-  default     = "https://alertmanager.sfmix.org"
-}
-
-variable "alertmanager_internal_url" {
-  description = "Alertmanager upstream the embedded outpost proxies to (metrics host; ufw there allows login's /27)"
-  type        = string
-  default     = "http://metrics.sfo02.sfmix.org:9093"
+# Internal tools with no auth of their own, exposed through the embedded
+# outpost on login.sfmix.org and restricted to the admin group. The key is
+# the application slug and the public hostname's first label
+# (<key>.sfmix.org); it must also appear in ansible `authentik_proxied_hosts`
+# and as a CNAME to login in the sfmix_dns zone. Upstreams are on the metrics
+# host, whose ufw allows login's /27.
+variable "proxied_apps" {
+  description = "Admin-only apps served by the embedded outpost: slug => {name, internal_host}"
+  type = map(object({
+    name          = string
+    internal_host = string
+  }))
+  default = {
+    alertmanager = {
+      name          = "Alertmanager"
+      internal_host = "http://metrics.sfo02.sfmix.org:9093"
+    }
+    prometheus = {
+      name          = "Prometheus"
+      internal_host = "http://metrics.sfo02.sfmix.org:9090"
+    }
+    sflow-rt = {
+      name          = "sFlow-RT"
+      internal_host = "http://metrics.sfo02.sfmix.org:8008"
+    }
+  }
 }

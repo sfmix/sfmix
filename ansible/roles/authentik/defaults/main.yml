@@ -4,9 +4,12 @@ authentik_domain: login.sfmix.org
 # terraform/authentik/outposts.tf). Each gets its own nginx vhost and Let's
 # Encrypt cert on this host, all proxied to the same :9000 listener as
 # authentik itself; the outpost picks the provider by Host header. DNS for each
-# name must point at this host (sfmix_dns zones/sfmix.org.j2).
+# name must point at this host (sfmix_dns zones/sfmix.org.j2). Keep in step
+# with var.proxied_apps in terraform/authentik/variables.tf.
 authentik_proxied_hosts:
   - alertmanager.sfmix.org
+  - prometheus.sfmix.org
+  - sflow-rt.sfmix.org
 
 authentik_authentik:
   postgres_password: authentik
