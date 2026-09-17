@@ -204,7 +204,10 @@ groups:
   # `dashboard` deep-links into the Optical Degradation dashboard with the
   # switch/port pre-selected and a 90-day window — wire it into the
   # Alertmanager notification template when Alertmanager lands.
+  # 5m: every alert here holds `for` 2h-6h, so the 15s global interval buys
+  # nothing and the 30d predict_linear across ~660 lanes costs ~13s per eval.
   - name: sfmix-optics-alerts
+    interval: 5m
     rules:
       - alert: OpticRxPowerDegraded30d
         expr: >
