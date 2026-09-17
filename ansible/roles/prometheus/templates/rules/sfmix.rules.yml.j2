@@ -172,6 +172,9 @@ groups:
   # Lane sub-interfaces (Et5/2..4) have no ifOperStatus of their own; they
   # inherit their parent's (<port>/1), same mapping as the recording rules.
   # 31d covers the 30d-offset comparisons plus their 24h averaging window.
+  # Consumers wrap it in last_over_time(...[1h]): the group evaluates every
+  # 15m and PromQL's 5m staleness would otherwise leave the gate empty for
+  # two-thirds of each cycle.
   - name: sfmix-optics-link-stability
     interval: 15m
     rules:
@@ -215,7 +218,7 @@ groups:
             avg_over_time(sfmix:optic_rx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_rx_dbm:1h[24h] offset 30d)
           ) < -2
-          unless on (host, ifname) sfmix:optic_link_flapped:31d
+          unless on (host, ifname) last_over_time(sfmix:optic_link_flapped:31d[1h])
         for: 6h
         labels: {severity: warning, component: optics}
         annotations:
@@ -236,7 +239,7 @@ groups:
             avg_over_time(sfmix:optic_tx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_tx_dbm:1h[24h] offset 30d)
           ) < -2
-          unless on (host, ifname) sfmix:optic_link_flapped:31d
+          unless on (host, ifname) last_over_time(sfmix:optic_link_flapped:31d[1h])
         for: 6h
         labels: {severity: warning, component: optics}
         annotations:
@@ -256,7 +259,7 @@ groups:
             avg_over_time(sfmix:optic_rx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_rx_dbm:1h[24h] offset 7d)
           ) < -3
-          unless on (host, ifname) sfmix:optic_link_flapped:31d
+          unless on (host, ifname) last_over_time(sfmix:optic_link_flapped:31d[1h])
         for: 2h
         labels: {severity: warning, component: optics}
         annotations:
@@ -276,7 +279,7 @@ groups:
             avg_over_time(sfmix:optic_tx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_tx_dbm:1h[24h] offset 7d)
           ) < -3
-          unless on (host, ifname) sfmix:optic_link_flapped:31d
+          unless on (host, ifname) last_over_time(sfmix:optic_link_flapped:31d[1h])
         for: 2h
         labels: {severity: warning, component: optics}
         annotations:
@@ -296,7 +299,7 @@ groups:
             - avg_over_time(sfmix:optic_rx_dbm:1h[6h])
           ) < -3
           and count_over_time(sfmix:optic_rx_dbm:1h[30d]) >= 20160
-          unless on (host, ifname) sfmix:optic_link_flapped:31d
+          unless on (host, ifname) last_over_time(sfmix:optic_link_flapped:31d[1h])
         for: 6h
         labels: {severity: info, component: optics}
         annotations:
@@ -318,7 +321,7 @@ groups:
             - avg_over_time(sfmix:optic_tx_dbm:1h[6h])
           ) < -3
           and count_over_time(sfmix:optic_tx_dbm:1h[30d]) >= 20160
-          unless on (host, ifname) sfmix:optic_link_flapped:31d
+          unless on (host, ifname) last_over_time(sfmix:optic_link_flapped:31d[1h])
         for: 6h
         labels: {severity: info, component: optics}
         annotations:
