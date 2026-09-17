@@ -161,6 +161,34 @@ groups:
             ),
             "parent", "", "", "")
 
+  # Link-stability gate for the drift alerts below. A link flap inside the
+  # comparison window almost always means the far end changed something
+  # (device/optic swap, patch re-seat) — the RX level steps to a new,
+  # perfectly healthy baseline and a two-point or linear-fit comparison
+  # reads that as "degradation" (switch04.sjc01 Et5, Cloudflare Arista ->
+  # Juniper swap 2026-09-09). We only want slow drift toward a real failure,
+  # so any lane whose parent port changed ifOperStatus in the window is
+  # excluded until the window rolls past the event.
+  # Lane sub-interfaces (Et5/2..4) have no ifOperStatus of their own; they
+  # inherit their parent's (<port>/1), same mapping as the recording rules.
+  # 31d covers the 30d-offset comparisons plus their 24h averaging window.
+  - name: sfmix-optics-link-stability
+    interval: 15m
+    rules:
+      - record: sfmix:optic_link_flapped:31d
+        expr: >
+          count by (host, device, site, ifname) (
+            label_replace(
+              label_replace(
+                (sfmix:optic_rx_dbm:1h or sfmix:optic_tx_dbm:1h),
+                "parent", "$1", "ifname", "(.+)"),
+              "parent", "$1/1", "ifname", "(.+)/[0-9]+")
+            and on (host, parent)
+              (label_replace(
+                 max by (host, ifname) (changes(ifOperStatus[31d])),
+                 "parent", "$1", "ifname", "(.+)") > 0)
+          )
+
   # Slow-degradation alerts. All are RELATIVE (drift against the lane's own
   # baseline) so they need no per-optic-type IEEE floor and work identically
   # on every media type. RX drift = dirt/stress/aging on the inbound path;
@@ -168,6 +196,8 @@ groups:
   # A lane that goes fully dark stops producing samples, so the current-side
   # window empties and these alerts resolve rather than masquerade as a
   # link-down alert.
+  # Every alert is gated on sfmix:optic_link_flapped:31d (above): a link
+  # flap in the window means a step, not drift, and steps are not alerted.
   # The 30d alerts self-gate on history (the offset window is empty until
   # 30 days of data exist); the projection alerts gate explicitly on ≥14d
   # of samples so a few days of noisy slope can't fire them.
@@ -182,6 +212,7 @@ groups:
             avg_over_time(sfmix:optic_rx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_rx_dbm:1h[24h] offset 30d)
           ) < -2
+          unless on (host, ifname) sfmix:optic_link_flapped:31d
         for: 6h
         labels: {severity: warning, component: optics}
         annotations:
@@ -202,6 +233,7 @@ groups:
             avg_over_time(sfmix:optic_tx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_tx_dbm:1h[24h] offset 30d)
           ) < -2
+          unless on (host, ifname) sfmix:optic_link_flapped:31d
         for: 6h
         labels: {severity: warning, component: optics}
         annotations:
@@ -221,6 +253,7 @@ groups:
             avg_over_time(sfmix:optic_rx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_rx_dbm:1h[24h] offset 7d)
           ) < -3
+          unless on (host, ifname) sfmix:optic_link_flapped:31d
         for: 2h
         labels: {severity: warning, component: optics}
         annotations:
@@ -240,6 +273,7 @@ groups:
             avg_over_time(sfmix:optic_tx_dbm:1h[24h])
             - avg_over_time(sfmix:optic_tx_dbm:1h[24h] offset 7d)
           ) < -3
+          unless on (host, ifname) sfmix:optic_link_flapped:31d
         for: 2h
         labels: {severity: warning, component: optics}
         annotations:
@@ -259,6 +293,7 @@ groups:
             - avg_over_time(sfmix:optic_rx_dbm:1h[6h])
           ) < -3
           and count_over_time(sfmix:optic_rx_dbm:1h[30d]) >= 20160
+          unless on (host, ifname) sfmix:optic_link_flapped:31d
         for: 6h
         labels: {severity: info, component: optics}
         annotations:
@@ -280,6 +315,7 @@ groups:
             - avg_over_time(sfmix:optic_tx_dbm:1h[6h])
           ) < -3
           and count_over_time(sfmix:optic_tx_dbm:1h[30d]) >= 20160
+          unless on (host, ifname) sfmix:optic_link_flapped:31d
         for: 6h
         labels: {severity: info, component: optics}
         annotations:
