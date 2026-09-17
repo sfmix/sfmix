@@ -1,0 +1,67 @@
+---
+# nginx vhosts + certs for hostnames served by authentik's embedded outpost
+# (see defaults: authentik_proxied_hosts). Runs after authentik's own vhost is
+# up, so nginx is already serving :80 for the ACME webroot.
+#
+# Two-pass template, like the main vhost: first render HTTPS blocks only for
+# hosts that already have a cert (so certbot's webroot challenge can be answered
+# for the rest), then issue the certs, then re-render with HTTPS for all.
+# The host list is passed as a task var each time, NOT set_fact: a fact would
+# outrank the second pass's override and leave the HTTPS block unrendered.
+
+- name: "Proxied hosts: check which certs already exist"
+  become: true
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ item }}/fullchain.pem"
+  loop: "{{ authentik_proxied_hosts }}"
+  register: _authentik_proxied_certs
+
+- name: "Proxied hosts: place nginx config (pre-cert pass)"
+  become: true
+  vars:
+    authentik_proxied_https_hosts: >-
+      {{ _authentik_proxied_certs.results
+         | selectattr('stat.exists') | map(attribute='item') | list }}
+  ansible.builtin.template:
+    src: authentik-proxied.conf.j2
+    dest: /etc/nginx/sites-available/authentik-proxied.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: "Proxied hosts: enable nginx site"
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/authentik-proxied.conf
+    dest: /etc/nginx/sites-enabled/authentik-proxied.conf
+    state: link
+  notify: Reload nginx
+
+- name: "Proxied hosts: reload nginx before requesting certs"
+  ansible.builtin.meta: flush_handlers
+
+- name: "Proxied hosts: obtain letsencrypt certificates"
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --webroot
+      -w /var/www/html
+      --non-interactive
+      --agree-tos
+      --email {{ ixp_primary_tech_contact_email }}
+      --domains {{ item }}
+    creates: "/etc/letsencrypt/live/{{ item }}/fullchain.pem"
+  loop: "{{ authentik_proxied_hosts }}"
+
+- name: "Proxied hosts: place nginx config (with HTTPS)"
+  become: true
+  vars:
+    authentik_proxied_https_hosts: "{{ authentik_proxied_hosts }}"
+  ansible.builtin.template:
+    src: authentik-proxied.conf.j2
+    dest: /etc/nginx/sites-available/authentik-proxied.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx

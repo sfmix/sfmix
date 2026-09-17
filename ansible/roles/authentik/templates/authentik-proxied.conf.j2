@@ -1,0 +1,50 @@
+# Managed by Ansible (roles/authentik/templates/authentik-proxied.conf.j2).
+#
+# Hostnames served by authentik's embedded outpost. The outpost lives inside
+# the authentik server container on the same :9000 listener as authentik, and
+# selects the proxy provider by Host header, so every vhost here proxies to the
+# same upstream. The HTTPS block for a host is only rendered once its cert
+# exists; until then the HTTP block serves the ACME challenge.
+{% for host in authentik_proxied_hosts %}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ host }};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+{% if host in authentik_proxied_https_hosts %}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ host }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ host }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ host }}/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/{{ host }}/chain.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    location / {
+        proxy_pass http://127.0.0.1:9000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+{% endif %}
+{% endfor %}

@@ -7,8 +7,9 @@
 #
 # Add a name here whenever a new public HTTPS service goes live; the alert
 # rules in roles/prometheus/templates/rules/tls.rules.yml.j2 pick it up with no
-# further changes. Endpoints that are not publicly reachable (alertmanager,
-# sentry, obscreen as of 2026-08-28) are intentionally absent.
+# further changes. Endpoints that are not publicly reachable (sentry, obscreen
+# as of 2026-08-28) are intentionally absent. alertmanager.sfmix.org is the
+# authentik-proxied vhost on login, not the metrics host itself.
 # Kept here rather than only in the blackbox_exporter role defaults because the
 # prometheus role's config template also needs it, and role defaults are
 # role-scoped.
@@ -21,6 +22,7 @@ blackbox_tls_targets:
   - portal.sfmix.org:443
   - lg.sfmix.org:443
   - grafana.sfmix.org:443
+  - alertmanager.sfmix.org:443
   - netbox.sfmix.org:443
   - alice.sfmix.org:443
   - snappy.sfmix.org:443

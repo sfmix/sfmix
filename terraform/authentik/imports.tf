@@ -80,6 +80,11 @@ import {
   id = "4"
 }
 
+import {
+  to = authentik_provider_proxy.alertmanager
+  id = "5"
+}
+
 # --- Applications ---
 
 import {
@@ -102,16 +107,35 @@ import {
   id = "looking-glass-api"
 }
 
+import {
+  to = authentik_application.alertmanager
+  id = "alertmanager"
+}
+
 # --- Policies ---
 
 import {
-  to = authentik_policy_expression.grafana_require_admin_group
+  to = authentik_policy_expression.require_admin_group
   id = "59f6e34e-8e70-48b6-8a0e-5f816b53256e"
 }
 
 import {
   to = authentik_policy_binding.grafana_require_admin_group
   id = "f34bca09-ba43-4dce-b0fd-416eaec7896d"
+}
+
+import {
+  to = authentik_policy_binding.alertmanager_require_admin_group
+  id = "6920e176-51ab-4e75-aa69-22acfa8605a6"
+}
+
+# --- Outposts ---
+
+# The embedded outpost is created by authentik itself; import it so its
+# provider list is managed here.
+import {
+  to = authentik_outpost.embedded
+  id = "d19836d6-8ddf-4d9e-af5e-9b9d7d5dc9b9"
 }
 
 # --- Brand ---

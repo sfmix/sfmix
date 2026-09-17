@@ -7,9 +7,10 @@ Infrastructure-as-code for the SFMIX Authentik SSO instance at `login.sfmix.org`
 - **Sources**: GitHub and PeeringDB OAuth federation
 - **Groups**: Admin group (default: IX Administrators), authentik Admins, ASN-based groups
 - **Property mappings**: Custom user/group mappings for both sources, custom `groups` scope
-- **Providers**: Grafana and IXP Participant Portal (OIDC)
-- **Applications**: Grafana, Portal
-- **Policies**: Grafana access restriction (admin group membership)
+- **Providers**: Grafana, IXP Participant Portal, Looking Glass (OIDC); Alertmanager (proxy)
+- **Applications**: Grafana, Portal, Looking Glass, Alertmanager
+- **Outposts**: the embedded outpost, with its list of proxy providers
+- **Policies**: one shared admin-group policy, bound to Grafana and Alertmanager
 
 Default flows, stages, and built-in scope mappings are referenced as **data sources** (read-only) — they remain managed by authentik's internal blueprints.
 
@@ -64,6 +65,23 @@ terraform apply
 4. Add any custom scope mappings in `property_mappings.tf`
 5. Add any access policies in `policies.tf`
 6. `terraform apply`
+
+### Exposing an internal tool behind the embedded outpost (proxy)
+
+For services with no auth of their own (e.g. Alertmanager), authentik's
+embedded outpost on `login.sfmix.org` terminates the session and reverse-proxies
+to the internal service. Authorization is the same shared admin-group policy
+Grafana uses.
+
+1. Add an `authentik_provider_proxy` in `providers.tf` (`mode = "proxy"`,
+   `external_host` = the public name, `internal_host` = the upstream URL)
+2. Add an `authentik_application` in `applications.tf`
+3. Bind `authentik_policy_expression.require_admin_group` to it in `policies.tf`
+4. Add the provider to `authentik_outpost.embedded` in `outposts.tf`
+5. Outside terraform: a CNAME to `login` in the `sfmix_dns` zone, and the
+   hostname in `authentik_proxied_hosts` (ansible role `authentik`), which
+   renders the nginx vhost and obtains the cert. Then
+   `terraform apply` and `ansible-playbook deploy_login.playbook.yml`.
 
 ### Importing a resource created in the UI
 
