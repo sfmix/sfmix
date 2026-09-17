@@ -65,7 +65,7 @@ pub fn router(
     ct: tokio_util::sync::CancellationToken,
 ) -> axum::Router {
     let config = StreamableHttpServerConfig::default()
-        .with_stateful_mode(false)
+        .with_legacy_session_mode(false)
         .with_cancellation_token(ct);
 
     let service = StreamableHttpService::new(
@@ -187,7 +187,7 @@ impl LookingGlassMcp {
             filter_source: None,
         };
         let output = self.execute_command(&command).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     /// Format the participant list as "AS<n> <name> [type]" lines.
@@ -237,7 +237,7 @@ impl LookingGlassMcp {
             filter_source: None,
         };
         let output = self.execute_command(&command).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     #[tool(description = "Show transceiver DOM optical power levels for all ports")]
@@ -261,7 +261,7 @@ impl LookingGlassMcp {
             filter_source: None,
         };
         let output = self.execute_command(&command).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     #[tool(description = "Show LLDP neighbor discovery table")]
@@ -271,7 +271,7 @@ impl LookingGlassMcp {
 
     #[tool(description = "List IXP participants with their ASN and name")]
     async fn show_participants(&self) -> Result<CallToolResult, McpError> {
-        Ok(CallToolResult::success(vec![Content::text(self.format_participants())]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(self.format_participants())]))
     }
 
     #[tool(description = "Get metadata for a specific participant by ASN, including their \
@@ -323,7 +323,7 @@ impl LookingGlassMcp {
                         "neighbor_v6": s.neighbor_v6,
                     })).collect::<Vec<_>>(),
                 });
-                Ok(CallToolResult::success(vec![Content::text(
+                Ok(CallToolResult::success(vec![ContentBlock::text(
                     serde_json::to_string_pretty(&result).unwrap(),
                 )]))
             }
@@ -350,7 +350,7 @@ impl LookingGlassMcp {
             filter_source: None,
         };
         let output = self.execute_command(&command).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     #[tool(description = "Traceroute to a destination from the looking glass vantage point")]
@@ -369,14 +369,14 @@ impl LookingGlassMcp {
             filter_source: None,
         };
         let output = self.execute_command(&command).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 }
 
 #[tool_handler]
 impl ServerHandler for LookingGlassMcp {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()
@@ -405,27 +405,21 @@ impl ServerHandler for LookingGlassMcp {
         _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
-        Ok(ListResourcesResult {
-            resources: vec![RawResource::new(
-                "ixp://participants",
-                "IXP Participants".to_string(),
-            )
-            .no_annotation()],
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListResourcesResult::with_all_items(vec![
+            rmcp::model::Resource::new("ixp://participants", "IXP Participants".to_string()),
+        ]))
     }
 
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
         _: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, McpError> {
+    ) -> Result<ReadResourceResponse, McpError> {
         match request.uri.as_str() {
             "ixp://participants" => Ok(ReadResourceResult::new(vec![ResourceContents::text(
                 self.format_participants(),
                 request.uri,
-            )])),
+            )]).into()),
             _ => Err(McpError::resource_not_found(
                 "resource_not_found",
                 Some(json!({ "uri": request.uri })),

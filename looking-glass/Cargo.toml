@@ -42,7 +42,7 @@ ssh-encoding = "0.2"
 async-trait = "0.1"
 dashmap = "6"
 thiserror = "2"
-rmcp = { version = "1", features = ["server", "transport-streamable-http-server"] }
+rmcp = { version = "3", features = ["server", "transport-streamable-http-server"] }
 axum = "0.8"
 tokio-util = "0.7"
 schemars = "1"
