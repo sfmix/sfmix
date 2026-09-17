@@ -1,0 +1,305 @@
+{#
+  Loki ruler alert rules (LogQL), rendered by Ansible into
+  /opt/loki/rules/fake/sfmix.yml. Same conventions as the Prometheus rules:
+  Go-template expressions Loki evaluates ({{ $labels }}, {{ $value }}) sit
+  inside {% raw %}...{% endraw %}; bare {{ ... }} are Ansible.
+
+  Alerts are delivered through the same Alertmanager as Prometheus, so the
+  `severity` label picks the Slack channel and `component` drives grouping.
+
+  Cost model: every expression below is a metric query over a short range
+  (<= 1h, or 30m offset 1d) across a few thousand lines at most, evaluated
+  once a minute (silence checks every 5m). Keep new rules in that envelope;
+  scans over [24h]+ belong in a dashboard, not the ruler.
+#}
+---
+groups:
+  # ── Pipeline health ──────────────────────────────────────────────────
+  # "Missing sender" is only a meaningful signal where a baseline is
+  # guaranteed. journald hosts always have one: cron/pam sessions, systemd
+  # timers and sshd emit well under hourly on every VM and hypervisor, so a
+  # 2h gap means Alloy, journald, the network path or the host itself is
+  # down. The list is the Ansible log_agent group -- the same hosts the
+  # deploy playbook targets -- so onboarding a host onboards its alert.
+  #
+  # Appliances (switches, routers, PDUs, OpenBSD) are NOT in this list on
+  # purpose: a healthy Arista switch may say nothing for days, so per-device
+  # silence is noise. Their reachability is Prometheus's job (snmp up,
+  # PduUnreachable); here we only watch the syslog *receiver* as a whole,
+  # since the nine mgmt-gws alone log ~2k lines/day each -- an empty 30m
+  # window across every appliance means syslog-ng/promtail broke.
+  - name: sfmix-log-pipeline
+    interval: 5m
+    rules:
+{% for h in groups['log_agent'] | sort %}
+      - alert: LogSenderSilent
+        expr: absent_over_time({job="journal", host="{{ h }}"}[2h])
+        for: 10m
+        labels: {severity: warning, component: logging, host: "{{ h }}"}
+        annotations:
+          summary: "No journal logs from {{ h }} for 2h"
+          description: >-
+            Loki has received nothing under job="journal" from {{ h }} for two
+            hours. Every journald host emits at least hourly (cron, pam,
+            timers), so either the host is down, Alloy stopped, or the push
+            path to metrics.oob is broken. Check `systemctl status alloy` and
+            `journalctl -u alloy -n 50` on the host.
+{% endfor %}
+{% raw %}
+      - alert: SyslogReceiverSilent
+        expr: absent_over_time({job="syslog"}[30m])
+        for: 5m
+        labels: {severity: critical, component: logging}
+        annotations:
+          summary: "No appliance syslog reached Loki in 30m"
+          description: >-
+            Not one line under job="syslog" from any network device or OpenBSD
+            host in 30 minutes; the mgmt-gws alone normally log every few
+            minutes. Check the syslog-ng and promtail containers on
+            metrics.sfo02 (`docker logs --since 30m syslog-ng`).
+
+      # Protects the metrics host's I/O: the point of centralizing is not to
+      # have one runaway sender turn Loki into the bottleneck. Alloy already
+      # rate-limits containers at the source; this catches journald/syslog
+      # floods and anything that slips past.
+      - alert: LogStreamFlood
+        expr: >
+          topk(3,
+            sum by (host, unit, container) (rate({job=~"journal|docker|syslog"}[5m]))
+          ) > 30
+        for: 10m
+        labels: {severity: warning, component: logging}
+        annotations:
+          summary: >-
+            {{ $labels.host }} {{ $labels.unit }}{{ $labels.container }} logging
+            {{ printf "%.0f" $value }} lines/s for 10m
+          description: >-
+            One stream is sustaining over 30 lines/s (~2.6M lines/day). Find
+            the repeating message and either fix the source or add a
+            stage.drop for it in roles/grafana_alloy; if it must be kept,
+            give it a short retention_stream in loki-config.
+
+      - alert: LogVolumeSpike
+        expr: >
+          sum by (host) (count_over_time({job=~"journal|docker"}[30m])) > 3000
+            and on (host)
+          sum by (host) (count_over_time({job=~"journal|docker"}[30m]))
+            > 4 * sum by (host) (count_over_time({job=~"journal|docker"}[30m] offset 1d))
+        for: 15m
+        labels: {severity: info, component: logging}
+        annotations:
+          summary: >-
+            {{ $labels.host }} log volume is {{ printf "%.0f" $value }} lines/30m, >4x yesterday
+          description: >-
+            Something on {{ $labels.host }} started talking a lot more than it
+            did at this time yesterday. Usually a crash loop, a retry storm or
+            a new debug flag. Explore the host's streams by unit/container to
+            find the new message template.
+
+  # ── Host health from logs ────────────────────────────────────────────
+  - name: sfmix-log-host-health
+    rules:
+      - alert: KernelOomKill
+        expr: >
+          sum by (host) (count_over_time({job="journal"} |= "Out of memory: Killed process" [15m])) > 0
+        labels: {severity: warning, component: host}
+        annotations:
+          summary: "OOM killer fired on {{ $labels.host }}"
+          description: >-
+            The kernel killed a process for memory on {{ $labels.host }} in the
+            last 15 minutes ({{ printf "%.0f" $value }} kill(s)). Whatever died
+            was probably restarted by systemd/docker and lost state; size the
+            VM or cap the offender.
+
+      - alert: ProcessCrash
+        expr: >
+          sum by (host, unit, container) (
+            count_over_time({job=~"journal|docker"} |~ "(?i)(segfault|core dumped|panic: |fatal error: |runtime error: )" [15m])
+          ) > 0
+        labels: {severity: warning, component: host}
+        annotations:
+          summary: "Crash signature on {{ $labels.host }} ({{ $labels.unit }}{{ $labels.container }})"
+          description: >-
+            A segfault / core dump / Go or Rust panic was logged. Check the
+            unit or container's recent output for the trace.
+
+      - alert: SystemdUnitFailed
+        expr: >
+          sum by (host) (
+            count_over_time({job="journal", unit="init.scope"} |= "entered failed state" !~ "motd-news|snapd\\.failure|openipmi" [1h])
+          ) > 0
+        for: 5m
+        labels: {severity: info, component: host}
+        annotations:
+          summary: "A systemd unit failed on {{ $labels.host }}"
+          description: >-
+            {{ printf "%.0f" $value }} unit failure(s) in the last hour on
+            {{ $labels.host }} (motd-news / snapd noise excluded). Run
+            `systemctl --failed` there.
+
+      - alert: SmartAttributeFailing
+        expr: >
+          sum by (host) (
+            count_over_time({job="journal", unit="smartmontools.service"} |~ "Failed SMART|Currently unreadable|Offline uncorrectable|FAILED SMART self-check" [1h])
+          ) > 0
+        for: 30m
+        labels: {severity: warning, component: storage}
+        annotations:
+          summary: "smartd reports a failing disk on {{ $labels.host }}"
+          description: >-
+            smartd on {{ $labels.host }} is logging a failed attribute or
+            pending/uncorrectable sectors (routine "Prefailure Attribute
+            changed" wear ticks are deliberately not matched). Identify the
+            device in the message and check whether it is a pool member
+            (`zpool status`) or a stray disk to pull.
+
+      - alert: ZfsPoolUnhealthy
+        expr: >
+          sum by (host) (
+            count_over_time({job="journal"} |~ "(?i)(zed|zfs).*(DEGRADED|FAULTED|UNAVAIL|checksum error|io error)" [30m])
+          ) > 0
+        labels: {severity: critical, component: storage}
+        annotations:
+          summary: "ZFS event on {{ $labels.host }}"
+          description: >-
+            zed logged a degraded/faulted vdev or data errors on
+            {{ $labels.host }}. Run `zpool status -v` immediately; VM disks
+            live on these pools.
+
+      - alert: CertbotRenewFailed
+        expr: >
+          sum by (host) (
+            count_over_time({job="journal"} |= "certbot" |~ "(?i)(error|failed|permission denied)" [1h])
+          ) > 0
+        for: 5m
+        labels: {severity: warning, component: tls}
+        annotations:
+          summary: "certbot errored on {{ $labels.host }}"
+          description: >-
+            A certbot run on {{ $labels.host }} logged an error in the last
+            hour. Stray per-user `certbot renew` crontabs fail this way every
+            night (Permission denied on the lock); delete them -- the system
+            certbot.timer is the real renewal.
+
+      - alert: UnattendedUpgradesError
+        expr: >
+          sum by (host) (
+            count_over_time({job="unattended-upgrades"} |~ "(?i)(ERROR|dpkg.*(error|failed)|Installing the upgrades failed)" [6h])
+          ) > 0
+        labels: {severity: warning, component: host}
+        annotations:
+          summary: "unattended-upgrades failed on {{ $labels.host }}"
+          description: >-
+            apt's automatic upgrade on {{ $labels.host }} logged an error;
+            the host may be stuck half-upgraded. Check
+            /var/log/unattended-upgrades/ and `apt -f install`.
+
+      - alert: SshBruteForce
+        expr: >
+          sum by (host) (
+            count_over_time({job=~"journal|syslog"} |= "Failed password for" [1h])
+          ) > 500
+        for: 30m
+        labels: {severity: info, component: security}
+        annotations:
+          summary: >-
+            {{ $labels.host }}: {{ printf "%.0f" $value }} failed SSH passwords/hour
+          description: >-
+            Sustained password guessing against sshd on {{ $labels.host }}.
+            Password auth should be off everywhere (OpenBSD's default is on;
+            set `PasswordAuthentication no` in sshd_config); if it already
+            is, this is just noise to rate-limit at the firewall.
+
+  # ── Application / platform ───────────────────────────────────────────
+  - name: sfmix-log-apps
+    rules:
+      - alert: ProxmoxBackupFailed
+        expr: >
+          sum by (host) (
+            count_over_time({job="journal", host=~"pve.*", unit="pvescheduler.service"} |~ "ERROR:|Backup job finished with errors|Backup of VM .* failed" [30m])
+          ) > 0
+        labels: {severity: warning, component: backups}
+        annotations:
+          summary: "vzdump reported a failure on {{ $labels.host }}"
+          description: >-
+            pvescheduler on {{ $labels.host }} logged a backup error (a good
+            night ends with "INFO: Backup job finished successfully"). See the
+            task log in the PVE UI (Datacenter -> Backup) or /var/log/vzdump/.
+
+      - alert: TeleportBackendSlow
+        expr: >
+          sum by (host) (
+            count_over_time({job="journal", unit="teleport.service"} |= "SLOW TRANSACTION" [1h])
+          ) > 1000
+        for: 1h
+        labels: {severity: warning, component: teleport}
+        annotations:
+          summary: >-
+            Teleport sqlite backend is slow ({{ printf "%.0f" $value }} slow txns/h)
+          description: >-
+            Teleport's embedded sqlite is logging over 1000 slow transactions
+            an hour. Seen when the hypervisor is I/O starved
+            (pve02-paulave200 iowait) or the VM disk is nearly full; auth and
+            session recording latency follow.
+
+      - alert: LookingGlassBackendWaiting
+        expr: >
+          sum by (host, unit) (
+            count_over_time({job="journal", unit=~"lg-(http|cli).service"} |= "Waiting for lg-server to be ready" [15m])
+          ) > 30
+        for: 10m
+        labels: {severity: warning, component: looking-glass}
+        annotations:
+          summary: "{{ $labels.unit }} cannot reach lg-server on {{ $labels.host }}"
+          description: >-
+            The looking-glass front ends have been waiting on lg-server's RPC
+            for over 10 minutes -- longer than any deploy restart. Check
+            `systemctl status lg-server` on alice.
+
+      - alert: ContainerErrorBurst
+        expr: >
+          sum by (host, container) (
+            count_over_time({job="docker"} |~ "(?i)(traceback|exception|\\berror\\b|\\bfatal\\b)" [15m])
+          ) > 100
+        for: 10m
+        labels: {severity: warning, component: docker}
+        annotations:
+          summary: >-
+            {{ $labels.container }} on {{ $labels.host }}: {{ printf "%.0f" $value }} error lines in 15m
+          description: >-
+            A container is emitting errors at well above its normal rate
+            (100+ in 15 minutes). `docker logs --since 15m {{ $labels.container }}`
+            on {{ $labels.host }} has the detail; RestartCount in
+            `docker inspect` tells you whether it is also crash-looping.
+
+      # Transit routers: a neighbor repeatedly opening BGP that we never
+      # configured (or removed). Standing condition today from snappy and two
+      # peering-LAN addresses toward cr1.scl02 -- fix the far side or add the
+      # session; either way it should not be background noise.
+      - alert: BgpUnconfiguredPeerOpens
+        expr: >
+          sum by (host) (
+            count_over_time({job="syslog", host=~"(cr|ar)1\\..*"} |= "bgpPeerNotFound" [1h])
+          ) > 20
+        for: 6h
+        labels: {severity: info, component: transit}
+        annotations:
+          summary: >-
+            {{ $labels.host }}: {{ printf "%.0f" $value }}/h BGP opens from unconfigured peers
+          description: >-
+            Nokia is logging bgpPeerNotFound at a steady rate on
+            {{ $labels.host }}. The peer addresses are in the messages; they
+            have a BGP session configured toward us that we do not have.
+
+      # Peering-switch ACL drops of member Router Advertisements are a
+      # standing condition (see the disabled IxLanCriticalProtocolSeen rule in
+      # prometheus/templates/rules/lan-hygiene.rules.yml.j2 for why) and are
+      # already surfaced on the portal's LAN Events page. Re-enable when the
+      # fabric is clean enough that a new source is worth a page.
+      #
+      # - alert: PeeringPortDiscoveryProtocolDropped
+      #   expr: >
+      #     sum by (host) (count_over_time({job="syslog", host=~"switch.*"} |= "DROP_DISCOVERY_PROTOCOLS" [1h])) > 0
+      #   for: 1h
+      #   labels: {severity: info, component: peering-lan}
+{% endraw %}

@@ -85,6 +85,25 @@
     default: true
     state: present
 
+# ── Docker container logs ─────────────────────────────────────────────
+# Read access to the Docker API socket (root:docker 0660) is all the docker
+# source needs. Group membership only applies to the alloy process after a
+# restart, hence the notify.
+- name: "Alloy: detect Docker socket"
+  become: true
+  ansible.builtin.stat:
+    path: "{{ grafana_alloy_docker_socket }}"
+  register: grafana_alloy_docker_sock
+
+- name: "Alloy: allow alloy user to read the Docker socket"
+  become: true
+  when: grafana_alloy_docker_sock.stat.exists
+  ansible.builtin.user:
+    name: alloy
+    groups: docker
+    append: true
+  notify: "Restart alloy"
+
 - name: "Alloy: template config"
   become: true
   ansible.builtin.template:

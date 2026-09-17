@@ -199,6 +199,28 @@
     group: 10001
     mode: ug=rw,o=r
   notify: "Restart loki docker container"
+- name: "Grafana Loki: Create ruler directories"
+  become: true
+  tags: [loki, loki_rules]
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: 10001
+    group: 10001
+    mode: ug=rwx,o=rx
+  loop:
+    - /opt/loki/rules/fake        # tenant id is "fake" with auth_enabled: false
+    - /opt/loki/ruler-tmp
+- name: "Grafana Loki: Template log alert rules"
+  become: true
+  tags: [loki, loki_rules]
+  ansible.builtin.template:
+    src: loki-rules.yml.j2
+    dest: /opt/loki/rules/fake/sfmix.yml
+    owner: 10001
+    group: 10001
+    mode: ug=rw,o=r
+  # No handler: the ruler polls the rules directory (ruler.poll_interval).
 - name: "Grafana Loki: Template promtail-config.yaml"
   become: true
   tags: [loki]
