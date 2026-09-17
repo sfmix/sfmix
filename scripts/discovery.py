@@ -129,6 +129,131 @@ def netbox_api_client() -> pynetbox.core.api.Api:
     return pynetbox.api(get_netbox_api_endpoint(), token=get_netbox_api_token())
 
 
+# ── Tenant (participant) resolution ──────────────────────────────────
+
+PEERINGDB_NET_API = "https://www.peeringdb.com/api/net"
+
+
+def get_peeringdb_api_key() -> Optional[str]:
+    """PEERINGDB_API_KEY env var, else peeringdb_api_key from the operator config YAML."""
+    key = os.environ.get("PEERINGDB_API_KEY")
+    if key:
+        return key
+    for path in (
+        os.environ.get("OPERATOR_CONFIG_FILE"),
+        os.path.expanduser("~/.sfmix_operator_config.yaml"),
+        "/opt/sfmix/operator_config.yaml",
+    ):
+        if path and os.path.isfile(path):
+            try:
+                import yaml
+                with open(path) as f:
+                    return (yaml.safe_load(f) or {}).get("peeringdb_api_key") or None
+            except Exception as e:
+                logger.warning(f"Could not read operator config {path}: {e}")
+    return None
+
+
+def peeringdb_network_name(asn: int) -> Optional[str]:
+    """Return the PeeringDB `net` name for an ASN, or None if unknown/unreachable."""
+    import urllib.parse
+    import urllib.request
+
+    headers = {"Accept": "application/json"}
+    api_key = get_peeringdb_api_key()
+    if api_key:
+        headers["Authorization"] = f"Api-Key {api_key}"
+    url = f"{PEERINGDB_NET_API}?{urllib.parse.urlencode({'asn': asn})}"
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode("utf-8")).get("data") or []
+    except Exception as e:
+        logger.warning(f"PeeringDB lookup failed for AS{asn}: {e}")
+        return None
+    if not data:
+        logger.warning(f"AS{asn} not found in PeeringDB")
+        return None
+    return data[0].get("name") or None
+
+
+class TenantRegistry:
+    """Resolve NetBox tenants by ASN.
+
+    Lookup order: `as_number` custom field, then slug `as<ASN>`.
+    With create_missing=True, unknown ASNs get a tenant created following the
+    new_participant.py convention (name AS<N>, slug as<N>, description = PeeringDB
+    network name, as_number + participant_type=Member custom fields; peering-port
+    tenants additionally get the ixp_participant tag).
+    """
+
+    def __init__(
+        self, netbox: Any, create_missing: bool = False, dry_run: bool = False
+    ) -> None:
+        self.netbox = netbox
+        self.create_missing = create_missing
+        self.dry_run = dry_run
+        self.by_asn: Dict[int, Any] = {}
+        self.by_slug: Dict[str, Any] = {}
+        self._reported: Set[int] = set()
+        for tenant in netbox.tenancy.tenants.all():
+            self.by_slug[tenant.slug] = tenant
+            cf_asn = (tenant.custom_fields or {}).get("as_number")
+            if cf_asn:
+                if int(cf_asn) in self.by_asn:
+                    logger.warning(
+                        f"Multiple tenants carry as_number={cf_asn}:"
+                        f" {self.by_asn[int(cf_asn)].slug} and {tenant.slug}"
+                    )
+                self.by_asn[int(cf_asn)] = tenant
+
+    @property
+    def hint(self) -> str:
+        """Suffix for skip messages explaining how to get the tenant created."""
+        if self.create_missing:
+            return " (dry-run: would be created)" if self.dry_run else ""
+        return " (use --create-missing-tenants to create it)"
+
+    def lookup(self, asn: int) -> Optional[Any]:
+        return self.by_asn.get(int(asn)) or self.by_slug.get(f"as{asn}")
+
+    def resolve(self, asn: int, ixp_participant: bool = False) -> Optional[Any]:
+        """Find the tenant for `asn`, creating it if enabled. None if unresolvable."""
+        asn = int(asn)
+        tenant = self.lookup(asn)
+        if tenant is not None or not self.create_missing:
+            return tenant
+        return self._create(asn, ixp_participant=ixp_participant)
+
+    def _create(self, asn: int, ixp_participant: bool) -> Optional[Any]:
+        pdb_name = peeringdb_network_name(asn)
+        payload: Dict[str, Any] = {
+            "name": f"AS{asn}",
+            "slug": f"as{asn}",
+            "description": pdb_name or "",
+            # participant_type is a required custom field; Member is its default
+            # and what every existing tenant (incl. colocation-only) carries.
+            "custom_fields": {"as_number": asn, "participant_type": "Member"},
+        }
+        if ixp_participant:
+            payload["tags"] = [{"slug": "ixp_participant"}]
+        logger.info(
+            f"{'[DRY-RUN] Would create' if self.dry_run else 'Creating'} tenant"
+            f" as{asn} ({pdb_name or 'no PeeringDB name'})"
+            f"{' as IXP participant' if ixp_participant else ''}"
+        )
+        if self.dry_run:
+            return None
+        try:
+            tenant = self.netbox.tenancy.tenants.create(**payload)
+        except Exception as e:
+            logger.error(f"Failed to create tenant as{asn}: {e}")
+            return None
+        self.by_asn[asn] = tenant
+        self.by_slug[tenant.slug] = tenant
+        return tenant
+
+
 def _graphql_query(query: str, variables: Optional[Dict] = None) -> Dict:
     """Execute a GraphQL query against the NetBox /graphql/ endpoint."""
     import urllib.request as _urlreq
@@ -615,7 +740,9 @@ class DeviceDiscovery(ABC):
         """Sync logical/virtual interfaces to NetBox. Default: no-op."""
 
     @abstractmethod
-    def sync_port_tags(self, dry_run: bool = False) -> None:
+    def sync_port_tags(
+        self, dry_run: bool = False, tenants: Optional["TenantRegistry"] = None
+    ) -> None:
         """Classify and tag interfaces in NetBox."""
 
     def sync_interface_ips(self, dry_run: bool = False) -> None:
@@ -984,7 +1111,9 @@ class AristaEOSDevice(DeviceDiscovery):
                 if changed and not dry_run:
                     existing_interface.save()
 
-    def sync_port_tags(self, dry_run: bool = False) -> None:
+    def sync_port_tags(
+        self, dry_run: bool = False, tenants: Optional["TenantRegistry"] = None
+    ) -> None:
         """Add or remove 'core_port' tag on interfaces based on description and name."""
         netbox = netbox_api_client()
         logger.debug(f"Checking core_port tags on {self.device_name}")
@@ -1278,7 +1407,9 @@ class NokiaSROSDevice(NetconfSSHDevice):
                     if not dry_run:
                         nb_iface.delete()
 
-    def sync_port_tags(self, dry_run: bool = False) -> None:
+    def sync_port_tags(
+        self, dry_run: bool = False, tenants: Optional["TenantRegistry"] = None
+    ) -> None:
         """Classify and tag Nokia VPRN SAP interfaces in NetBox.
 
         Physical ports → core_port
@@ -1288,7 +1419,8 @@ class NokiaSROSDevice(NetconfSSHDevice):
         """
         netbox = netbox_api_client()
         logger.debug(f"Classifying SAP tags on Nokia router {self.device_name}")
-        all_tenants = {t.slug: t for t in netbox.tenancy.tenants.all()}
+        if tenants is None:
+            tenants = TenantRegistry(netbox, dry_run=dry_run)
         for interface in netbox.dcim.interfaces.filter(device=self.device_name):
             tag_slugs = [tag["slug"] for tag in interface.tags]
             name = interface.name
@@ -1325,10 +1457,8 @@ class NokiaSROSDevice(NetconfSSHDevice):
                 if asn_match:
                     asn = int(asn_match.group(1))
                     asn_slug = f"as{asn}"
-                    tenant = all_tenants.get(asn_slug)
-                    participants = [tenant] if tenant else []
-                    if len(participants) == 1:
-                        participant = participants[0]
+                    participant = tenants.resolve(asn)
+                    if participant is not None:
                         old_participant = interface.custom_fields.get("participant")
                         existing_id = old_participant["id"] if isinstance(old_participant, dict) else old_participant
                         if existing_id != participant.id:
@@ -1343,9 +1473,10 @@ class NokiaSROSDevice(NetconfSSHDevice):
                                 interface.save()
                     else:
                         logger.warning(
-                            f"Could not find unique tenant for {asn_slug}"
-                            f" ({len(participants)} results)"
+                            f"No tenant for {asn_slug} (as_number or slug)"
+                            f" on {self.device_name} / {name}"
                             f" — skipping participant assignment"
+                            f"{tenants.hint}"
                         )
                     desired_tag = "transit_peer"
                     remove_tags = {"admin_port", "core_port"}
@@ -1543,7 +1674,9 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                     if not dry_run:
                         nb_iface.delete()
 
-    def sync_port_tags(self, dry_run: bool = False) -> None:
+    def sync_port_tags(
+        self, dry_run: bool = False, tenants: Optional["TenantRegistry"] = None
+    ) -> None:
         """Tag Juniper interfaces analogously to Nokia SAP classification.
 
         Physical interfaces (no '/') → core_port
@@ -1814,20 +1947,22 @@ def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> boo
 
 
 def update_netbox_interface_description_asn_participant(
-    dry_run: bool = False,
+    dry_run: bool = False, tenants: Optional[TenantRegistry] = None
 ) -> None:
     netbox = netbox_api_client()
-    # Prefetch all tenants once (one call instead of one per interface)
-    all_tenants = {t.slug: t for t in netbox.tenancy.tenants.all()}
+    if tenants is None:
+        tenants = TenantRegistry(netbox, dry_run=dry_run)
     for interface in netbox.dcim.interfaces.filter(tag="peering_port"):
         asn_from_description = re.search(r"\(AS(\d+)\)", interface.description)
         if asn_from_description:
-            asn = asn_from_description.group(1)
+            asn = int(asn_from_description.group(1))
             asn_slug = f"as{asn}"
-            participant = all_tenants.get(asn_slug)
+            participant = tenants.resolve(asn, ixp_participant=True)
             if participant is None:
                 logger.error(
-                    f"Could not find participant for ASN {asn} ({asn_slug}); skipping"
+                    f"No tenant for ASN {asn} (as_number or slug {asn_slug})"
+                    f" on {interface.device.name} / {interface.name}; skipping"
+                    f"{tenants.hint}"
                 )
                 continue
             old = interface.custom_fields.get("participant")
@@ -1912,7 +2047,25 @@ if __name__ == "__main__":
         action="store_true",
         help="Delete interfaces in NetBox that no longer exist on the device",
     )
+    parser.add_argument(
+        "--create-missing-tenants",
+        action="store_true",
+        help=(
+            "When an interface references an ASN with no NetBox tenant"
+            " (as_number custom field or as<ASN> slug), create one named from"
+            " PeeringDB. Applies to --sync-core-port-tags (Nokia transit SAPs)"
+            " and --sync-interface-description-asn-participant (peering ports)."
+        ),
+    )
     args = parser.parse_args()
+
+    tenant_registry: Optional[TenantRegistry] = None
+    if args.sync_core_port_tags or args.sync_interface_description_asn_participant:
+        tenant_registry = TenantRegistry(
+            netbox_api_client(),
+            create_missing=args.create_missing_tenants,
+            dry_run=args.dry_run,
+        )
 
     devices = list(enumerate_peering_devices())
 
@@ -2008,7 +2161,7 @@ if __name__ == "__main__":
     if args.sync_core_port_tags:
         for device in devices:
             try:
-                device.sync_port_tags(dry_run=args.dry_run)
+                device.sync_port_tags(dry_run=args.dry_run, tenants=tenant_registry)
             except Exception as e:
                 logger.error(f"Core port tag sync failed for {device.device_name}: {e}")
     else:
@@ -2017,7 +2170,9 @@ if __name__ == "__main__":
         )
 
     if args.sync_interface_description_asn_participant:
-        update_netbox_interface_description_asn_participant(dry_run=args.dry_run)
+        update_netbox_interface_description_asn_participant(
+            dry_run=args.dry_run, tenants=tenant_registry
+        )
     else:
         logger.info(
             "Skipping interface description ASN to participant sync."
