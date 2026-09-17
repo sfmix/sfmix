@@ -671,8 +671,22 @@ impl ShellSession {
 /// line like `A:admin@cr1.sfo01#`. The command *echo* has the command text after
 /// the `#`, so it never matches here — only the fresh prompt printed once output
 /// is done. A miss is harmless: the idle-gap safety net still completes the read.
+/// Only this many trailing bytes are inspected. `read_until_settled` calls this on
+/// every ~550-byte SSH chunk of multi-megabyte SR-OS JSON responses, so scanning
+/// the whole accumulated buffer each time is O(n^2) — measured at ~1 core pegged
+/// continuously and an 8–10 minute poll cycle in production. The prompt is always
+/// the last non-empty line and is < 80 chars, so a fixed tail is sufficient.
+const PROMPT_TAIL_BYTES: usize = 512;
+
 fn sros_prompt_tail(buf: &[u8]) -> bool {
-    let s = String::from_utf8_lossy(buf);
+    let tail = if buf.len() > PROMPT_TAIL_BYTES {
+        &buf[buf.len() - PROMPT_TAIL_BYTES..]
+    } else {
+        buf
+    };
+    // A slice may start mid-codepoint or mid-escape; lossy decoding turns that
+    // into U+FFFD noise in an earlier line, which the last-line check ignores.
+    let s = String::from_utf8_lossy(tail);
     // Strip ANSI escapes / carriage returns so the trailing prompt is visible.
     let clean: String = {
         let mut out = String::with_capacity(s.len());
@@ -880,6 +894,20 @@ mod tests {
         assert!(sros_prompt_tail(b"*A:admin@cr1.sfo01.transit# "));
         // Operational ">" variant.
         assert!(sros_prompt_tail(b"A:admin@host> "));
+    }
+
+    #[test]
+    fn prompt_tail_only_inspects_buffer_tail() {
+        // A multi-MB response followed by the prompt must still match, and a
+        // multi-MB response without a prompt must not — via the bounded tail.
+        let mut big = b"        \"oper-state\": \"up\",\r\n".repeat(200_000);
+        assert!(!sros_prompt_tail(&big));
+        big.extend_from_slice(b"\r\n[/]\r\nA:admin@cr1.sjc01.transit# ");
+        assert!(sros_prompt_tail(&big));
+        // A prompt buried before the tail window does not count.
+        let mut stale = b"A:admin@cr1.sjc01.transit# \r\n".to_vec();
+        stale.extend_from_slice(&b"x".repeat(PROMPT_TAIL_BYTES + 1));
+        assert!(!sros_prompt_tail(&stale));
     }
 
     #[test]
