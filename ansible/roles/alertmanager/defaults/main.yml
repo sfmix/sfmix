@@ -9,7 +9,11 @@
 alertmanager_image: prom/alertmanager
 alertmanager_listen_port: 9093            # default; Prometheus alerting block must match
 alertmanager_data_retention: 120h         # how long resolved/silenced alerts linger in the UI
-alertmanager_external_url: "https://alertmanager.sfmix.org"   # used for Silence/deep links in Slack buttons
+# Public URL for Silence/deep links in Slack buttons. Alertmanager has no auth
+# of its own, so this name resolves to login.sfmix.org, where authentik's
+# embedded outpost gates it to IX Administrators and proxies to :9093 here
+# (terraform/authentik/outposts.tf, ansible role authentik).
+alertmanager_external_url: "https://alertmanager.sfmix.org"
 
 # Slack delivery.
 #

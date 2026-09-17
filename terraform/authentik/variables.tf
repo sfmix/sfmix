@@ -36,3 +36,15 @@ variable "admin_group_name" {
   type        = string
   default     = "IX Administrators"
 }
+
+variable "alertmanager_external_host" {
+  description = "Public URL the Alertmanager proxy is served on (nginx vhost on login.sfmix.org)"
+  type        = string
+  default     = "https://alertmanager.sfmix.org"
+}
+
+variable "alertmanager_internal_url" {
+  description = "Alertmanager upstream the embedded outpost proxies to (metrics host; ufw there allows login's /27)"
+  type        = string
+  default     = "http://metrics.sfo02.sfmix.org:9093"
+}

@@ -170,6 +170,11 @@
     mode: "0644"
   notify: Reload nginx
 
+## Extra hostnames served by the embedded outpost (proxy providers)
+- name: Configure embedded-outpost proxied hosts
+  ansible.builtin.include_tasks: proxied_hosts.yml
+  when: authentik_proxied_hosts | length > 0
+
 # Single source of truth for the renewal-hooks/deploy plumbing (see
 # sfmix_server/tasks/certbot_hooks.yml for why it is needed). Included here
 # too because this role's own deploy playbook does not run sfmix_server.
