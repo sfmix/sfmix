@@ -18,3 +18,21 @@ grafana_alloy_unattended_upgrades_glob: "{{ grafana_alloy_unattended_upgrades_di
 # (oob address); this default keeps the role self-contained.
 loki_push_host: metrics.oob.sfo02.sfmix.org
 loki_push_port: 3100
+
+# ── Docker container logs ─────────────────────────────────────────────
+# Containers keep logging to the json-file driver (the fleet daemon.json from
+# roles/sfmix_server rotates it at 100m x 5 per container -- that is the local
+# ring buffer `docker logs` reads). Alloy additionally tails every running
+# container through the Docker API and ships it as job="docker" with
+# container / compose_project / compose_service labels. Enabled automatically
+# on hosts where /var/run/docker.sock exists.
+grafana_alloy_docker_socket: /var/run/docker.sock
+# Per-container ceiling, enforced on the sender so one chatty container can't
+# saturate the metrics host's disk. Lines over the rate are DROPPED (counted in
+# Alloy's loki_process_dropped_lines_total), not queued. 20 lines/s sustained
+# is ~1.7M lines/day per container -- far above anything here that isn't a bug.
+grafana_alloy_docker_rate_lines_per_sec: 20
+grafana_alloy_docker_rate_burst: 400
+# Single lines longer than this are dropped (stack traces stay intact well
+# below it; multi-MB JSON blobs do not belong in Loki).
+grafana_alloy_docker_max_line_length: "16KB"

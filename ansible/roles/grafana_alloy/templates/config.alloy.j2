@@ -50,6 +50,65 @@ loki.process "unattended_upgrades" {
   }
 }
 
+{% if grafana_alloy_docker_sock.stat.exists %}
+// ── Docker container logs ──────────────────────────────────────────────
+// Containers keep writing to the json-file driver (rotated by the fleet
+// daemon.json, so `docker logs` still works locally); this tails the same
+// stream via the Docker API and ships it as job="docker".
+discovery.docker "local" {
+  host             = "unix://{{ grafana_alloy_docker_socket }}"
+  refresh_interval = "15s"
+}
+
+// Bounded labels only: container name + compose project/service. Never the
+// image tag (churns on every upgrade) or container id.
+discovery.relabel "docker" {
+  targets = discovery.docker.local.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix://{{ grafana_alloy_docker_socket }}"
+  targets    = discovery.relabel.docker.output
+  labels     = {
+    job  = "docker",
+    host = "{{ inventory_hostname }}",
+  }
+  forward_to = [loki.process.docker.receiver]
+}
+
+// Sender-side guardrails so a misbehaving container cannot flood the metrics
+// host. Both stages DROP (never buffer) what exceeds the limit; the drops are
+// visible in Alloy's own metrics (loki_process_dropped_lines_total).
+loki.process "docker" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.drop {
+    longer_than         = "{{ grafana_alloy_docker_max_line_length }}"
+    drop_counter_reason = "line_too_long"
+  }
+  stage.limit {
+    rate                = {{ grafana_alloy_docker_rate_lines_per_sec }}
+    burst               = {{ grafana_alloy_docker_rate_burst }}
+    by_label_name       = "container"
+    drop                = true
+  }
+}
+{% endif %}
+
 // Keep labels bounded (low cardinality). Never label by message/PID.
 loki.relabel "journal" {
   forward_to = []

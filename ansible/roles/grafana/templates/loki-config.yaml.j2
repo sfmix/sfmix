@@ -39,8 +39,23 @@ ingester:
   # chunks use zstd.
   chunk_encoding: zstd
 
+# Log-based alerting. Rules live on disk under /opt/loki/rules/<tenant>/
+# (tenant is "fake" with auth_enabled: false), rendered from
+# templates/loki-rules.yml.j2. The ruler re-reads the directory every
+# poll_interval, so a rules change needs no restart. Alerts go to the same
+# Alertmanager (host network) Prometheus uses, so they share the Slack
+# severity routing.
 ruler:
   alertmanager_url: http://localhost:9093
+  enable_alertmanager_v2: true
+  enable_api: true
+  evaluation_interval: 1m
+  poll_interval: 1m
+  rule_path: /opt/loki/ruler-tmp
+  storage:
+    type: local
+    local:
+      directory: /opt/loki/rules
 
 analytics:
  reporting_enabled: false
@@ -60,10 +75,11 @@ limits_config:
   # fan-in and tune. Per-stream overrides (limits_config.retention_stream) can
   # keep noisy syslog shorter and curated streams longer if needed.
   retention_period: 90d
-  # Per-stream overrides take priority over the global period above. Add
-  # selectors here once fleet volume reveals hot streams (highest priority
-  # wins). Example (commented until we identify a noisy source):
-  # retention_stream:
-  #   - selector: '{job="syslog", severity="debug"}'
-  #     priority: 10
-  #     period: 14d
+  # Per-stream overrides take priority over the global period above (highest
+  # priority wins). Container stdout is the bulkiest, least curated source and
+  # its local json-file ring buffer already covers the "what did it just
+  # print" case, so it is kept for a month rather than a quarter.
+  retention_stream:
+    - selector: '{job="docker"}'
+      priority: 10
+      period: 30d
