@@ -37,11 +37,14 @@ resource "authentik_application" "portal" {
   policy_engine_mode = "any"
 }
 
-resource "authentik_application" "alertmanager" {
-  name               = "Alertmanager"
-  slug               = "alertmanager"
-  protocol_provider  = authentik_provider_proxy.alertmanager.id
+# Admin-only tools behind the embedded outpost (see var.proxied_apps).
+resource "authentik_application" "proxied" {
+  for_each = var.proxied_apps
+
+  name               = each.value.name
+  slug               = each.key
+  protocol_provider  = authentik_provider_proxy.proxied[each.key].id
   open_in_new_tab    = false
-  meta_launch_url    = var.alertmanager_external_host
+  meta_launch_url    = authentik_provider_proxy.proxied[each.key].external_host
   policy_engine_mode = "any"
 }

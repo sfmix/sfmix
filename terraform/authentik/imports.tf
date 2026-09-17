@@ -81,8 +81,18 @@ import {
 }
 
 import {
-  to = authentik_provider_proxy.alertmanager
+  to = authentik_provider_proxy.proxied["alertmanager"]
   id = "5"
+}
+
+import {
+  to = authentik_provider_proxy.proxied["sflow-rt"]
+  id = "6"
+}
+
+import {
+  to = authentik_provider_proxy.proxied["prometheus"]
+  id = "7"
 }
 
 # --- Applications ---
@@ -108,8 +118,18 @@ import {
 }
 
 import {
-  to = authentik_application.alertmanager
+  to = authentik_application.proxied["alertmanager"]
   id = "alertmanager"
+}
+
+import {
+  to = authentik_application.proxied["prometheus"]
+  id = "prometheus"
+}
+
+import {
+  to = authentik_application.proxied["sflow-rt"]
+  id = "sflow-rt"
 }
 
 # --- Policies ---
@@ -125,8 +145,18 @@ import {
 }
 
 import {
-  to = authentik_policy_binding.alertmanager_require_admin_group
+  to = authentik_policy_binding.proxied_require_admin_group["alertmanager"]
   id = "6920e176-51ab-4e75-aa69-22acfa8605a6"
+}
+
+import {
+  to = authentik_policy_binding.proxied_require_admin_group["prometheus"]
+  id = "177a2ef1-2807-4e51-9e15-d5fab099780a"
+}
+
+import {
+  to = authentik_policy_binding.proxied_require_admin_group["sflow-rt"]
+  id = "f0c5e5f6-31b0-48c8-bd7c-528d23c5cb4e"
 }
 
 # --- Outposts ---

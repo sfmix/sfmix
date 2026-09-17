@@ -168,15 +168,18 @@ resource "authentik_provider_oauth2" "portal" {
 # Proxy Providers (served by the embedded outpost, see outposts.tf)
 # -------------------------------------------------------------------
 
-# Alertmanager has no authentication of its own, so it is never exposed
-# directly. The embedded outpost on login.sfmix.org owns the session (the
-# admin-group policy is bound to the application in policies.tf) and
-# reverse-proxies authenticated requests to the metrics host.
-resource "authentik_provider_proxy" "alertmanager" {
-  name               = "Alertmanager"
+# Tools in var.proxied_apps (Alertmanager, Prometheus, sFlow-RT) have no
+# authentication of their own, so they are never exposed directly. The
+# embedded outpost on login.sfmix.org owns the session (the admin-group
+# policy is bound to each application in policies.tf) and reverse-proxies
+# authenticated requests to the metrics host.
+resource "authentik_provider_proxy" "proxied" {
+  for_each = var.proxied_apps
+
+  name               = each.value.name
   mode               = "proxy"
-  external_host      = var.alertmanager_external_host
-  internal_host      = var.alertmanager_internal_url
+  external_host      = "https://${each.key}.sfmix.org"
+  internal_host      = each.value.internal_host
   authorization_flow = data.authentik_flow.default_implicit_consent.id
   invalidation_flow  = data.authentik_flow.default_invalidation.id
 

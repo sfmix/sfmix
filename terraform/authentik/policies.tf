@@ -16,8 +16,11 @@ resource "authentik_policy_binding" "grafana_require_admin_group" {
   order  = 0
 }
 
-resource "authentik_policy_binding" "alertmanager_require_admin_group" {
-  target = authentik_application.alertmanager.uuid
+# Every embedded-outpost app is admin-only, without exception.
+resource "authentik_policy_binding" "proxied_require_admin_group" {
+  for_each = var.proxied_apps
+
+  target = authentik_application.proxied[each.key].uuid
   policy = authentik_policy_expression.require_admin_group.id
   order  = 0
 }

@@ -9,14 +9,13 @@
 #   1. a DNS name pointing at login (ansible sfmix_dns, zones/sfmix.org.j2)
 #   2. an nginx vhost + cert on login (ansible role authentik,
 #      `authentik_proxied_hosts`)
-#   3. a provider + application + policy binding here, listed below.
+#   3. an entry in var.proxied_apps (variables.tf), which drives the
+#      provider, application and admin-group binding attached below.
 resource "authentik_outpost" "embedded" {
   name = "authentik Embedded Outpost"
   type = "proxy"
 
-  protocol_providers = [
-    authentik_provider_proxy.alertmanager.id,
-  ]
+  protocol_providers = [for p in authentik_provider_proxy.proxied : p.id]
 
   # `config` is deliberately left computed: authentik fills the embedded
   # outpost's config (authentik_host = https://login.sfmix.org plus ~20
