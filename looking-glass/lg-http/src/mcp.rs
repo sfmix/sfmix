@@ -74,7 +74,7 @@ pub fn router(
     network_slug: String,
 ) -> axum::Router {
     let config = StreamableHttpServerConfig::default()
-        .with_stateful_mode(false)
+        .with_legacy_session_mode(false)
         .with_cancellation_token(ct);
 
     let service = StreamableHttpService::new(
@@ -222,7 +222,7 @@ impl McpHandler {
             filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     /// Format participant list via RPC.
@@ -276,7 +276,7 @@ impl McpHandler {
             filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     #[tool(description = "Show transceiver DOM optical power levels for all ports")]
@@ -300,7 +300,7 @@ impl McpHandler {
             filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     #[tool(description = "Show LLDP neighbor discovery table")]
@@ -310,7 +310,7 @@ impl McpHandler {
 
     #[tool(description = "List IXP participants with their ASN and name")]
     async fn show_participants(&self) -> Result<CallToolResult, McpError> {
-        Ok(CallToolResult::success(vec![Content::text(self.format_participants().await)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(self.format_participants().await)]))
     }
 
     #[tool(description = "Get metadata for a specific participant by ASN, including their \
@@ -396,7 +396,7 @@ impl McpHandler {
                     }).to_string());
                 }
 
-                Ok(CallToolResult::success(vec![Content::text(lines.join("\n"))]))
+                Ok(CallToolResult::success(vec![ContentBlock::text(lines.join("\n"))]))
             }
             Err(e) if e.to_string().contains("404") || e.to_string().contains("not found") => {
                 Err(McpError::invalid_request(
@@ -424,7 +424,7 @@ impl McpHandler {
             filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
     #[tool(description = "Traceroute to a destination from the looking glass vantage point")]
@@ -443,14 +443,14 @@ impl McpHandler {
             filter_source: None,
         };
         let output = self.execute_command(&cmd).await?;
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 }
 
 impl ServerHandler for McpHandler {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         let prefix = format!("looking_glass__{}", self.network_slug);
-        ServerInfo::new(
+        ServerConfig::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()
@@ -491,14 +491,14 @@ impl ServerHandler for McpHandler {
                 t
             })
             .collect();
-        Ok(ListToolsResult { tools, meta: None, next_cursor: None })
+        Ok(ListToolsResult::with_all_items(tools))
     }
 
     async fn call_tool(
         &self,
         mut request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResponse, McpError> {
         let prefix = format!("looking_glass__{}__", self.network_slug);
         if let Some(bare) = request.name.strip_prefix(prefix.as_str()) {
             request.name = Cow::Owned(bare.to_string());
@@ -518,27 +518,21 @@ impl ServerHandler for McpHandler {
         _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
-        Ok(ListResourcesResult {
-            resources: vec![RawResource::new(
-                "ixp://participants",
-                "IXP Participants".to_string(),
-            )
-            .no_annotation()],
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListResourcesResult::with_all_items(vec![
+            rmcp::model::Resource::new("ixp://participants", "IXP Participants".to_string()),
+        ]))
     }
 
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
         _: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, McpError> {
+    ) -> Result<ReadResourceResponse, McpError> {
         match request.uri.as_str() {
             "ixp://participants" => Ok(ReadResourceResult::new(vec![ResourceContents::text(
                 self.format_participants().await,
                 request.uri,
-            )])),
+            )]).into()),
             _ => Err(McpError::resource_not_found(
                 "resource_not_found",
                 Some(json!({ "uri": request.uri })),

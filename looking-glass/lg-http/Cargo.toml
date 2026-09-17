@@ -23,6 +23,6 @@ jsonwebtoken.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
-rmcp = { version = "1", features = ["server", "transport-streamable-http-server"] }
+rmcp = { version = "3", features = ["server", "transport-streamable-http-server"] }
 schemars = "1"
 tokio-util = "0.7"
