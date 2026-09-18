@@ -96,6 +96,12 @@ loki.source.docker "containers" {
 loki.process "docker" {
   forward_to = [loki.write.default.receiver]
 
+{% for pat in grafana_alloy_docker_drop_patterns %}
+  stage.drop {
+    expression          = {{ pat | to_json }}
+    drop_counter_reason = "known_noise"
+  }
+{% endfor %}
   stage.drop {
     longer_than         = "{{ grafana_alloy_docker_max_line_length }}"
     drop_counter_reason = "line_too_long"
@@ -113,6 +119,14 @@ loki.process "docker" {
 loki.relabel "journal" {
   forward_to = []
 
+  // Alloy >= 1.19 stamps job="loki.source.journal.<name>" on journal entries
+  // and that wins over the `labels` argument above, which silently renamed
+  // teleport's stream after an upgrade (and tripped LogSenderSilent). Relabel
+  // rules run last, so pin it here for every Alloy version.
+  rule {
+    target_label = "job"
+    replacement  = "journal"
+  }
   rule {
     source_labels = ["__journal__systemd_unit"]
     target_label  = "unit"

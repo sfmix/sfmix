@@ -36,3 +36,11 @@ grafana_alloy_docker_rate_burst: 400
 # Single lines longer than this are dropped (stack traces stay intact well
 # below it; multi-MB JSON blobs do not belong in Loki).
 grafana_alloy_docker_max_line_length: "16KB"
+# Known-noise lines dropped BEFORE the rate limit so they cannot crowd out a
+# container's useful output. Each entry is an RE2 regex matched against the
+# whole line. Fix the source when you can; this is the stopgap.
+grafana_alloy_docker_drop_patterns:
+  # Alice-LG cannot parse OpenBGPD's origin-validation-state extended
+  # community and says so for every route on every refresh: ~1,600 lines/s
+  # on alice (99.99% of the container's output) as of 2026-09-18.
+  - 'can not decode ext\. community: ovs'
