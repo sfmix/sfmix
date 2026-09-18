@@ -254,6 +254,12 @@ groups:
             night ends with "INFO: Backup job finished successfully"). See the
             task log in the PVE UI (Datacenter -> Backup) or /var/log/vzdump/.
 
+{% endraw %}
+{# TeleportBackendSlow is DISABLED (2026-09-18): it fires continuously because
+   pve02-paulave200's disks keep the hypervisor at ~20% iowait, which is a known
+   condition we can't act on until the PVE hosts get better disks. Re-enable by
+   removing this comment block once that upgrade lands. #}
+{#
       - alert: TeleportBackendSlow
         expr: >
           sum by (host) (
@@ -271,6 +277,8 @@ groups:
             an hour. Seen when the hypervisor is I/O starved
             (pve02-paulave200 iowait) or the VM disk is nearly full; auth and
             session recording latency follow.
+#}
+{% raw %}
 
       - alert: LookingGlassBackendWaiting
         expr: >
