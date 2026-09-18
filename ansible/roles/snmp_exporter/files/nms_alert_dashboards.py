@@ -453,6 +453,66 @@ def log_pipeline_dashboard():
                               "replays its json-file history; sustained non-zero "
                               "means a sender's clock or an out-of-order stream."))
     y += 7
+    # ── Prometheus-side internals: Alloy self-metrics (remote_write) + Loki
+    p.append(_row("Agents & Loki internals (Prometheus)", y)); y += 1
+
+    def pts(title, expr, grid, unit="short", legend="{{host}}", stack=False, desc=""):
+        t = _lts(title, [{"refId": "A", "datasource": DS_PROM, "expr": expr,
+                          "legendFormat": legend}], grid, unit=unit, stack=stack,
+                 description=desc)
+        t["datasource"] = DS_PROM
+        return t
+    p.append(_lstat("Alloy agents reporting",
+                    'count(alloy_build_info)',
+                    {"h": 4, "w": 6, "x": 0, "y": y}, ds=DS_PROM,
+                    description="Distinct hosts remote-writing alloy_build_info. "
+                                "AlloyAgentDown fires per missing log_agent host."))
+    p.append(_lstat("Loki up", 'up{job="loki"}', {"h": 4, "w": 6, "x": 6, "y": y},
+                    thresholds=[{"color": RED, "value": None}, {"color": GREEN, "value": 1}],
+                    ds=DS_PROM))
+    p.append(_lstat("Loki lines received/s",
+                    'sum(rate(loki_distributor_lines_received_total[5m]))',
+                    {"h": 4, "w": 6, "x": 12, "y": y}, ds=DS_PROM))
+    p.append(_lstat("Loki active streams", 'sum(loki_ingester_memory_streams)',
+                    {"h": 4, "w": 6, "x": 18, "y": y}, ds=DS_PROM,
+                    description="Label cardinality in one number. Grows with "
+                                "hosts x units x containers; a jump means a "
+                                "new high-cardinality label."))
+    y += 4
+    p.append(pts("Alloy: lines dropped/s by host & reason",
+                 'sum by (host, reason) (rate(loki_process_dropped_lines_total[5m]))',
+                 {"h": 8, "w": 12, "x": 0, "y": y}, legend="{{host}} {{reason}}", stack=True,
+                 desc="known_noise = grafana_alloy_docker_drop_patterns (intended); "
+                      "ratelimit_drop_stage = a container over 20/s (investigate); "
+                      "line_too_long = >16KB lines."))
+    p.append(pts("Alloy: entries sent to Loki/s by host",
+                 'sum by (host) (rate(loki_write_sent_entries_total[5m]))',
+                 {"h": 8, "w": 12, "x": 12, "y": y}, stack=True))
+    y += 8
+    p.append(pts("Alloy: write failures/s (dropped entries, by host & reason)",
+                 'sum by (host, reason) (rate(loki_write_dropped_entries_total[5m]))',
+                 {"h": 8, "w": 12, "x": 0, "y": y}, legend="{{host}} {{reason}}"))
+    p.append(pts("Loki: discarded samples/s by reason",
+                 'sum by (reason) (rate(loki_discarded_samples_total[5m]))',
+                 {"h": 8, "w": 12, "x": 12, "y": y}, legend="{{reason}}",
+                 desc="timestamp too old = a source replaying old history (one-off); "
+                      "sustained = sender clock / out-of-order stream."))
+    y += 8
+    p.append(pts("Loki: request latency p99 by route (s)",
+                 'histogram_quantile(0.99, sum by (le, route) (rate(loki_request_duration_seconds_bucket{route=~"loki_api_v1_(push|query|query_range)"}[5m])))',
+                 {"h": 8, "w": 12, "x": 0, "y": y}, unit="s", legend="{{route}}"))
+    p.append(pts("Loki: process memory & chunks flushed/s",
+                 'process_resident_memory_bytes{job="loki"}',
+                 {"h": 8, "w": 12, "x": 12, "y": y}, unit="bytes", legend="RSS"))
+    p[-1]["targets"].append({"refId": "B", "datasource": DS_PROM,
+                             "expr": 'sum(rate(loki_ingester_chunks_flushed_total[5m]))',
+                             "legendFormat": "chunks flushed/s"})
+    p[-1]["fieldConfig"]["overrides"] = [
+        {"matcher": {"id": "byName", "options": "chunks flushed/s"},
+         "properties": [{"id": "unit", "value": "short"},
+                        {"id": "custom.axisPlacement", "value": "right"}]}]
+    y += 8
+
     p.append(_text(
         "**Retention:** 90d default, `job=docker` 30d. **Sender-side limits:** "
         "Alloy drops container lines over 20/s (burst 400) per container and "

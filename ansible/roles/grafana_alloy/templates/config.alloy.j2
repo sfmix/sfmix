@@ -137,6 +137,38 @@ loki.relabel "journal" {
   }
 }
 
+// ── Alloy's own metrics -> Prometheus ──────────────────────────────────
+// Rate-limit / known-noise drops, WAL and send counters, docker target
+// counts. Pushed (remote_write) rather than scraped so the loopback-only
+// Alloy UI never has to be exposed; see the Log Pipeline dashboard.
+prometheus.exporter.self "alloy" {}
+
+discovery.relabel "self" {
+  targets = prometheus.exporter.self.alloy.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ inventory_hostname }}"
+  }
+  rule {
+    target_label = "host"
+    replacement  = "{{ inventory_hostname }}"
+  }
+}
+
+prometheus.scrape "self" {
+  targets         = discovery.relabel.self.output
+  forward_to      = [prometheus.remote_write.metrics.receiver]
+  job_name        = "alloy"
+  scrape_interval = "{{ grafana_alloy_self_scrape_interval }}"
+}
+
+prometheus.remote_write "metrics" {
+  endpoint {
+    url = "http://{{ prometheus_push_host }}:{{ prometheus_push_port }}/api/v1/write"
+  }
+}
+
 loki.write "default" {
   endpoint {
     url = "http://{{ loki_push_host }}:{{ loki_push_port }}/loki/api/v1/push"

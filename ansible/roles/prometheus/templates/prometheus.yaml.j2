@@ -253,3 +253,15 @@ scrape_configs:
       static_configs:
         - targets:
             - 10.1.1.18:29185
+    # Loki (sibling container, host network): ingest rates, discarded
+    # samples by reason, ingester/ruler internals. Alloy agents are NOT
+    # scraped -- they remote_write into this Prometheus (job="alloy").
+    - job_name: loki
+      scheme: http
+      scrape_interval: 30s
+      scrape_timeout: 10s
+      static_configs:
+        - targets:
+            - 127.0.0.1:3100
+          labels:
+            host: metrics.sfo02.sfmix.org
