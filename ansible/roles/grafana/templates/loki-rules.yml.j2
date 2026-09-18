@@ -97,6 +97,8 @@ groups:
             find the new message template.
 
   # ── Host health from logs ────────────────────────────────────────────
+  # Pattern rules exclude container="loki": Loki's own log echoes every rule
+  # expression it evaluates, so a regex rule would otherwise match itself.
   - name: sfmix-log-host-health
     rules:
       - alert: KernelOomKill
@@ -114,7 +116,7 @@ groups:
       - alert: ProcessCrash
         expr: >
           sum by (host, unit, container) (
-            count_over_time({job=~"journal|docker"} |~ "(?i)(segfault|core dumped|panic: |fatal error: |runtime error: )" [15m])
+            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|panic: |fatal error: |runtime error: )" [15m])
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
@@ -259,7 +261,7 @@ groups:
       - alert: ContainerErrorBurst
         expr: >
           sum by (host, container) (
-            count_over_time({job="docker"} |~ "(?i)(traceback|exception|\\berror\\b|\\bfatal\\b)" [15m])
+            count_over_time({job="docker", container!="loki"} |~ "(?i)(traceback|exception|\\berror\\b|\\bfatal\\b)" [15m])
           ) > 100
         for: 10m
         labels: {severity: warning, component: docker}

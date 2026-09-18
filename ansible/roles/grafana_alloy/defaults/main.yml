@@ -44,3 +44,9 @@ grafana_alloy_docker_drop_patterns:
   # community and says so for every route on every refresh: ~1,600 lines/s
   # on alice (99.99% of the container's output) as of 2026-09-18.
   - 'can not decode ext\. community: ovs'
+  # Loki logs every ruler evaluation at info level, query text included. Fed
+  # back through this pipeline that is ~100 lines/min of repetition and a
+  # self-trigger for any pattern rule (ProcessCrash matched its own regex in
+  # Loki's log within a minute of going live).
+  - 'component=ruler .*(msg="executing query"|latency=)'
+  - 'caller=compat\.go.*rule_name='
