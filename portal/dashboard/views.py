@@ -120,8 +120,10 @@ def index(request):
 @login_required
 def network_mac_table(request, asn):
     """MAC address table for a participant network."""
+    # Same rule as participant_detail / the traffic panels: the network's own
+    # admins and IX Administrators may see it.
     asns = request.session.get("oidc_asns", [])
-    if asn not in asns:
+    if not (_is_ix_admin(request) or asn in asns):
         return HttpResponseForbidden(gettext("You do not have access to this network."))
     vlan = request.GET.get("vlan")
     token = request.session.get("oidc_id_token")

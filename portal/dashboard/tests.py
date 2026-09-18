@@ -788,6 +788,7 @@ _OPTICS_PROBLEMS_FIXTURE = [
 ]
 
 
+@_PLAIN_STATIC
 class OpticsProblemsViewTests(SimpleTestCase):
     @mock.patch("dashboard.views.LookingGlassClient")
     def test_flags_only_up_out_of_range_lanes(self, MockLG):
@@ -833,3 +834,29 @@ class ParticipantsIxfViewTests(SimpleTestCase):
         inst.get_participants_json.side_effect = RuntimeError("boom")
         resp = views.participants_ixf(RequestFactory().get("/participants.json"))
         self.assertEqual(resp.status_code, 502)
+
+
+@_PLAIN_STATIC
+class NetworkMacTableAccessTests(SimpleTestCase):
+    """IX Administrators may view any network's MAC table; other users only their own."""
+
+    def _request(self, asn_path, admin, asns):
+        req = _admin_request(f"/network/{asn_path}/mac-table/", admin=admin)
+        req.session["oidc_asns"] = asns
+        return req
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_ix_admin_can_view_other_network(self, MockLG):
+        MockLG.return_value.base_url = ""
+        resp = views.network_mac_table(self._request(20940, admin=True, asns=[]), 20940)
+        self.assertEqual(resp.status_code, 200)
+
+    @mock.patch("dashboard.views.LookingGlassClient")
+    def test_own_network_allowed(self, MockLG):
+        MockLG.return_value.base_url = ""
+        resp = views.network_mac_table(self._request(64496, admin=False, asns=[64496]), 64496)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_other_network_forbidden_for_non_admin(self):
+        resp = views.network_mac_table(self._request(20940, admin=False, asns=[64496]), 20940)
+        self.assertEqual(resp.status_code, 403)
