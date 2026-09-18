@@ -1,0 +1,93 @@
+{#
+  Log-pipeline internals, rendered by Ansible. Metrics come from two places:
+    * Alloy agents remote_write their self-metrics (job="alloy", host=<fqdn>)
+      -- roles/grafana_alloy. There is no scrape, so "agent down" is the
+      absence of alloy_build_info for a host, generated per log_agent member.
+    * Loki is scraped locally (job="loki").
+  Go-template expressions Prometheus evaluates sit inside {% raw %}...{% endraw %}.
+#}
+---
+groups:
+  - name: sfmix-logging-alerts
+    rules:
+{% for h in groups['log_agent'] | sort %}
+      - alert: AlloyAgentDown
+        expr: absent(alloy_build_info{host="{{ h }}"})
+        for: 10m
+        labels: {severity: warning, component: logging, host: "{{ h }}"}
+        annotations:
+          summary: "Alloy on {{ h }} has stopped reporting"
+          description: >-
+            No alloy_build_info from {{ h }} for 10 minutes: the agent is
+            down, or cannot reach Prometheus on the metrics host. Logs from
+            this host are not being shipped either (LogSenderSilent will
+            follow in ~2h). `systemctl status alloy` on the host.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ h }}&var-unit=alloy.service&from=now-3h&to=now
+{% endfor %}
+{% raw %}
+      - alert: LokiDown
+        expr: up{job="loki"} == 0
+        for: 3m
+        labels: {severity: critical, component: logging}
+        annotations:
+          summary: Loki on metrics.sfo02 is not answering
+          description: >-
+            Prometheus cannot scrape Loki at 127.0.0.1:3100. Every agent is
+            buffering into its WAL (an hour or so of headroom) and every
+            log-based alert is blind. `docker logs --since 10m loki` on
+            metrics.sfo02.
+          dashboard: https://grafana.sfmix.org/d/sfmix-log-pipeline/log-pipeline?from=now-3h&to=now
+
+      # A container that trips the sender-side rate limit for an hour is
+      # either a bug (crash loop, retry storm) or a candidate for a
+      # known-noise drop pattern in roles/grafana_alloy. Either way what
+      # reaches Loki from it is a random 20/s sample, not the story.
+      - alert: AlloyRateLimitingContainer
+        expr: >
+          sum by (host) (rate(loki_process_dropped_lines_total{reason="ratelimit_drop_stage"}[10m])) > 1
+        for: 1h
+        labels: {severity: info, component: logging}
+        annotations:
+          summary: >-
+            Alloy on {{ $labels.host }} dropping {{ printf "%.0f" $value }} container lines/s to the rate limit
+          description: >-
+            A container on {{ $labels.host }} has exceeded 20 lines/s for an
+            hour. Find it on the Container Logs dashboard (its line is flat
+            at ~1200/min), then fix the source or add its message to
+            grafana_alloy_docker_drop_patterns.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-container-logs/container-logs?var-host={{ $labels.host }}&from=now-3h&to=now
+
+      - alert: AlloyWriteFailing
+        expr: >
+          sum by (host) (rate(loki_write_dropped_entries_total[10m])) > 0
+        for: 15m
+        labels: {severity: warning, component: logging}
+        annotations:
+          summary: "Alloy on {{ $labels.host }} is dropping log entries on the way to Loki"
+          description: >-
+            loki_write_dropped_entries_total is increasing on
+            {{ $labels.host }} (queue full, stream/rate limited by Loki, or
+            ingester errors). Those lines are gone. Check the reason label in
+            Prometheus and Loki's discarded-samples panel.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-log-pipeline/log-pipeline?from=now-6h&to=now
+
+      # "timestamp too old" bursts are expected once when a new docker source
+      # replays its json-file history; anything sustained is a sender clock
+      # or an out-of-order stream and those lines are being thrown away.
+      - alert: LokiDiscardingSamples
+        expr: >
+          sum by (reason) (rate(loki_discarded_samples_total[10m])) > 0.5
+        for: 30m
+        labels: {severity: warning, component: logging}
+        annotations:
+          summary: "Loki discarding {{ printf \"%.1f\" $value }} lines/s ({{ $labels.reason }})"
+          description: >-
+            Loki has been rejecting ingested lines for 30 minutes with reason
+            {{ $labels.reason }}. Find the stream in the loki container log
+            (`|= "write operation failed"`) and fix the sender.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-log-pipeline/log-pipeline?from=now-6h&to=now
+{% endraw %}

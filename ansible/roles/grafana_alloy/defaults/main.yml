@@ -50,3 +50,12 @@ grafana_alloy_docker_drop_patterns:
   # Loki's log within a minute of going live).
   - 'component=ruler .*(msg="executing query"|latency=)'
   - 'caller=compat\.go.*rule_name='
+
+# ── Alloy's own metrics -> Prometheus ─────────────────────────────────
+# Alloy listens on loopback only (its UI has no auth), so instead of opening
+# :12345 on every host it scrapes itself and remote-writes to Prometheus on
+# the metrics host over the same path it already pushes logs on. Prometheus
+# runs with --web.enable-remote-write-receiver (roles/prometheus).
+prometheus_push_host: "{{ loki_push_host }}"
+prometheus_push_port: 9090
+grafana_alloy_self_scrape_interval: "60s"

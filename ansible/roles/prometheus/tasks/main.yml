@@ -27,6 +27,7 @@
     - pdu.rules.yml            # cross-vendor PDU power normalisation + alerts
     - tls.rules.yml            # served-certificate expiry (blackbox_exporter)
     - lan-hygiene.rules.yml    # peering-LAN hygiene: RAs/DHCP/IGP hellos heard from members (008)
+    - logging.rules.yml        # log pipeline internals: Alloy agents (remote_write) + Loki
 
 - name: "Prometheus: Template config"
   become: true
@@ -54,3 +55,6 @@
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
       - --web.enable-admin-api
+      # Alloy agents remote_write their own metrics here (roles/grafana_alloy);
+      # reachable only from the admin subnets, same trust as the Loki push.
+      - --web.enable-remote-write-receiver
