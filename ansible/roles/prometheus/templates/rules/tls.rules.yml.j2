@@ -33,6 +33,8 @@ groups:
         for: 30m
         labels: {severity: warning, component: tls}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-tls/tls-certificates?var-instance={{ $labels.instance }}&from=now-7d&to=now
           summary: >-
             {{ $labels.instance }} is serving a cert that expires in
             {{ printf "%.1f" $value }} days
@@ -52,6 +54,8 @@ groups:
         for: 30m
         labels: {severity: critical, component: tls}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-tls/tls-certificates?var-instance={{ $labels.instance }}&from=now-7d&to=now
           summary: >-
             {{ $labels.instance }} cert expires in
             {{ printf "%.1f" $value }} days -- act now
@@ -64,6 +68,8 @@ groups:
         for: 5m
         labels: {severity: critical, component: tls}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-tls/tls-certificates?var-instance={{ $labels.instance }}&from=now-7d&to=now
           summary: >-
             {{ $labels.instance }} is serving an EXPIRED certificate
           description: >-
@@ -79,6 +85,8 @@ groups:
         for: 15m
         labels: {severity: warning, component: tls}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-tls/tls-certificates?var-instance={{ $labels.instance }}&from=now-24h&to=now
           summary: >-
             TLS probe of {{ $labels.instance }} is failing ({{ $labels.job }})
           description: >-

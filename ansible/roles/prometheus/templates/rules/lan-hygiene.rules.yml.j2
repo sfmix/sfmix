@@ -71,6 +71,8 @@ groups:
         for: 10m
         labels: {severity: warning, component: peering-lan}
         annotations:
+          dashboard: >-
+            https://portal.sfmix.org/lan-events/
           summary: lg-neighborhood-watch on rs-linux is not answering scrapes
           description: >-
             Prometheus cannot reach the sensor at 10.1.1.18:29185. ND anomaly

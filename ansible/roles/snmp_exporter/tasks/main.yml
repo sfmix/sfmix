@@ -110,11 +110,14 @@
   become: true
   register: nms_dashboards_script
   ansible.builtin.copy:
-    src: gen_nms_dashboards.py
-    dest: /opt/snmp_exporter/gen_nms_dashboards.py
+    src: "{{ item }}"
+    dest: "/opt/snmp_exporter/{{ item }}"
     owner: root
     group: root
     mode: ug=rwx,o=rx
+  loop:
+    - gen_nms_dashboards.py
+    - nms_alert_dashboards.py    # alert landing pages (Loki log views, TLS)
 
 - name: "SNMP exporter: Template dashboard generator env"
   become: true

@@ -44,6 +44,8 @@ groups:
             timers), so either the host is down, Alloy stopped, or the push
             path to metrics.oob is broken. Check `systemctl status alloy` and
             `journalctl -u alloy -n 50` on the host.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ h }}&from=now-12h&to=now
 {% endfor %}
 {% raw %}
       - alert: SyslogReceiverSilent
@@ -51,6 +53,8 @@ groups:
         for: 5m
         labels: {severity: critical, component: logging}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-log-pipeline/log-pipeline?from=now-6h&to=now
           summary: "No appliance syslog reached Loki in 30m"
           description: >-
             Not one line under job="syslog" from any network device or OpenBSD
@@ -70,6 +74,8 @@ groups:
         for: 10m
         labels: {severity: warning, component: logging}
         annotations:
+          dashboard: >-
+            {{ if $labels.container }}https://grafana.sfmix.org/d/sfmix-container-logs/container-logs?var-host={{ $labels.host }}&var-container={{ $labels.container }}{{ else }}https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit={{ $labels.unit }}{{ end }}&from=now-3h&to=now
           summary: >-
             {{ $labels.host }} {{ $labels.unit }}{{ $labels.container }} logging
             {{ printf "%.0f" $value }} lines/s for 10m
@@ -88,6 +94,8 @@ groups:
         for: 15m
         labels: {severity: info, component: logging}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&from=now-24h&to=now
           summary: >-
             {{ $labels.host }} log volume is {{ printf "%.0f" $value }} lines/30m, >4x yesterday
           description: >-
@@ -106,6 +114,8 @@ groups:
           sum by (host) (count_over_time({job="journal"} |= "Out of memory: Killed process" [15m])) > 0
         labels: {severity: warning, component: host}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-search=Out%20of%20memory&from=now-6h&to=now
           summary: "OOM killer fired on {{ $labels.host }}"
           description: >-
             The kernel killed a process for memory on {{ $labels.host }} in the
@@ -120,6 +130,8 @@ groups:
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
+          dashboard: >-
+            {{ if $labels.container }}https://grafana.sfmix.org/d/sfmix-container-logs/container-logs?var-host={{ $labels.host }}&var-container={{ $labels.container }}{{ else }}https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit={{ $labels.unit }}{{ end }}&var-search=segfault%7Ccore%20dumped%7Cpanic%7Cfatal%20error%7Cruntime%20error&from=now-6h&to=now
           summary: "Crash signature on {{ $labels.host }} ({{ $labels.unit }}{{ $labels.container }})"
           description: >-
             A segfault / core dump / Go or Rust panic was logged. Check the
@@ -133,6 +145,8 @@ groups:
         for: 5m
         labels: {severity: info, component: host}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit=init.scope&var-search=entered%20failed%20state&from=now-6h&to=now
           summary: "A systemd unit failed on {{ $labels.host }}"
           description: >-
             {{ printf "%.0f" $value }} unit failure(s) in the last hour on
@@ -147,6 +161,8 @@ groups:
         for: 30m
         labels: {severity: warning, component: storage}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit=smartmontools.service&var-search=Failed%20SMART%7Cunreadable%7Cuncorrectable&from=now-24h&to=now
           summary: "smartd reports a failing disk on {{ $labels.host }}"
           description: >-
             smartd on {{ $labels.host }} is logging a failed attribute or
@@ -162,6 +178,8 @@ groups:
           ) > 0
         labels: {severity: critical, component: storage}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-search=zed%7Czfs%7CDEGRADED%7CFAULTED&from=now-6h&to=now
           summary: "ZFS event on {{ $labels.host }}"
           description: >-
             zed logged a degraded/faulted vdev or data errors on
@@ -176,6 +194,8 @@ groups:
         for: 5m
         labels: {severity: warning, component: tls}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-search=certbot&from=now-24h&to=now
           summary: "certbot errored on {{ $labels.host }}"
           description: >-
             A certbot run on {{ $labels.host }} logged an error in the last
@@ -190,6 +210,8 @@ groups:
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-search=ERROR%7Cfailed&from=now-24h&to=now
           summary: "unattended-upgrades failed on {{ $labels.host }}"
           description: >-
             apt's automatic upgrade on {{ $labels.host }} logged an error;
@@ -204,6 +226,8 @@ groups:
         for: 30m
         labels: {severity: info, component: security}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-search=Failed%20password&from=now-6h&to=now
           summary: >-
             {{ $labels.host }}: {{ printf "%.0f" $value }} failed SSH passwords/hour
           description: >-
@@ -222,6 +246,8 @@ groups:
           ) > 0
         labels: {severity: warning, component: backups}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit=pvescheduler.service&var-search=ERROR%7Cfailed%7Cerrors&from=now-24h&to=now
           summary: "vzdump reported a failure on {{ $labels.host }}"
           description: >-
             pvescheduler on {{ $labels.host }} logged a backup error (a good
@@ -236,6 +262,8 @@ groups:
         for: 1h
         labels: {severity: warning, component: teleport}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit=teleport.service&var-search=SLOW%20TRANSACTION&from=now-6h&to=now
           summary: >-
             Teleport sqlite backend is slow ({{ printf "%.0f" $value }} slow txns/h)
           description: >-
@@ -252,6 +280,8 @@ groups:
         for: 10m
         labels: {severity: warning, component: looking-glass}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit={{ $labels.unit }}&var-search=Waiting%20for%20lg-server&from=now-3h&to=now
           summary: "{{ $labels.unit }} cannot reach lg-server on {{ $labels.host }}"
           description: >-
             The looking-glass front ends have been waiting on lg-server's RPC
@@ -266,6 +296,8 @@ groups:
         for: 10m
         labels: {severity: warning, component: docker}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-container-logs/container-logs?var-host={{ $labels.host }}&var-container={{ $labels.container }}&var-search=traceback%7Cexception%7Cerror%7Cfatal&from=now-3h&to=now
           summary: >-
             {{ $labels.container }} on {{ $labels.host }}: {{ printf "%.0f" $value }} error lines in 15m
           description: >-
@@ -286,6 +318,8 @@ groups:
         for: 6h
         labels: {severity: info, component: transit}
         annotations:
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-device-logs/network-device-logs?var-host={{ $labels.host }}&var-search=bgpPeerNotFound&from=now-24h&to=now
           summary: >-
             {{ $labels.host }}: {{ printf "%.0f" $value }}/h BGP opens from unconfigured peers
           description: >-
