@@ -188,7 +188,7 @@ def host_logs_dashboard():
     LogVolumeSpike, KernelOomKill, ProcessCrash, SystemdUnitFailed,
     SmartAttributeFailing, ZfsPoolUnhealthy, CertbotRenewFailed,
     UnattendedUpgradesError, SshBruteForce, ProxmoxBackupFailed,
-    TeleportBackendSlow, LookingGlassBackendWaiting."""
+    LookingGlassBackendWaiting (and TeleportBackendSlow, currently disabled)."""
     H = 'host="$host"'
     J = f'{{{H}, job="journal", unit=~"$unit"}}'
     ALL = f'{{{H}}}'
