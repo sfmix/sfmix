@@ -79,17 +79,20 @@ T1, T2 = 620, 840; TOP = 68; DECK = 164
 e('<!-- Golden Gate Bridge -->')
 e('<g class="golden-gate">')
 A0 = (470, DECK-2); A1 = (990, DECK-2)
-c_left  = (A0, (540, 80), (585, TOP), (T1, TOP))
-c_mid   = ((T1, TOP), (730, 192), (T2, TOP))
-c_right = ((T2, TOP), (875, TOP), (920, 80), A1)
-e(f'  <path d="M{A0[0]},{A0[1]} C540,80 585,{TOP} {T1},{TOP} Q730,192 {T2},{TOP} C875,{TOP} 920,80 {A1[0]},{A1[1]}" stroke="{GG}" stroke-width="2.4" fill="none" stroke-linecap="round"/>')
+# Hanging cables are parabolas: shallow at the anchorage, steep at the tower saddle,
+# and the main span sags to just above the roadway.  Quadratic Beziers with the
+# control point near the anchorage height give exactly that.
+c_left  = (A0, (552, DECK-6), (T1, TOP))
+c_mid   = ((T1, TOP), (730, 236), (T2, TOP))          # midspan y = (68+2*236+68)/4 = 152
+c_right = ((T2, TOP), (908, DECK-6), A1)
+e(f'  <path d="M{A0[0]},{A0[1]} Q{c_left[1][0]},{c_left[1][1]} {T1},{TOP} Q{c_mid[1][0]},{c_mid[1][1]} {T2},{TOP} Q{c_right[1][0]},{c_right[1][1]} {A1[0]},{A1[1]}" stroke="{GG}" stroke-width="2.4" fill="none" stroke-linecap="round"/>')
 sus = []
 for i in range(1, 16):
-    sus.append(cbez(*c_left, i/16))
+    sus.append(qbez(*c_left, i/16))
 for i in range(1, 16):
     sus.append(qbez(*c_mid, i/16))
 for i in range(1, 16):
-    sus.append(cbez(*c_right, i/16))
+    sus.append(qbez(*c_right, i/16))
 for (x, y) in sus:
     if y < DECK - 2:
         e(f'  <line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{DECK}" stroke="{GG}" stroke-width="0.7" opacity="0.8"/>')
@@ -181,17 +184,17 @@ BB = '#5b6880'; BBC = '#8a97ad'
 B1, B2 = 1580, 1780; BTOP = 84; BDECK = 168
 e('<!-- Bay Bridge west spans with the Bay Lights -->')
 e('<g class="bay-bridge">')
-b_left  = ((1500, BDECK-2), (1545, 100), (1560, BTOP), (B1, BTOP))
-b_mid   = ((B1, BTOP), (1680, 204), (B2, BTOP))
-b_right = ((B2, BTOP), (1800, BTOP), (1815, 100), (1880, BDECK-2))
-e(f'  <path d="M1500,{BDECK-2} C1545,100 1560,{BTOP} {B1},{BTOP} Q1680,204 {B2},{BTOP} C1800,{BTOP} 1815,100 1880,{BDECK-2}" stroke="{BBC}" stroke-width="2" fill="none"/>')
+b_left  = ((1500, BDECK-2), (1532, BDECK-6), (B1, BTOP))
+b_mid   = ((B1, BTOP), (1680, 232), (B2, BTOP))       # midspan y = (84+2*232+84)/4 = 158
+b_right = ((B2, BTOP), (1848, BDECK-6), (1880, BDECK-2))
+e(f'  <path d="M1500,{BDECK-2} Q{b_left[1][0]},{b_left[1][1]} {B1},{BTOP} Q{b_mid[1][0]},{b_mid[1][1]} {B2},{BTOP} Q{b_right[1][0]},{b_right[1][1]} 1880,{BDECK-2}" stroke="{BBC}" stroke-width="2" fill="none"/>')
 bsus = []
 for i in range(1, 13):
-    bsus.append(cbez(*b_left, i/13))
+    bsus.append(qbez(*b_left, i/13))
 for i in range(1, 17):
     bsus.append(qbez(*b_mid, i/17))
 for i in range(1, 13):
-    bsus.append(cbez(*b_right, i/13))
+    bsus.append(qbez(*b_right, i/13))
 lights = []
 for (x, y) in bsus:
     if y < BDECK - 3:
@@ -226,16 +229,24 @@ e('<!-- Yerba Buena Island and the east span self-anchored suspension tower -->'
 e(f'<path d="M1850,{GROUND} C1880,168 1910,152 1950,150 C1990,152 2010,170 2040,{GROUND} Z" fill="#1a2232"/>')
 e('<g class="east-span">')
 E = 2110; ETOP = 60; EDECK = 170
-e(f'  <path d="M2000,{EDECK-2} Q2040,{ETOP} {E},{ETOP} Q2180,{ETOP} 2220,{EDECK-2}" stroke="#8f9bb0" stroke-width="1.2" fill="none"/>')
-for i in range(1, 12):
-    x, y = qbez((2000, EDECK-2), (2040, ETOP), (E, ETOP), i/12)
-    e(f'  <line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{EDECK}" stroke="#6f7a8f" stroke-width="0.6"/>')
-    x, y = qbez((E, ETOP), (2180, ETOP), (2220, EDECK-2), i/12)
-    e(f'  <line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{EDECK}" stroke="#6f7a8f" stroke-width="0.6"/>')
+# Self-anchored suspension: the cable hangs from the tower saddle down to the deck
+# ends (long west span, short east span), so each half is a hanging parabola with
+# its shallow end at the deck anchorage.
+e_west = ((1960, EDECK-2), (2064, EDECK-8), (E, ETOP))
+e_east = ((E, ETOP), (2160, EDECK-8), (2190, EDECK-2))
+e(f'  <path d="M{e_west[0][0]},{e_west[0][1]} Q{e_west[1][0]},{e_west[1][1]} {E},{ETOP} Q{e_east[1][0]},{e_east[1][1]} {e_east[2][0]},{e_east[2][1]}" stroke="#8f9bb0" stroke-width="1.2" fill="none"/>')
+for i in range(1, 14):
+    x, y = qbez(*e_west, i/14)
+    if y < EDECK - 3:
+        e(f'  <line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{EDECK}" stroke="#6f7a8f" stroke-width="0.6"/>')
+for i in range(1, 8):
+    x, y = qbez(*e_east, i/8)
+    if y < EDECK - 3:
+        e(f'  <line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{EDECK}" stroke="#6f7a8f" stroke-width="0.6"/>')
 e(f'  <rect x="{E-3.5}" y="{ETOP-2}" width="7" height="{GROUND-(ETOP-2)}" fill="#a3adbf"/>')
 e(f'  <circle cx="{E}" cy="{ETOP-4}" r="1.2" fill="#ff5a4a"><animate attributeName="opacity" values="1;0.15;1" dur="2.2s" begin="0.9s" repeatCount="indefinite"/></circle>')
-e(f'  <rect x="2030" y="{EDECK}" width="370" height="4" fill="#4a5568"/>')
-e(f'  <line x1="2030" y1="{EDECK-1}" x2="2400" y2="{EDECK-1}" stroke="#ffffff" stroke-width="1" stroke-dasharray="1 11" opacity="0.55"/>')
+e(f'  <rect x="1960" y="{EDECK}" width="440" height="4" fill="#4a5568"/>')
+e(f'  <line x1="1960" y1="{EDECK-1}" x2="2400" y2="{EDECK-1}" stroke="#ffffff" stroke-width="1" stroke-dasharray="1 11" opacity="0.55"/>')
 e('</g>')
 
 # ---------- Water + reflections ----------
