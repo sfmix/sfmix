@@ -28,6 +28,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nms_alert_dashboards import alert_dashboards  # noqa: E402
+from nms_node_dashboards import node_dashboards  # noqa: E402
 
 log = logging.getLogger("nms-dashboards")
 logging.basicConfig(level=logging.INFO, stream=sys.stderr,
@@ -1443,6 +1444,8 @@ def main():
                   pdu_dashboard(), pdu_outlets_dashboard()]
     # Alert landing pages (Loki log views + TLS) — see nms_alert_dashboards.py.
     dashboards += alert_dashboards()
+    # Linux host metrics (Alloy's embedded node_exporter) — see nms_node_dashboards.py.
+    dashboards += node_dashboards()
     for d in dashboards:
         push(gurl, hdrs, folder, d, ds_uid, loki_uid)
     cleanup_stale(gurl, hdrs, {d["uid"] for d in dashboards})

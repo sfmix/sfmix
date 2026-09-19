@@ -255,7 +255,8 @@ scrape_configs:
             - 10.1.1.18:29185
     # Loki (sibling container, host network): ingest rates, discarded
     # samples by reason, ingester/ruler internals. Alloy agents are NOT
-    # scraped -- they remote_write into this Prometheus (job="alloy").
+    # scraped -- they remote_write into this Prometheus (job="alloy", plus
+    # the embedded node_exporter as job="node").
     - job_name: loki
       scheme: http
       scrape_interval: 30s
