@@ -180,6 +180,12 @@ prometheus.exporter.unix "node" {
 discovery.relabel "node" {
   targets = prometheus.exporter.unix.node.targets
 
+  // The exporter's targets carry job="integrations/unix", which beats the
+  // scrape block's job_name; pin the documented name here instead.
+  rule {
+    target_label = "job"
+    replacement  = "node"
+  }
   rule {
     target_label = "instance"
     replacement  = "{{ inventory_hostname }}"
