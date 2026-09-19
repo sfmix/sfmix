@@ -27,9 +27,16 @@
     state: started
     network_mode: host
     log_driver: local
+    # Mount the DIRECTORY, not the socket file. A file bind-mount pins the
+    # inode at container start; every bird restart creates a new socket inode
+    # on the host and the container keeps dialing the dead one ("connection
+    # refused" on every scrape -- how the exporter was silently dead for months
+    # in 2026). With the directory mounted, the path resolves to whatever
+    # socket bird currently owns.
     volumes:
-      - /run/bird/bird.ctl:/var/run/bird.ctl
+      - /run/bird:/var/run/bird
     command:
       -format.new=true
       -bird.v2
+      -bird.socket=/var/run/bird/bird.ctl
       -web.listen-address={{ ansible_facts['default_ipv4']['address'] }}:{{ sfmix_route_server_linux_bird_exporter_port }}
