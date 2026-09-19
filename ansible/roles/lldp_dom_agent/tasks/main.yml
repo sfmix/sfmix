@@ -1,24 +1,64 @@
 ---
-# switch01.sfo02 has corrupted SDK state — inventory subtypes 5-10 trigger
-# SIGABRT.  Deploy the no-inventory variant until the switch is rebooted.
+# One LldpDomAgent build for the whole fleet.  (A "no-inventory" variant once
+# existed for switch01.sfo02; its crash loop was a null RX-power bug, since
+# fixed in the main script, and the fleet was unified on 2026-09-19.)
+#
+# Upgrade sequence: stop the daemon, wait for the SDK to tear the agent down,
+# replace the script, then start it again.  Swapping the file under a running
+# agent is not safe.
+- name: Get installed LldpDomAgent checksum
+  arista.eos.eos_command:
+    commands:
+      - command: "bash md5sum /mnt/flash/LldpDomAgent || true"
+  register: lldp_dom_agent_installed
+  changed_when: false
+  check_mode: false  # read-only; without this --check sees an empty hash and plans a needless update
+
+- name: Set LldpDomAgent facts
+  ansible.builtin.set_fact:
+    lldp_dom_agent_src: "{{ playbook_dir }}/../scripts/arista_eos/LldpDomAgent"
+    lldp_dom_agent_installed_md5: "{{ (lldp_dom_agent_installed.stdout[0] | default('')).split(' ') | first }}"
+
+# (Not `lookup('file') | md5`: the file lookup strips the trailing newline, so
+# its hash never matches md5sum's.)
+- name: Get repo LldpDomAgent checksum
+  ansible.builtin.stat:
+    path: "{{ lldp_dom_agent_src }}"
+    checksum_algorithm: md5
+  delegate_to: localhost
+  run_once: true
+  register: lldp_dom_agent_repo
+
+- name: Decide whether LldpDomAgent needs updating
+  ansible.builtin.set_fact:
+    lldp_dom_agent_needs_update: "{{ lldp_dom_agent_installed_md5 != lldp_dom_agent_repo.stat.checksum }}"
+
+- name: Stop LldpDomAgent before replacing the script
+  arista.eos.eos_config:
+    lines:
+      - shutdown
+    parents: daemon LldpDomAgent
+  when: lldp_dom_agent_needs_update
+
+- name: Wait for the agent to shut down
+  ansible.builtin.pause:
+    seconds: 10
+  when: lldp_dom_agent_needs_update
+
 - name: Copy LldpDomAgent to flash
   ansible.netcommon.net_put:
-    src: "{{ playbook_dir }}/../scripts/arista_eos/{{ lldp_dom_agent_script }}"
+    src: "{{ lldp_dom_agent_src }}"
     dest: /mnt/flash/LldpDomAgent
     protocol: scp
-  notify: restart LldpDomAgent
-  vars:
-    lldp_dom_agent_script: >-
-      {{ 'LldpDomAgent.no-inventory'
-         if inventory_hostname == 'switch01.sfo02'
-         else 'LldpDomAgent' }}
+  when: lldp_dom_agent_needs_update
 
 - name: Make LldpDomAgent executable
   arista.eos.eos_command:
     commands:
       - command: "bash chmod +x /mnt/flash/LldpDomAgent"
+  when: lldp_dom_agent_needs_update
 
-- name: Configure LldpDomAgent daemon
+- name: Configure and start LldpDomAgent daemon
   arista.eos.eos_config:
     lines:
       - exec /mnt/flash/LldpDomAgent
