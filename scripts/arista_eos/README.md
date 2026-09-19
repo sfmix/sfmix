@@ -68,6 +68,18 @@ switch(config-daemon)# exec /mnt/flash/LldpDomAgent
 switch(config-daemon)# no shutdown
 ```
 
+**Upgrading a running agent:** `shutdown` the daemon first, wait ~10 seconds
+for the SDK to tear it down, then replace `/mnt/flash/LldpDomAgent` and
+`no shutdown` it.  Do not swap the file under a running agent.  The playbook
+does this automatically when the installed checksum differs from the repo.
+
+The whole fleet runs the same script.  Check with
+`bash md5sum /mnt/flash/LldpDomAgent` on each switch and compare against
+`md5sum scripts/arista_eos/LldpDomAgent`.  Versions drifted once (2026-09:
+switch01.scl04 was still on a pre-June build that logged
+`Updated TLVs on N interfaces` on every 30 s poll, ~2,900 lines/day); the
+current script only logs when TLVs are added to or removed from an interface.
+
 The poll interval defaults to 30 seconds (matching the LLDP tx-interval).
 To change it at runtime:
 
