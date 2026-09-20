@@ -199,9 +199,13 @@ groups:
           summary: "certbot errored on {{ $labels.host }}"
           description: >-
             A certbot run on {{ $labels.host }} logged an error in the last
-            hour. Stray per-user `certbot renew` crontabs fail this way every
-            night (Permission denied on the lock); delete them -- the system
-            certbot.timer is the real renewal.
+            hour. Renewal is owned by the packaged certbot.timer, so treat this
+            as a real renewal failure: check `systemctl status certbot.service`
+            and /var/log/letsencrypt. A "Permission denied" on
+            .certbot.lock means something is running `certbot renew`
+            unprivileged -- look for a stray per-user crontab in
+            /var/spool/cron/crontabs and remove it (certbot_auto_renew is
+            false fleet-wide so Ansible no longer installs one).
 
       - alert: UnattendedUpgradesError
         expr: >

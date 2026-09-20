@@ -346,3 +346,15 @@ alertmanager_slack_bot_token: !vault |
           30353331343565613636363430316530626365646565336631313662356333356635306131373364
           30366362333936626331343234346333363930623134326237623030346465303461653732343561
           366631346533626461326339323436633637
+
+# geerlingguy.certbot defaults to installing its own renewal crontab owned by
+# `ansible_user` -- i.e. whichever operator happened to run the playbook. That
+# left a personal `30 3 * * * certbot renew --quiet` behind for every operator
+# who ever deployed (jof, matt, ...), and those run unprivileged, so they die
+# nightly on `[Errno 13] Permission denied: /var/log/letsencrypt/.certbot.lock`.
+#
+# The packaged certbot.timer is the real renewal path on every SFMIX server --
+# sfmix_server/tasks/certbot_hooks.yml enables and starts it, and the deploy
+# hooks that reload TLS services hang off it. The cron job is pure duplication,
+# so turn it off rather than trying to pin certbot_auto_renew_user to root.
+certbot_auto_renew: false
