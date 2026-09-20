@@ -2,5 +2,8 @@
 # Config and rule files reload live on SIGHUP — a full container restart
 # (with its TSDB replay and metrics gap) is only needed when the container
 # spec itself changes, and the docker_container task handles that itself.
-- name: Restart prometheus
+# Named "Reload", not "Restart", to match what it actually does and to match
+# the alertmanager/blackbox_exporter handlers: nothing here stops the process,
+# so a config change never costs a TSDB replay or a gap in the graphs.
+- name: Reload prometheus
   ansible.builtin.command: docker kill --signal=HUP prometheus
