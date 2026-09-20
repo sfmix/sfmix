@@ -266,6 +266,17 @@
             - node_exporter
       tags:
         - node_exporter
+    # Same reasoning as node_exporter above. The hypervisors are not in
+    # `servers`, so they would otherwise miss the journald cap entirely.
+    - name: "Apply sfmix_server journald size cap"
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: journald.yml
+        apply:
+          tags:
+            - journald
+      tags:
+        - journald
 
 - name: "Tailscale"
   hosts: tailscale

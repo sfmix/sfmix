@@ -65,3 +65,10 @@
     file: linux_sysctl.yml
   tags:
     - sysctl
+
+- name: "SFMIX Server: journald size cap"
+  when: ansible_facts["system"] == "Linux"
+  ansible.builtin.import_tasks:
+    file: journald.yml
+  tags:
+    - journald

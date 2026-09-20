@@ -63,3 +63,13 @@ sfmix_node_exporter_flags_openbsd:
   - "--web.listen-address={{ sfmix_node_exporter_listen_host }}:{{ sfmix_node_exporter_port }}"
   - "--web.config.file=/etc/node_exporter/web.yml"
   - "--collector.netdev.device-exclude=^lo.*$"
+
+# ── journald ──────────────────────────────────────────────────────────
+# tasks/journald.yml. Logs centralize to Loki (90d), so the local journal
+# only has to cover a host that can't reach Loki. Uncapped, journald takes
+# 10% of the filesystem; on an 8G root that is ~800M of a disk that then
+# trips NodeFilesystemAlmostFull. Raise per-host in host_vars if a box
+# genuinely needs deeper local history.
+sfmix_server_journald_max_use: 200M
+sfmix_server_journald_max_file_size: 32M   # cap a single file so rotation is granular
+sfmix_server_journald_runtime_max_use: 64M # /run/log/journal, i.e. pre-persist RAM

@@ -1,0 +1,27 @@
+---
+# Cap the local journal. Everything ships to Loki (90d retention), so the
+# on-disk journal is only a break-glass copy for when a host can't reach
+# Loki -- it does not need to be the archive. Left uncapped, journald
+# defaults to 10% of the filesystem, which on the small-root VMs is most of
+# a gigabyte: tailscale-sfo02 had 616M of journal dating back to 2024 on an
+# 8G root that alerted at 87% full.
+# Per-host sizes go in host_vars, not a second drop-in: journald reads
+# journald.conf.d in lexical order, so a higher-numbered file silently wins.
+- name: Create journald drop-in directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Cap journald disk usage
+  become: true
+  ansible.builtin.template:
+    src: journald-sfmix.conf.j2
+    dest: /etc/systemd/journald.conf.d/10-sfmix-size.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart systemd-journald
