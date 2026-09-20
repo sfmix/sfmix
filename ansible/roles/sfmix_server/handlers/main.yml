@@ -30,3 +30,4 @@
   ansible.builtin.service:
     name: node_exporter
     state: restarted
+  ignore_errors: "{{ ansible_check_mode }}"   # not installed yet in --check
