@@ -25,3 +25,34 @@
   with_items:
     - "{{ sfmix_admin_users }}"
     - "{{ sfmix_host_local_users }}"
+
+# dockerd does not reliably restart every `unless-stopped` container after a
+# host reboot (2026-09-19: 3 of 12 missed on metrics, no error logged). This
+# oneshot reconciles that once per boot; the script explains the guards.
+- name: Install sfmix-docker-autostart script
+  become: true
+  ansible.builtin.copy:
+    src: sfmix-docker-autostart
+    dest: /usr/local/sbin/sfmix-docker-autostart
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+  tags: [docker_autostart]
+
+- name: Install sfmix-docker-autostart systemd unit
+  become: true
+  ansible.builtin.template:
+    src: sfmix-docker-autostart.service.j2
+    dest: /etc/systemd/system/sfmix-docker-autostart.service
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  tags: [docker_autostart]
+
+- name: Enable sfmix-docker-autostart at boot
+  become: true
+  ansible.builtin.systemd_service:
+    name: sfmix-docker-autostart.service
+    enabled: true
+    daemon_reload: true
+  tags: [docker_autostart]
