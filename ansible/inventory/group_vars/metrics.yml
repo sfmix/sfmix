@@ -29,6 +29,7 @@ blackbox_tls_targets:
   - alice.sfmix.org:443
   - snappy.sfmix.org:443
   - teleport.sfmix.org:443
+  - librenms.sfmix.org:443
 
 # Targets to skip in the IPv6 probe job.
 #
@@ -41,6 +42,14 @@ blackbox_tls_targets:
 # entry the moment v6 to snappy is fixed, so the probe resumes covering it.
 blackbox_tls_ipv6_exclude:
   - snappy.sfmix.org:443
+  # librenms.sfmix.org publishes AAAA 2620:11a:b000::4 (CNAME -> monitor.sfo02)
+  # but nginx there listens only on 0.0.0.0:80/443 -- there is no v6 socket, so
+  # TCP/443 over v6 answers "Connection refused" immediately. This is NOT the
+  # snappy case: ICMP6 and v6 routing to it are healthy from metrics.sfo02
+  # (1.5ms, 0% loss) as of 2026-09-19. The real fix is one `listen [::]:443
+  # ssl;` line in /etc/nginx/conf.d/librenms.conf on that host; drop this entry
+  # the moment that lands so the v6 probe resumes covering it.
+  - librenms.sfmix.org:443
 
 # node_exporter scrape credential (plaintext); hosts carry only the bcrypt
 # hash (roles/sfmix_server defaults sfmix_node_exporter_basic_auth_hash).
