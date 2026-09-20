@@ -148,7 +148,7 @@ groups:
       - alert: ProcessCrash
         expr: >
           sum by (host, unit, container) (
-            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|dumped core|code=dumped|panic: |panicked at |fatal error: |runtime error: )" !~ "logger=(tsdb\\.loki|context)|COMMAND=|Invoked with" [15m])
+            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|dumped core|code=dumped, status=[0-9]+/(ABRT|SEGV|BUS|FPE|ILL|TRAP|SYS)|panic: |panicked at |fatal error: |runtime error: )" !~ "logger=(tsdb\\.loki|context)|COMMAND=|Invoked with" [15m])
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
@@ -159,9 +159,14 @@ groups:
             A segfault / core dump / Go or Rust panic was logged. Check the
             unit or container's recent output for the trace. systemd reports
             a dump as `code=dumped, status=<n>/<SIG>` on the unit line rather
-            than the words "core dumped", and journald keeps only that line
-            once the coredump is vacuumed -- so read the unit's log around
-            the timestamp, not just the matching line.
+            than the words "core dumped", and no host runs systemd-coredump,
+            so that line is usually the only trace there is -- read the
+            unit's log around the timestamp, not just the matching line.
+            Only fault signals count: SIGQUIT and SIGTERM also dump core but
+            are how systemd stops a service (netbox-rqworker sets
+            KillSignal=SIGQUIT), so a clean reboot must not page anyone.
+            A watchdog SIGABRT on systemd's own units means the host's disk
+            stalled past the 3min watchdog, not that the daemon is buggy.
 
       - alert: SystemdUnitFailed
         expr: >
