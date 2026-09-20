@@ -23,6 +23,13 @@
   tags:
     - sfmix_server_users
 
+- name: "SFMIX Server: apt sources"
+  when: ansible_facts["os_family"] == "Debian"
+  ansible.builtin.import_tasks:
+    file: apt_sources.yml
+  tags:
+    - apt_sources
+
 - name: "SFMIX Server: common packages"
   ansible.builtin.import_tasks: common_packages.yml
 
