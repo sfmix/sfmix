@@ -69,7 +69,7 @@ groups:
         labels: {severity: warning, component: hosts}
         annotations:
           summary: >-
-            {{ $labels.host }} clock is {{ printf "%.0f" (mul $value 1000) }} ms off its time source
+            {{ $labels.host }} clock is {{ humanizeDuration $value }} off its time source
           description: >-
             The kernel's NTP offset has exceeded 100 ms for 15 minutes. BGP,
             TLS, Teleport and log correlation all assume the fleet agrees on
@@ -100,13 +100,13 @@ groups:
       # disks are replaced.
       - alert: NodeHighIOPressure
         expr: >
-          rate(node_pressure_io_waiting_seconds_total{host!~"{{ groups['proxmox_hypervisors'] | map('regex_escape') | join('|') }}"}[10m]) > 0.25
+          rate(node_pressure_io_waiting_seconds_total{host!~"{{ groups['proxmox_hypervisors'] | join('|') }}"}[10m]) > 0.25
         for: 30m
         labels: {severity: warning, component: hosts}
         annotations:
 {% raw %}
           summary: >-
-            {{ $labels.host }}: tasks stalled on I/O {{ printf "%.0f" (mul $value 100) }}% of the time for 30m
+            {{ $labels.host }}: tasks stalled on I/O {{ humanizePercentage $value }} of the time for 30m
           description: >-
             Kernel pressure-stall information says at least one task has been
             waiting on disk a quarter of wall time. Host View -> Storage shows
