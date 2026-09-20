@@ -242,9 +242,6 @@
 
 - name: "Proxmox Hypervisors"
   hosts: proxmox_hypervisors
-  tags:
-    - proxmox
-    - node_exporter
   tasks:
     - name: "Apply scoped sfmix_server tasks: {{ task_file }}"
       ansible.builtin.include_role:
@@ -253,9 +250,22 @@
       loop:
         - proxmox_node.yml
         - snmp_agent.yml
-        - node_exporter.yml
       loop_control:
         loop_var: task_file
+      tags:
+        - proxmox
+    # Separate so `--tags node_exporter` reaches the hypervisors without also
+    # re-applying proxmox_node.yml (include_role tags need `apply` to reach
+    # the included tasks).
+    - name: "Apply sfmix_server node_exporter"
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: node_exporter.yml
+        apply:
+          tags:
+            - node_exporter
+      tags:
+        - node_exporter
 
 - name: "Tailscale"
   hosts: tailscale
