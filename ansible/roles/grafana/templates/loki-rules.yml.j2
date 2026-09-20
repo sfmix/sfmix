@@ -105,13 +105,35 @@ groups:
             find the new message template.
 
   # ── Host health from logs ────────────────────────────────────────────
-  # Pattern rules exclude container="loki": Loki's own log echoes every rule
-  # expression it evaluates, so a regex rule would otherwise match itself.
+  # Self-reference: this stack logs the searches made against it, so a
+  # pattern rule can match the act of looking for its own pattern. Three
+  # things echo a search back into the logs; all are filtered out below, on
+  # the principle that a rule which greps for a string must never count a
+  # line that merely *quotes* that string:
+  #
+  #   container="loki"       Loki echoes every expression it evaluates.
+  #   logger=tsdb.loki       Grafana logs the LogQL of every datasource
+  #                          query, verbatim.
+  #   logger=context         Grafana's access log carries referer=, and an
+  #                          alert's own dashboard link puts the pattern in
+  #                          the URL as var-search=.
+  #   COMMAND= / Invoked with
+  #                          sudo and Ansible log full command lines to the
+  #                          journal, so `sudo grep <pattern>` on a host
+  #                          lands <pattern> in job="journal".
+  #
+  # The Grafana filters key on logger= rather than dropping container=
+  # "grafana" wholesale, because a real Grafana panic goes to stderr with no
+  # logger= field at all and must still trip ProcessCrash. Opening the
+  # container-logs dashboard used to fire ProcessCrash against grafana
+  # within three seconds -- the alert's own runbook link was the trigger.
   - name: sfmix-log-host-health
     rules:
       - alert: KernelOomKill
         expr: >
-          sum by (host) (count_over_time({job="journal"} |= "Out of memory: Killed process" [15m])) > 0
+          sum by (host) (
+            count_over_time({job="journal"} |= "Out of memory: Killed process" !~ "COMMAND=|Invoked with" [15m])
+          ) > 0
         labels: {severity: warning, component: host}
         annotations:
           dashboard: >-
@@ -126,7 +148,7 @@ groups:
       - alert: ProcessCrash
         expr: >
           sum by (host, unit, container) (
-            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|panic: |fatal error: |runtime error: )" [15m])
+            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|panic: |fatal error: |runtime error: )" !~ "logger=(tsdb\\.loki|context)|COMMAND=|Invoked with" [15m])
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
@@ -174,7 +196,7 @@ groups:
       - alert: ZfsPoolUnhealthy
         expr: >
           sum by (host) (
-            count_over_time({job="journal"} |~ "(?i)(zed|zfs).*(DEGRADED|FAULTED|UNAVAIL|checksum error|io error)" [30m])
+            count_over_time({job="journal"} |~ "(?i)(zed|zfs).*(DEGRADED|FAULTED|UNAVAIL|checksum error|io error)" !~ "COMMAND=|Invoked with" [30m])
           ) > 0
         labels: {severity: critical, component: storage}
         annotations:
@@ -189,7 +211,7 @@ groups:
       - alert: CertbotRenewFailed
         expr: >
           sum by (host) (
-            count_over_time({job="journal"} |= "certbot" |~ "(?i)(error|failed|permission denied)" [1h])
+            count_over_time({job="journal"} |= "certbot" |~ "(?i)(error|failed|permission denied)" !~ "COMMAND=|Invoked with" [1h])
           ) > 0
         for: 5m
         labels: {severity: warning, component: tls}
@@ -225,7 +247,7 @@ groups:
       - alert: SshBruteForce
         expr: >
           sum by (host) (
-            count_over_time({job=~"journal|syslog"} |= "Failed password for" [1h])
+            count_over_time({job=~"journal|syslog"} |= "Failed password for" !~ "COMMAND=|Invoked with" [1h])
           ) > 500
         for: 30m
         labels: {severity: info, component: security}
@@ -303,7 +325,7 @@ groups:
       - alert: ContainerErrorBurst
         expr: >
           sum by (host, container) (
-            count_over_time({job="docker", container!="loki"} |~ "(?i)(traceback|exception|\\berror\\b|\\bfatal\\b)" [15m])
+            count_over_time({job="docker", container!="loki"} |~ "(?i)(traceback|exception|\\berror\\b|\\bfatal\\b)" !~ "logger=(tsdb\\.loki|context)" [15m])
           ) > 100
         for: 10m
         labels: {severity: warning, component: docker}
