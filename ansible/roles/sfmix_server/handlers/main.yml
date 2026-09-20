@@ -31,3 +31,9 @@
     name: node_exporter
     state: restarted
   ignore_errors: "{{ ansible_check_mode }}"   # not installed yet in --check
+
+- name: Restart systemd-journald
+  become: true
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted

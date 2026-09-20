@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+# Managed by the sfmix_server role -- see tasks/journald.yml.
+# The local journal is a break-glass copy; Loki holds the real retention.
+[Journal]
+SystemMaxUse={{ sfmix_server_journald_max_use }}
+SystemMaxFileSize={{ sfmix_server_journald_max_file_size }}
+RuntimeMaxUse={{ sfmix_server_journald_runtime_max_use }}
