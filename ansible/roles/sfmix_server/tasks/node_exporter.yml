@@ -1,0 +1,168 @@
+---
+# Upstream prometheus/node_exporter on every server, scraped natively by the
+# Prometheus on metrics.sfo02 (job="node", roles/prometheus). Two branches:
+#   Linux   - pinned release tarball (sha256-verified) -> /usr/local/bin, systemd
+#   OpenBSD - ports package, flags via rcctl (ansible.builtin.service can't)
+# Every host serves /metrics behind HTTP basic auth (exporter-toolkit web
+# config) so the hosts without a firewall (teleport, ns1, the OpenBSD boxes)
+# are no more exposed than the UFW ones. Bind address: see defaults/main.yml.
+
+- name: "node_exporter: refuse to expose an unfirewalled host on all interfaces"
+  when: sfmix_node_exporter_enabled | bool
+  ansible.builtin.assert:
+    that:
+      - sfmix_node_exporter_listen_host != '' or
+        (sfmix_server_ufw_enabled | bool and ansible_facts["system"] == "Linux")
+    fail_msg: >-
+      sfmix_node_exporter_listen_host is empty (bind everything) but UFW is not
+      enabled on {{ inventory_hostname }}; set the listen host explicitly.
+
+# ── Linux ──────────────────────────────────────────────────────────────
+- name: "node_exporter (Linux)"
+  become: true
+  when: ansible_facts["system"] == "Linux" and sfmix_node_exporter_enabled | bool
+  block:
+    - name: "node_exporter: system user"
+      ansible.builtin.user:
+        name: node_exporter
+        system: true
+        shell: /usr/sbin/nologin
+        home: /nonexistent
+        create_home: false
+
+    - name: "node_exporter: installed version (if any)"
+      ansible.builtin.command: /usr/local/bin/node_exporter --version
+      register: node_exporter_installed
+      failed_when: false
+      changed_when: false
+
+    - name: "node_exporter: source directory"
+      ansible.builtin.file:
+        path: /usr/local/src
+        state: directory
+        owner: root
+        group: root
+        mode: ugo=rx,u+w
+
+    - name: "node_exporter: download pinned release (checksum-verified)"
+      ansible.builtin.get_url:
+        url: "{{ sfmix_node_exporter_url }}"
+        dest: "/usr/local/src/node_exporter-{{ sfmix_node_exporter_version }}.linux-{{ sfmix_node_exporter_arch }}.tar.gz"
+        checksum: "sha256:{{ sfmix_node_exporter_sha256[sfmix_node_exporter_arch] }}"
+        owner: root
+        group: root
+        mode: u=rw,go=r
+      register: node_exporter_download
+      # --version prints "node_exporter, version 1.12.1 (branch: ...)"; older
+      # builds put it on stderr, hence both streams.
+      when: >-
+        node_exporter_installed.rc != 0 or
+        ('version ' ~ sfmix_node_exporter_version ~ ' ')
+          not in (node_exporter_installed.stdout ~ node_exporter_installed.stderr)
+
+    - name: "node_exporter: install binary to /usr/local/bin"
+      ansible.builtin.unarchive:
+        src: "{{ node_exporter_download.dest }}"
+        dest: /usr/local/bin
+        remote_src: true
+        extra_opts: ["--strip-components=1", "--wildcards", "*/node_exporter"]
+        owner: root
+        group: root
+        mode: u=rwx,go=rx
+      # check mode: get_url reports "changed" without downloading anything
+      when: node_exporter_download is changed and not ansible_check_mode
+      notify: Restart node_exporter
+
+    - name: "node_exporter: config directory"
+      ansible.builtin.file:
+        path: /etc/node_exporter
+        state: directory
+        owner: root
+        group: node_exporter
+        mode: u=rwx,g=rx,o=
+
+    - name: "node_exporter: web config (basic auth)"
+      ansible.builtin.template:
+        src: node_exporter.web.yml.j2
+        dest: /etc/node_exporter/web.yml
+        owner: root
+        group: node_exporter
+        mode: u=rw,g=r,o=
+      notify: Restart node_exporter
+
+    - name: "node_exporter: systemd unit"
+      ansible.builtin.template:
+        src: node_exporter.service.j2
+        dest: /etc/systemd/system/node_exporter.service
+        owner: root
+        group: root
+        mode: ug=rw,o=r
+      notify: Restart node_exporter
+
+    - name: "node_exporter: enable and start"
+      ansible.builtin.systemd_service:
+        name: node_exporter
+        enabled: true
+        state: started
+        daemon_reload: true
+      ignore_errors: "{{ ansible_check_mode }}"   # unit not installed yet in --check
+
+# ── OpenBSD ────────────────────────────────────────────────────────────
+- name: "node_exporter (OpenBSD)"
+  become: true
+  when: ansible_facts["system"] == "OpenBSD" and sfmix_node_exporter_enabled | bool
+  vars:
+    _node_exporter_rc_flags: "{{ sfmix_node_exporter_flags_openbsd | join(' ') }}"
+  block:
+    # pkg_add directly: community.general.openbsd_pkg's state probe
+    # (pkg_info -Iq inst:node_exporter) errors on OpenBSD 7.8 when the package
+    # is not installed yet, which is exactly the first run.
+    - name: "node_exporter: install package"
+      ansible.builtin.command: pkg_add -I node_exporter
+      args:
+        creates: /usr/local/bin/node_exporter
+
+    - name: "node_exporter: config directory"
+      ansible.builtin.file:
+        path: /etc/node_exporter
+        state: directory
+        owner: root
+        group: _nodeexporter
+        mode: u=rwx,g=rx,o=
+
+    - name: "node_exporter: web config (basic auth)"
+      ansible.builtin.template:
+        src: node_exporter.web.yml.j2
+        dest: /etc/node_exporter/web.yml
+        owner: root
+        group: _nodeexporter
+        mode: u=rw,g=r,o=
+      notify: Restart node_exporter
+
+    - name: "node_exporter: current rc flags"
+      ansible.builtin.command: rcctl get node_exporter flags
+      register: node_exporter_rc_flags
+      changed_when: false
+      failed_when: false          # prints "NO" (rc=1) when unset
+
+    - name: "node_exporter: set rc flags"
+      ansible.builtin.command: rcctl set node_exporter flags {{ _node_exporter_rc_flags | quote }}
+      when: (node_exporter_rc_flags.stdout | trim) != _node_exporter_rc_flags
+      notify: Restart node_exporter
+
+    - name: "node_exporter: enable and start"
+      ansible.builtin.service:
+        name: node_exporter
+        enabled: true
+        state: started
+      ignore_errors: "{{ ansible_check_mode }}"   # package not installed yet in --check
+
+# ── Opted-out hosts ────────────────────────────────────────────────────
+- name: "node_exporter: stopped and disabled where not wanted"
+  become: true
+  when: not sfmix_node_exporter_enabled | bool
+  ansible.builtin.service:
+    name: node_exporter
+    state: stopped
+    enabled: false
+  failed_when: false               # never installed -> nothing to stop

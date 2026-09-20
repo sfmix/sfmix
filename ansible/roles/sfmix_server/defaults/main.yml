@@ -18,3 +18,41 @@ sfmix_server_sysctls:
 # wait = how long to wait for the daemon to answer at all.
 sfmix_server_docker_autostart_settle: 30
 sfmix_server_docker_autostart_wait: 180
+
+# ── node_exporter (upstream binary, scraped natively by Prometheus) ────
+# tasks/node_exporter.yml. Bump version + both checksums together (from the
+# release's sha256sums.txt). OpenBSD uses the ports package, unpinned.
+sfmix_node_exporter_enabled: true            # host_vars false to opt a host out
+sfmix_node_exporter_version: "1.12.1"
+sfmix_node_exporter_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'amd64' }}"
+sfmix_node_exporter_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ sfmix_node_exporter_version }}/node_exporter-{{ sfmix_node_exporter_version }}.linux-{{ sfmix_node_exporter_arch }}.tar.gz"
+sfmix_node_exporter_sha256:
+  amd64: "b51d8a76aa2a9156a55d501aca6276fae09e262259a5e4e831d2c2222f084e63"
+  arm64: "ad35b605f9954b9f1ffddf5ba054bdc5a98d790b9eae5291e1eeb83f1ecbd0e7"
+sfmix_node_exporter_port: 9100
+# Bind address. UFW hosts listen on every interface (dual-stack; the
+# admin-subnet allow already covers the scraper on metrics.sfo02). Hosts
+# without UFW bind the name Ansible reaches them on: the mgmt name for the
+# route servers / shell / quarantine-lg / PVE nodes (A record only, internal),
+# the public name for ns1 and teleport. /metrics is behind basic auth
+# everywhere, so the difference is defence in depth, not the only line.
+sfmix_node_exporter_listen_host: >-
+  {{ '' if (sfmix_server_ufw_enabled | bool and ansible_facts['system'] == 'Linux')
+     else (ansible_host | default(inventory_hostname)) }}
+# Scrape credential. Hosts only get the bcrypt hash; the plaintext lives
+# vaulted in group_vars/metrics.yml for the Prometheus scrape job.
+sfmix_node_exporter_basic_auth_user: prometheus
+sfmix_node_exporter_basic_auth_hash: "$2b$10$qcccqGlpOwZleZwoKflCheoiUc/08FAU69WqkVLiSKyGtBmN1YWcu"
+# Interfaces that say nothing about the host: loopback, docker bridges and
+# veth pairs, Proxmox per-VM tap/fw* plumbing.
+sfmix_node_exporter_netdev_exclude: "^(lo|veth.*|br-.*|docker.*|tap.*|fwbr.*|fwln.*|fwpr.*)$"
+sfmix_node_exporter_flags:
+  - "--web.listen-address={{ sfmix_node_exporter_listen_host }}:{{ sfmix_node_exporter_port }}"
+  - "--web.config.file=/etc/node_exporter/web.yml"
+  - "--collector.netdev.device-exclude={{ sfmix_node_exporter_netdev_exclude }}"
+  - "--collector.netclass.ignored-devices={{ sfmix_node_exporter_netdev_exclude }}"
+# OpenBSD has no netclass collector (Linux sysfs) and none of the virtual NICs.
+sfmix_node_exporter_flags_openbsd:
+  - "--web.listen-address={{ sfmix_node_exporter_listen_host }}:{{ sfmix_node_exporter_port }}"
+  - "--web.config.file=/etc/node_exporter/web.yml"
+  - "--collector.netdev.device-exclude=^lo.*$"

@@ -242,6 +242,9 @@
 
 - name: "Proxmox Hypervisors"
   hosts: proxmox_hypervisors
+  tags:
+    - proxmox
+    - node_exporter
   tasks:
     - name: "Apply scoped sfmix_server tasks: {{ task_file }}"
       ansible.builtin.include_role:
@@ -250,6 +253,7 @@
       loop:
         - proxmox_node.yml
         - snmp_agent.yml
+        - node_exporter.yml
       loop_control:
         loop_var: task_file
 

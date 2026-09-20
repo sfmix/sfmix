@@ -24,3 +24,9 @@
   ansible.builtin.service:
     name: docker
     state: restarted
+
+- name: Restart node_exporter
+  become: true
+  ansible.builtin.service:
+    name: node_exporter
+    state: restarted

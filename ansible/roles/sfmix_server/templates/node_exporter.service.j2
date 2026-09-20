@@ -1,0 +1,31 @@
+# Managed by Ansible (roles/sfmix_server/tasks/node_exporter.yml).
+# Upstream prometheus/node_exporter {{ sfmix_node_exporter_version }}, scraped
+# by Prometheus on metrics.sfo02 as job="node" (roles/prometheus). /metrics is
+# behind basic auth (/etc/node_exporter/web.yml); bind address is
+# "{{ sfmix_node_exporter_listen_host }}" (empty = every interface, UFW hosts only).
+[Unit]
+Description=Prometheus node_exporter
+Documentation=https://github.com/prometheus/node_exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+ExecStart=/usr/local/bin/node_exporter \
+{% for flag in sfmix_node_exporter_flags %}
+  {{ flag }}{{ ' \\' if not loop.last else '' }}
+{% endfor %}
+Restart=on-failure
+RestartSec=5s
+# Hardening. Deliberately NOT ProtectKernelTunables/ProtectProc: they hide the
+# /proc and /sys contents the collectors read.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+
+[Install]
+WantedBy=multi-user.target

@@ -118,7 +118,7 @@
   loop:
     - gen_nms_dashboards.py
     - nms_alert_dashboards.py    # alert landing pages (Loki log views, TLS)
-    - nms_node_dashboards.py     # Linux host metrics (node_exporter via Alloy)
+    - nms_node_dashboards.py     # host metrics (node_exporter, scraped natively)
 
 - name: "SNMP exporter: Template dashboard generator env"
   become: true

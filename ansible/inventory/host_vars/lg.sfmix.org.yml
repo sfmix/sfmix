@@ -1,0 +1,5 @@
+---
+# lg has only public addresses and no firewall (group_vars/looking_glass.yml
+# disables UFW; it is OpenBSD). Keep node_exporter off it until it has a
+# management address to bind to. The Prometheus `node` job honours this too.
+sfmix_node_exporter_enabled: false

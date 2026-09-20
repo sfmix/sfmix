@@ -255,8 +255,8 @@ scrape_configs:
             - 10.1.1.18:29185
     # Loki (sibling container, host network): ingest rates, discarded
     # samples by reason, ingester/ruler internals. Alloy agents are NOT
-    # scraped -- they remote_write into this Prometheus (job="alloy", plus
-    # the embedded node_exporter as job="node").
+    # scraped -- they remote_write their self-metrics into this Prometheus.
+    # Host metrics come from the standalone node_exporter (job="node", below).
     - job_name: loki
       scheme: http
       scrape_interval: 30s
@@ -266,3 +266,28 @@ scrape_configs:
             - 127.0.0.1:3100
           labels:
             host: metrics.sfo02.sfmix.org
+    # node_exporter on every server and hypervisor (roles/sfmix_server,
+    # tasks/node_exporter.yml), scraped over the address Ansible manages the
+    # host on, behind basic auth. `instance` is rewritten to the inventory
+    # name so it equals `host` -- the label contract the Linux Hosts / Host
+    # View dashboards and node.rules.yml are written against. Opt a host out
+    # with sfmix_node_exporter_enabled: false in its host_vars.
+    - job_name: node
+      scheme: http
+      scrape_interval: 30s
+      scrape_timeout: 10s
+      basic_auth:
+        username: {{ sfmix_node_exporter_basic_auth_user | default('prometheus') }}
+        password: {{ sfmix_node_exporter_basic_auth_password }}
+      static_configs:
+{% for h in (groups['servers'] + groups['proxmox_hypervisors']) | unique | sort %}
+{% if hostvars[h].sfmix_node_exporter_enabled | default(true) %}
+        - targets:
+            - "{{ hostvars[h].ansible_host | default(h) }}:{{ hostvars[h].sfmix_node_exporter_port | default(9100) }}"
+          labels:
+            host: {{ h }}
+{% endif %}
+{% endfor %}
+      relabel_configs:
+          - source_labels: [host]
+            target_label: instance

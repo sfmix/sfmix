@@ -28,6 +28,7 @@
     - tls.rules.yml            # served-certificate expiry (blackbox_exporter)
     - lan-hygiene.rules.yml    # peering-LAN hygiene: RAs/DHCP/IGP hellos heard from members (008)
     - logging.rules.yml        # log pipeline internals: Alloy agents (remote_write) + Loki
+    - node.rules.yml           # host health from node_exporter (job="node")
 
 - name: "Prometheus: Template config"
   become: true
