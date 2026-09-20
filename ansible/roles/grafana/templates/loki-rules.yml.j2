@@ -186,21 +186,26 @@ groups:
 
       - alert: SmartAttributeFailing
         expr: >
-          sum by (host) (
-            count_over_time({job="journal", unit="smartmontools.service"} |~ "Failed SMART|Currently unreadable|Offline uncorrectable|FAILED SMART self-check" [1h])
+          sum by (host, device) (
+            count_over_time({job="journal", unit="smartmontools.service"} |~ "Failed SMART|Currently unreadable|Offline uncorrectable|FAILED SMART self-check" | regexp "Device: /dev/(?P<device>[a-zA-Z0-9]+)" [1h])
           ) > 0
         for: 30m
         labels: {severity: warning, component: storage}
         annotations:
           dashboard: >-
             https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit=smartmontools.service&var-search=Failed%20SMART%7Cunreadable%7Cuncorrectable&from=now-24h&to=now
-          summary: "smartd reports a failing disk on {{ $labels.host }}"
+          summary: "smartd reports a failing disk on {{ $labels.host }} ({{ $labels.device }})"
           description: >-
             smartd on {{ $labels.host }} is logging a failed attribute or
-            pending/uncorrectable sectors (routine "Prefailure Attribute
-            changed" wear ticks are deliberately not matched). Identify the
-            device in the message and check whether it is a pool member
+            pending/uncorrectable sectors for /dev/{{ $labels.device }}
+            (routine "Prefailure Attribute changed" wear ticks are
+            deliberately not matched). Check whether it is a pool member
             (`zpool status`) or a stray disk to pull.
+            The alert carries a `device` label so a single known-bad disk can
+            be silenced without going dark on the rest of the host -- a
+            host-wide silence here would also hide a live pool member. If the
+            regexp cannot find a device in the line the label is empty, which
+            still fires rather than swallowing the warning.
 
       - alert: ZfsPoolUnhealthy
         expr: >
