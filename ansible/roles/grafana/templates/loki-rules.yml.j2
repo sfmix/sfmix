@@ -210,7 +210,7 @@ groups:
       - alert: UnattendedUpgradesError
         expr: >
           sum by (host) (
-            count_over_time({job="unattended-upgrades"} |~ "(?i)(ERROR|dpkg.*(error|failed)|Installing the upgrades failed)" [6h])
+            count_over_time({job="unattended-upgrades"} |~ "(ERROR|(?i:dpkg.*(error|failed))|Installing the upgrades failed)" != "No error reported" [6h])
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
