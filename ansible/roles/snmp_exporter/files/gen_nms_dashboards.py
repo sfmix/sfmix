@@ -1093,7 +1093,8 @@ def participant_dashboard():
         {"h": 4, "w": 8, "x": 8, "y": y}, unit="bps", decimals=1,
         description="Record aggregate ingress since tracking began "
                     "(sfmix:ixp_bps:alltime_max), seeded from sflow history. "
-                    "A new record trips the IXPTrafficAllTimeHigh alert."))
+                    "A new record is announced once a day by the "
+                    "IXPTrafficNewRecordDaily notice (16:00 UTC)."))
     p.append(stat(
         "% of all-time high",
         'sfmix:ixp_bps:total / sfmix:ixp_bps:alltime_max * 100',
