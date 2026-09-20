@@ -163,46 +163,6 @@ prometheus.scrape "self" {
   scrape_interval = "{{ grafana_alloy_self_scrape_interval }}"
 }
 
-// ── Host metrics (node_exporter) -> Prometheus ─────────────────────────
-// Alloy's embedded node_exporter: CPU, memory, filesystems, disk and network
-// I/O, PSI, hwmon temps, timex. Pushed over the same remote_write as the
-// self-metrics (nothing new listens). job="node"; see the "Linux Hosts" and
-// "Host View" dashboards in the SFMIX NMS folder.
-prometheus.exporter.unix "node" {
-  netdev {
-    device_exclude = "{{ grafana_alloy_node_netdev_exclude }}"
-  }
-  netclass {
-    ignored_devices = "{{ grafana_alloy_node_netdev_exclude }}"
-  }
-}
-
-discovery.relabel "node" {
-  targets = prometheus.exporter.unix.node.targets
-
-  // The exporter's targets carry job="integrations/unix", which beats the
-  // scrape block's job_name; pin the documented name here instead.
-  rule {
-    target_label = "job"
-    replacement  = "node"
-  }
-  rule {
-    target_label = "instance"
-    replacement  = "{{ inventory_hostname }}"
-  }
-  rule {
-    target_label = "host"
-    replacement  = "{{ inventory_hostname }}"
-  }
-}
-
-prometheus.scrape "node" {
-  targets         = discovery.relabel.node.output
-  forward_to      = [prometheus.remote_write.metrics.receiver]
-  job_name        = "node"
-  scrape_interval = "{{ grafana_alloy_node_scrape_interval }}"
-}
-
 prometheus.remote_write "metrics" {
   endpoint {
     url = "http://{{ prometheus_push_host }}:{{ prometheus_push_port }}/api/v1/write"

@@ -1,0 +1,5 @@
+# Managed by Ansible (roles/sfmix_server/tasks/node_exporter.yml).
+# exporter-toolkit web config: /metrics requires basic auth. The plaintext
+# lives (vaulted) with the Prometheus role; only the bcrypt hash is here.
+basic_auth_users:
+  {{ sfmix_node_exporter_basic_auth_user }}: "{{ sfmix_node_exporter_basic_auth_hash }}"

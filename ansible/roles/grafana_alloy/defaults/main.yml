@@ -60,13 +60,3 @@ prometheus_push_host: "{{ loki_push_host }}"
 prometheus_push_port: 9090
 grafana_alloy_self_scrape_interval: "60s"
 
-# ── Host metrics (node_exporter) -> Prometheus ────────────────────────
-# Alloy embeds node_exporter (prometheus.exporter.unix). It rides the same
-# remote_write as the self-metrics above, so nothing new listens on the
-# host; series arrive as job="node" with instance=host=<inventory_hostname>.
-# Dashboards: "Linux Hosts" (fleet) and "Host View" ($host) in SFMIX NMS.
-grafana_alloy_node_scrape_interval: "30s"
-# Interfaces dropped from the netdev/netclass collectors: loopback, docker
-# bridges + veth pairs, and Proxmox's per-VM tap/fw* plumbing (dozens per
-# PVE host, each a handful of series that say nothing about the host).
-grafana_alloy_node_netdev_exclude: "^(lo|veth.*|br-.*|docker.*|tap.*|fwbr.*|fwln.*|fwpr.*)$"

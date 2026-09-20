@@ -46,6 +46,12 @@
   tags:
     - snmp
 
+- name: "SFMIX Server: node_exporter"
+  ansible.builtin.import_tasks:
+    file: node_exporter.yml
+  tags:
+    - node_exporter
+
 - name: "SFMIX Server: certbot renewal hooks"
   when: ansible_facts["system"] == "Linux"
   ansible.builtin.import_tasks:

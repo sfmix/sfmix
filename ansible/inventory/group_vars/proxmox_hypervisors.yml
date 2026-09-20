@@ -1,3 +1,6 @@
 ---
 ansible_user: root
 ansible_ssh_common_args: '-o ProxyJump=shell.sfmix.org'
+# sfmix_server's ufw.yml is not among the scoped tasks these hosts get, so
+# tell node_exporter (tasks/node_exporter.yml) to bind the mgmt name only.
+sfmix_server_ufw_enabled: false

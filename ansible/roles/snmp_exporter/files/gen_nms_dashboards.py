@@ -1445,7 +1445,7 @@ def main():
                   pdu_dashboard(), pdu_outlets_dashboard()]
     # Alert landing pages (Loki log views + TLS) — see nms_alert_dashboards.py.
     dashboards += alert_dashboards()
-    # Linux host metrics (Alloy's embedded node_exporter) — see nms_node_dashboards.py.
+    # Linux/OpenBSD host metrics (node_exporter, job="node") — see nms_node_dashboards.py.
     dashboards += node_dashboards()
     for d in dashboards:
         push(gurl, hdrs, folder, d, ds_uid, loki_uid)

@@ -1,0 +1,117 @@
+{#
+  Host-health alerts from node_exporter (job="node", instance=host=<fqdn>),
+  scraped by the `node` job in prometheus.yaml.j2 (roles/sfmix_server installs
+  the exporter on every server + hypervisor). Linux-only metrics (timex, PSI,
+  vmstat) simply have no OpenBSD series, so those rules cannot misfire there.
+  Go-template expressions Prometheus evaluates sit inside {% raw %}...{% endraw %}.
+#}
+---
+groups:
+  - name: sfmix-node-alerts
+    rules:
+{% raw %}
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 10m
+        labels: {severity: warning, component: hosts}
+        annotations:
+          summary: "node_exporter on {{ $labels.host }} is unreachable"
+          description: >-
+            Prometheus has not scraped {{ $labels.host }} for 10 minutes: the
+            host is down, node_exporter stopped, or its bind address /
+            firewall / basic-auth changed. Every other host alert for it is
+            blind meanwhile. `systemctl status node_exporter` (Linux) or
+            `rcctl check node_exporter` (OpenBSD); re-run
+            `push_servers.playbook.yml --tags node_exporter --limit {{ $labels.host }}`.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-view/host-view?var-host={{ $labels.host }}&from=now-3h&to=now
+
+      - alert: NodeFilesystemAlmostFull
+        expr: >
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|squashfs|overlay|nsfs|autofs|fuse.*"}
+                     / node_filesystem_size_bytes) > 85
+          and on (host, mountpoint) node_filesystem_readonly == 0
+        for: 30m
+        labels: {severity: warning, component: hosts}
+        annotations:
+          summary: >-
+            {{ $labels.host }}:{{ $labels.mountpoint }} is {{ printf "%.0f" $value }}% full
+          description: >-
+            Less than 15% free on {{ $labels.device }} mounted at
+            {{ $labels.mountpoint }}. Usual suspects: journald
+            (`journalctl --disk-usage`), Docker (`docker system df` /
+            `docker image prune`), apt caches, and on the PVE hosts ZFS
+            snapshots and orphaned VM disks. Host View shows which mount
+            has been growing.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-view/host-view?var-host={{ $labels.host }}&from=now-7d&to=now
+
+      - alert: NodeFilesystemFillingUp
+        expr: >
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|squashfs|overlay|nsfs|autofs|fuse.*"}[6h], 24 * 3600) < 0
+          and 100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes) > 70
+        for: 1h
+        labels: {severity: warning, component: hosts}
+        annotations:
+          summary: >-
+            {{ $labels.host }}:{{ $labels.mountpoint }} will be full within a day at the current rate
+          description: >-
+            Free space on {{ $labels.mountpoint }} has trended to zero within
+            24h over the last 6h and the filesystem is already over 70%.
+            Something is writing steadily: a runaway log, a growing database,
+            or a download that never stops. Find it before it fills.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-view/host-view?var-host={{ $labels.host }}&from=now-24h&to=now
+
+      - alert: NodeClockOffset
+        expr: abs(node_timex_offset_seconds) > 0.1
+        for: 15m
+        labels: {severity: warning, component: hosts}
+        annotations:
+          summary: >-
+            {{ $labels.host }} clock is {{ printf "%.0f" (mul $value 1000) }} ms off its time source
+          description: >-
+            The kernel's NTP offset has exceeded 100 ms for 15 minutes. BGP,
+            TLS, Teleport and log correlation all assume the fleet agrees on
+            the time. `chronyc tracking` / `timedatectl timesync-status` on
+            the host; if node_timex_sync_status is 0 nothing is disciplining
+            the clock at all.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-view/host-view?var-host={{ $labels.host }}&from=now-6h&to=now
+
+      - alert: NodeOOMKill
+        expr: increase(node_vmstat_oom_kill[1h]) > 0
+        labels: {severity: warning, component: hosts}
+        annotations:
+          summary: "{{ $labels.host }}: the kernel OOM-killed a process in the last hour"
+          description: >-
+            node_vmstat_oom_kill incremented. `journalctl -k --since -2h | grep -i
+            "out of memory"` names the victim; the Host View memory row shows
+            whether it was a slow leak or a spike. Containers hitting a memory
+            limit show up here too (see the birdwatcher GOMEMLIMIT episode).
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-view/host-view?var-host={{ $labels.host }}&from=now-3h&to=now
+{% endraw %}
+
+      # Sustained I/O pressure (PSI). The Proxmox hosts sit at ~20% iowait on
+      # their current (untrimmed QVO) disks -- the same reason TeleportBackendSlow
+      # was disabled in edbca76. A fleet threshold that fires on them forever
+      # would only teach everyone to ignore it, so they are excluded until the
+      # disks are replaced.
+      - alert: NodeHighIOPressure
+        expr: >
+          rate(node_pressure_io_waiting_seconds_total{host!~"{{ groups['proxmox_hypervisors'] | map('regex_escape') | join('|') }}"}[10m]) > 0.25
+        for: 30m
+        labels: {severity: warning, component: hosts}
+        annotations:
+{% raw %}
+          summary: >-
+            {{ $labels.host }}: tasks stalled on I/O {{ printf "%.0f" (mul $value 100) }}% of the time for 30m
+          description: >-
+            Kernel pressure-stall information says at least one task has been
+            waiting on disk a quarter of wall time. Host View -> Storage shows
+            which device is saturated (busy %, latency) and whether it is
+            reads or writes; `iotop -ao` on the host names the process.
+          dashboard: >-
+            https://grafana.sfmix.org/d/sfmix-host-view/host-view?var-host={{ $labels.host }}&from=now-6h&to=now
+{% endraw %}
