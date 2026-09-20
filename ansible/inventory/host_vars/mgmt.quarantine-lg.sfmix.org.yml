@@ -1,0 +1,5 @@
+---
+# OpenBSD 7.4 (end-of-life): the package mirrors no longer carry 7.4, so
+# `pkg_add node_exporter` cannot succeed here. Excluded from the Prometheus
+# `node` job until the host is upgraded; flip to true afterwards.
+sfmix_node_exporter_enabled: false
