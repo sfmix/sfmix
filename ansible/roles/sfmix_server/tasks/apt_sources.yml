@@ -1,0 +1,79 @@
+---
+# The Debian 13 installer points apt at an indirection file --
+#
+#   URIs: mirror+file:///etc/apt/mirrors/debian.list
+#
+# -- rather than at the archive URL itself. apt fetches that list file as an
+# *untrusted* item, and unattended-upgrades calls pkgname_from_deb() on every
+# untrusted fetcher item before it reaches its is_deb() guard, so a non-.deb
+# item makes every run log
+#
+#   ERROR failed to read deb file
+#   /var/lib/apt/lists/auxfiles/_etc_apt_mirrors_debian-security.list
+#   (E:Invalid archive signature)
+#
+# The upgrade itself completes fine -- the message is purely cosmetic -- but it
+# tripped the UnattendedUpgradesError alert. The mirror lists hold a single
+# entry (deb.debian.org), so the indirection buys nothing here; point apt
+# straight at the archive, which is what the rest of the fleet already does.
+
+- name: "Find apt sources that use a mirror+file indirection"
+  become: true
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "*.sources,*.list"
+    contains: 'mirror\+file:///etc/apt/mirrors/'
+    # Without this, find anchors `contains` at the start of each line
+    # (re.match), and the URI we are looking for sits after "URIs: ".
+    read_whole_file: true
+  register: sfmix_apt_mirror_sources
+
+- name: "Read the mirror lists those sources point at"
+  become: true
+  ansible.builtin.command:
+    cmd: cat /etc/apt/mirrors/debian.list /etc/apt/mirrors/debian-security.list
+  register: sfmix_apt_mirror_list_contents
+  changed_when: false
+  check_mode: false # read-only; the assert below needs it under --check too
+  when: sfmix_apt_mirror_sources.matched > 0
+
+# Only the stock deb.debian.org indirection is safe to flatten. A host pointed
+# at some other mirror must be converted by hand, so fail loudly instead.
+- name: "Refuse to flatten a non-default mirror"
+  ansible.builtin.assert:
+    that:
+      - sfmix_apt_mirror_list_contents.stdout_lines
+        | map('trim') | select() | list
+        | difference(sfmix_apt_default_mirrors) | length == 0
+    fail_msg: >-
+      /etc/apt/mirrors holds a non-default mirror
+      ({{ sfmix_apt_mirror_list_contents.stdout_lines | map('trim') | select() | list }});
+      repoint {{ sfmix_apt_mirror_sources.files | map(attribute='path') | list }} by hand.
+  when: sfmix_apt_mirror_sources.matched > 0
+
+- name: "Point apt straight at the Debian archive"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item.0.path }}"
+    regexp: "mirror\\+file:///etc/apt/mirrors/{{ item.1 }}\\.list"
+    replace: "https://deb.debian.org/{{ item.1 }}"
+  loop: "{{ sfmix_apt_mirror_sources.files | product(['debian', 'debian-security']) | list }}"
+  loop_control:
+    label: "{{ item.0.path }}: {{ item.1 }}"
+  register: sfmix_apt_sources_flattened
+
+- name: "Remove the mirror auxfiles apt cached for the old indirection"
+  become: true
+  ansible.builtin.file:
+    path: "/var/lib/apt/lists/auxfiles/_etc_apt_mirrors_{{ item }}.list"
+    state: absent
+  loop:
+    - debian
+    - debian-security
+  when: sfmix_apt_sources_flattened is changed
+
+- name: "Refresh apt after repointing the sources"
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+  when: sfmix_apt_sources_flattened is changed

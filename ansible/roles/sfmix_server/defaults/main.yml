@@ -73,3 +73,11 @@ sfmix_node_exporter_flags_openbsd:
 sfmix_server_journald_max_use: 200M
 sfmix_server_journald_max_file_size: 32M   # cap a single file so rotation is granular
 sfmix_server_journald_runtime_max_use: 64M # /run/log/journal, i.e. pre-persist RAM
+
+# ── apt sources ───────────────────────────────────────────────────────
+# tasks/apt_sources.yml. The only mirror indirection we will flatten to a
+# direct URI automatically; anything else is a deliberate local mirror and
+# gets converted by hand.
+sfmix_apt_default_mirrors:
+  - https://deb.debian.org/debian
+  - https://deb.debian.org/debian-security
