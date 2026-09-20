@@ -21,6 +21,14 @@ route:
     repeat_interval: {{ alertmanager_repeat_interval }}
     receiver: slack-warning        # fallback for anything without a severity match
     routes:
+        # Daily digest-style notices: post once, no "resolved" follow-up.
+        # These alerts gate themselves to a short daily window in their expr,
+        # so a 24h repeat_interval means exactly one message per day.
+        - matchers:
+              - alertname =~ ".*Daily"
+          receiver: slack-digest
+          group_wait: 0s
+          repeat_interval: 24h
         - matchers:
               - severity = "critical"
           receiver: slack-critical
@@ -60,3 +68,24 @@ receivers:
                   text: 'Silence :no_bell:'
                   url: '{{ alertmanager_external_url }}/#/silences/new'
 {% endfor %}
+    # Same Slack app and channel as slack-info, but send_resolved is off: a
+    # daily notice has no meaningful "resolved" state.
+    - name: slack-digest
+      slack_configs:
+          - api_url: {{ alertmanager_slack_api_url }}
+            http_config:
+                authorization:
+                    type: Bearer
+                    credentials_file: /opt/alertmanager/slack_bot_token
+            channel: '{{ alertmanager_slack_channels["info"] }}'
+            send_resolved: false
+            short_fields: true
+            color: '{% raw %}{{ template "slack.color" . }}{% endraw %}'
+            title: '{% raw %}{{ template "slack.title" . }}{% endraw %}'
+            title_link: '{{ alertmanager_external_url }}/#/alerts'
+            text: '{% raw %}{{ template "slack.text" . }}{% endraw %}'
+            footer: '{% raw %}{{ template "slack.footer" . }}{% endraw %}'
+            actions:
+                - type: button
+                  text: 'Dashboard :bar_chart:'
+                  url: '{% raw %}{{ template "slack.dashboardurl" . }}{% endraw %}'
