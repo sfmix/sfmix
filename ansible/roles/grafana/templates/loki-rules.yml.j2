@@ -148,16 +148,20 @@ groups:
       - alert: ProcessCrash
         expr: >
           sum by (host, unit, container) (
-            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|panic: |fatal error: |runtime error: )" !~ "logger=(tsdb\\.loki|context)|COMMAND=|Invoked with" [15m])
+            count_over_time({job=~"journal|docker", container!="loki"} |~ "(?i)(segfault|core dumped|dumped core|code=dumped|panic: |panicked at |fatal error: |runtime error: )" !~ "logger=(tsdb\\.loki|context)|COMMAND=|Invoked with" [15m])
           ) > 0
         labels: {severity: warning, component: host}
         annotations:
           dashboard: >-
-            {{ if $labels.container }}https://grafana.sfmix.org/d/sfmix-container-logs/container-logs?var-host={{ $labels.host }}&var-container={{ $labels.container }}{{ else }}https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit={{ $labels.unit }}{{ end }}&var-search=segfault%7Ccore%20dumped%7Cpanic%7Cfatal%20error%7Cruntime%20error&from=now-6h&to=now
+            {{ if $labels.container }}https://grafana.sfmix.org/d/sfmix-container-logs/container-logs?var-host={{ $labels.host }}&var-container={{ $labels.container }}{{ else }}https://grafana.sfmix.org/d/sfmix-host-logs/host-logs?var-host={{ $labels.host }}&var-unit={{ $labels.unit }}{{ end }}&var-search=segfault%7Ccore%20dumped%7Cdumped%20core%7Ccode%3Ddumped%7Cpanic%7Cfatal%20error%7Cruntime%20error&from=now-6h&to=now
           summary: "Crash signature on {{ $labels.host }} ({{ $labels.unit }}{{ $labels.container }})"
           description: >-
             A segfault / core dump / Go or Rust panic was logged. Check the
-            unit or container's recent output for the trace.
+            unit or container's recent output for the trace. systemd reports
+            a dump as `code=dumped, status=<n>/<SIG>` on the unit line rather
+            than the words "core dumped", and journald keeps only that line
+            once the coredump is vacuumed -- so read the unit's log around
+            the timestamp, not just the matching line.
 
       - alert: SystemdUnitFailed
         expr: >
