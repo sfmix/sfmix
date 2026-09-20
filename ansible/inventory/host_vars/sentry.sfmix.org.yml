@@ -1,0 +1,5 @@
+---
+# Unreachable over SSH during the 2026-09-19 node_exporter rollout (host down
+# or decommissioned). Excluded from the Prometheus `node` job so it does not
+# sit in NodeExporterDown forever; flip to true once it is back.
+sfmix_node_exporter_enabled: false

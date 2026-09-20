@@ -121,6 +121,12 @@
       ansible.builtin.command: pkg_add -I node_exporter
       args:
         creates: /usr/local/bin/node_exporter
+      register: node_exporter_pkg_add
+      # pkg_add exits 0 on "Can't find node_exporter" (e.g. an EOL release
+      # whose packages left the mirrors), so check the result ourselves.
+      failed_when: >-
+        node_exporter_pkg_add.rc != 0 or
+        "Can't find" in (node_exporter_pkg_add.stdout ~ node_exporter_pkg_add.stderr)
 
     - name: "node_exporter: config directory"
       ansible.builtin.file:
@@ -139,6 +145,13 @@
         mode: u=rw,g=r,o=
       notify: Restart node_exporter
 
+    # rcctl refuses `set ... flags` on a service that is not enabled yet.
+    - name: "node_exporter: enable"
+      ansible.builtin.service:
+        name: node_exporter
+        enabled: true
+      ignore_errors: "{{ ansible_check_mode }}"   # package not installed yet in --check
+
     - name: "node_exporter: current rc flags"
       ansible.builtin.command: rcctl get node_exporter flags
       register: node_exporter_rc_flags
@@ -150,12 +163,11 @@
       when: (node_exporter_rc_flags.stdout | trim) != _node_exporter_rc_flags
       notify: Restart node_exporter
 
-    - name: "node_exporter: enable and start"
+    - name: "node_exporter: start"
       ansible.builtin.service:
         name: node_exporter
-        enabled: true
         state: started
-      ignore_errors: "{{ ansible_check_mode }}"   # package not installed yet in --check
+      ignore_errors: "{{ ansible_check_mode }}"
 
 # ── Opted-out hosts ────────────────────────────────────────────────────
 - name: "node_exporter: stopped and disabled where not wanted"

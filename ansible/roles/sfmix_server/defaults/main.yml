@@ -32,13 +32,20 @@ sfmix_node_exporter_sha256:
 sfmix_node_exporter_port: 9100
 # Bind address. UFW hosts listen on every interface (dual-stack; the
 # admin-subnet allow already covers the scraper on metrics.sfo02). Hosts
-# without UFW bind the name Ansible reaches them on: the mgmt name for the
-# route servers / shell / quarantine-lg / PVE nodes (A record only, internal),
-# the public name for ns1 and teleport. /metrics is behind basic auth
-# everywhere, so the difference is defence in depth, not the only line.
+# without UFW bind ONE address: the one this Ansible session connected to
+# (SSH_CONNECTION's server side) -- the mgmt IP for the route servers /
+# shell / quarantine-lg / PVE nodes, the public IP for ns1 and teleport.
+# An IP, not the hostname: Debian resolves its own name to 127.0.1.1 via
+# /etc/hosts, which is exactly what happened on the first rollout. /metrics
+# is behind basic auth everywhere, so this is defence in depth.
+_sfmix_node_exporter_reach_addr: >-
+  {{ (ansible_facts['env']['SSH_CONNECTION'] | default('')).split()[2]
+     if (ansible_facts['env']['SSH_CONNECTION'] | default('')).split() | length >= 3
+     else ansible_facts['default_ipv4']['address'] }}
 sfmix_node_exporter_listen_host: >-
   {{ '' if (sfmix_server_ufw_enabled | bool and ansible_facts['system'] == 'Linux')
-     else (ansible_host | default(inventory_hostname)) }}
+     else (('[' ~ _sfmix_node_exporter_reach_addr ~ ']') if ':' in _sfmix_node_exporter_reach_addr
+           else _sfmix_node_exporter_reach_addr) }}
 # Scrape credential. Hosts only get the bcrypt hash; the plaintext lives
 # vaulted in group_vars/metrics.yml for the Prometheus scrape job.
 sfmix_node_exporter_basic_auth_user: prometheus
