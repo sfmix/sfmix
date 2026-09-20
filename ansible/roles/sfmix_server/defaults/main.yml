@@ -11,3 +11,10 @@ sfmix_server_sysctls:
   - { name: 'net.ipv4.conf.default.forwarding', value: '0' }
   - { name: 'net.ipv6.conf.all.forwarding', value: '0' }
   - { name: 'net.ipv6.conf.default.forwarding', value: '0' }
+
+# sfmix-docker-autostart: boot-time reconciliation for containers dockerd's own
+# restore silently misses (see files/sfmix-docker-autostart for the incident).
+# settle = how long to let dockerd finish restoring before checking;
+# wait = how long to wait for the daemon to answer at all.
+sfmix_server_docker_autostart_settle: 30
+sfmix_server_docker_autostart_wait: 180

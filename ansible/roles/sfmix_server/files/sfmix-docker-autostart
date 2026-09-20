@@ -1,0 +1,96 @@
+#!/bin/bash
+# Managed by Ansible (roles/sfmix_server) -- do not edit on the host.
+#
+# Safety net for a Docker restore gap.
+#
+# After a host reboot dockerd is supposed to restart every container whose
+# restart policy is `always` or `unless-stopped`. It does not always manage it:
+# on metrics.sfo02 after the 2026-09-19 reboot, 9 of 12 containers came back and
+# 3 (prometheus, blackbox_exporter, syslog-ng) stayed exited. dockerd logged no
+# error for them at all -- no failed start, no restore warning naming them -- and
+# the only visible symptom was that monitoring, alerting and the syslog receiver
+# were silently down until someone looked. All 12 had identical policy
+# (unless-stopped), all were host-network, and the one container that *did* log a
+# restore error (alertmanager) came back fine, so there is no error to key off.
+#
+# This unit therefore reconciles observable state once per boot: anything that
+# should be running and is not, gets started.
+#
+# It deliberately does NOT resurrect a container an operator stopped on purpose.
+# Only containers whose exit was recorded as part of this boot are candidates --
+# dockerd stamps FinishedAt when it finds the container dead during restore, so a
+# container killed by the reboot has FinishedAt just after the kernel boot time,
+# while one stopped last Tuesday has a much older stamp and is left alone. A
+# container can also opt out permanently with the label sfmix.autostart=false.
+#
+# It never fails the boot: every path exits 0, and the journal line is the
+# record (shipped to Loki by Alloy, so "dockerd missed one again" is greppable).
+set -u
+
+SETTLE=${SFMIX_DOCKER_AUTOSTART_SETTLE:-30}
+WAIT=${SFMIX_DOCKER_AUTOSTART_WAIT:-180}
+
+log() { echo "sfmix-docker-autostart: $*"; }
+
+# 1. Wait for the daemon to answer. dockerd restores containers while it is
+#    still starting, so systemd's "started" is not a reliable readiness signal.
+deadline=$(( $(date +%s) + WAIT ))
+until docker info >/dev/null 2>&1; do
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+        log "docker did not become ready within ${WAIT}s; giving up (boot not blocked)"
+        exit 0
+    fi
+    sleep 2
+done
+
+# 2. Give dockerd time to finish its own restore before second-guessing it.
+sleep "$SETTLE"
+
+ids=$(docker ps -aq)
+if [ -z "$ids" ]; then
+    log "no containers on this host; nothing to do"
+    exit 0
+fi
+
+boot=$(date -d "$(uptime -s)" +%s)
+started=0
+skipped=0
+failed=0
+
+# shellcheck disable=SC2086  # $ids is a deliberate word-split list of ids
+while IFS='|' read -r name policy running finished optout; do
+    [ -n "$name" ] || continue
+    case "$policy" in
+        always | unless-stopped) ;;
+        *) continue ;;
+    esac
+    [ "$running" = "false" ] || continue
+
+    if [ "$optout" = "false" ]; then
+        log "skip $name: labelled sfmix.autostart=false"
+        skipped=$(( skipped + 1 ))
+        continue
+    fi
+
+    # FinishedAt older than this boot means it was stopped deliberately before
+    # the reboot (or never ran). Honour that: unless-stopped means unless stopped.
+    fin=$(date -d "$finished" +%s 2>/dev/null) || fin=0
+    if [ "$fin" -lt "$(( boot - 60 ))" ]; then
+        log "skip $name: exited before this boot ($finished), leaving it stopped"
+        skipped=$(( skipped + 1 ))
+        continue
+    fi
+
+    if docker start "$name" >/dev/null 2>&1; then
+        log "started $name: policy=$policy but dockerd did not restore it"
+        started=$(( started + 1 ))
+    else
+        log "FAILED to start $name (policy=$policy) -- needs a look"
+        failed=$(( failed + 1 ))
+    fi
+done < <(docker inspect $ids \
+    --format '{{.Name}}|{{.HostConfig.RestartPolicy.Name}}|{{.State.Running}}|{{.State.FinishedAt}}|{{index .Config.Labels "sfmix.autostart"}}' \
+    2>/dev/null | sed 's|^/||')
+
+log "done: started=$started skipped=$skipped failed=$failed"
+exit 0

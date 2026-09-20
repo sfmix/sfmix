@@ -1,0 +1,23 @@
+# Managed by Ansible (roles/sfmix_server) -- do not edit on the host.
+[Unit]
+Description=Start Docker containers that dockerd's boot restore missed
+Documentation=file:/usr/local/sbin/sfmix-docker-autostart
+# Runs after the daemon is up; the script additionally polls `docker info`
+# and settles before acting, because dockerd restores containers while it is
+# still starting.
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/usr/bin/docker
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+Environment=SFMIX_DOCKER_AUTOSTART_SETTLE={{ sfmix_server_docker_autostart_settle }}
+Environment=SFMIX_DOCKER_AUTOSTART_WAIT={{ sfmix_server_docker_autostart_wait }}
+ExecStart=/usr/local/sbin/sfmix-docker-autostart
+# The script always exits 0; this bounds a pathological hang rather than a
+# failure path. Boot must never wait on this.
+TimeoutStartSec={{ sfmix_server_docker_autostart_settle + sfmix_server_docker_autostart_wait + 120 }}
+
+[Install]
+WantedBy=multi-user.target
