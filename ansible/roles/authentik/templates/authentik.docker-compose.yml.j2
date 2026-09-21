@@ -3,6 +3,22 @@ services:
   postgresql:
     image: docker.io/library/postgres:16-alpine
     restart: unless-stopped
+    # The stock image runs with max_connections=100. authentik's Django opens a
+    # connection per concurrent request rather than pooling, so concurrency --
+    # not request volume -- is what consumes the budget, and on 2026-09-21 a
+    # single bot walking the login chain ran all 100 dry: Postgres returned
+    # "sorry, too many clients already" and portal SSO logins 500ed for ~12
+    # minutes. The nginx limits in authentik-limits.conf.j2 now cap concurrency
+    # per client, and this raises the ceiling those limits sit under.
+    #
+    # Not set higher because this host has ~4G of RAM: each backend costs a few
+    # MB of private memory on top of shared_buffers, so the ceiling has to stay
+    # somewhere the box can actually honour it. Real pooling (PgBouncer, or
+    # authentik's own pool settings) is the way past this, not a bigger number.
+    command:
+      - postgres
+      - -c
+      - max_connections={{ authentik_postgres_max_connections }}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       start_period: 20s
