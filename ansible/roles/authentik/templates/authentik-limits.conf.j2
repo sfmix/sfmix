@@ -1,0 +1,115 @@
+{{ ansible_managed | comment }}
+#
+# Per-client limits for the authentik vhosts. Included at http level (nginx.conf
+# includes conf.d/*.conf before sites-enabled/*), so the zones and maps exist
+# before the vhosts reference them.
+#
+# Sized off the 2026-09-21 incident: one IP walked the OIDC login chain 2972
+# times in an hour, 2020 of those hits on /application/o/authorize/ and
+# /if/flow/. It averaged only ~1.1 r/s and peaked at ~3.8 r/s, so overall
+# request volume was never the useful signal. What broke was Postgres --
+# authentik ran the container's stock max_connections=100 dry and started
+# returning "sorry, too many clients already", 500ing portal SSO logins for
+# ~12 minutes. Hence two controls: a hard cap on concurrent connections (which
+# is what actually bounds in-flight database work), and a tight request rate on
+# the interactive login endpoints, which a bot can walk indefinitely but a real
+# person hits in one short burst and then leaves alone for minutes.
+
+# Our own networks, exempt from every limit below. Same list, and the same
+# reasoning, as the sshd PerSourcePenaltyExemptList in sfmix_server: a rate
+# limit aimed at anonymous abuse should never be able to throttle our own
+# infrastructure, monitoring, or operators. This covers the back-channel OIDC
+# callers too (portal fetching /application/o/token/ and /userinfo/, whose
+# per-IP key would otherwise be shared by every portal user at once) and
+# blackbox_exporter's probes, whose 429 would surface as a false
+# "login is down" alert.
+geo $authentik_limit_exempt {
+    default 0;
+{% for subnet in authentik_rate_limit_exempt_subnets %}
+    {{ subnet }} 1;
+{% endfor %}
+}
+
+# Client network, for the aggregate tier: /24 for IPv4, /48 for IPv6. A single
+# abusive host is caught by the per-IP limits; this tier is what stops a scanner
+# from rotating through a subnet and multiplying its per-IP allowance by 254.
+# remote_addr is rendered canonically by nginx, so every address in a given
+# prefix lands in the same bucket -- these keys are only bucket identifiers, so
+# a trailing ":" on a compressed IPv6 form is harmless.
+map $remote_addr $authentik_net {
+    default                                              $remote_addr;
+    ~^(?<_net4>[0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+$          $_net4;
+    ~^(?<_net6>[0-9a-fA-F]*:[0-9a-fA-F]*:[0-9a-fA-F]*):  $_net6;
+}
+
+# The interactive, browser-facing login endpoints. This is an ALLOWLIST, so a
+# path that is not named here is never touched by the login zones -- the
+# exemptions stay correct without anyone having to remember them.
+#
+# Deliberately NOT listed, and why:
+#
+#   /.well-known/acme-challenge/   certbot renewal. A 429 here is a failed
+#                                  renewal and eventually a TLS expiry outage.
+#                                  (Also its own location in the :80 server
+#                                  block, so it never reaches these anyway.)
+#   /application/o/token/          Back-channel OIDC, called by the portal
+#   /application/o/userinfo/       *server* rather than by browsers. Belt and
+#   /application/o/*/jwks/         braces with the geo exemption above, so this
+#   /application/o/*/end-session/  still holds if portal ever moves off an
+#   .../openid-configuration       address in ixp_admin_source_subnets.
+#   /-/health/                     Probed by blackbox_exporter.
+#   /ws/                           Long-lived outpost websockets.
+#   /api/v3/ (bar the executor)    Terraform and the outpost poll the admin API.
+#
+# /api/v3/flows/executor/ IS listed: it is where the real login work happens
+# (one human login is ~7 calls to it), so it needs limiting -- but the burst is
+# sized to let a whole login through at once.
+map $request_uri $authentik_is_login {
+    default                             0;
+    ~^/application/o/authorize/         1;
+    ~^/if/flow/                         1;
+    ~^/flows/-/                         1;
+    ~^/api/v3/flows/executor/           1;
+    ~^/outpost\.goauthentik\.io/start/  1;
+}
+
+# nginx skips any limit whose key evaluates empty. Composing the exemption into
+# the keys here is what lets the vhosts carry one flat list of limit directives
+# in a single location block -- no second location, no duplicated proxy stanza,
+# and no path or source special-cased at the vhost level.
+map $authentik_limit_exempt $authentik_limit_ip {
+    0   $binary_remote_addr;
+    1   "";
+}
+map $authentik_limit_exempt $authentik_limit_net {
+    0   $authentik_net;
+    1   "";
+}
+map "$authentik_limit_exempt:$authentik_is_login" $authentik_login_ip {
+    default  "";
+    "0:1"    $binary_remote_addr;
+}
+map "$authentik_limit_exempt:$authentik_is_login" $authentik_login_net {
+    default  "";
+    "0:1"    $authentik_net;
+}
+
+# Concurrent connections. The direct bound on how much in-flight work, and so
+# how many database connections, one source can hold at once.
+limit_conn_zone $authentik_limit_ip  zone=authentik_conn:10m;
+limit_conn_zone $authentik_limit_net zone=authentik_conn_net:10m;
+
+# Login endpoint request rate, per host and per network.
+limit_req_zone $authentik_login_ip  zone=authentik_login:10m     rate={{ authentik_rate_limit_login_rate }};
+limit_req_zone $authentik_login_net zone=authentik_login_net:10m rate={{ authentik_rate_limit_login_net_rate }};
+
+# Everything else. Deliberately generous: a cold flow page load pulls ~30
+# content-hashed assets from /static/, and throttling those is exactly what made
+# the Alice-LG limit look like a backend outage (see roles/alice).
+limit_req_zone $authentik_limit_ip zone=authentik_all:10m rate={{ authentik_rate_limit_all_rate }};
+
+# 429 rather than nginx's default 503. The Alice-LG episode was chased as
+# "the backends are down" for a while because a 503 from limit_req is
+# indistinguishable from a 503 from a dead upstream; 429 says who refused.
+limit_req_status 429;
+limit_conn_status 429;

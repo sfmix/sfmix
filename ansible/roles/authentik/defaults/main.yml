@@ -11,6 +11,39 @@ authentik_proxied_hosts:
   - prometheus.sfmix.org
   - sflow-rt.sfmix.org
 
+# Per-client nginx limits in front of authentik (templates/authentik-limits.conf.j2).
+# Set authentik_rate_limit to false to render the vhosts without any of them.
+#
+# The login rates look low because interactive login is bursty and then idle: a
+# person spends ~10 requests over a couple of seconds and then nothing for
+# minutes, so the burst is what has to be generous, not the sustained rate. A
+# bot walking the login chain has no such idle period, which is what the rate
+# catches. 30 instant requests is two full logins back to back.
+authentik_rate_limit: true
+
+# Sources exempt from every limit. Reuses the same list as the sshd
+# PerSourcePenaltyExemptList in sfmix_server, so our infrastructure, monitoring
+# and operators are covered from one place rather than a second list that drifts.
+authentik_rate_limit_exempt_subnets: >-
+  {{ ixp_admin_source_subnets
+     + (sfmix_host_local_admin_source_subnets | default([], true)) }}
+
+authentik_rate_limit_login_rate: 1r/s
+authentik_rate_limit_login_burst: 30
+authentik_rate_limit_conn: 16
+
+# Aggregate tier, keyed on /24 (IPv4) or /48 (IPv6). Set well above legitimate
+# use -- it exists to stop a subnet-distributed walk, not to police one office.
+# This is the tier most likely to need raising if a NAT'd participant ever trips
+# it; authentik_rate_limit_conn_net is the first knob to reach for.
+authentik_rate_limit_login_net_rate: 4r/s
+authentik_rate_limit_login_net_burst: 60
+authentik_rate_limit_conn_net: 64
+
+# Everything that is not an interactive login endpoint, chiefly /static/.
+authentik_rate_limit_all_rate: 20r/s
+authentik_rate_limit_all_burst: 80
+
 authentik_authentik:
   postgres_password: authentik
   secret_key: sooper_secret
