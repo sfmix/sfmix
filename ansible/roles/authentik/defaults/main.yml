@@ -19,6 +19,11 @@ authentik_proxied_hosts:
 # minutes, so the burst is what has to be generous, not the sustained rate. A
 # bot walking the login chain has no such idle period, which is what the rate
 # catches. 30 instant requests is two full logins back to back.
+# Postgres connection ceiling. Changing this recreates the postgresql container
+# (max_connections is a postmaster setting and cannot be reloaded), which is a
+# few seconds of login downtime.
+authentik_postgres_max_connections: 200
+
 authentik_rate_limit: true
 
 # Sources exempt from every limit. Reuses the same list as the sshd
