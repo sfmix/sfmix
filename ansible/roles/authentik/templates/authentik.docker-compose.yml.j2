@@ -13,8 +13,21 @@ services:
     #
     # Not set higher because this host has ~4G of RAM: each backend costs a few
     # MB of private memory on top of shared_buffers, so the ceiling has to stay
-    # somewhere the box can actually honour it. Real pooling (PgBouncer, or
-    # authentik's own pool settings) is the way past this, not a bigger number.
+    # somewhere the box can actually honour it.
+    #
+    # The way past this is pooling, and authentik already ships one -- its
+    # default.yml carries `postgresql: {conn_max_age: 0, use_pool: False}`, so
+    # AUTHENTIK_POSTGRESQL__USE_POOL / __CONN_MAX_AGE are the knobs. Not
+    # PgBouncer: the app and its database share this one host, so a second
+    # daemon would buy nothing the built-in pool does not. Enabling it changes
+    # connection lifecycle (and wants a look at how authentik's psycopg
+    # prepared statements behave), so it is a deliberate change with a quiet
+    # window, not a default to flip here.
+    #
+    # Note that AUTHENTIK_WEB__WORKERS/__THREADS do NOT bound this: 2026.x
+    # serves requests async, so each awaited query lands in Django's
+    # async-to-sync executor. That is how a 1-worker/2-thread server opened
+    # ~100 connections during the incident above.
     command:
       - postgres
       - -c
