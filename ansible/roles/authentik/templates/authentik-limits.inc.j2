@@ -1,0 +1,16 @@
+{#
+  Per-client limits applied inside each authentik "location /". Included by
+  authentik-http.conf.j2, authentik-https.conf.j2 and authentik-proxied.conf.j2
+  so the three vhosts cannot drift apart. Zones, and the maps that confine the
+  login zones to the interactive login endpoints, are defined at http level in
+  authentik-limits.conf.j2.
+
+  Body is pre-indented to 8 spaces to sit correctly inside a location block.
+#}
+{% if authentik_rate_limit %}
+        limit_conn authentik_conn {{ authentik_rate_limit_conn }};
+        limit_conn authentik_conn_net {{ authentik_rate_limit_conn_net }};
+        limit_req zone=authentik_login burst={{ authentik_rate_limit_login_burst }} nodelay;
+        limit_req zone=authentik_login_net burst={{ authentik_rate_limit_login_net_burst }} nodelay;
+        limit_req zone=authentik_all burst={{ authentik_rate_limit_all_burst }} nodelay;
+{% endif %}

@@ -79,6 +79,29 @@
     state: present
     update_cache: true
 
+# Must precede the vhosts: they reference these zones, and nginx refuses to
+# load a limit_req/limit_conn against a zone it has not seen. conf.d/*.conf is
+# included before sites-enabled/* in nginx.conf, so ordering holds at runtime
+# too.
+- name: Place nginx per-client limit zones
+  become: true
+  ansible.builtin.template:
+    src: authentik-limits.conf.j2
+    dest: /etc/nginx/conf.d/authentik-limits.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: authentik_rate_limit
+  notify: Reload nginx
+
+- name: Remove nginx per-client limit zones when disabled
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/authentik-limits.conf
+    state: absent
+  when: not authentik_rate_limit
+  notify: Reload nginx
+
 - name: Check if SSL certificate exists
   become: true
   ansible.builtin.stat:
