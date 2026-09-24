@@ -404,9 +404,12 @@ sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.188.25
 ;;; Ryamer/AS400587 -- also on 149.112.115.18/31 (cr1.sjc01 FREE) -- only if revived
 sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.188.26
 ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.188.27
-;;; snappy Speed Test <- 149.112.115.26/31 (cr1.scl02, VLAN 1416)
-;snappy.transit	IN	A	149.112.188.28
-;snappy	IN	A	149.112.188.29
+;;; snappy Speed Test -- also on 149.112.115.26/31 (cr1.scl02, VLAN 1416)
+;; Renumbered 2026-09-24, make-before-break: both addresses are live on the
+;; host and the router. snappy.sfmix.org is a public service endpoint, so the
+;; OLD A record comes out only after a TTL reduction. v6 (::26) is unchanged.
+snappy.transit	IN	A	149.112.188.28
+snappy	IN	A	149.112.188.29
 ;;; hetch-hetchy Flow Collector <- 149.112.115.28/31 (cr1.scl02, VLAN 1417)
 ;flussigkeitsmesser	IN	A	149.112.188.30
 ;hetch-hetchy	IN	A	149.112.188.31
