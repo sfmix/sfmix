@@ -1,11 +1,10 @@
 # Snappy Speed Test Server Role
 
-Ansible role providing common infrastructure for the snappy.sfmix.org speed test server. This role orchestrates network tuning, BGP peering, nginx reverse proxy, and multiple speed test implementations.
+Ansible role providing common infrastructure for the snappy.sfmix.org speed test server. This role orchestrates network tuning, nginx reverse proxy, and multiple speed test implementations.
 
 ## Features
 
 - **Network Tuning**: Optimized TCP/IP stack for gigabit+ throughput
-- **BGP Peering**: BIRD BGP daemon for route exchange with IXP fabric
 - **Nginx**: TLS-enabled reverse proxy with path-based routing
 - **Firewall**: UFW configuration for speed test services
 - **Speed Test Orchestration**: Imports and configures multiple speed test roles:
@@ -46,12 +45,6 @@ See `defaults/main.yml` for configurable variables:
 
 ```yaml
 # BGP Configuration
-snappy_bgp_local_asn: 64512
-snappy_bgp_remote_asn: 40271
-snappy_bgp_router_id: "149.112.115.26"
-snappy_bgp_neighbor_v4: "149.112.115.27"
-snappy_bgp_neighbor_v6: "2620:11a:b002::27"
-snappy_bgp_interface: "ens18"
 
 # Nginx/TLS Configuration
 snappy_speedtest_domain: "snappy.sfmix.org"
