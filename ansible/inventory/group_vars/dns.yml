@@ -59,8 +59,9 @@ bind_acls:
       - 50.117.26.130
       # mgmt-gw.scl05
       - 198.24.47.162
-      # snappy
+      # snappy -- both v4 addresses during the renumber overlap
       - 149.112.115.26
+      - 149.112.188.29
       - 2620:11a:b002::26
   - name: secondaries
     match_list:
