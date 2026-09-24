@@ -311,11 +311,14 @@ valve-cache.scl02               IN      A       149.112.115.23
 ;ninja-ix.as12233-as40271.transit	IN	A	149.112.115.24
 ;sfmix.as12233-as40271.transit		IN	AAAA	2620:11A:B002::25
 ;sfmix.as12233-as40271.transit		IN	A	149.112.115.25
-;; snappy Speed Test -- 149.112.115.26/31 / 2620:11A:B002::26/127 (VLAN 1416)
+;; snappy Speed Test -- 149.112.188.28/31 / 2620:11A:B002::26/127 (VLAN 1416)
+;; v4 renumbered 2026-09-24 from 149.112.115.26/31. IPv6 is unchanged.
+;; The old v4 addresses REMAIN CONFIGURED on the host and router until cached
+;; DNS expires -- removing them before that would strand clients.
 snappy					IN	AAAA	2620:11A:B002::26
-snappy					IN	A	149.112.115.26
+snappy					IN	A	149.112.188.29
 snappy.transit				IN	AAAA	2620:11A:B002::27
-snappy.transit				IN	A	149.112.115.27
+snappy.transit				IN	A	149.112.188.28
 ;; Flow Analysis Server: Hetch-Hetchy -- 149.112.115.28/31 / 2620:11A:B002::28/127 (VLAN 1417)
 hetch-hetchy		IN	AAAA	2620:11A:B002::28
 hetch-hetchy		IN	A	149.112.115.28
@@ -404,12 +407,6 @@ sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.188.25
 ;;; Ryamer/AS400587 -- also on 149.112.115.18/31 (cr1.sjc01 FREE) -- only if revived
 sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.188.26
 ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.188.27
-;;; snappy Speed Test -- also on 149.112.115.26/31 (cr1.scl02, VLAN 1416)
-;; Renumbered 2026-09-24, make-before-break: both addresses are live on the
-;; host and the router. snappy.sfmix.org is a public service endpoint, so the
-;; OLD A record comes out only after a TTL reduction. v6 (::26) is unchanged.
-snappy.transit	IN	A	149.112.188.28
-snappy	IN	A	149.112.188.29
 ;;; hetch-hetchy Flow Collector <- 149.112.115.28/31 (cr1.scl02, VLAN 1417)
 ;flussigkeitsmesser	IN	A	149.112.188.30
 ;hetch-hetchy	IN	A	149.112.188.31
