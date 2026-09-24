@@ -244,7 +244,10 @@ monkeybrains.as32329-as40271.sfo02.transit	IN	A	149.112.115.4
 monkeybrains.as32329-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::4
 sfmix.as32329-as40271.sfo02.transit		IN	A	149.112.115.5
 sfmix.as32329-as40271.sfo02.transit		IN	AAAA	2620:11A:B002::5
-;;; Tekify/AS46886
+;;; Tekify/AS46886 -- rehomed 2026-09-23 to 149.112.188.32/31 on cr1.sjc01.
+;; Old .6/.7 kept live below until their new session is up, then removed.
+;; NB: Po108 also carries Po108.1400, the Monkeybrains/Tekify PVLAN -- a
+;; separate service. Never remove the port, only the .1410 subinterface.
 tekify.as46886-as40271.fmt01.transit	IN	A		149.112.115.6
 tekify.as46886-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::6
 sfmix.as46886-as40271.fmt01.transit		IN	A		149.112.115.7
@@ -276,21 +279,38 @@ ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.115.18
 ryamer.as400587-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::18
 sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.115.19
 sfmix.as400587-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::19
-;;; Cofractal/AS26073
-cofractal.as26073-as40271.fmt01.transit	IN	A	149.112.115.20
-cofractal.as26073-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::20
-sfmix.as26073-as40271.fmt01.transit	IN	A	149.112.115.21
-sfmix.as26073-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::21
+;;; Cofractal/AS26073 -- no AS40271 transit exists, and never did
+;; No AS40271 transit exists or ever did: no interface, BGP group or neighbor
+;; on either cr1, and no SFMIX-TRANSIT-COFRACTAL VLAN on the Arista fleet.
+;; Their VLAN 1411 (PVLAN-AS26073-AS1299, Cofractal/Arelion) is a private
+;; interconnect and is LIVE -- unrelated to this service, do not touch it.
+;; Nothing of ours to renumber -- no device config exists to move. Left
+;; commented as history until the /24 is returned; no allocation in the new
+;; block unless a transit service is actually turned up.
+;cofractal.as26073-as40271.fmt01.transit	IN	A	149.112.115.20
+;cofractal.as26073-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::20
+;sfmix.as26073-as40271.fmt01.transit	IN	A	149.112.115.21
+;sfmix.as26073-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::21
 ;;; Valve Cache/AS32590 -- 149.112.115.22/31 / 2620:11A:B002::22/127
 gw-valve.scl02                  IN      AAAA    2620:11A:B002::22
 gw-valve.scl02                  IN      A       149.112.115.22
 valve-cache.scl02               IN      AAAA    2620:11A:B002::23
 valve-cache.scl02               IN      A       149.112.115.23
-;; Ninja-IX / AS12233 -- 149.112.115.24/31 / 2620:11A:B002::24/127
-ninja-ix.as12233-as40271.transit	IN	AAAA	2620:11A:B002::24
-ninja-ix.as12233-as40271.transit	IN	A	149.112.115.24
-sfmix.as12233-as40271.transit		IN	AAAA	2620:11A:B002::25
-sfmix.as12233-as40271.transit		IN	A	149.112.115.25
+;; Ninja-IX / AS12233 -- LIVE, but on Ninja-IX's own space. No SFMIX address.
+;; AS12233 is a HOSTED MICROSOFT CACHE, not a transit customer -- the router
+;; classes it ACCEPT-TAG-HOSTED-CACHE / HOSTED-CACHE-OUT, same as Apple.
+;; The service is live and healthy on 165.140.130.251/31 (interface
+;; as12233-peering, sap lag-core-1:1414, cr1.sjc01, Established). VLAN 1414 is
+;; ACTIVE: the cache sits on Po104 at switch03.fmt01 and reaches cr1.sjc01 over
+;; VXLAN via Po131.1414. Do not mistake it for dead -- switch02.fmt01 shows no
+;; MACs for 1414 simply because the cache is not at that switch.
+;; The old 149.112.115.24/31 below is genuinely unused: they moved to their own
+;; space. Nothing of ours to renumber; no allocation in the new block.
+;; Left commented as history until the /24 is returned.
+;ninja-ix.as12233-as40271.transit	IN	AAAA	2620:11A:B002::24
+;ninja-ix.as12233-as40271.transit	IN	A	149.112.115.24
+;sfmix.as12233-as40271.transit		IN	AAAA	2620:11A:B002::25
+;sfmix.as12233-as40271.transit		IN	A	149.112.115.25
 ;; snappy Speed Test -- 149.112.115.26/31 / 2620:11A:B002::26/127 (VLAN 1416)
 snappy					IN	AAAA	2620:11A:B002::26
 snappy					IN	A	149.112.115.26
@@ -311,11 +331,93 @@ sfmix.as35008-as40271.sjc01.transit	IN	A	149.112.188.2
 sfmix.as35008-as40271.sjc01.transit	IN	AAAA	2620:11a:b002::c
 kerfuffle.as35008-as40271.sjc01.transit	IN	A	149.112.188.3
 kerfuffle.as35008-as40271.sjc01.transit	IN	AAAA	2620:11a:b002::d
-;;; HappyCycling/AS397554
+;;; HappyCycling/AS397554 -- 149.112.188.4/31 / 2620:11A:B002::1a/127
+;;; The customer record here was previously named "kerfuffle.as397554-..."
+;;; -- a copy-paste of Kerfuffle's label onto HappyCycling's record. The
+;;; rename is a mislabel fix; Kerfuffle/AS35008 above is untouched.
+;;; v6 ::e/f duplicates Moscone's assignment on cr1.scl02 and keeps both
+;;; sessions down. ::1a/127 is the next free /127. PENDING: HappyCycling
+;;; must configure ::1b before these v6 records become true.
 sfmix.as397554-as40271.sjc01.transit	IN	A	149.112.188.4
-sfmix.as397554-as40271.sjc01.transit	IN	AAAA	2620:11a:b002::e
-kerfuffle.as397554-as40271.sjc01.transit	IN	A	149.112.188.5
-kerfuffle.as397554-as40271.sjc01.transit	IN	AAAA	2620:11a:b002::f
+sfmix.as397554-as40271.sjc01.transit	IN	AAAA	2620:11a:b002::1a
+happycycling.as397554-as40271.sjc01.transit	IN	A	149.112.188.5
+happycycling.as397554-as40271.sjc01.transit	IN	AAAA	2620:11a:b002::1b
+
+;;; Moscone Center/AS36210 -- 149.112.188.6/31 / 2620:11A:B002::e/127
+;; Sole owner of ::e/127 -- HappyCycling previously duplicated it on cr1.sjc01.
+;; Live on cr1.scl02 FREE; was missing from this zone entirely.
+;; Attaches at sfo02 -- edge port Po101.1418 on switch01.sfo02 -- and rides
+;; VLAN 1418 over VXLAN to terminate L3 on cr1.scl02. The router's BGP
+;; description says "@ scl02", which is the terminating router, not the site.
+sfmix.as36210-as40271.sfo02.transit	IN	A	149.112.188.6
+sfmix.as36210-as40271.sfo02.transit	IN	AAAA	2620:11a:b002::e
+moscone.as36210-as40271.sfo02.transit	IN	A	149.112.188.7
+moscone.as36210-as40271.sfo02.transit	IN	AAAA	2620:11a:b002::f
+
+;;; Sea Ranch Connect/AS396032 -- 149.112.188.8/31 / 2620:11A:B002::10/127
+;; Provisioned on cr1.sjc01 FREE but down since turn-up; was missing here.
+;; Attachment site fmt01 per the router BGP description; L3 is on cr1.sjc01.
+sfmix.as396032-as40271.fmt01.transit	IN	A	149.112.188.8
+sfmix.as396032-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::10
+sea-ranch.as396032-as40271.fmt01.transit	IN	A	149.112.188.9
+sea-ranch.as396032-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::11
+
+;; ===================================================================
+;; 149.112.188.0/23 -- Phase 3 Step 1 applied 2026-09-24.
+;;
+;; These addresses are LIVE on the routers as secondaries, with parallel
+;; BGP sessions waiting. Both old and new records are published during
+;; the overlap; the OLD records above are removed per customer as each
+;; confirms cutover, and any stragglers on 2026-12-31.
+;;
+;; IPv6 is NOT renumbered -- the /48 is kept, so every existing /127
+;; stays exactly as it is. No AAAA records belong in this block.
+;; The sole v6 change is HappyCycling's ::1a, recorded above.
+;;
+;; Attachment-site naming is preserved: the site in the name is where
+;; the customer connects, NOT the router that terminates L3.
+;; ===================================================================
+;;; Netskrt/AS53471 -- also on 149.112.115.0/31 (cr1.scl02 PAID)
+sfmix.as53471-as40271.scl02.transit	IN	A	149.112.188.10
+netskrt-cache.as53471-as40271.scl02.transit	IN	A	149.112.188.11
+;;; Google VPP/AS15169 -- also on 149.112.115.2/31 (cr1.sjc01 FREE)
+sfmix.as15169-as40271.sjc01.transit	IN	A	149.112.188.12
+google.as15169-as40271.sjc01.transit	IN	A	149.112.188.13
+;;; Monkeybrains/AS32329 -- also on 149.112.115.4/31 (cr1.scl02 FREE)
+sfmix.as32329-as40271.sfo02.transit	IN	A	149.112.188.14
+monkeybrains.as32329-as40271.sfo02.transit	IN	A	149.112.188.15
+;;; Apple Edge Cache/AS31128 -- also on 149.112.115.16/31 (cr1.scl02 PAID)
+sfmix.as31128-as40271.transit	IN	A	149.112.188.16
+apple-edge-cache.as31128-as40271.transit	IN	A	149.112.188.17
+;;; Valve Cache/AS32590 -- also on 149.112.115.22/31 (cr1.scl02 PAID)
+gw-valve.scl02	IN	A	149.112.188.18
+valve-cache.scl02	IN	A	149.112.188.19
+;;; Two P/AS6140 -- also on 149.112.115.8/31 (cr1.sjc01 FREE)
+sfmix.as6140-as40271.fmt01.transit	IN	A	149.112.188.20
+twop.as6140-as40271.fmt01.transit	IN	A	149.112.188.21
+;;; Softcom/AS13427 -- also on 149.112.115.12/31 (cr1.sjc01 FREE)
+sfmix.as13427-as40271.fmt01.transit	IN	A	149.112.188.22
+softcom.as13427-as40271.fmt01.transit	IN	A	149.112.188.23
+;;; SFMIX/AS12276 -- also on 149.112.115.14/31 (cr1.sjc01 FREE)
+sfmix-transit.as12276-as40271.sfo02.transit	IN	A	149.112.188.24
+sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.188.25
+;;; Ryamer/AS400587 -- also on 149.112.115.18/31 (cr1.sjc01 FREE) -- only if revived
+sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.188.26
+ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.188.27
+;;; snappy Speed Test <- 149.112.115.26/31 (cr1.scl02, VLAN 1416)
+;snappy.transit	IN	A	149.112.188.28
+;snappy	IN	A	149.112.188.29
+;;; hetch-hetchy Flow Collector <- 149.112.115.28/31 (cr1.scl02, VLAN 1417)
+;flussigkeitsmesser	IN	A	149.112.188.30
+;hetch-hetchy	IN	A	149.112.188.31
+
+;;; Tekify/AS46886 -- rehomed 2026-09-23, live on the new block
+;; v6 (::6/::7) unchanged. Awaiting Tekify's own config.
+sfmix.as46886-as40271.fmt01.transit	IN	A	149.112.188.32
+tekify.as46886-as40271.fmt01.transit	IN	A	149.112.188.33
+
+;; Apple cache block moves 149.112.115.160/27 -> 149.112.189.0/27
+;; (32 records, regenerate rather than hand-edit -- see Phase 4)
 
 ;; Apple Edge Cache -- 149.112.115.160/27 / 2620:11A:B002:3000::/56
 apple-edge-cache.transit		IN	A	149.112.115.160
