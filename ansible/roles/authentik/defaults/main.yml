@@ -11,6 +11,11 @@ authentik_proxied_hosts:
   - prometheus.sfmix.org
   - sflow-rt.sfmix.org
 
+# Postgres connection ceiling. Changing this recreates the postgresql container
+# (max_connections is a postmaster setting and cannot be reloaded), which is a
+# few seconds of login downtime.
+authentik_postgres_max_connections: 200
+
 # Per-client nginx limits in front of authentik (templates/authentik-limits.conf.j2).
 # Set authentik_rate_limit to false to render the vhosts without any of them.
 #
@@ -19,11 +24,9 @@ authentik_proxied_hosts:
 # minutes, so the burst is what has to be generous, not the sustained rate. A
 # bot walking the login chain has no such idle period, which is what the rate
 # catches. 30 instant requests is two full logins back to back.
-# Postgres connection ceiling. Changing this recreates the postgresql container
-# (max_connections is a postmaster setting and cannot be reloaded), which is a
-# few seconds of login downtime.
-authentik_postgres_max_connections: 200
-
+#
+# No limit here may ever be reachable by a person loading the login page; see
+# authentik-limits.conf.j2 for why /static/ is carved out of every zone.
 authentik_rate_limit: true
 
 # Sources exempt from every limit. Reuses the same list as the sshd
@@ -35,7 +38,11 @@ authentik_rate_limit_exempt_subnets: >-
 
 authentik_rate_limit_login_rate: 1r/s
 authentik_rate_limit_login_burst: 30
-authentik_rate_limit_conn: 16
+
+# Concurrent connections per client. nginx counts each HTTP/2 stream as a
+# connection and a browser opens ~100 at once, so this is really "concurrent
+# requests" and must clear what a browser does on one page.
+authentik_rate_limit_conn: 200
 
 # Aggregate tier, keyed on /24 (IPv4) or /48 (IPv6). Set well above legitimate
 # use -- it exists to stop a subnet-distributed walk, not to police one office.
@@ -43,11 +50,14 @@ authentik_rate_limit_conn: 16
 # it; authentik_rate_limit_conn_net is the first knob to reach for.
 authentik_rate_limit_login_net_rate: 4r/s
 authentik_rate_limit_login_net_burst: 60
-authentik_rate_limit_conn_net: 64
+authentik_rate_limit_conn_net: 800
 
-# Everything that is not an interactive login endpoint, chiefly /static/.
+# Everything that is neither an interactive login endpoint nor a static asset.
+# In practice this only catches secret scanners, which is what it is for. The
+# rate stays tight because those walks are sustained; the burst gets the
+# headroom, because that is the half a person can reach.
 authentik_rate_limit_all_rate: 20r/s
-authentik_rate_limit_all_burst: 80
+authentik_rate_limit_all_burst: 300
 
 authentik_authentik:
   postgres_password: authentik
