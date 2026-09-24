@@ -4,9 +4,9 @@
 # includes conf.d/*.conf before sites-enabled/*), so the zones and maps exist
 # before the vhosts reference them.
 #
-# Sized off the 2026-09-21 incident: one IP walked the OIDC login chain 2972
-# times in an hour, 2020 of those hits on /application/o/authorize/ and
-# /if/flow/. It averaged only ~1.1 r/s and peaked at ~3.8 r/s, so overall
+# Sized off the incident that prompted them: one IP walked the OIDC login
+# chain 2972 times in an hour, 2020 of those hits on /application/o/authorize/
+# and /if/flow/. It averaged only ~1.1 r/s and peaked at ~3.8 r/s, so overall
 # request volume was never the useful signal. What broke was Postgres --
 # authentik ran the container's stock max_connections=100 dry and started
 # returning "sorry, too many clients already", 500ing portal SSO logins for
@@ -40,6 +40,19 @@ map $remote_addr $authentik_net {
     default                                              $remote_addr;
     ~^(?<_net4>[0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+$          $_net4;
     ~^(?<_net6>[0-9a-fA-F]*:[0-9a-fA-F]*:[0-9a-fA-F]*):  $_net6;
+}
+
+# Content-addressed assets, keyed out of every zone below. A cold flow page
+# pulls 65 of these in one HTTP/2 fan-out -- 65 of the 66 requests a login
+# makes -- and nginx counts each HTTP/2 stream as a connection, so limit_conn
+# reads one page load as dozens of clients. They never touch Postgres, so they
+# carry none of the risk these limits exist for. An empty key, not a generous
+# ceiling: a ceiling is a cliff somebody eventually walks off, and a throttled
+# asset load presents as a login page that spins forever with no error.
+map $request_uri $authentik_is_static {
+    default     0;
+    ~^/static/  1;
+    ~^/media/   1;
 }
 
 # The interactive, browser-facing login endpoints. This is an ALLOWLIST, so a
@@ -77,13 +90,13 @@ map $request_uri $authentik_is_login {
 # the keys here is what lets the vhosts carry one flat list of limit directives
 # in a single location block -- no second location, no duplicated proxy stanza,
 # and no path or source special-cased at the vhost level.
-map $authentik_limit_exempt $authentik_limit_ip {
-    0   $binary_remote_addr;
-    1   "";
+map "$authentik_limit_exempt$authentik_is_static" $authentik_limit_ip {
+    "00"     $binary_remote_addr;
+    default  "";
 }
-map $authentik_limit_exempt $authentik_limit_net {
-    0   $authentik_net;
-    1   "";
+map "$authentik_limit_exempt$authentik_is_static" $authentik_limit_net {
+    "00"     $authentik_net;
+    default  "";
 }
 map "$authentik_limit_exempt:$authentik_is_login" $authentik_login_ip {
     default  "";
@@ -94,8 +107,9 @@ map "$authentik_limit_exempt:$authentik_is_login" $authentik_login_net {
     "0:1"    $authentik_net;
 }
 
-# Concurrent connections. The direct bound on how much in-flight work, and so
-# how many database connections, one source can hold at once.
+# Concurrent connections, assets excluded by the key above. The direct bound on
+# in-flight work, and so on database connections, per source. HTTP/2 streams
+# each count as a connection: size this against a browser, not a socket.
 limit_conn_zone $authentik_limit_ip  zone=authentik_conn:10m;
 limit_conn_zone $authentik_limit_net zone=authentik_conn_net:10m;
 
@@ -103,9 +117,10 @@ limit_conn_zone $authentik_limit_net zone=authentik_conn_net:10m;
 limit_req_zone $authentik_login_ip  zone=authentik_login:10m     rate={{ authentik_rate_limit_login_rate }};
 limit_req_zone $authentik_login_net zone=authentik_login_net:10m rate={{ authentik_rate_limit_login_net_rate }};
 
-# Everything else. Deliberately generous: a cold flow page load pulls ~30
-# content-hashed assets from /static/, and throttling those is exactly what made
-# the Alice-LG limit look like a backend outage (see roles/alice).
+# Everything else: not a login endpoint, not an asset. In practice this only
+# catches secret scanners walking /.env, /.git/refs, /config/initializers and
+# the like. The rate stays tight because those walks are sustained; the burst
+# carries the headroom that keeps a person clear of it.
 limit_req_zone $authentik_limit_ip zone=authentik_all:10m rate={{ authentik_rate_limit_all_rate }};
 
 # 429 rather than nginx's default 503. The Alice-LG episode was chased as
