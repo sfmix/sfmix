@@ -58,17 +58,17 @@
     - { key: "net.ipv4.tcp_slow_start_after_idle", value: "0" }
     - { key: "net.ipv4.tcp_mtu_probing", value: "1" }
 
-- name: Set TX queue length on {{ snappy_bgp_interface }}
+- name: Set TX queue length on {{ snappy_interface }}
   become: true
   ansible.builtin.copy:
     content: |
       [Unit]
-      Description=Set TX queue length for {{ snappy_bgp_interface }}
+      Description=Set TX queue length for {{ snappy_interface }}
       After=network.target
 
       [Service]
       Type=oneshot
-      ExecStart=/sbin/ip link set {{ snappy_bgp_interface }} txqueuelen 10000
+      ExecStart=/sbin/ip link set {{ snappy_interface }} txqueuelen 10000
       RemainAfterExit=yes
 
       [Install]

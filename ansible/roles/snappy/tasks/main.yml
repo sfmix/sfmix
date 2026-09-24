@@ -6,12 +6,6 @@
     - tuning
     - performance
 
-- name: "Snappy: Install BIRD"
-  ansible.builtin.import_tasks: bird.yml
-  tags:
-    - bird
-    - bgp
-
 - name: "Snappy: iperf3"
   ansible.builtin.import_role:
     name: iperf3

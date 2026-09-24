@@ -1,9 +1,5 @@
 ---
-snappy_bgp_local_asn: 64512
-snappy_bgp_remote_asn: 40271
-snappy_bgp_router_id: "149.112.115.26"
-snappy_bgp_neighbor_v4: "149.112.115.27"
-snappy_bgp_neighbor_v6: "2620:11a:b002::27"
-snappy_bgp_interface: "ens18"
+# NB: this drives the txqueuelen tuning unit, nothing BGP-related.
+snappy_interface: "ens18"
 
 snappy_speedtest_domain: "snappy.sfmix.org"

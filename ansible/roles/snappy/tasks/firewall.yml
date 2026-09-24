@@ -1,22 +1,6 @@
 ---
 # HTTP/HTTPS firewall rules are in nginx.yml (needed before certbot)
 
-- name: "Firewall: Allow BGP from IPv4 peer"
-  become: true
-  community.general.ufw:
-    rule: allow
-    port: "179"
-    proto: tcp
-    from_ip: "{{ snappy_bgp_neighbor_v4 }}"
-
-- name: "Firewall: Allow BGP from IPv6 peer"
-  become: true
-  community.general.ufw:
-    rule: allow
-    port: "179"
-    proto: tcp
-    from_ip: "{{ snappy_bgp_neighbor_v6 }}"
-
 - name: "Firewall: Allow iperf3 TCP from anywhere"
   become: true
   community.general.ufw:
