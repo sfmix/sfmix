@@ -1,0 +1,5 @@
+---
+# sdj (tank raidz2 member) and sdk (spare) are ST4000DM000s latched
+# FAILING_NOW on 184 End-to-End_Error at raw 1/2 against the drive's own
+# threshold of 99. Ignore the latch; raw increases still alert.
+sfmix_server_smartd_ignore_failing: [184]

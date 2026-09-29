@@ -1,0 +1,4 @@
+# {{ ansible_managed }} -- sfmix_server tasks/smartd.yml
+# Stock Debian DEVICESCAN, plus per-attribute failure overrides from
+# sfmix_server_smartd_ignore_failing ({{ sfmix_server_smartd_ignore_failing | join(', ') }}).
+DEVICESCAN -a -d removable -n standby{% for id in sfmix_server_smartd_ignore_failing %} -i {{ id }} -R {{ id }}!{% endfor %} -m root -M exec /usr/share/smartmontools/smartd-runner
