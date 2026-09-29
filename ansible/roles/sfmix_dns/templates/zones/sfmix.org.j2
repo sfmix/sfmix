@@ -244,40 +244,39 @@ monkeybrains.as32329-as40271.sfo02.transit	IN	A	149.112.115.4
 monkeybrains.as32329-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::4
 sfmix.as32329-as40271.sfo02.transit		IN	A	149.112.115.5
 sfmix.as32329-as40271.sfo02.transit		IN	AAAA	2620:11A:B002::5
-;;; Tekify/AS46886 -- rehomed 2026-09-23 to 149.112.188.32/31 on cr1.sjc01.
-;; Old .6/.7 kept live below until their new session is up, then removed.
+;;; Tekify/AS46886 -- DISCONNECTED 2026-09, AS40271 transit removed
+;; The demo/proof-of-value session never established; all AS40271 config
+;; (interface, BGP, policy, IRR lists) has been removed from cr1.sjc01.
+;; Their IX peering with AS12276 is a separate service and is UNAFFECTED.
 ;; NB: Po108 also carries Po108.1400, the Monkeybrains/Tekify PVLAN -- a
-;; separate service. Never remove the port, only the .1410 subinterface.
-tekify.as46886-as40271.fmt01.transit	IN	A		149.112.115.6
-tekify.as46886-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::6
-sfmix.as46886-as40271.fmt01.transit		IN	A		149.112.115.7
-sfmix.as46886-as40271.fmt01.transit		IN	AAAA	2620:11A:B002::7
+;; separate service. Never remove the port.
 ;;; Two P/AS6140
 twop.as6140-as40271.fmt01.transit	IN	A	149.112.115.8
 twop.as6140-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::8
 sfmix.as6140-as40271.fmt01.transit	IN	A	149.112.115.9
 sfmix.as6140-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::9
-;;; Softcom/AS13427
-softcom.as13427-as40271.fmt01.transit	IN	A		149.112.115.12
+;;; Softcom/AS13427 -- v4 migrated 2026-09-28; IPv6 unchanged
+softcom.as13427-as40271.fmt01.transit	IN	A		149.112.188.23
 softcom.as13427-as40271.fmt01.transit	IN	AAAA	2620:11A:B002::12
-sfmix.as13427-as40271.fmt01.transit		IN	A		149.112.115.13
+sfmix.as13427-as40271.fmt01.transit		IN	A		149.112.188.22
 sfmix.as13427-as40271.fmt01.transit		IN	AAAA	2620:11A:B002::13
 ; as13427.transit		IN	A	149.112.115.12
 ; as13427.transit		IN	A	149.112.115.13
-;;; SFMIX/AS12276
-sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.115.14
+;;; SFMIX/AS12276 -- v4 migrated 2026-09-24; IPv6 unchanged
+sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.188.25
 sfmix-mgmt.as12276-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::14
-sfmix-transit.as12276-as40271.sfo02.transit	IN	A	149.112.115.15
+sfmix-transit.as12276-as40271.sfo02.transit	IN	A	149.112.188.24
 sfmix-transit.as12276-as40271.sfo02.transit	IN	AAAA	2620:11A:B002::15
 ;;; Apple Edge Cache/AS31128 -- 149.112.115.16/31 / 2620:11A:B002::16/127
 apple-edge-cache.as31128-as40271.transit	IN	AAAA	2620:11A:B002::16
 apple-edge-cache.as31128-as40271.transit	IN	A	149.112.115.16
 sfmix.as31128-as40271.transit	IN	AAAA	2620:11A:B002::17
 sfmix.as31128-as40271.transit	IN	A	149.112.115.17
-;;; Ryamer/AS400587
-ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.115.18
+;;; Ryamer/AS400587 -- v4 moved to the new block 2026-09-28; IPv6 unchanged
+;; Their BGP has never established (their side refuses); addressing is ready.
+ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.188.27
 ryamer.as400587-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::18
-sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.115.19
+sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.188.26
 sfmix.as400587-as40271.fmt01.transit	IN	AAAA	2620:11a:b002::19
 ;;; Cofractal/AS26073 -- no AS40271 transit exists, and never did
 ;; No AS40271 transit exists or ever did: no interface, BGP group or neighbor
@@ -405,23 +404,9 @@ valve-cache.scl02	IN	A	149.112.188.19
 ;;; Two P/AS6140 -- also on 149.112.115.8/31 (cr1.sjc01 FREE)
 sfmix.as6140-as40271.fmt01.transit	IN	A	149.112.188.20
 twop.as6140-as40271.fmt01.transit	IN	A	149.112.188.21
-;;; Softcom/AS13427 -- also on 149.112.115.12/31 (cr1.sjc01 FREE)
-sfmix.as13427-as40271.fmt01.transit	IN	A	149.112.188.22
-softcom.as13427-as40271.fmt01.transit	IN	A	149.112.188.23
-;;; SFMIX/AS12276 -- also on 149.112.115.14/31 (cr1.sjc01 FREE)
-sfmix-transit.as12276-as40271.sfo02.transit	IN	A	149.112.188.24
-sfmix-mgmt.as12276-as40271.sfo02.transit	IN	A	149.112.188.25
-;;; Ryamer/AS400587 -- also on 149.112.115.18/31 (cr1.sjc01 FREE) -- only if revived
-sfmix.as400587-as40271.fmt01.transit	IN	A	149.112.188.26
-ryamer.as400587-as40271.fmt01.transit	IN	A	149.112.188.27
 ;;; hetch-hetchy Flow Collector <- 149.112.115.28/31 (cr1.scl02, VLAN 1417)
 ;flussigkeitsmesser	IN	A	149.112.188.30
 ;hetch-hetchy	IN	A	149.112.188.31
-
-;;; Tekify/AS46886 -- rehomed 2026-09-23, live on the new block
-;; v6 (::6/::7) unchanged. Awaiting Tekify's own config.
-sfmix.as46886-as40271.fmt01.transit	IN	A	149.112.188.32
-tekify.as46886-as40271.fmt01.transit	IN	A	149.112.188.33
 
 ;; Apple cache block moves 149.112.115.160/27 -> 149.112.189.0/27
 ;; (32 records, regenerate rather than hand-edit -- see Phase 4)
