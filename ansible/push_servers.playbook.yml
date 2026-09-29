@@ -277,6 +277,15 @@
             - journald
       tags:
         - journald
+    - name: "Apply sfmix_server smartd overrides"
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: smartd.yml
+        apply:
+          tags:
+            - smartd
+      tags:
+        - smartd
 
 - name: "Tailscale"
   hosts: tailscale

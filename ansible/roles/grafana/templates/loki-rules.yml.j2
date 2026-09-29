@@ -187,7 +187,7 @@ groups:
       - alert: SmartAttributeFailing
         expr: >
           sum by (host, device) (
-            count_over_time({job="journal", unit="smartmontools.service"} |~ "Failed SMART|Currently unreadable|Offline uncorrectable|FAILED SMART self-check" | regexp "Device: /dev/(?P<device>[a-zA-Z0-9]+)" [1h])
+            count_over_time({job="journal", unit="smartmontools.service"} |~ "Failed SMART|Currently unreadable|Offline uncorrectable|FAILED SMART self-check|Attribute: 184 End-to-End_Error changed" | regexp "Device: /dev/(?P<device>[a-zA-Z0-9]+)" [1h])
           ) > 0
         for: 30m
         labels: {severity: warning, component: storage}
@@ -199,7 +199,9 @@ groups:
             smartd on {{ $labels.host }} is logging a failed attribute or
             pending/uncorrectable sectors for /dev/{{ $labels.device }}
             (routine "Prefailure Attribute changed" wear ticks are
-            deliberately not matched). Check whether it is a pool member
+            deliberately not matched; any 184 End-to-End_Error change is,
+            since hosts with sfmix_server_smartd_ignore_failing report 184
+            only as raw increases). Check whether it is a pool member
             (`zpool status`) or a stray disk to pull.
             The alert carries a `device` label so a single known-bad disk can
             be silenced without going dark on the rest of the host -- a

@@ -74,6 +74,11 @@ sfmix_server_journald_max_use: 200M
 sfmix_server_journald_max_file_size: 32M   # cap a single file so rotation is granular
 sfmix_server_journald_runtime_max_use: 64M # /run/log/journal, i.e. pre-persist RAM
 
+# ── smartd ────────────────────────────────────────────────────────────
+# tasks/smartd.yml. ATA attribute IDs whose latched failure smartd should
+# ignore on this host (raw increases still reported). Empty = stock config.
+sfmix_server_smartd_ignore_failing: []
+
 # ── apt sources ───────────────────────────────────────────────────────
 # tasks/apt_sources.yml. The only mirror indirection we will flatten to a
 # direct URI automatically; anything else is a deliberate local mirror and

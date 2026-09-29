@@ -1,0 +1,18 @@
+---
+# Per-host smartd.conf override, only for hosts that set
+# sfmix_server_smartd_ignore_failing; everyone else keeps the stock
+# DEVICESCAN line. Seagate desktop drives ship attribute 184
+# (End-to-End_Error) with threshold 99, so ONE historical error latches
+# FAILING_NOW forever and SmartAttributeFailing never clears. `-i ID` drops
+# the latched failure; `-R ID!` still logs (LOG_CRIT, and mails root) any
+# raw-count increase, which the Loki rule matches -- so a *new* error alerts.
+- name: Template smartd.conf
+  when: sfmix_server_smartd_ignore_failing | length > 0
+  become: true
+  ansible.builtin.template:
+    src: smartd.conf.j2
+    dest: /etc/smartd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart smartd

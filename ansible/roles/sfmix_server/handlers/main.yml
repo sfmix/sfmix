@@ -37,3 +37,9 @@
   ansible.builtin.service:
     name: systemd-journald
     state: restarted
+
+- name: Restart smartd
+  become: true
+  ansible.builtin.service:
+    name: smartmontools
+    state: restarted
