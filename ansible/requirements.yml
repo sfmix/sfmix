@@ -2,9 +2,10 @@
 roles:
   - name: lae.netbox
     src: git+https://github.com/lae/ansible-role-netbox.git
-    version: v1.0.7
+    # Untagged master: Ubuntu 24.04 vars, Python 3.12 for NetBox >=4.5, API_TOKEN_PEPPERS
+    version: 2ebfcd4e4fc7fdc77a9fff167f0d30e60460847d
   - name: geerlingguy.postgresql
-    version: 3.5.0
+    version: 4.1.0
   - name: DavidWittman.redis
     # https://github.com/DavidWittman/ansible-redis/pull/291
     # Fix is merged, but waiting on a release version
