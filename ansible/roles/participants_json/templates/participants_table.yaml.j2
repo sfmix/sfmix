@@ -2,8 +2,9 @@
 ---
 participants:
 {% for participant_id, participant in netbox_participants.items() %}
+{%   set cf_type = participant.custom_fields.participant_type %}
   - as_number: {{ participant.custom_fields.as_number }}
-    member_type: {{ participant.custom_fields.participant_type }}
+    member_type: {{ cf_type.value if cf_type is mapping else cf_type }}
     name: {{ participant.description }}
     peering_ports:
       {# SFMIX/12276 is a special case, as it current shares a fabric port with the route servers (AS 63055) #}

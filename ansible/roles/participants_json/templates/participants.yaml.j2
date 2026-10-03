@@ -50,7 +50,9 @@ ixp_list:
       {% endfor %}
 member_list:
 {% for participant_id, participant in netbox_participants.items() %}
-{% if participant.custom_fields.participant_type == "Infrastructure" %}
+{# NetBox >= 4.7 returns select custom fields as {value, label} #}
+{% set cf_type = participant.custom_fields.participant_type %}
+{% if (cf_type.value if cf_type is mapping else cf_type) == "Infrastructure" %}
 {%   set participant_type = "ixp" %}
 {% else %}
 {%   set participant_type = "peering" %}

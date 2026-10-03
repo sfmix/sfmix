@@ -1469,8 +1469,9 @@ class NokiaSROSDevice(NetconfSSHDevice):
                                 f" on {self.device_name} / {name}"
                             )
                             if not dry_run:
-                                interface.custom_fields["participant"] = participant.id
-                                interface.save()
+                                # Partial CF update: save() would resend select CFs (lacp_mode) in
+                                # NetBox 4.7's {value, label} read format, which it rejects on write.
+                                interface.update({"custom_fields": {"participant": participant.id}})
                     else:
                         logger.warning(
                             f"No tenant for {asn_slug} (as_number or slug)"
@@ -1724,8 +1725,9 @@ class JuniperJunOSDevice(NetconfSSHDevice):
                             f" on {self.device_name} / {name}"
                         )
                         if not dry_run:
-                            interface.custom_fields["participant"] = participant.id
-                            interface.save()
+                            # Partial CF update: save() would resend select CFs (lacp_mode) in
+                            # NetBox 4.7's {value, label} read format, which it rejects on write.
+                            interface.update({"custom_fields": {"participant": participant.id}})
                 else:
                     logger.warning(
                         f"Could not find unique tenant for {asn_slug}"
@@ -1975,8 +1977,9 @@ def update_netbox_interface_description_asn_participant(
                     f" on {interface.device.name} / {interface.name}"
                 )
                 if not dry_run:
-                    interface.custom_fields["participant"] = participant.id
-                    interface.save()
+                    # Partial CF update: save() would resend select CFs (lacp_mode) in
+                    # NetBox 4.7's {value, label} read format, which it rejects on write.
+                    interface.update({"custom_fields": {"participant": participant.id}})
 
 
 if __name__ == "__main__":

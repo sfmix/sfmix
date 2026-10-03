@@ -197,9 +197,10 @@ pub async fn fetch_port_map(
             tenant { id }
             custom_fields
         }
-        peering_switches: device_list(filters: { role: { slug: { exact: "peering_switch" } }, status: STATUS_ACTIVE }) {
+        peering_switches: device_list(filters: { role: { slug: { exact: "peering_switch" } } }) {
             id
             name
+            status
             site { id name facility custom_fields region { name } }
             device_type { manufacturer { name } model }
         }
@@ -385,7 +386,9 @@ pub async fn fetch_port_map(
         .collect();
 
     // Build IXP switch list
-    let switches: Vec<IxpSwitch> = data.peering_switches.iter().map(|d| {
+    // Status is filtered here, not in GraphQL: the enum filter syntax changed
+    // incompatibly in NetBox 4.5 (`status: X` -> `status: { exact: X }`).
+    let switches: Vec<IxpSwitch> = data.peering_switches.iter().filter(|d| d.status == "active").map(|d| {
         let site = &d.site;
         IxpSwitch {
             id: d.id,
@@ -522,6 +525,7 @@ struct TenantEntry {
 #[derive(Deserialize)]
 struct TenantCustomFields {
     as_number: Option<u32>,
+    #[serde(default, deserialize_with = "deserialize_choice_value")]
     participant_type: Option<String>,
 }
 
@@ -616,6 +620,7 @@ struct DeviceEntry {
     #[serde(deserialize_with = "deserialize_string_id")]
     id: u64,
     name: String,
+    status: String,
     site: SiteEntry,
     device_type: DeviceTypeEntry,
 }
@@ -720,6 +725,26 @@ where
     }
 }
 
+/// Deserialize a select custom field: a plain string (NetBox < 4.7) or a
+/// `{"value": ..., "label": ...}` object (NetBox >= 4.7).
+fn deserialize_choice_value<'de, D>(deserializer: D) -> std::result::Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde_json::Value;
+    let v = Option::<Value>::deserialize(deserializer)?;
+    match v {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s)),
+        Some(Value::Object(map)) => match map.get("value") {
+            Some(Value::String(s)) => Ok(Some(s.clone())),
+            Some(Value::Null) | None => Ok(None),
+            _ => Err(de::Error::custom("expected string choice value")),
+        },
+        _ => Err(de::Error::custom("expected string, choice object, or null")),
+    }
+}
+
 /// Deserialize a NetBox custom field that may be a nested object `{"id": 123}`,
 /// a plain integer, or null.
 fn deserialize_nested_id<'de, D>(deserializer: D) -> std::result::Result<Option<u64>, D::Error>
@@ -746,6 +771,20 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn participant_type_accepts_string_and_choice_object() {
+        let old: TenantCustomFields =
+            serde_json::from_str(r#"{"as_number": 42, "participant_type": "Member"}"#).unwrap();
+        let new: TenantCustomFields = serde_json::from_str(
+            r#"{"as_number": 42, "participant_type": {"value": "Member", "label": "Member"}}"#,
+        )
+        .unwrap();
+        let unset: TenantCustomFields = serde_json::from_str(r#"{"as_number": 42}"#).unwrap();
+        assert_eq!(old.participant_type.as_deref(), Some("Member"));
+        assert_eq!(new.participant_type.as_deref(), Some("Member"));
+        assert_eq!(unset.participant_type, None);
+    }
 
     #[test]
     fn peering_lan_vids_parsed_and_filtered() {
