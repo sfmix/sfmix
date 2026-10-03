@@ -50,7 +50,9 @@ interface {{ interface.name }}
 {% endif %}
 {% if interface.lag is defined and interface.lag.name is defined %}
    switchport
-   channel-group {{ interface.lag.name | replace("Port-Channel", "") }} mode {{ interface.custom_fields.lacp_mode }}
+{#   NetBox >= 4.7 returns select custom fields as {value, label} #}
+{%   set lacp_mode = interface.custom_fields.lacp_mode %}
+   channel-group {{ interface.lag.name | replace("Port-Channel", "") }} mode {{ lacp_mode.value if lacp_mode is mapping else lacp_mode }}
 {% endif %}
 {% if interface.custom_fields.rate_limit_bps %}
    shape rate {{ (interface.custom_fields.rate_limit_bps / 1000) | int }}

@@ -53,7 +53,9 @@ clients:
 {%           endfor %}
     cfg:
       attach_custom_communities:
-        - "participant_type_{{ participant.custom_fields.participant_type | lower }}"
+{# NetBox >= 4.7 returns select custom fields as {value, label} #}
+{% set cf_type = participant.custom_fields.participant_type %}
+        - "participant_type_{{ (cf_type.value if cf_type is mapping else cf_type) | lower }}"
         - "colo_{{ netbox_sites[netbox_devices[peering_port.device.id].site.id].name }}"
       filtering:
         rpki:
