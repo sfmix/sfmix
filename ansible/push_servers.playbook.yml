@@ -40,6 +40,15 @@
     - geerlingguy.postgresql
     - DavidWittman.redis
     - lae.netbox
+  post_tasks:
+    # lae.netbox schedules `manage.py housekeeping`, which NetBox 4.7 removed
+    # (housekeeping now runs as a system job in the RQ worker).
+    - name: "Netbox: Remove obsolete housekeeping cronjob"
+      ansible.builtin.cron:
+        name: "Netbox housekeeping"
+        cron_file: netbox
+        user: "{{ netbox_user }}"
+        state: absent
 
 - name: Metrics Server
   hosts: metrics

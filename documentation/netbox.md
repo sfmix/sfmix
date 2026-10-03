@@ -7,8 +7,61 @@ In order to handle these use cases, we make use of a mix of Netbox Tagging and N
 
 ## Deployment
 
-We run Netbox in a VM, which is deployed with the ansible inside of `deploy/` of this repository.
-We use PostgreSQL as a persistent database. We use Redis as a cache.
+We run Netbox in a VM (`netbox.sfo02`, VMID 102 on `pve02-paulave200-sfo`, ZFS-backed), deployed by
+`ansible/push_servers.playbook.yml --tags netbox` (`ixp_netbox` + `geerlingguy.postgresql` +
+`DavidWittman.redis` + `lae.netbox`). We use PostgreSQL as a persistent database. We use Redis as a cache.
+
+State that matters lives in two places: the `netbox` Postgres database and `/srv/netbox/shared/`
+(`media/` images and attachments, `configuration.py`, `generated_secret_key`, and from 4.5 on
+`generated_secret_pepper`, without which v2 API tokens cannot be verified). `requests.log` there is
+multi-GB and disposable.
+
+## Upgrading
+
+Upgrade from a restored copy first. A `pg_dump -Fc` restored into a `postgres:16` container plus
+the `netboxcommunity/netbox:vX.Y.Z` image running `manage.py migrate` rehearses the schema
+migrations; running the old image next to it lets consumers be diffed between versions (the LG's
+`netbox::fetch_port_map`, and the `netbox_data` role rendering the RS `clients.yml` and IX-F
+templates).
+
+### 4.4.8 → 4.7.2 (2026-10)
+
+Platform: 4.5+ needs Python ≥ 3.12 and 4.7 needs PostgreSQL ≥ 15 (plus the `ltree` extension,
+self-installed because the `netbox` role owns the DB). Ubuntu 22.04 has 3.10/14, so the VM moves to
+24.04 (3.12/16). `lae.netbox` is pinned to an untagged master commit (Ubuntu 24 vars, `DATABASES`,
+auto-generated `API_TOKEN_PEPPERS`), `geerlingguy.postgresql` to 4.1.0, and uWSGI goes in the
+venv because 24.04 refuses system-wide pip installs.
+
+API changes that hit us:
+
+- Select custom fields (`participant_type`, `lacp_mode`) read as `{value, label}`. Writes still
+  take the bare value, but a pynetbox `save()` after editing `custom_fields` resends the whole dict
+  and is rejected; use `record.update({"custom_fields": {...}})`.
+- GraphQL enum filters need a lookup (`status: {exact: STATUS_ACTIVE}`), and 4.4 rejects that
+  form, so the LG filters status client-side.
+- GraphQL lists without pagination are capped at `MAX_PAGE_SIZE` (1000). Nothing we query is near
+  that today (476 IPs, 116 tenants), but `netbox_syslog_hostmap.py` will truncate silently past it.
+- `SENTRY_DSN` is gone (NetBox refuses to start); the DSN lives under `SENTRY_CONFIG.dsn`.
+- `manage.py housekeeping` is gone (runs as a system job); the play removes lae's cron for it.
+- v1 (40-hex) tokens keep working until v5.0. Token plaintext can no longer be retrieved or
+  chosen by the client, so new service tokens are v2 (`nbt_…`) and are shown once at creation.
+
+Cutover, in order:
+
+1. Deploy the LG (`deploy_looking_glass_rust.playbook.yml`). Its NetBox client works on both
+   versions; a running lg-server keeps its last good NetBox data if a refresh fails.
+2. Fresh backup to the control node (`pg_dump -Fc`, `pg_dumpall --globals-only`, tar of
+   `/srv/netbox/shared` minus `requests.log`), into the gitignored `ansible/backups/`.
+3. Stop `netbox`, `netbox-rqworker@1`, then snapshot: `qm snapshot 102 pre_netbox47` on
+   pve02-paulave200. Rollback is `qm rollback 102 pre_netbox47`.
+4. `apt full-upgrade`, reboot, then `do-release-upgrade` to 24.04 (in tmux; it opens a fallback
+   sshd on 1022). Re-enable the grafana apt source it disables.
+5. `pg_dropcluster 16 main --stop && pg_upgradecluster 14 main`, check, then
+   `pg_dropcluster 14 main`.
+6. `ansible-galaxy role install -r requirements.yml --force`, then
+   `ansible-playbook push_servers.playbook.yml --tags netbox`.
+7. Verify: UI, images, `/api/status/`, per-table row counts against the backup, the LG's
+   "NetBox refresh: N participants" log line, and drop the snapshot once settled.
 
 ## Bootstrapping
 
