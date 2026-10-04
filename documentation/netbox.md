@@ -63,6 +63,20 @@ Cutover, in order:
 7. Verify: UI, images, `/api/status/`, per-table row counts against the backup, the LG's
    "NetBox refresh: N participants" log line, and drop the snapshot once settled.
 
+As run (2026-10-03/04): NetBox was down 23:57 → 05:57 UTC. Nearly all of that was the release
+upgrade (~920 packages) and the dump/restore, both fsync-bound on pve02-paulave200's pool
+(33-98 ms per write); the 4.7 migrations themselves take about a minute. Two surprises:
+
+- 24.04 splits out a `systemd-resolved` package whose postinst replaces `/etc/resolv.conf` with
+  the stub symlink, but our servers keep resolved masked (`sfmix_server` `dns` tag), so the VM came
+  up with no DNS. Rerun `push_servers.playbook.yml --tags dns --limit <host>` after any 24.04
+  release upgrade.
+- This VM's `/etc/hosts` had no `localhost` line, so Postgres could not bind `localhost` at boot
+  without DNS. Fixed by hand (the old file is `/etc/hosts.pre-localhost-fix`).
+
+sshd is also down for a while mid-upgrade (24.04 moves it to `ssh.socket`); watch progress with
+`qm guest exec 102 -- tail /var/log/dist-upgrade/apt-term.log` from the hypervisor instead.
+
 ## Bootstrapping
 
 Run the `Device-Type-Library-Import` script to populate the Manufacturer and Device database: https://github.com/netbox-community/Device-Type-Library-Import
