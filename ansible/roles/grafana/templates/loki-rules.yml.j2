@@ -357,25 +357,32 @@ groups:
             `docker inspect` tells you whether it is also crash-looping.
 
       # Transit routers: a neighbor repeatedly opening BGP that we never
-      # configured (or removed). Standing condition today from snappy and two
-      # peering-LAN addresses toward cr1.scl02 -- fix the far side or add the
-      # session; either way it should not be background noise.
-      - alert: BgpUnconfiguredPeerOpens
-        expr: >
-          sum by (host) (
-            count_over_time({job="syslog", host=~"(cr|ar)1\\..*"} |= "bgpPeerNotFound" [1h])
-          ) > 20
-        for: 6h
-        labels: {severity: info, component: transit}
-        annotations:
-          dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-device-logs/network-device-logs?var-host={{ $labels.host }}&var-search=bgpPeerNotFound&from=now-24h&to=now
-          summary: >-
-            {{ $labels.host }}: {{ printf "%.0f" $value }}/h BGP opens from unconfigured peers
-          description: >-
-            Nokia is logging bgpPeerNotFound at a steady rate on
-            {{ $labels.host }}. The peer addresses are in the messages; they
-            have a BGP session configured toward us that we do not have.
+      # configured (or removed).
+      #
+      # Muted: during the AS40271 renumber out of 149.112.115.0/24 customers
+      # keep opening toward addresses we have already moved, and sessions
+      # provisioned ahead of a customer's turn-up flap the same way until they
+      # finish their side. Both are expected and slow to clear, so this is
+      # background noise rather than a signal. The Network Device Logs
+      # dashboard (search bgpPeerNotFound) still shows who is knocking.
+      # Re-enable once the old /24 is returned to ARIN.
+      #
+      # - alert: BgpUnconfiguredPeerOpens
+      #   expr: >
+      #     sum by (host) (
+      #       count_over_time({job="syslog", host=~"(cr|ar)1\\..*"} |= "bgpPeerNotFound" [1h])
+      #     ) > 20
+      #   for: 6h
+      #   labels: {severity: info, component: transit}
+      #   annotations:
+      #     dashboard: >-
+      #       https://grafana.sfmix.org/d/sfmix-device-logs/network-device-logs?var-host={{ $labels.host }}&var-search=bgpPeerNotFound&from=now-24h&to=now
+      #     summary: >-
+      #       {{ $labels.host }}: {{ printf "%.0f" $value }}/h BGP opens from unconfigured peers
+      #     description: >-
+      #       Nokia is logging bgpPeerNotFound at a steady rate on
+      #       {{ $labels.host }}. The peer addresses are in the messages; they
+      #       have a BGP session configured toward us that we do not have.
 
       # Peering-switch ACL drops of member Router Advertisements are a
       # standing condition (see the disabled IxLanCriticalProtocolSeen rule in
