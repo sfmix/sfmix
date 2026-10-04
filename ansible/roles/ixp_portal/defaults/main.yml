@@ -31,5 +31,13 @@ ixp_portal_prometheus_url: "http://metrics.sfo02.sfmix.org:9090"
 # Prometheus metrics — CIDRs allowed to scrape /metrics/
 ixp_portal_prometheus_trusted_networks: "127.0.0.0/8,::1/128"
 
+# Per-IP limit on Django page views (see nginx-portal.conf.j2). A person
+# clicking around never sustains 1 page/s past the burst; a scraper does.
+ixp_portal_rate_limit_rate: 1r/s
+ixp_portal_rate_limit_burst: 20
+ixp_portal_rate_limit_exempt_subnets: >-
+  {{ ixp_admin_source_subnets
+     + (sfmix_host_local_admin_source_subnets | default([], true)) }}
+
 # Certbot
 ixp_portal_certbot_email: "{{ ixp_primary_tech_contact_email }}"

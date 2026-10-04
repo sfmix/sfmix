@@ -3,12 +3,19 @@ alice_git_repo_version: "6.0.0"
 alice_git_repo_url: "https://github.com/alice-lg/alice-lg.git"
 
 alice_domain: alice.sfmix.org
-# Per-IP request limiting for the Alice vhost (zone "ip" is 5r/s, defined in
+# Per-IP request limiting for the Alice vhost (zone "alice_ip" is 5r/s, defined in
 # the nginx http block). burst = how many requests above the rate a single
 # client may have in flight before nginx answers 503.
 alice_rate_limit_burst: 12
 alice_rate_limit_delay: 8
 alice_rate_limit_nodelay: false
+# Sources exempt from the "ip" zone, same list as authentik's. The portal
+# renders participant pages by calling lg-ng/alice server-side (~10 calls per
+# page), so one scraper walking the portal pushed the portal's own address over
+# 5r/s and every page it served for that minute failed with upstream 503s.
+alice_rate_limit_exempt_subnets: >-
+  {{ ixp_admin_source_subnets
+     + (sfmix_host_local_admin_source_subnets | default([], true)) }}
 
 # Paths crawlers are told to stay out of (served as /robots.txt by nginx).
 alice_robots_disallow:
