@@ -106,7 +106,20 @@
           # "handshake operation timed out" on the client.
           ssl_session_cache shared:SSL:10m;
           ssl_session_timeout 1h;
-          limit_req_zone $binary_remote_addr zone=ip:10m rate=5r/s;
+          # An empty key is never counted, so exempt sources skip the zone.
+          # nginx refuses a reload that changes an existing zone's key, so a
+          # key change needs a new zone name (this was "ip" before).
+          geo $alice_limit_exempt {
+              default 0;
+          {% for subnet in alice_rate_limit_exempt_subnets %}
+              {{ subnet }} 1;
+          {% endfor %}
+          }
+          map $alice_limit_exempt $alice_limit_key {
+              0 $binary_remote_addr;
+              1 "";
+          }
+          limit_req_zone $alice_limit_key zone=alice_ip:10m rate=5r/s;
         nginx_vhosts: []
 
     - name: "Template nginx vhosts config"

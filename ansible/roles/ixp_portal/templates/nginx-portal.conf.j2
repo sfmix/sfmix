@@ -1,6 +1,30 @@
 {% set cert_path = "/etc/letsencrypt/live/" + ixp_portal_domain %}
 {% set has_cert = _portal_cert.stat.exists | default(false) %}
 
+# Per-client limit on Django page views. A participant page calls lg-ng/alice
+# server-side ~10 times, so a scraper walking /participants/ multiplies into
+# the looking glass; throttle it here, at the edge, rather than letting alice's
+# limit fail the portal's own requests. Our own networks are exempt (empty key
+# = not counted), and so are the chart/map XHRs: they only query Prometheus,
+# and one participant page fires one per port at once.
+geo $portal_limit_exempt {
+    default 0;
+{% for subnet in ixp_portal_rate_limit_exempt_subnets %}
+    {{ subnet }} 1;
+{% endfor %}
+}
+map $uri $portal_limit_is_xhr {
+    default                          0;
+    ~^/participants/[0-9]+/metrics/  1;
+    /statistics/metrics/             1;
+    /statistics/map/traffic          1;
+}
+map "$portal_limit_exempt$portal_limit_is_xhr" $portal_limit_key {
+    default  "";
+    00       $binary_remote_addr;
+}
+limit_req_zone $portal_limit_key zone=portal_pages:10m rate={{ ixp_portal_rate_limit_rate }};
+
 # HTTP — redirect to HTTPS (or serve ACME challenge if no cert yet)
 server {
     listen 80;
@@ -87,6 +111,8 @@ server {
     }
 
     location / {
+        limit_req zone=portal_pages burst={{ ixp_portal_rate_limit_burst }} nodelay;
+        limit_req_status 429;
         proxy_pass http://127.0.0.1:{{ ixp_portal_listen_port }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
