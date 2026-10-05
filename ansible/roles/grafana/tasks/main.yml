@@ -142,7 +142,7 @@
 - name: "Grafana: run grafana/grafana container"
   community.docker.docker_container:
     name: grafana
-    image: grafana/grafana:13.1.0
+    image: grafana/grafana:13.2.3
     restart_policy: unless-stopped
     network_mode: host
     volumes:
