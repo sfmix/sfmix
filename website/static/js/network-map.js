@@ -1709,8 +1709,11 @@
   var DIM_LAYERS = {
     cables: ["cables-casing", "cables-line", "cables-approx", "cables-down",
       "cables-planned", "cables-intra", "cable-drops", "cable-water", "cable-submarine",
-      "cable-ripple", "flow-fwd", "flow-rev"],
-    metro: ["metro-casing", "metro-line", "metro-planned", "metro-flow-fwd", "metro-flow-rev"]
+      "cable-ripple", "cable-flow-bed", "flow-fwd", "flow-rev"],
+    // the water treatment (veil/ripple/flow-bed) must dim with its tier too, or
+    // the submarine span stays painted over the dimmed map
+    metro: ["metro-casing", "metro-line", "metro-planned", "metro-flow-fwd", "metro-flow-rev",
+      "metro-submarine", "metro-water", "metro-ripple", "metro-flow-bed"]
   };
   // which station source + key list pairs with each cable source
   var STATION_SRC = { cables: "stations", metro: "metro-stations" };
