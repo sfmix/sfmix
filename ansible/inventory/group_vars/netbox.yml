@@ -38,6 +38,14 @@ redis_version: 6.0.9
 redis_checksum: sha256:dc2bdcf81c620e9f09cfd12e85d3bc631c897b2db7a55218fd8a65eaa37f86dd
 netbox_pip_packages:
   - sentry-sdk
+# Override NetBox's exact pins ahead of an upstream release (Django/DRF
+# 2026-10-06 security fixes). Keep the lae.netbox defaults; drop these once
+# netbox_stable_version ships them.
+netbox_pip_constraints:
+  - 'pynacl!=1.3.0'
+  - 'django-rq!=2.3.1'
+  - 'Django==6.1.2'
+  - 'djangorestframework==3.18.3'
 # Ubuntu 24.04 (PEP 668) refuses system-wide pip installs
 netbox_uwsgi_in_venv: true
 netbox_uwsgi_options:
