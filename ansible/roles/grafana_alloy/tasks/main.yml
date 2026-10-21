@@ -30,11 +30,50 @@
     filename: grafana
     state: present
 
-- name: "Alloy: install package"
+# /etc/default/alloy is the package's conffile; CUSTOM_ARGS is the supported
+# hook for extra flags. The loki.write WAL needs the experimental level from
+# 1.21 on -- without it alloy refuses the whole config and ships nothing.
+# Set it before an upgrade too: the package's postinst restarts alloy, and
+# repeated failed starts can trip systemd's start limit.
+- name: "Alloy: detect existing defaults file"
+  become: true
+  ansible.builtin.stat:
+    path: /etc/default/alloy
+  register: grafana_alloy_defaults
+
+- name: "Alloy: set stability level (pre-install)"
+  become: true
+  when: grafana_alloy_defaults.stat.exists
+  ansible.builtin.lineinfile:
+    path: /etc/default/alloy
+    regexp: '^CUSTOM_ARGS='
+    line: 'CUSTOM_ARGS="--stability.level={{ grafana_alloy_stability_level }}"'
+  notify: "Restart alloy"
+
+# Pinned and held so a routine `apt upgrade` can't move alloy underneath a
+# config it no longer accepts (1.21 did exactly that). Upgrade by bumping
+# grafana_alloy_version and re-running the role.
+- name: "Alloy: install pinned package"
   become: true
   ansible.builtin.apt:
-    name: alloy
+    name: "alloy={{ grafana_alloy_version }}"
     update_cache: true
+    allow_change_held_packages: true
+  notify: "Restart alloy"
+
+- name: "Alloy: hold package at the pinned version"
+  become: true
+  ansible.builtin.dpkg_selections:
+    name: alloy
+    selection: hold
+
+- name: "Alloy: set stability level (fresh install)"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/default/alloy
+    regexp: '^CUSTOM_ARGS='
+    line: 'CUSTOM_ARGS="--stability.level={{ grafana_alloy_stability_level }}"'
+  notify: "Restart alloy"
 
 - name: "Alloy: ensure persistent journald storage directory"
   become: true
