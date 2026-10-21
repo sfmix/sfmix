@@ -4,6 +4,11 @@ grafana_alloy_apt_key_url: https://apt.grafana.com/gpg.key
 grafana_alloy_apt_repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
 grafana_alloy_config_path: /etc/alloy/config.alloy
 
+# Exact apt version (see tasks: installed, then dpkg-held).
+grafana_alloy_version: "1.21.0-1"
+# loki.write's disk WAL is an experimental component as of alloy 1.21.
+grafana_alloy_stability_level: experimental
+
 # journald is read from persistent storage, which this role ensures exists.
 grafana_alloy_journal_path: /var/log/journal
 grafana_alloy_journal_max_age: "12h"
