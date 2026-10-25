@@ -5,6 +5,7 @@ help:
 	@echo "Available Makefile targets: "
 	@echo "  setup"
 	@echo "  new_participant"
+	@echo "  services_sync (dry-run; services_sync_apply writes)"
 
 setup:
 	pipenv sync
@@ -26,3 +27,9 @@ discovery:
 	NETBOX_API_TOKEN=$$NETBOX_API_TOKEN \
 		NETBOX_API_ENDPOINT=https://netbox.sfmix.org/ \
 		pipenv run ./discovery.py
+
+services_sync:
+	pipenv run ./netbox_services_sync.py
+
+services_sync_apply:
+	pipenv run ./netbox_services_sync.py --apply

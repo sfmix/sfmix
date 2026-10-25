@@ -16,6 +16,13 @@ netbox_config:
   REPORTS_ROOT: "{{ netbox_shared_path }}/reports"
   SCRIPTS_ROOT: "{{ netbox_shared_path }}/scripts"
   SENTRY_ENABLED: true
+  # Service layer experiment (documentation/design_docs/009-netbox-services.md)
+  PLUGINS:
+    - netbox_services
+  FIELD_CHOICES:
+    netbox_services.Service.type+:
+      - [ixp_lan, IX Peering LAN]
+      - [ixp_port, IX Port]
   # NetBox 4.7 removed SENTRY_DSN; the DSN lives under SENTRY_CONFIG
   SENTRY_CONFIG:
     dsn: !vault |
@@ -38,6 +45,9 @@ redis_version: 6.0.9
 redis_checksum: sha256:dc2bdcf81c620e9f09cfd12e85d3bc631c897b2db7a55218fd8a65eaa37f86dd
 netbox_pip_packages:
   - sentry-sdk
+  # sfmix fork branch (upstream v0.2.0 + our pending upstream PRs); bump the
+  # pyproject +sfmix.N suffix with every new pin so pip reinstalls
+  - git+https://github.com/sfmix/netbox-services@def2d8c323b99b2cd7363a1989b3a6fc7fa634b3#egg=netbox-services
 # Override NetBox's exact pins ahead of an upstream release (Django/DRF
 # 2026-10-06 security fixes). Keep the lae.netbox defaults; drop these once
 # netbox_stable_version ships them.

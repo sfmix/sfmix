@@ -130,6 +130,10 @@
       - {name: Peering LAN, slug: peering_lan, color: "ba3bff"}
       - {name: Peering Port, slug: peering_port, color: "ffeb3b"}
       - {name: proxmox_import, slug: proxmox-import, color: "9e9e9e"}
+      - name: "Services: Synced"
+        slug: services_sync
+        color: "607d8b"
+        description: "Business service maintained by scripts/netbox_services_sync.py"
       - {name: transit_peer, slug: transit_peer, color: "9c27b0"}
 
     netbox_custom_links:

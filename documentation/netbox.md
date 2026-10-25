@@ -77,6 +77,31 @@ upgrade (~920 packages) and the dump/restore, both fsync-bound on pve02-paulave2
 sshd is also down for a while mid-upgrade (24.04 moves it to `ssh.socket`); watch progress with
 `qm guest exec 102 -- tail /var/log/dist-upgrade/apt-term.log` from the hypervisor instead.
 
+## Plugins
+
+`netbox_services` (business services over the physical model,
+[design doc 009](design_docs/009-netbox-services.md)) is installed from the `sfmix` branch of our
+fork [sfmix/netbox-services](https://github.com/sfmix/netbox-services). That branch carries fixes
+we have drafted as upstream PRs (see `PR_DRAFTS.md` in a local checkout). It is pinned by commit in
+`netbox_pip_packages`, and `PLUGINS`/`FIELD_CHOICES` live in `netbox_config` (both in
+`ansible/inventory/group_vars/netbox.yml`). `lae.netbox` installs packages before templating
+`configuration.py` and running `migrate`, so a normal `--tags netbox` run picks up new migrations.
+
+To bump it:
+1. Commit to the fork's `sfmix` branch with a new `+sfmix.N` version in `pyproject.toml`. Without a
+   version change pip won't reinstall.
+2. Run `manage.py test netbox_services` against a `netboxcommunity/netbox` container.
+3. Update the pinned SHA and redeploy.
+
+Once upstream merges our changes, switch the pin back to a PyPI release.
+
+To remove it:
+1. Run `manage.py migrate netbox_services zero` on the host.
+2. Drop it from `PLUGINS` and `netbox_pip_packages`.
+3. Redeploy.
+
+`qm rollback 102` to the pre-deploy snapshot works too.
+
 ## Bootstrapping
 
 Run the `Device-Type-Library-Import` script to populate the Manufacturer and Device database: https://github.com/netbox-community/Device-Type-Library-Import
