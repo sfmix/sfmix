@@ -23,6 +23,7 @@ netbox_config:
     netbox_services.Service.type+:
       - [peering_lan, Peering LAN]
       - [peering, Peering]
+      - [private_vlan, Private VLAN]
   # NetBox 4.7 removed SENTRY_DSN; the DSN lives under SENTRY_CONFIG
   SENTRY_CONFIG:
     dsn: !vault |

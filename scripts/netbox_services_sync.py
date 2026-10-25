@@ -4,7 +4,7 @@ Sync SFMIX services (peering LAN, peering connections, PVLANs) into the netbox-s
 
 Reads only NetBox: the physical/IPAM model stays the source of truth and Services are derived
 from it. Dry-run by default; --apply writes. Only the fields built here are managed; lifecycle
-dates, SLA, attachments and a PVLAN's primary (billing) tenant are left to humans. Services are
+dates, SLA, attachments and the billing tenant of PVLAN services are left to humans. Services are
 never deleted; synced ones whose source object disappeared are reported.
 
 See documentation/design_docs/009-netbox-services.md.
@@ -23,6 +23,7 @@ SYNC_TAG = "services_sync"
 PEERING_LAN_SERVICE_ID = "SFMIX-PEERING"
 FABRIC_VLAN_GROUP = "exchange_fabric_vlans"
 PEERING_LAN_VIDS = (997, 998, 999)
+PVLAN_TYPES = ("private_vlan", "l2vpn")
 PVLAN_NAME_RE = re.compile(r"^PVLAN-AS(\d+)-AS(\d+)$")
 # Device statuses whose ports still carry live services
 LIVE_DEVICE_STATUSES = {"active", "staged", "planned"}
@@ -204,7 +205,6 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
         [i.id for i in fabric.peering_ports if i.type.value == "lag"]
         + [i.parent.id for i in fabric.peering_ports if i.parent]
     )
-    peering_service_by_carrier: Dict[int, str] = {}
     for iface in sorted(fabric.peering_ports, key=iface_label):
         participant = iface.custom_fields.get("participant")
         if not participant:
@@ -235,7 +235,6 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
             "cir": port.commit,
             "depends_on": [PEERING_LAN_SERVICE_ID],
         }
-        peering_service_by_carrier[(port.parent or iface).id] = service_id
 
     for vid, vlan in sorted(fabric.vlans.items()):
         m = PVLAN_NAME_RE.match(vlan.name)
@@ -255,9 +254,10 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
                 continue
             ports.append(Port(fabric, iface))
         bandwidths = [p.bandwidth for p in ports if p.bandwidth]
+        status = "active" if vlan.status.value == "active" else "offline"
         desired[vlan.name] = {
-            "type": "l2vpn",
-            "status": "active" if vlan.status.value == "active" else "offline",
+            "type": "private_vlan",
+            "status": status,
             "description": f"Private VLAN {vid} between AS{m.group(1)} and AS{m.group(2)}",
             "tenants": parties,
             "devices": sorted({p.iface.device.id for p in ports}),
@@ -265,10 +265,21 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
             "cables": sorted({c for p in ports for c in p.cables}),
             "vlans": [vlan.id],
             "bandwidth": min(bandwidths) if bandwidths else None,
-            "depends_on": sorted({
-                peering_service_by_carrier[p.parent.id] for p in ports
-                if p.parent and p.parent.id in peering_service_by_carrier}),
         }
+        # Each side buys its own port into the PVLAN; who is billed is set by hand
+        for port in ports:
+            desired[f"{vlan.name}-{port.iface.device.name}-{port.iface.name}"] = {
+                "type": "l2vpn",
+                "status": status if port.iface.enabled else "offline",
+                "description": f"Private VLAN {vid} port on {port.iface.device.name}: {port.iface.description}",
+                "devices": [port.iface.device.id],
+                "interfaces": sorted(i.id for i in port.interfaces),
+                "cables": port.cables,
+                "vlans": [vlan.id],
+                "bandwidth": port.bandwidth,
+                "cir": port.commit,
+                "depends_on": [vlan.name],
+            }
     return desired
 
 
@@ -322,7 +333,7 @@ def main() -> int:
     if args.only == "peering":
         desired = {k: v for k, v in desired.items() if v["type"] in ("peering_lan", "peering")}
     elif args.only == "pvlan":
-        desired = {k: v for k, v in desired.items() if v["type"] == "l2vpn"}
+        desired = {k: v for k, v in desired.items() if v["type"] in PVLAN_TYPES}
 
     existing = {s["service_id"]: s for s in api.all()}
     service_ids_by_pk = {s["id"]: s["service_id"] for s in existing.values()}
@@ -364,7 +375,7 @@ def main() -> int:
     stale = sorted(
         sid for sid, s in existing.items()
         if sid not in desired and any(t["slug"] == SYNC_TAG for t in s.get("tags", []))
-        and (not args.only or (s["type"]["value"] == "l2vpn") == (args.only == "pvlan"))
+        and (not args.only or (current_value(s, "type") in PVLAN_TYPES) == (args.only == "pvlan"))
     )
     for sid in stale:
         print(f"? {sid}: tagged {SYNC_TAG} but no longer derived from NetBox (left alone)")

@@ -125,6 +125,37 @@ def check_peering_port_participant_matches_description_asn(
                     )
 
 
+def check_lag_member_participant_matches_lag(netbox: pynetbox.api) -> None:
+    # A LAG member's `participant` must match its LAG's, or that of a peering sub-interface on
+    # the LAG (e.g. Port-Channel101.998). A mismatch is left over from when the member was
+    # someone else's port; any shaper on it is usually stale too.
+    print("[!!] Checking that LAG member `participant` matches its LAG")
+    lag_participants = {}
+    for interface in netbox.dcim.interfaces.filter(cf_participant__empty="false"):
+        if not interface.lag:
+            continue
+        lag_id = interface.lag.id
+        if lag_id not in lag_participants:
+            lag = netbox.dcim.interfaces.get(lag_id)
+            lag_participants[lag_id] = {
+                p["id"]
+                for i in [lag, *netbox.dcim.interfaces.filter(parent_id=lag_id)]
+                if (p := i.custom_fields.get("participant"))
+            }
+        participant = interface.custom_fields["participant"]
+        if participant["id"] in lag_participants[lag_id]:
+            continue
+        stale = [f"participant {participant['name']}"]
+        stale += [tag.slug for tag in interface.tags if tag.slug == "ixp_participant"]
+        if rate_limit_bps := interface.custom_fields.get("rate_limit_bps"):
+            stale.append(f"rate_limit_bps {rate_limit_bps}")
+        print(
+            f"LAG member {interface.name} on device {interface.device.name} has "
+            f"{', '.join(stale)} but its LAG {interface.lag.name} does not",
+            url_strip_api(interface.url),
+        )
+
+
 def netbox_client(operator_config) -> pynetbox.core.api.Api:
     return pynetbox.api(
         operator_config["netbox_api_endpoint"], token=operator_config["netbox_api_key"]
@@ -189,6 +220,7 @@ def netbox_lint(operator_config: Dict[str, str]) -> None:
     check_peering_vlan_ports(netbox=netbox)
     check_peering_port_custom_field_participant(netbox=netbox)
     check_peering_port_participant_matches_description_asn(netbox=netbox)
+    check_lag_member_participant_matches_lag(netbox=netbox)
     check_participant_has_ports(netbox=netbox)
     check_participant_has_ips(netbox=netbox)
     check_ixp_participant_ip_tenant(netbox=netbox)
