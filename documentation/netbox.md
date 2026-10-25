@@ -86,6 +86,8 @@ we have drafted as upstream PRs (see `PR_DRAFTS.md` in a local checkout). It is 
 `netbox_pip_packages`, and `PLUGINS`/`FIELD_CHOICES` live in `netbox_config` (both in
 `ansible/inventory/group_vars/netbox.yml`). `lae.netbox` installs packages before templating
 `configuration.py` and running `migrate`, so a normal `--tags netbox` run picks up new migrations.
+A pip change restarts NetBox. A change only to `netbox_config` (e.g. `FIELD_CHOICES`) restarts
+just the rq worker, so follow it with `systemctl reload netbox` (graceful uWSGI reload).
 
 To bump it:
 1. Commit to the fork's `sfmix` branch with a new `+sfmix.N` version in `pyproject.toml`. Without a

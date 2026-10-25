@@ -5,7 +5,7 @@
 ## Overview
 
 NetBox describes what SFMIX *has*: devices, LAGs, cross-connect cables, VLANs, prefixes. It doesn't
-describe what participants *buy*, such as "AS62809 has an IX port at FMT01" or "a private VLAN
+describe what participants *buy*, such as "AS62809 peers over a 20G LAG at FMT01" or "a private VLAN
 between AS32329 and AS46886". We add a **Service** record on top of the physical objects using the
 [netbox-services](https://github.com/baldoarturo/netbox-services) plugin. Each record links to the
 interfaces, devices, cables and VLANs it runs on and carries a port rate and a committed rate.
@@ -24,8 +24,9 @@ upstream v0.2.0 plus four changes drafted as upstream PRs (not opened yet):
   Migration 0006 moves existing assignments onto NetBox tags.
 - **writable-relations**: the API exposed relations (interfaces, VLANs, `depends_on`, ...)
   read-only, so automation couldn't populate them.
-- **extensible-service-type**: lets `FIELD_CHOICES` add types. We add `ixp_lan` (IX Peering
-  LAN) and `ixp_port` (IX Port).
+- **extensible-service-type**: lets `FIELD_CHOICES` add types. We add `peering_lan` (Peering
+  LAN) and `peering` (Peering). The names are generic rather than "IX" so they also fit a
+  peering LAN that isn't an Internet exchange.
 - **multi-tenant**: a `tenants` M2M ("Parties") next to `tenant`. `tenant` remains the
   primary/billing tenant; a PVLAN lists both ends as parties.
 
@@ -40,17 +41,21 @@ lifecycle dates, SLA, attachments and a PVLAN's billing `tenant` are left to hum
 
 | Service | `service_id` | Type | Derived from |
 | --- | --- | --- | --- |
-| IX LAN (one) | `SFMIX-IXLAN` | `ixp_lan` | VLANs 997/998/999, prefixes tagged `peering_lan` |
-| IX port | `IXP-AS<asn>-<device>-<interface>` | `ixp_port` | each `peering_port` / `encapsulated_peering_port` interface with a `participant` |
+| Peering LAN (one) | `SFMIX-PEERING` | `peering_lan` | VLANs 997/998/999, prefixes tagged `peering_lan` |
+| Peering connection | `PEERING-AS<asn>-<device>-<interface>` | `peering` | each `peering_port` / `encapsulated_peering_port` interface with a `participant` |
 | Private VLAN | the VLAN name, `PVLAN-AS<a>-AS<b>` | `l2vpn` | VLANs in `exchange_fabric_vlans` with that name |
 
-IX port fields:
+Each participant connection is its own service, tied to the peering LAN by `depends_on`, so every
+connection carries its own port rate and commit. It is per port rather than per participant: a
+network present at two sites has two services, because speed and shaping are per port.
+
+Peering connection fields:
 - `tenant` and `tenants`: the participant.
 - `interfaces`: the peering interface, its parent (for a `.998` sub-interface) and the LAG
   members.
 - `cables`: the cables on those members.
 - `vlans`: the interface's VLANs.
-- `depends_on`: `SFMIX-IXLAN`.
+- `depends_on`: `SFMIX-PEERING`.
 - `status`: `active` if enabled, `offline` if not, `deprovisioning` on a device that is being
   decommissioned.
 
@@ -58,7 +63,7 @@ PVLAN fields:
 - `tenants`: tenants whose `as_number` appears in the name.
 - `interfaces`/`devices`: every interface carrying the VLAN, on live devices.
 - `bandwidth`: the slowest endpoint.
-- `depends_on`: the IX port service that shares an endpoint's parent LAG, if any.
+- `depends_on`: the peering service that shares an endpoint's parent LAG, if any.
 
 ### Commit rate
 
@@ -76,11 +81,11 @@ won't keep two stores.
 
 ## Findings from the first run (prod copy, 2026-10-25)
 
-The sync produced 118 services: 1 IX LAN, 115 IX ports and 2 PVLANs. Data issues surfaced:
+The sync produced 118 services: 1 peering LAN, 115 peering connections and 2 PVLANs. Data issues surfaced:
 
 - **Inconsistent participant on a shaped member.** switch01.fmt01 Ethernet11 is the only shaped
   interface (1G). It is a member of Port-Channel101 (VOLT BROADBAND, AS62809), but its own
-  `participant` is AS399338. VOLT's IX port therefore computes as 20G physical / 11G committed.
+  `participant` is AS399338. VOLT's peering service therefore computes as 20G physical / 11G committed.
 - **Missing tenant.** No tenant has `as_number` 1299, so PVLAN-AS26073-AS1299 has only one party.
 - **Endpoint on a decommissioning switch.** PVLAN-AS26073-AS1299 still has an endpoint on
   switch02.sjc01 (decommissioning). It is skipped, and the ports on that switch sync as
