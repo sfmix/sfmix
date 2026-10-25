@@ -21,8 +21,8 @@ netbox_config:
     - netbox_services
   FIELD_CHOICES:
     netbox_services.Service.type+:
-      - [ixp_lan, IX Peering LAN]
-      - [ixp_port, IX Port]
+      - [peering_lan, Peering LAN]
+      - [peering, Peering]
   # NetBox 4.7 removed SENTRY_DSN; the DSN lives under SENTRY_CONFIG
   SENTRY_CONFIG:
     dsn: !vault |

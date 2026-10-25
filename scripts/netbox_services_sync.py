@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sync SFMIX services (IX LAN, IX ports, PVLANs) into the netbox-services plugin.
+Sync SFMIX services (peering LAN, peering connections, PVLANs) into the netbox-services plugin.
 
 Reads only NetBox: the physical/IPAM model stays the source of truth and Services are derived
 from it. Dry-run by default; --apply writes. Only the fields built here are managed; lifecycle
@@ -20,9 +20,9 @@ import pynetbox
 from discovery import netbox_api_client
 
 SYNC_TAG = "services_sync"
-IXLAN_SERVICE_ID = "SFMIX-IXLAN"
+PEERING_LAN_SERVICE_ID = "SFMIX-PEERING"
 FABRIC_VLAN_GROUP = "exchange_fabric_vlans"
-IXLAN_VIDS = (997, 998, 999)
+PEERING_LAN_VIDS = (997, 998, 999)
 PVLAN_NAME_RE = re.compile(r"^PVLAN-AS(\d+)-AS(\d+)$")
 # Device statuses whose ports still carry live services
 LIVE_DEVICE_STATUSES = {"active", "staged", "planned"}
@@ -191,12 +191,12 @@ def service_status(port: Port, fabric: Fabric) -> str:
 def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
     desired: Dict[str, dict] = {}
 
-    ixlan_vlans = [fabric.vlans[vid].id for vid in IXLAN_VIDS if vid in fabric.vlans]
-    desired[IXLAN_SERVICE_ID] = {
-        "type": "ixp_lan",
+    peering_lan_vlans = [fabric.vlans[vid].id for vid in PEERING_LAN_VIDS if vid in fabric.vlans]
+    desired[PEERING_LAN_SERVICE_ID] = {
+        "type": "peering_lan",
         "status": "active",
         "description": "SFMIX public peering LAN",
-        "vlans": ixlan_vlans,
+        "vlans": peering_lan_vlans,
         "prefixes": sorted(p.id for p in fabric.peering_lan_prefixes),
     }
 
@@ -204,7 +204,7 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
         [i.id for i in fabric.peering_ports if i.type.value == "lag"]
         + [i.parent.id for i in fabric.peering_ports if i.parent]
     )
-    ix_service_by_carrier: Dict[int, str] = {}
+    peering_service_by_carrier: Dict[int, str] = {}
     for iface in sorted(fabric.peering_ports, key=iface_label):
         participant = iface.custom_fields.get("participant")
         if not participant:
@@ -213,7 +213,7 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
         tenant = fabric.tenants[participant["id"]]
         asn = tenant.custom_fields.get("as_number")
         port = Port(fabric, iface)
-        service_id = f"IXP-AS{asn}-{iface.device.name}-{iface.name}"
+        service_id = f"PEERING-AS{asn}-{iface.device.name}-{iface.name}"
         for i in port.shaped:
             owner = (i.custom_fields.get("participant") or {}).get("id")
             if owner and owner != tenant.id:
@@ -222,9 +222,9 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
                     f"not {tenant.name}")
         vlans = sorted({v.id for v in iface.tagged_vlans} | ({iface.untagged_vlan.id} if iface.untagged_vlan else set()))
         desired[service_id] = {
-            "type": "ixp_port",
+            "type": "peering",
             "status": service_status(port, fabric),
-            "description": f"IX port: {tenant.description or tenant.name} ({tenant.name}) on {iface.device.name}",
+            "description": f"Peering: {tenant.description or tenant.name} ({tenant.name}) on {iface.device.name}",
             "tenant": tenant.id,
             "tenants": [tenant.id],
             "devices": [iface.device.id],
@@ -233,9 +233,9 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
             "vlans": vlans,
             "bandwidth": port.bandwidth,
             "cir": port.commit,
-            "depends_on": [IXLAN_SERVICE_ID],
+            "depends_on": [PEERING_LAN_SERVICE_ID],
         }
-        ix_service_by_carrier[(port.parent or iface).id] = service_id
+        peering_service_by_carrier[(port.parent or iface).id] = service_id
 
     for vid, vlan in sorted(fabric.vlans.items()):
         m = PVLAN_NAME_RE.match(vlan.name)
@@ -266,8 +266,8 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
             "vlans": [vlan.id],
             "bandwidth": min(bandwidths) if bandwidths else None,
             "depends_on": sorted({
-                ix_service_by_carrier[p.parent.id] for p in ports
-                if p.parent and p.parent.id in ix_service_by_carrier}),
+                peering_service_by_carrier[p.parent.id] for p in ports
+                if p.parent and p.parent.id in peering_service_by_carrier}),
         }
     return desired
 
@@ -305,7 +305,7 @@ def diff(existing: Optional[dict], spec: dict, service_ids_by_pk: Dict[int, str]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     parser.add_argument("--apply", action="store_true", help="write changes (default: dry-run)")
-    parser.add_argument("--only", choices=("ix", "pvlan"), help="limit to IX LAN or PVLAN services")
+    parser.add_argument("--only", choices=("peering", "pvlan"), help="limit to peering LAN or PVLAN services")
     parser.add_argument("-v", "--verbose", action="store_true", help="show unchanged services too")
     args = parser.parse_args()
 
@@ -319,8 +319,8 @@ def main() -> int:
     warnings: List[str] = []
     fabric = Fabric(nb)
     desired = build_desired(fabric, warnings)
-    if args.only == "ix":
-        desired = {k: v for k, v in desired.items() if v["type"] in ("ixp_lan", "ixp_port")}
+    if args.only == "peering":
+        desired = {k: v for k, v in desired.items() if v["type"] in ("peering_lan", "peering")}
     elif args.only == "pvlan":
         desired = {k: v for k, v in desired.items() if v["type"] == "l2vpn"}
 
