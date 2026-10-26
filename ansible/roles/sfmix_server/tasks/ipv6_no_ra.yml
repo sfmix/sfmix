@@ -1,0 +1,29 @@
+---
+# Ignore IPv6 router advertisements on every interface. `all`/`default` above don't cover it:
+# `all` doesn't govern accept_ra, and `default` only reaches interfaces created after it is set,
+# which misses NICs and bridges that come up before sysctl runs at boot. Participants send RAs
+# onto the peering LAN, and hosts on it (rs-linux, the PVE peering-LAN bridges) had installed
+# IPv6 default routes via participant routers. systemd-sysctl expands the glob, and its udev
+# rule re-applies it to each interface as it appears.
+- name: Ignore IPv6 router advertisements on all interfaces
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/60-sfmix-ipv6-no-ra.conf
+    content: |
+      # Managed by Ansible (sfmix_server). Never learn routes or addresses from RAs.
+      net.ipv6.conf.*.accept_ra = 0
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Stop accepting RAs on existing interfaces and drop RA-learned routes
+  become: true
+  ansible.builtin.shell: |
+    changed=
+    for f in /proc/sys/net/ipv6/conf/*/accept_ra; do
+      if [ "$(cat "$f")" != 0 ]; then echo 0 > "$f"; changed=1; fi
+    done
+    if [ -n "$(ip -6 route show proto ra)" ]; then ip -6 route flush proto ra; changed=1; fi
+    echo "${changed:+changed}"
+  register: sfmix_server_no_ra
+  changed_when: "'changed' in sfmix_server_no_ra.stdout"

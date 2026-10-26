@@ -6,3 +6,7 @@
     value: "{{ item.value }}"
     state: present
   loop: "{{ sfmix_server_sysctls }}"
+
+- name: Ignore IPv6 router advertisements
+  ansible.builtin.import_tasks:
+    file: ipv6_no_ra.yml
