@@ -88,7 +88,7 @@ won't keep two stores.
 ## Import (prod, 2026-10-25)
 
 The import ran as a one-off `services-import` user with scoped permissions and an expiring token,
-to be deleted afterwards. It created 122 services: 1 peering LAN, 115 peering connections, 2
+deleted once the import was done. It created 122 services: 1 peering LAN, 115 peering connections, 2
 private VLANs and 4 private VLAN ports. Fixes made along the way:
 
 - **switch01.fmt01 Ethernet11.** It is a member of VOLT's (AS62809) Port-Channel101 but still had
@@ -101,7 +101,8 @@ private VLANs and 4 private VLAN ports. Fixes made along the way:
   `ixp_participant` tag) so PVLAN 1411 names both parties. SFMIX is an Arelion customer/transport
   provider, not the reverse.
 - **PVLAN billing.** Each side pays for its own port, so the endpoint services carry the payer
-  as `tenant`.
+  as `tenant`. On 1411 Cofractal pays for both ports, since the Arelion end at sjc01 is part of
+  a bundled transport service.
 
 `scripts/netbox_ix_lint.py` now checks that a LAG member's `participant` matches its LAG, or a
 peering sub-interface of it. The first run flagged 16 members, 14 of them on switch01.fmt01, with
