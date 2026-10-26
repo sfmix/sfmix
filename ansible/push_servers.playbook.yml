@@ -286,6 +286,16 @@
             - journald
       tags:
         - journald
+    # Only the RA part of linux_sysctl.yml: the rest turns IP forwarding off.
+    - name: "Apply sfmix_server IPv6 RA rejection"
+      ansible.builtin.include_role:
+        name: sfmix_server
+        tasks_from: ipv6_no_ra.yml
+        apply:
+          tags:
+            - sysctl
+      tags:
+        - sysctl
     - name: "Apply sfmix_server smartd overrides"
       ansible.builtin.include_role:
         name: sfmix_server

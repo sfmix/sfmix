@@ -4,13 +4,12 @@ sfmix_server_ufw_logging: "off"   # off|low|medium|high|full — block spam is u
 sfmix_server_dns_recursors:
   - 8.8.8.8
 sfmix_server_snmp_community: public
+# Forwarding is left alone: every server runs Docker, which needs IPv4 forwarding on and turns it
+# on whenever dockerd starts. Setting it to 0 here only took effect when this role ran, and it
+# then cut container networking until dockerd next restarted (it happened on 2026-10-26).
 sfmix_server_sysctls:
   - { name: 'net.ipv6.conf.all.accept_ra', value: '0' }
   - { name: 'net.ipv6.conf.default.accept_ra', value: '0' }
-  - { name: 'net.ipv4.conf.all.forwarding', value: '0' }
-  - { name: 'net.ipv4.conf.default.forwarding', value: '0' }
-  - { name: 'net.ipv6.conf.all.forwarding', value: '0' }
-  - { name: 'net.ipv6.conf.default.forwarding', value: '0' }
 
 # sfmix-docker-autostart: boot-time reconciliation for containers dockerd's own
 # restore silently misses (see files/sfmix-docker-autostart for the incident).
