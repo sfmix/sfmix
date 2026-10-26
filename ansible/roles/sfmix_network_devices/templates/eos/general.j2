@@ -214,3 +214,42 @@ ipv6 access-list DROP_BGP_BCP214_RFC8327_V6
    25 remark !! Allow remaining IPv6 traffic
    30 permit ipv6 any any
 !
+{# Peering-port ingress filters; see design doc 008, "Peering-port ingress filters".
+   Applied in interface.j2 on the peering port itself (never LAG members, where EOS ignores them). #}
+ip access-list DROP_DISCOVERY_PROTOCOLS_V4
+   counters per-entry
+   5 remark !! Mikrotik Discovery Protocol
+   10 deny udp any eq 5678 host 255.255.255.255 eq 5678 log
+   999 remark !! Pass remaining IPv4 packets
+   1000 permit ip any any
+!
+ipv6 access-list DROP_DISCOVERY_PROTOCOLS_V6
+   counters per-entry
+   5 remark !! Router Solicitation; not logged, too chatty (counters only)
+   10 deny icmpv6 any any router-solicitation
+   15 remark !! Router Advertisement; not logged, too chatty (counters only)
+   20 deny icmpv6 any any router-advertisement
+   999 remark !! Pass remaining IPv6 packets
+   1000 permit ipv6 any any
+!
+mac access-list DROP_L2_DISCOVERY_PROTOCOLS
+   counters per-entry
+   5 remark !! ARP
+   10 permit any ff:ff:ff:ff:ff:ff 00:00:00:00:00:00 arp
+   15 remark !! IPv6 neighbor solicitation (solicited-node multicast)
+   20 permit any 33:33:ff:00:00:00 00:00:00:ff:ff:ff
+   25 remark !! LLDP: kept on purpose (it reaches the CPU regardless and is never forwarded)
+   30 permit any 01:80:c2:00:00:0e 00:00:00:00:00:00
+   35 remark !! Cisco Discovery Protocol
+   40 deny any 01:00:0c:cc:cc:cc 00:00:00:00:00:00 log
+   45 remark !! STP
+   50 deny any 01:80:c2:00:00:00 00:00:00:00:00:00 log
+   55 remark !! Cisco PVST+
+   60 deny any 01:00:0c:cc:cc:cd 00:00:00:00:00:00 log
+   65 remark !! Maintenance Operation Protocol
+   70 deny any ab:00:00:02:00:00 00:00:00:00:00:00 log
+   895 remark !! All other broadcast & multicast; not logged, too chatty (counters only)
+   900 deny any 01:00:00:00:00:00 fe:ff:ff:ff:ff:ff
+   999 remark !! Allow remaining traffic
+   1000 permit any any
+!

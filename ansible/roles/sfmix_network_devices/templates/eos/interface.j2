@@ -59,6 +59,12 @@ interface {{ interface.name }}
 {% endif %}
 {% if 'peering_port' in interface.tags %}
 {%   if interface.lag is not defined %}
+{#     Not on a reseller's encapsulating parent (only its .998 sub-interface is the peering port) #}
+{%    if 'encapsulating_peering_port' not in interface.tags %}
+   ip access-group DROP_DISCOVERY_PROTOCOLS_V4 in
+   ipv6 access-group DROP_DISCOVERY_PROTOCOLS_V6 in
+   mac access-group DROP_L2_DISCOVERY_PROTOCOLS in
+{%    endif %}
 {%  if 'encapsulating_peering_port' in interface.tags %}
    storm-control broadcast level 0.01
    storm-control multicast level 0.01
@@ -74,6 +80,7 @@ interface {{ interface.name }}
    storm-control unknown-unicast level 0.01
    spanning-tree bpduguard enable
 {%  endif %}
+{%   endif %}
 {% endif %}
 {# Special cases #}
 {% if interface.name == "Vxlan1" %}

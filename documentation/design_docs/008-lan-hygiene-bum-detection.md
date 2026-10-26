@@ -223,6 +223,90 @@ the portal; **info** is chatter worth telling the participant about.
 Adding a protocol = one `BUM_CATALOG` row (lg-types), one match arm in `bum::classify`, one
 hand-built-frame test in `bum.rs`, and the key in the portal's `_BUM_PROTOCOLS` dropdown list.
 
+## Peering-port ingress filters
+
+The sensor detects and reports. These switch ACLs stop the worst of the same traffic at the port,
+before it is flooded to every member. The intended configuration is in the EOS templates: the
+definitions in `ansible/roles/sfmix_network_devices/templates/eos/general.j2` and the
+`access-group` lines in `eos/interface.j2`. As with all switch config, it is pushed to the gear by
+hand. The templates are the reference for what the source of truth says a port should look like.
+
+**Where they apply.** On the peering port itself: a standalone port, the Port-Channel, or a
+reseller's `.998` encapsulated sub-interface. They do not go on LAG members, where EOS accepts the
+`access-group` line but ignores it: `show ip access-lists … summary` lists it as "Configured", not
+"Active". They do not go on a reseller's encapsulating parent either, which carries more than the
+peering LAN.
+
+**What they do.**
+
+| ACL | drops | passes |
+|---|---|---|
+| `DROP_DISCOVERY_PROTOCOLS_V4` | MNDP (UDP 5678 to 255.255.255.255), logged | everything else |
+| `DROP_DISCOVERY_PROTOCOLS_V6` | Router Solicitation, Router Advertisement (counters, not logged) | everything else |
+| `DROP_L2_DISCOVERY_PROTOCOLS` | CDP, STP, PVST+, DEC MOP (logged), then all other broadcast/multicast (counters) | ARP, IPv6 solicited-node multicast (NS), LLDP, all unicast |
+
+LLDP is permitted on purpose: it tells us what is on the far end of each port. It is link-local and never forwarded, so passing it
+costs the other members nothing. It reaches the CPU whether or not the ACL passes it, and on
+switch01.fmt01 Et5/Po105 neighbors were still learned behind the old deny-all rule. The explicit
+`permit` documents the intent and keeps it working if that ever changes. Our own catalog still
+lists `lldp` as a warning ("`no lldp transmit`"). That advice concerns frames the sensor sees
+flooded, which is a different case.
+
+**History.** Matt added the three ACLs by hand on switch01.fmt01 only, on 2026-09-02 between
+00:52 and 05:25 UTC (Loki `%SYS-5-CONFIG`; Oxidized commits 23223b2 and c57963a). As of
+2026-10-26 they are active only on that switch's Et20, Et27, Po12-15, Po105, Po119 and Po124.998,
+and inert on 22 LAG members. Po105 (AS400587) and Po119 (AS397131) send RAs, and those are
+dropped. The templated version differs from that live version in five ways:
+
+1. The catch-all `deny any 01:00:00:00:00:00 fe:ff:ff:ff:ff:ff` was rule 30. It shadowed the
+   CDP/STP/PVST+/MOP rules after it, so their `log` never fired. It moves to 900, after the
+   specific rules.
+2. An explicit LLDP `permit` is added ahead of the catch-all.
+3. The MAC ACL gets `counters per-entry`. It had none, so nothing showed what it matched.
+4. RA and RS deny logging is dropped. Ten or so participants send RAs, so per-packet syslog is
+   noise. The per-entry counters carry the rate. As a result, the disabled Loki alert
+   `PeeringPortDiscoveryProtocolDropped` (`roles/grafana/templates/loki-rules.yml.j2`) would now
+   see only the rarer logged rules.
+5. Remarks are corrected; the second "STP" remark was actually for PVST+.
+
+**Open question.** It is not verified whether EOS also runs IP frames through a port's MAC ACL
+when an IP ACL is attached as well. If it does, the catch-all also drops IP multicast (MLD, mDNS,
+DHCP, …). If it does not, only non-IP multicast is dropped, and anything IP-based has to go in
+the V4/V6 ACLs. The NS `permit` (rule 20) suggests the original author expected the former. The
+rule 900 counter during the trial below answers it. Settle it before relying on the MAC ACL for
+anything IP.
+
+**Trial and rollout (switch01.fmt01 first, nothing fabric-wide before that's clean).**
+
+1. **Baseline.** Capture `show ip access-lists DROP_DISCOVERY_PROTOCOLS_V4`,
+   `show ipv6 access-lists DROP_DISCOVERY_PROTOCOLS_V6`,
+   `show mac access-lists DROP_L2_DISCOVERY_PROTOCOLS`, `show lldp neighbors`,
+   `show port-security` and the route-server session list for the participants on the
+   filtered ports.
+2. **Replace the MAC ACL in a config session.** Use `configure session`, then
+   `no mac access-list DROP_L2_DISCOVERY_PROTOCOLS`, the templated version, `show session-config
+   diffs`, and `commit timer 00:10:00`. The access-groups reference the ACL by name and stay in
+   place. If anything looks wrong, let the timer roll it back.
+3. **Watch for ten minutes.** ARP and NS should keep working: rule 10/20 counters climb, and the
+   affected members' BGP sessions and ND state on rs-linux are unchanged. LLDP neighbors should
+   be unchanged and rule 30 should count. Rule 900 should count, which settles the open question.
+   CDP/STP logging (if any) should appear in Loki. Then `configure session … commit` and
+   `write memory`.
+4. **Swap the V6 ACL** the same way, then check that RA counters still climb with no syslog.
+5. **Fabric-wide.** One switch at a time: the ACL definitions, then the three `access-group`
+   lines on each peering port as `eos/interface.j2` renders them (never on members). Start with
+   the switches whose ports the sensor has seen sending RAs. Check the counters and LLDP after
+   each switch. Agree the rollout with Matt beforehand, since this changes his live config.
+
+**Rollback.** Remove the access-group from a port with `no mac access-group
+DROP_L2_DISCOVERY_PROTOCOLS in` (and the same for `ip`/`ipv6`). Any change made under
+`commit timer` reverts by itself if it is not confirmed.
+
+**Effect on detection.** The sensor on rs-linux only sees what is flooded. Once a port is
+filtered, its RAs stop appearing as new LAN events, even though the participant is still
+misconfigured. From then on, the per-entry ACL counters are the record of who is still sending
+them.
+
 ## Data model
 
 `nd_events` (SQLite, WAL) — doc 005's table plus additive columns; a `bum_protocol` row uses
@@ -367,5 +451,6 @@ Staged, deliberately slow:
 - Catalog/types: `looking-glass/lg-types/src/structured.rs` (`BUM_CATALOG`, `EVENT_KIND_BUM_PROTOCOL`, `AnomalyEvent`)
 - lg-server: `looking-glass/src/{anomaly,discovered,config,service,format,policy}.rs`, `looking-glass/config/grammar.yml`, `looking-glass/lg-server/src/rpc_server.rs`
 - lg-http: `looking-glass/lg-http/src/rest.rs`
+- Peering-port filters: `ansible/roles/sfmix_network_devices/templates/eos/{general,interface}.j2`
 - Portal: `portal/dashboard/{views,urls,lg_client}.py`, `portal/templates/dashboard/{lan_events,participant_detail,participants_list}.html`, `portal/templates/base.html`, `portal/tailwind.input.css`, `portal/dashboard/devmock/fixtures/lg/lan-events.json`
 - Deploy: `ansible/roles/sfmix_route_server_linux/{defaults/main.yml,templates/lg-neighborhood-watch.yml.j2}`, `ansible/inventory/group_vars/{rs_linux,looking_glass_rust}.yml`, `ansible/roles/looking_glass/templates/lg-server.yml.j2`, `ansible/roles/prometheus/{templates/prometheus.yaml.j2,templates/rules/lan-hygiene.rules.yml.j2,tasks/main.yml}`
