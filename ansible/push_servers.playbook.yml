@@ -286,7 +286,7 @@
             - journald
       tags:
         - journald
-    # Only the RA part of linux_sysctl.yml: the rest turns IP forwarding off.
+    # Only the RA part of linux_sysctl.yml: hypervisors never got the old forwarding lines.
     - name: "Apply sfmix_server IPv6 RA rejection"
       ansible.builtin.include_role:
         name: sfmix_server
