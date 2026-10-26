@@ -146,6 +146,23 @@ def check_lag_member_has_no_participant(netbox: pynetbox.api) -> None:
         )
 
 
+def check_peering_subinterface_parent_has_no_participant(netbox: pynetbox.api) -> None:
+    # Likewise for the parent of a peering sub-interface (Port-Channel101 for
+    # Port-Channel101.998): the sub-interface is the peering port, and the parent may also carry
+    # other services such as AS40271 transit sub-interfaces.
+    print("[!!] Checking that parents of peering sub-interfaces have no `participant`")
+    for interface in netbox.dcim.interfaces.filter(tag="peering_port"):
+        if not interface.parent:
+            continue
+        parent = netbox.dcim.interfaces.get(interface.parent.id)
+        if participant := parent.custom_fields.get("participant"):
+            print(
+                f"{parent.name} on device {parent.device.name} (parent of peering port "
+                f"{interface.name}) has participant {participant['name']}",
+                url_strip_api(parent.url),
+            )
+
+
 def check_participant_ports_have_services(netbox: pynetbox.api) -> None:
     # Each participant port is modelled by exactly one netbox-services Service (design doc 009):
     # a `peering` service for the participant on each peering port, and a billed `l2vpn` service
@@ -273,6 +290,7 @@ def netbox_lint(operator_config: Dict[str, str]) -> None:
     check_peering_port_custom_field_participant(netbox=netbox)
     check_peering_port_participant_matches_description_asn(netbox=netbox)
     check_lag_member_has_no_participant(netbox=netbox)
+    check_peering_subinterface_parent_has_no_participant(netbox=netbox)
     check_participant_ports_have_services(netbox=netbox)
     check_participant_has_ports(netbox=netbox)
     check_participant_has_ips(netbox=netbox)

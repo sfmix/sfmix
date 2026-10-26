@@ -111,7 +111,9 @@ named the wrong network, 13 of them on switch01.fmt01, and they looked shifted r
 LAGs. So `new_participant.py` no longer sets it on members, and `scripts/netbox_ix_lint.py` flags
 any LAG member that has one. All 23 LAG members that had one (including members of LAGs whose
 peering port is a `.998` sub-interface) were cleared on 2026-10-25. Their `ixp_participant`
-tags were left alone.
+tags were left alone. The same goes for the parent of a peering sub-interface: it can also carry
+AS40271 transit sub-interfaces, so it isn't the peering port. The five that had one were cleared
+on 2026-10-26, and the lint flags them too.
 
 The lint also checks that the services cover the ports:
 - Each `peering_port` with a `participant` must be in exactly one `peering` service for that
