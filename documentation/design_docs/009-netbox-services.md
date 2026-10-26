@@ -107,6 +107,18 @@ private VLANs and 4 private VLAN ports. Fixes made along the way:
 peering sub-interface of it. The first run flagged 16 members, 14 of them on switch01.fmt01, with
 member participants that look shifted relative to their LAGs.
 
+The lint also checks that the services cover the ports:
+- Each `peering_port` with a `participant` must be in exactly one `peering` service for that
+  participant.
+- Each port carrying a PVLAN on a live device must be in exactly one `l2vpn` service, and that
+  service must have a billing `tenant`.
+
+Ports are selected by `peering_port`, not `ixp_participant`. Discovery keeps `peering_port` in
+step with VLAN 998 membership, and the LG and portal read it too. `ixp_participant` on an
+interface is only ever added, never removed. On 2026-10-25 it was on 167 interfaces against 118
+peering ports; the extra ones are LAG members, transit LAGs and ports left over from former
+participants.
+
 Skipped by the sync: three `peering_port` interfaces with no participant (PVE trunks on fmt01, the
 scl04 PVE access LAG), and the PVLAN 1411 endpoint on decommissioning switch02.sjc01.
 

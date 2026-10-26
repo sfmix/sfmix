@@ -2,10 +2,13 @@
 import os
 import sys
 import re
+from collections import defaultdict
 from typing import Dict
 
 import pynetbox
 import yaml
+
+from netbox_services_sync import LIVE_DEVICE_STATUSES, PVLAN_NAME_RE, ServicesAPI
 
 """
 Perform some sanity checking against the IX-specific data in Netbox
@@ -156,6 +159,68 @@ def check_lag_member_participant_matches_lag(netbox: pynetbox.api) -> None:
         )
 
 
+def check_participant_ports_have_services(netbox: pynetbox.api) -> None:
+    # Each participant port is modelled by exactly one netbox-services Service (design doc 009):
+    # a `peering` service for the participant on each peering port, and a billed `l2vpn` service
+    # on each live port carrying a private VLAN. `ixp_participant` on interfaces is sticky (never
+    # removed by discovery), so ports are taken from `peering_port`, which follows VLAN 998.
+    print("[!!] Checking that each participant port has a service")
+    services_by_port = defaultdict(list)
+    for service in ServicesAPI(netbox).all():
+        for interface in service["interfaces"]:
+            interface_id = interface["id"] if isinstance(interface, dict) else interface
+            services_by_port[(service["type"], interface_id)].append(service)
+
+    def describe(services) -> str:
+        return ", ".join(s["service_id"] for s in services)
+
+    peering_ports = [
+        *netbox.dcim.interfaces.filter(tag="peering_port"),
+        *netbox.dcim.interfaces.filter(tag="encapsulated_peering_port"),
+    ]
+    for interface in peering_ports:
+        # Missing participants are reported by check_peering_port_custom_field_participant
+        if not (participant := interface.custom_fields.get("participant")):
+            continue
+        services = [
+            s
+            for s in services_by_port[("peering", interface.id)]
+            if s["tenant"] == participant["id"]
+        ]
+        if len(services) != 1:
+            print(
+                f"Peering port {interface.name} on device {interface.device.name} has "
+                f"{len(services) or 'no'} `peering` services for {participant['name']}"
+                + (f": {describe(services)}" if services else ""),
+                url_strip_api(interface.url),
+            )
+
+    device_statuses = {}
+    for vlan in netbox.ipam.vlans.filter(group="exchange_fabric_vlans"):
+        if not PVLAN_NAME_RE.match(vlan.name):
+            continue
+        for interface in netbox.dcim.interfaces.filter(vlan_id=vlan.id):
+            device_id = interface.device.id
+            if device_id not in device_statuses:
+                device_statuses[device_id] = netbox.dcim.devices.get(device_id).status.value
+            if device_statuses[device_id] not in LIVE_DEVICE_STATUSES:
+                continue
+            services = services_by_port[("l2vpn", interface.id)]
+            if len(services) != 1:
+                print(
+                    f"{vlan.name} port {interface.name} on device {interface.device.name} has "
+                    f"{len(services) or 'no'} `l2vpn` services"
+                    + (f": {describe(services)}" if services else ""),
+                    url_strip_api(interface.url),
+                )
+            elif not services[0]["tenant"]:
+                print(
+                    f"{vlan.name} port {interface.name} on device {interface.device.name}: "
+                    f"service {services[0]['service_id']} has no billing tenant",
+                    url_strip_api(interface.url),
+                )
+
+
 def netbox_client(operator_config) -> pynetbox.core.api.Api:
     return pynetbox.api(
         operator_config["netbox_api_endpoint"], token=operator_config["netbox_api_key"]
@@ -221,6 +286,7 @@ def netbox_lint(operator_config: Dict[str, str]) -> None:
     check_peering_port_custom_field_participant(netbox=netbox)
     check_peering_port_participant_matches_description_asn(netbox=netbox)
     check_lag_member_participant_matches_lag(netbox=netbox)
+    check_participant_ports_have_services(netbox=netbox)
     check_participant_has_ports(netbox=netbox)
     check_participant_has_ips(netbox=netbox)
     check_ixp_participant_ip_tenant(netbox=netbox)
