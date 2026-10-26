@@ -104,9 +104,12 @@ private VLANs and 4 private VLAN ports. Fixes made along the way:
   as `tenant`. On 1411 Cofractal pays for both ports, since the Arelion end at sjc01 is part of
   a bundled transport service.
 
-`scripts/netbox_ix_lint.py` now checks that a LAG member's `participant` matches its LAG, or a
-peering sub-interface of it. The first run flagged 16 members, 14 of them on switch01.fmt01, with
-member participants that look shifted relative to their LAGs.
+`participant` belongs only on the peering port: the LAG, or its `.998` sub-interface. A copy on
+a LAG member isn't read by anything (the LG and portal take a member's identity from its LAG),
+and it goes stale when the port is re-used. Of 90 peering LAG members, 17 had one; 15 of those
+named the wrong network, 13 of them on switch01.fmt01, and they looked shifted relative to their
+LAGs. So `new_participant.py` no longer sets it on members, and `scripts/netbox_ix_lint.py` flags
+any LAG member that has one.
 
 The lint also checks that the services cover the ports:
 - Each `peering_port` with a `participant` must be in exactly one `peering` service for that

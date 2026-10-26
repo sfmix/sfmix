@@ -141,6 +141,12 @@ def find_manual_port(netbox, new_participant_site, device_name, interface_name):
             f" to participant:[/red bold] {port.custom_fields['participant']}"
         )
         sys.exit(1)
+    if port.lag:
+        console.print(
+            f"[red bold]Interface {device_name}/{interface_name} is already a member of"
+            f" {port.lag.name}[/red bold]"
+        )
+        sys.exit(1)
     is_lag = interface_name.startswith("Port-Channel")
     selected_port = {
         "id": port.id,
@@ -283,7 +289,7 @@ def main(
             peering_port.description = (
                 f"{peeringdb_asn_name} LAG Member (AS{new_participant_asn})"
             )
-            peering_port.custom_fields = {"lacp_mode": "on", "participant": netbox_tenant.id}
+            peering_port.custom_fields = {"lacp_mode": "on"}
             peering_port.save()
         console.print(f"Configured physical port in [bold]{port_channel_name}[/bold]: {peering_port.url}")
 
@@ -534,6 +540,7 @@ if __name__ == "__main__":
                 iface for iface in device_interfaces
                 if not iface.name.startswith(non_physical_prefixes)
                 and not iface.custom_fields.get("participant")
+                and not iface.lag
             ]
         if not eligible_interfaces:
             console.print("[red bold]No eligible interfaces found on this device.[/red bold]")
