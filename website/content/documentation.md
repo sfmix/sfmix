@@ -15,6 +15,7 @@ mobile_image: "img/mobile-network-rack.jpg"
 - [K-2014 IRS, Application for Recognition Section 501(a)](/docs/20151009_IRS_K1024.pdf) (September 10, 2015)
 - [8718 IRS, Fee for Exempt Organization Determination Letter](/docs/20151009_Federal_8718.pdf) (September 10, 2015)
 - [Bylaws](/docs/SFMIX_Bylaws_20150525.pdf) (May 25, 2015)
+- [Board Member Job Description](/docs/SFMIX-Board-Member-Job-Description.pdf) (March 2024)
 - [Articles of Incorporation](/docs/SFMIX_AOI_20150418.pdf) (April 18, 2015)
 
 ## Tax Filings
