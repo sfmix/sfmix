@@ -14,6 +14,7 @@ mobile_image: "img/mobile-network-rack.jpg"
 - [K-2014 IRS, Application for Recognition Section 501(a)](/docs/20151009_IRS_K1024.pdf) (10. September 2015)
 - [8718 IRS, Fee for Exempt Organization Determination Letter](/docs/20151009_Federal_8718.pdf) (10. September 2015)
 - [Satzung](/docs/SFMIX_Bylaws_20150525.pdf) (25. Mai 2015)
+- [Aufgabenbeschreibung für Vorstandsmitglieder](/docs/SFMIX-Board-Member-Job-Description.pdf) (März 2024)
 - [Gründungsurkunde](/docs/SFMIX_AOI_20150418.pdf) (18. April 2015)
 
 ## Steuerunterlagen

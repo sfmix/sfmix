@@ -14,6 +14,7 @@ mobile_image: "img/mobile-network-rack.jpg"
 - [K-2014 IRS, Solicitud de reconocimiento Sección 501(a)](/docs/20151009_IRS_K1024.pdf) (10 de septiembre de 2015)
 - [8718 IRS, Tarifa por carta de determinación de organización exenta](/docs/20151009_Federal_8718.pdf) (10 de septiembre de 2015)
 - [Estatutos](/docs/SFMIX_Bylaws_20150525.pdf) (25 de mayo de 2015)
+- [Descripción del cargo de miembro de la Junta Directiva](/docs/SFMIX-Board-Member-Job-Description.pdf) (marzo de 2024)
 - [Acta de constitución](/docs/SFMIX_AOI_20150418.pdf) (18 de abril de 2015)
 
 ## Declaraciones fiscales
