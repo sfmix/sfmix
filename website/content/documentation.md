@@ -25,6 +25,7 @@ mobile_image: "img/mobile-network-rack.jpg"
 
 ## Members Meetings
 
+- [October 28, 2026](/docs/20261027-Members-Meeting.pdf)
 - [October 22, 2025](/docs/20251022-SFMIX-Members-Meeting.pdf)
 - [April 16, 2024](/docs/20240416-Members-Meeting.pdf)
 - [October 27, 2022](/docs/20221027-Members-Meeting.pdf)
