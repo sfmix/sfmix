@@ -67,6 +67,9 @@ pub async fn auth_middleware(
     }).await
 }
 
+/// How long clients may treat list/read results as fresh (SEP-2549).
+const RESULT_TTL_MS: u64 = 60_000;
+
 /// Build the MCP axum router (mounted at `/mcp`).
 ///
 /// `allowed_hosts` feeds rmcp's DNS-rebinding guard, which only admits
@@ -497,7 +500,13 @@ impl ServerHandler for McpHandler {
                 t
             })
             .collect();
-        Ok(ListToolsResult::with_all_items(tools))
+        // Protocol 2026-07-28 (SEP-2549) requires ttlMs and cacheScope on list
+        // results; clients that validate strictly (Claude Code before 2.1.3xx)
+        // reject the response without them. The list is static per build but
+        // tool visibility follows the caller's identity, so keep it private.
+        Ok(ListToolsResult::with_all_items(tools)
+            .with_ttl_ms(RESULT_TTL_MS)
+            .with_cache_scope(CacheScope::Private))
     }
 
     async fn call_tool(
@@ -526,7 +535,9 @@ impl ServerHandler for McpHandler {
     ) -> Result<ListResourcesResult, McpError> {
         Ok(ListResourcesResult::with_all_items(vec![
             rmcp::model::Resource::new("ixp://participants", "IXP Participants".to_string()),
-        ]))
+        ])
+        .with_ttl_ms(RESULT_TTL_MS)
+        .with_cache_scope(CacheScope::Private))
     }
 
     async fn read_resource(
@@ -538,7 +549,10 @@ impl ServerHandler for McpHandler {
             "ixp://participants" => Ok(ReadResourceResult::new(vec![ResourceContents::text(
                 self.format_participants().await,
                 request.uri,
-            )]).into()),
+            )])
+            .with_ttl_ms(RESULT_TTL_MS)
+            .with_cache_scope(CacheScope::Private)
+            .into()),
             _ => Err(McpError::resource_not_found(
                 "resource_not_found",
                 Some(json!({ "uri": request.uri })),
