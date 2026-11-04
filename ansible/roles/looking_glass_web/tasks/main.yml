@@ -21,11 +21,19 @@
     - index.html
     - assets
 
+# Guarded by a stat: the module regenerated the file on every run here
+# (minutes of CPU each time), so only create it when it is missing.
+- name: "Check for an existing dhparams file"
+  ansible.builtin.stat:
+    path: /etc/ssl/certs/dhparam.pem
+  register: looking_glass_web_dhparam
+
 - name: "Create a dhparams file"
   become: true
   community.crypto.openssl_dhparam:
     path: /etc/ssl/certs/dhparam.pem
     size: 2048
+  when: not looking_glass_web_dhparam.stat.exists
 
 - name: "Firewall: Allow HTTP(S)"
   become: true
