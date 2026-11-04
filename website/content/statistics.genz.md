@@ -24,6 +24,8 @@ SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer vol
 
 all participants gotta peer with the SFMIX looking glass. it pulls hella weight in a few ways:
 
+**[lg.sfmix.org](https://lg.sfmix.org/)** — live session board, route lookups, ping + traceroute from inside the exchange 🔭
+
 - validate your router config when you first connect ✅
 - test config changes against a low-impact peer with a self-service view of what the LG sees from you
 - public visibility into what prefixes are present at the exchange (the receipts 🧾)
