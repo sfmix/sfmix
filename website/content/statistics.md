@@ -25,6 +25,8 @@ SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer vol
 
 All participants are required to peer with the SFMIX Looking Glass. It serves several purposes:
 
+**[lg.sfmix.org](https://lg.sfmix.org/)** — live session board, route lookups, ping and traceroute from inside the exchange.
+
 - Validate your router configuration when first connecting
 - Test configuration changes against a low-impact peer with a self-service view of what the LG sees from you
 - Public visibility into what prefixes are present at the exchange

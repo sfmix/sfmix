@@ -24,6 +24,8 @@ SFMIX verwendet sFlow, um Metadaten zum Datenverkehr des Internet-Knotens zu erf
 
 Alle Teilnehmer sind verpflichtet, mit dem SFMIX Looking Glass zu peeren. Es erfüllt mehrere Zwecke:
 
+**[lg.sfmix.org](https://lg.sfmix.org/)** — Live-Übersicht der Sitzungen, Routen-Abfragen, Ping und Traceroute aus dem Exchange heraus.
+
 - Überprüfung Ihrer Router-Konfiguration bei der ersten Verbindung
 - Testen von Konfigurationsänderungen gegenüber einem risikoarmen Peer, mit einer Selbstbedienungsansicht dessen, was das LG von Ihnen sieht
 - Öffentliche Einsicht in die am Internet-Knoten vorhandenen Präfixe

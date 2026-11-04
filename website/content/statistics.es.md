@@ -24,6 +24,8 @@ SFMIX usa sFlow para muestrear los metadatos del tráfico del intercambio, inclu
 
 Todos los participantes deben intercambiar tráfico con el Looking Glass de SFMIX. Cumple varios propósitos:
 
+**[lg.sfmix.org](https://lg.sfmix.org/)**: tablero de sesiones en vivo, consultas de rutas, ping y traceroute desde dentro del exchange.
+
 - Validar la configuración de tu router al conectarte por primera vez
 - Probar cambios de configuración contra un par de bajo impacto, con una vista de autoservicio de lo que el LG ve desde tu lado
 - Visibilidad pública de qué prefijos están presentes en el intercambio
