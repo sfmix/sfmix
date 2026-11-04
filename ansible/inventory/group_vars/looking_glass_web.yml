@@ -13,5 +13,8 @@ looking_glass_web_domains:
 
 # participants*.json (website, sflow-rt, scripts) and the arouteserver
 # rs-*.summary.html pages are published straight into the nginx static root.
-participants_json_output_directory: "{{ looking_glass_web_static_directory }}"
-sfmix_arouteserver_html_summary_directory: "{{ looking_glass_web_static_directory }}"
+# Literal (not the role default) because the publishing plays include other
+# roles and looking_glass_web's defaults are not in scope there.
+looking_glass_web_static_directory: /var/www/lg-web
+participants_json_output_directory: /var/www/lg-web
+sfmix_arouteserver_html_summary_directory: /var/www/lg-web

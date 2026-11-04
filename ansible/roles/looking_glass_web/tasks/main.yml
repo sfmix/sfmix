@@ -27,6 +27,8 @@
 - name: "Install certbot (one lineage, all served names)"
   ansible.builtin.include_role:
     name: geerlingguy.certbot
+    apply:
+      become: true
   vars:
     certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
     certbot_create_if_missing: true
@@ -37,6 +39,8 @@
 - name: "Install nginx (base config only)"
   ansible.builtin.include_role:
     name: geerlingguy.nginx
+    apply:
+      become: true
   vars:
     nginx_remove_default_vhost: true
     nginx_server_tokens: "off"
