@@ -4,7 +4,7 @@ import collections
 import requests
 
 BIRDWATCHER_ENDPOINT = "http://mgmt.rs-linux.sfmix.org:29184"
-BGPLGD_ENDPOINT = "http://mgmt.lg.sfmix.org/api"
+BGPLGD_ENDPOINT = "http://mgmt.rs-openbsd.sfmix.org/api"
 
 ip_session_map = collections.defaultdict(dict)
 
