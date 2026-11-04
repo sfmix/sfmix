@@ -119,6 +119,22 @@ Add IX-specific tags:
 - Encapsulated Peering Port (Slug: "encapsulated_peering_port")
 - Encapsulating Peering Port (Slug: "encapsulating_peering_port")
 - Core Port (Slug: "core_port")
+- Transit Peer (Slug: "transit_peer")
+- Admin Port (Slug: "admin_port")
+
+The three interface role tags drive looking-glass visibility and are kept in
+step by `scripts/discovery.py --sync-core-port-tags` (run by hand; see the
+looking-glass design docs for the visibility rules):
+
+- `core_port`: infrastructure (loopbacks, inter-switch and transport links,
+  physical router connectors). Public in the looking glass. On EOS this is
+  derived from the interface description prefix: `Core:`, `Transport…`, `Access:`.
+- `transit_peer` + `participant` custom field: an AS40271 transit customer's
+  port (EOS descriptions `Transit: … (AS<N>)`, Nokia/Juniper `as<N>-…` tenant
+  interfaces). Visible only to that customer and to IX administrators.
+- `admin_port`: everything else that is ours but not infrastructure (EOS
+  `Transit:` ports with no ASN, Nokia/Juniper SAPs that are not tenant-named).
+  Visible to IX administrators only.
 
 ## SFMIX-Specific Objects and Relationships
 
