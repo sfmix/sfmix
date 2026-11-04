@@ -262,7 +262,13 @@ touched and the down/up bracket is the same either way.
   Its markup is the starting point for a native lg-http landing page. Board and table are two
   views of one panel (`#board` / `#table` deep links; the pick is remembered per browser), and
   the page says "looking glass" throughout, not "route collector".
-- **Public lg-cli.** Telnet/SSH stay bound to the mgmt address as on alice. Exposing them on
-  192.33.255.8 (design doc 004 intent) is a one-line `looking_glass_bind_address` change plus
-  ufw allows, once the policy engine's rate limits have been exercised.
+- **Public lg-cli (done 2026-11-04).** lg-cli listens on the public addresses
+  (`looking_glass_bind_addresses`) on telnet 23 and SSH 22, opened in ufw by
+  `looking_glass_cli_public`; the OS sshd is pinned to the mgmt address with
+  `sfmix_server_sshd_listen_addresses` (a `sshd_config.d` drop-in). lg-cli's `bind` accepts
+  a list so IPv4 and IPv6 get one listener each without a wildcard that would collide with
+  sshd. Before opening it, two visibility leaks were closed: discovery.py no longer tags
+  "Transit: … (AS<N>)" EOS ports as core (they are `transit_peer` with the participant set),
+  and lg-server no longer hard-codes Nokia "-peering" SAPs as public; the port map now
+  matches NetBox "VPRN/<iface>" names against the bare interface name the router reports.
 - **Manage `pf` via Ansible** on the three OpenBSD hosts (unmanaged today).
