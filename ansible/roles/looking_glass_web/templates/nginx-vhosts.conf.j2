@@ -8,11 +8,28 @@ server {
     return 301 https://$host$request_uri;
 }
 
-# Looking glass front door: {{ looking_glass_web_domains | join(' ') }}
+{% if looking_glass_web_redirect_domains %}
+# Aliases: one canonical name so the OAuth resource lg-http advertises (from
+# the Host header) always matches what MCP clients configured. 308 keeps the
+# method, so a POST /mcp through an alias follows cleanly.
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name {{ looking_glass_web_domains | join(' ') }};
+    server_name {{ looking_glass_web_redirect_domains | join(' ') }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ looking_glass_web_domains[0] }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ looking_glass_web_domains[0] }}/privkey.pem;
+    ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+    return 308 https://{{ looking_glass_web_canonical_domain }}$request_uri;
+}
+
+{% endif %}
+# Looking glass front door: {{ looking_glass_web_domains | difference(looking_glass_web_redirect_domains) | join(' ') }}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ looking_glass_web_domains | difference(looking_glass_web_redirect_domains) | join(' ') }};
 
     ssl_certificate /etc/letsencrypt/live/{{ looking_glass_web_domains[0] }}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{{ looking_glass_web_domains[0] }}/privkey.pem;

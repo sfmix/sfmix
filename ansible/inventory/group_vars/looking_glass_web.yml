@@ -11,6 +11,9 @@ looking_glass_web_domains:
   - lg-web.sfmix.org
   - lg.sfmix.org
   - lg-ng.sfmix.org
+looking_glass_web_canonical_domain: lg.sfmix.org
+looking_glass_web_redirect_domains:
+  - lg-ng.sfmix.org
 
 # participants*.json (website, sflow-rt, scripts) and the arouteserver
 # rs-*.summary.html pages are published straight into the nginx static root.

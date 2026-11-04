@@ -10,6 +10,14 @@
 looking_glass_web_domains:
   - lg-web.sfmix.org
 
+# Aliases in looking_glass_web_domains that 308 to the canonical name instead
+# of being served. lg-http derives the OAuth protected-resource identifier from
+# the Host header, so an MCP client that reaches /mcp or the .well-known
+# metadata through an alias is told a resource that does not match the URL it
+# configured and refuses to authenticate. Redirecting keeps one resource name.
+looking_glass_web_canonical_domain: "{{ looking_glass_web_domains[0] }}"
+looking_glass_web_redirect_domains: []
+
 # Where the OpenBSD collector's httpd (bgplgd at /api/, bgplg at /cgi-bin/)
 # is reached. Plain HTTP over the mgmt network; the collector has no public
 # leg after design doc 009 Phase 3.
