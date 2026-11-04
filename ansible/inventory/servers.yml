@@ -63,7 +63,7 @@ all:
     # lg-ng (lg-server/lg-cli/lg-http). Lives on the public LG VM, design doc 009.
     looking_glass_rust:
       hosts:
-        lg-web.sfmix.org:
+        lg-web.sfmix.org: { ansible_host: mgmt.lg-web.sfmix.org }
     # nginx front door for lg.sfmix.org (lg-ng + legacy bgplg/bgplgd proxy +
     # published participants/summary artefacts).
     looking_glass_web:

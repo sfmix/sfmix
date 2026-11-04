@@ -34,3 +34,31 @@
     validate: sshd -t -f %s
   when: _sshd_version.stdout | length > 0 and _sshd_version.stdout is version('9.8', '>=')
   notify: Restart sshd
+
+- name: Configure sshd ListenAddress drop-in
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-sfmix-listen.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (sfmix_server_sshd_listen_addresses)
+      {% for addr in sfmix_server_sshd_listen_addresses %}
+      ListenAddress {{ addr }}
+      {% endfor %}
+    validate: sshd -t -f %s
+  when: sfmix_server_sshd_listen_addresses | length > 0
+  notify:
+    - Restart sshd
+    - Restart ssh (Ubuntu 24+)
+
+- name: Remove sshd ListenAddress drop-in
+  become: true
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/10-sfmix-listen.conf
+    state: absent
+  when: sfmix_server_sshd_listen_addresses | length == 0
+  notify:
+    - Restart sshd
+    - Restart ssh (Ubuntu 24+)

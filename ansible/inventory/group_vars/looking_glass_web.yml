@@ -5,6 +5,10 @@
 # of roles/looking_glass_web, which also fronts the OpenBSD route collector
 # (mgmt.lg.sfmix.org) for the legacy bgplg/bgplgd paths.
 sfmix_server_ufw_enabled: true
+# OS sshd on the management address only: port 22 on the public leg belongs
+# to the looking glass (lg-cli SSH), see group_vars/looking_glass_rust.yml.
+sfmix_server_sshd_listen_addresses:
+  - "10.1.1.17"
 
 # Names served (one certbot lineage, named after the first).
 looking_glass_web_domains:

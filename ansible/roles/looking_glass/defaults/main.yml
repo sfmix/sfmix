@@ -15,6 +15,11 @@ looking_glass_local_build: true
 looking_glass_local_src_dir: "{{ playbook_dir }}/../looking-glass"
 looking_glass_local_bin_dir: "{{ looking_glass_local_src_dir }}/target/x86_64-unknown-linux-musl/release"
 looking_glass_bind_address: "0.0.0.0"
+# lg-cli listens on each of these (telnet and SSH); defaults to the single
+# address above. Set several to bind the public IPv4 and IPv6 addresses only.
+looking_glass_bind_addresses: ["{{ looking_glass_bind_address }}"]
+# Open the telnet/SSH ports to the world in ufw (public looking glass).
+looking_glass_cli_public: false
 looking_glass_telnet_enabled: false
 looking_glass_telnet_port: 2023
 looking_glass_ssh_enabled: false
