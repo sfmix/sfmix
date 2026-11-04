@@ -30,3 +30,9 @@
   ansible.builtin.service:
     name: syslogd
     state: restarted
+
+- name: Restart sshd
+  become: true
+  ansible.builtin.service:
+    name: sshd
+    state: restarted

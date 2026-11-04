@@ -1,0 +1,14 @@
+---
+# Key-only sshd on the OpenBSD hosts (route server, looking glass, quarantine
+# looking glass). Surgical: includes only the sshd_hardening task, so it does
+# NOT touch bgpd/rpki config. Design doc 009, Phase 0.
+#   ansible-playbook deploy_openbsd_sshd.playbook.yml \
+#     --vault-password-file ~/.sfmix_ansible_vault
+- name: "sshd: key-only authentication on OpenBSD hosts"
+  hosts: rs_openbsd:looking_glass:quarantine_looking_glass
+  gather_facts: true
+  tasks:
+    - name: "Disable password authentication"
+      ansible.builtin.include_role:
+        name: sfmix_route_server_openbsd
+        tasks_from: sshd_hardening.yml

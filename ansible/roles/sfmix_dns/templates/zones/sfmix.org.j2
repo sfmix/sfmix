@@ -88,6 +88,9 @@ netbox.sfo02			IN	A	192.33.255.6
 netbox.sfo02			IN	AAAA	2620:11A:B000::6
 lg				IN	A	192.33.255.7
 lg				IN	AAAA	2620:11A:B000::7
+; Public looking-glass VM (design doc 009). lg / lg-ng become CNAMEs here at cutover.
+lg-web				IN	A	192.33.255.8
+lg-web				IN	AAAA	2620:11A:B000::8
 sentry				IN	A	192.33.255.9
 sentry				IN	AAAA	2620:11A:B000::9
 metrics.sfo02			IN	A	192.33.255.10
@@ -578,6 +581,8 @@ metrics.oob.sfo02		IN	A	10.1.1.14
 eth3.edge-gw.sfo02		IN	A	10.1.1.30
 mgmt.rs-linux			IN	A	10.1.1.18
 mgmt.rs-linux-new		IN	A	10.1.1.19
+mgmt.lg-web			IN	A	10.1.1.17
+mgmt.lg				IN	A	10.1.1.21	; OpenBSD route collector, mgmt leg (design doc 009)
 pve01-paulave200-sfo		IN	A	100.64.0.21
 ipmi.pve01-paulave200-sfo	IN	A	10.1.1.20
 pve02-paulave200-sfo		IN	A	100.64.0.23

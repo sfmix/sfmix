@@ -509,47 +509,24 @@ reached over the site-spanning management network.
 
 | Item                | Value                                                |
 |---------------------|------------------------------------------------------|
-| **DNS**             | `lg.sfmix.org`                                       |
-| **Deployment host** | `alice.sfmix.org` (Linux)                            |
-| **Ansible role**    | `looking_glass` (new)                                |
-| **Playbook**        | `deploy_looking_glass.playbook.yml`                  |
-| **Binary path**     | `/usr/local/bin/looking-glass`                       |
-| **Config path**     | `/etc/looking-glass/config.yml`                      |
-| **systemd unit**    | `looking-glass.service`                              |
-| **Listening**       | Telnet :23, SSH :2222, MCP/SSE via nginx :443        |
+| **DNS**             | `lg.sfmix.org` (alias `lg-ng.sfmix.org`)             |
+| **Deployment host** | `lg-web.sfmix.org` (Linux, sfo02) — see design doc 009 |
+| **Ansible roles**   | `looking_glass` (daemons), `looking_glass_web` (nginx) |
+| **Playbooks**       | `deploy_looking_glass_rust.playbook.yml`, `push_servers.playbook.yml --tags looking_glass_web` |
+| **Binaries**        | `/usr/local/bin/{lg-server,lg-cli,lg-http}`          |
+| **Config path**     | `/etc/looking-glass/{lg-server,lg-cli,lg-http}.yml`  |
+| **systemd units**   | `lg-server.service`, `lg-cli.service`, `lg-http.service` |
+| **Listening**       | Telnet :2023 / SSH :2222 on the mgmt address, REST + MCP via nginx :443 |
 | **Devices**         | All peering switches + core routers across all sites |
 | **Network**         | Management network (see design doc 001)              |
 
-**Deployment target: `alice.sfmix.org`** — an existing Linux host already on
-the management network. The looking glass binary runs alongside the existing
-Alice LG service. The main requirement is management network reachability to
+**Deployment target** — originally `alice.sfmix.org`, where lg-ng ran next to
+Alice-LG from 2026-03 until the split in [design doc 009](009-looking-glass-public-service-split.md).
+It now lives on its own VM, `lg-web.sfmix.org`, whose nginx (role
+`looking_glass_web`) serves lg-http at the root of `lg.sfmix.org` and proxies the
+legacy bgplg/bgplgd paths to the OpenBSD route collector over the management
+network. The main requirement is unchanged: management-network reachability to
 all device management IPs.
-
-**Nginx reverse proxy** — the existing nginx on `alice.sfmix.org` is extended
-with a location block to proxy MCP traffic to the looking glass daemon:
-
-```nginx
-# /etc/nginx/sites-enabled/alice.sfmix.org
-server {
-    listen 443 ssl;
-    server_name alice.sfmix.org;
-
-    # ... existing Alice LG config ...
-
-    # Looking glass MCP (SSE)
-    location /mcp {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Connection '';
-        proxy_set_header Host $host;
-        proxy_buffering off;          # required for SSE
-        proxy_cache off;
-        chunked_transfer_encoding off;
-    }
-}
-```
-
-The MCP endpoint is then reachable at `https://alice.sfmix.org/mcp`.
 
 ### Site-Local Instances (Optional)
 
@@ -575,10 +552,12 @@ lookups, ping, and traceroute. The new looking glass runs alongside it,
 providing the additional device-query interfaces (interface stats, MAC/ARP/ND
 tables, LLDP, etc.) that bgplg does not cover.
 
-The bgplg web interface remains on port 80/443 at `lg.sfmix.org`; the new LG
-runs on `alice.sfmix.org` with telnet :23, SSH :2222, and MCP behind nginx on
-:443 at `/mcp`. DNS for `lg.sfmix.org` can be pointed at the new service later
-if desired.
+Since design doc 009 the OpenBSD collector has no public address: its bgplg
+and bgplgd answer on the management network (`mgmt.lg.sfmix.org`, plain HTTP)
+and are reached by the outside world only through the `lg.sfmix.org` nginx
+front door, at the same `/cgi-bin/bgplg` and `/api/…` paths as before. lg-ng has
+no OpenBGPD driver yet, so that proxy is what keeps the collector's routes
+visible; a native bgplgd backend in lg-server is the intended replacement.
 
 ### Device Accounts
 
