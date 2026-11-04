@@ -68,14 +68,20 @@ pub async fn auth_middleware(
 }
 
 /// Build the MCP axum router (mounted at `/mcp`).
+///
+/// `allowed_hosts` feeds rmcp's DNS-rebinding guard, which only admits
+/// localhost by default and answers 403 to every other Host header. nginx
+/// passes the public name through, so the public hostname must be listed.
 pub fn router(
     rpc: RpcClient,
     ct: tokio_util::sync::CancellationToken,
     network_slug: String,
+    allowed_hosts: Vec<String>,
 ) -> axum::Router {
     let config = StreamableHttpServerConfig::default()
         .with_legacy_session_mode(false)
-        .with_cancellation_token(ct);
+        .with_cancellation_token(ct)
+        .with_allowed_hosts(allowed_hosts);
 
     let service = StreamableHttpService::new(
         move || {

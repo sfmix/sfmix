@@ -161,7 +161,19 @@ async fn main() -> Result<()> {
         .and_then(|a| a.oidc.resource_url.as_ref())
         .map(|base| format!("{}/.well-known/oauth-protected-resource", base.trim_end_matches('/')));
 
-    let mcp_router = mcp::router(mcp_rpc, ct.clone(), config.network_slug.clone()).layer(
+    // Host headers the MCP transport accepts: loopback plus the public name
+    // from the OAuth resource URL (the name clients connect to).
+    let mut mcp_allowed_hosts: Vec<String> = vec!["localhost".into(), "127.0.0.1".into(), "::1".into()];
+    if let Some(host) = state
+        .resource_url
+        .as_deref()
+        .and_then(|u| u.parse::<axum::http::Uri>().ok())
+        .and_then(|u| u.host().map(str::to_owned))
+    {
+        mcp_allowed_hosts.push(host);
+    }
+
+    let mcp_router = mcp::router(mcp_rpc, ct.clone(), config.network_slug.clone(), mcp_allowed_hosts).layer(
         axum::middleware::from_fn(move |req, next| {
             let gp = mcp_group_prefix.clone();
             let oc = mcp_oidc.clone();
