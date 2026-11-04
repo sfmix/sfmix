@@ -113,6 +113,38 @@ struct InterfaceParams {
     interface: String,
 }
 
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+struct FleetParams {
+    /// Limit to one device hostname (e.g. "switch01.sfo02.sfmix.org"). Strongly
+    /// recommended: unfiltered output covers every port on every switch.
+    #[serde(default)]
+    device: Option<String>,
+    /// Limit to the ports of one participant ASN (e.g. 13335).
+    #[serde(default)]
+    asn: Option<u32>,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+struct OpticsParams {
+    /// Limit to one device hostname (e.g. "switch01.sfo02.sfmix.org"). Strongly
+    /// recommended: unfiltered output covers every port on every switch.
+    #[serde(default)]
+    device: Option<String>,
+    /// Limit to the ports of one participant ASN (e.g. 13335).
+    #[serde(default)]
+    asn: Option<u32>,
+    /// Also list ports with no transceiver or no DOM data (default false).
+    #[serde(default)]
+    include_empty: Option<bool>,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+struct DeviceParams {
+    /// Limit to one device hostname (e.g. "switch01.sfo02.sfmix.org").
+    #[serde(default)]
+    device: Option<String>,
+}
+
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct DestinationParams {
     /// Target IP address or hostname
@@ -148,54 +180,51 @@ impl McpHandler {
         }
     }
 
-    /// Execute a command via RPC and return JSON output for MCP/LLM consumption.
-    async fn execute_command(&self, command: &Command) -> Result<String, McpError> {
+    /// Execute a command via RPC and render the result as compact plain text
+    /// (the same tables lg-cli prints over telnet), one block per device.
+    /// Text tables are several times smaller than pretty-printed JSON, which
+    /// matters: MCP clients cap tool results at a few tens of kilobytes.
+    async fn execute_command(&self, command: &Command, include_empty: bool) -> Result<String, McpError> {
+        use looking_glass::format::{render, ColorMode};
+        use looking_glass::structured::CommandOutput as LocalOutput;
+        use lg_types::structured::CommandOutput as RpcOutput;
+
         let mut rx = self
             .rpc
             .execute(command.clone(), self.identity.clone(), self.rate_key.clone())
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut json_results: Vec<serde_json::Value> = Vec::new();
+        // (device, text) in arrival order; streaming lines accumulate per device.
+        let mut blocks: Vec<(String, String)> = Vec::new();
+        fn block<'a>(blocks: &'a mut Vec<(String, String)>, device: &str) -> &'a mut String {
+            if let Some(i) = blocks.iter().position(|(d, _)| d == device) {
+                &mut blocks[i].1
+            } else {
+                blocks.push((device.to_string(), String::new()));
+                &mut blocks.last_mut().unwrap().1
+            }
+        }
 
         while let Some(event) = rx.recv().await {
             match event {
                 ExecuteEvent::Result(r) => {
-                    json_results.push(serde_json::json!({
-                        "device": r.device,
-                        "success": r.success,
-                        "data": r.output,
-                    }));
+                    let text = match r.output {
+                        RpcOutput::StreamLines(lines) => lines.join("\n") + "\n",
+                        RpcOutput::Optics(mut entries) if !include_empty => {
+                            entries.retain(|e| e.dom_supported && !e.lanes.is_empty());
+                            render(&LocalOutput::from_rpc(RpcOutput::Optics(entries)), ColorMode::Plain)
+                        }
+                        other => render(&LocalOutput::from_rpc(other), ColorMode::Plain),
+                    };
+                    block(&mut blocks, &r.device).push_str(&text);
                 }
                 ExecuteEvent::StreamLine(sl) => {
-                    // Collect stream lines into a text block per device
-                    // Find or create a result entry for this device
-                    if let Some(entry) = json_results.iter_mut().find(|e| {
-                        e["device"].as_str() == Some(&sl.device) && e.get("_streaming").is_some()
-                    }) {
-                        if let Some(text) = entry["data"].as_str() {
-                            entry["data"] =
-                                serde_json::Value::String(format!("{text}{}\n", sl.line));
-                        }
-                    } else {
-                        json_results.push(serde_json::json!({
-                            "device": sl.device,
-                            "success": true,
-                            "data": format!("{}\n", sl.line),
-                            "_streaming": true,
-                        }));
-                    }
+                    let b = block(&mut blocks, &sl.device);
+                    b.push_str(&sl.line);
+                    b.push('\n');
                 }
-                ExecuteEvent::StreamEnd(se) => {
-                    // Remove the _streaming marker
-                    for entry in &mut json_results {
-                        if entry["device"].as_str() == Some(&se.device) {
-                            if let Some(obj) = entry.as_object_mut() {
-                                obj.remove("_streaming");
-                            }
-                        }
-                    }
-                }
+                ExecuteEvent::StreamEnd(_) => {}
                 ExecuteEvent::Error(e) => {
                     return match e.code.as_str() {
                         "policy_denied" => Err(McpError::invalid_request(e.message, None)),
@@ -209,8 +238,23 @@ impl McpHandler {
             }
         }
 
-        serde_json::to_string_pretty(&json_results)
-            .map_err(|e| McpError::internal_error(format!("serialization error: {e}"), None))
+        if blocks.is_empty() {
+            return Ok("No output.\n".to_string());
+        }
+        if blocks.len() == 1 {
+            return Ok(blocks.pop().unwrap().1);
+        }
+        let mut out = String::new();
+        for (device, text) in blocks {
+            out.push_str("== ");
+            out.push_str(&device);
+            out.push_str(" ==\n");
+            out.push_str(&text);
+            if !text.ends_with('\n') {
+                out.push('\n');
+            }
+        }
+        Ok(out)
     }
 
     /// Shorthand: build a Show command, execute it, and wrap the output.
@@ -219,18 +263,21 @@ impl McpHandler {
         resource: Resource,
         target: Option<String>,
         af: AddressFamily,
+        device: Option<String>,
+        filter_asn: Option<u32>,
+        include_empty: bool,
     ) -> Result<CallToolResult, McpError> {
         let cmd = Command {
             verb: Verb::Show,
             resource,
             target,
-            device: None,
+            device,
             address_family: af,
-            filter_asn: None,
+            filter_asn,
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&cmd, include_empty).await?;
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
@@ -264,9 +311,13 @@ impl McpHandler {
         }
     }
 
-    #[tool(description = "Show a summary of all interface statuses including name, link state, speed, and VLAN")]
-    async fn show_interfaces_status(&self) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::InterfacesStatus, None, AddressFamily::IPv4).await
+    #[tool(description = "Interface status table (name, description, link state, speed, VLAN). \
+        Pass device and/or asn to keep the output small; unfiltered it lists every port on every switch.")]
+    async fn show_interfaces_status(
+        &self,
+        Parameters(params): Parameters<FleetParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.run_show(Resource::InterfacesStatus, None, AddressFamily::IPv4, params.device, params.asn, true).await
     }
 
     #[tool(description = "Show detailed counters and status for a specific interface on a specific device")]
@@ -284,13 +335,18 @@ impl McpHandler {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&cmd, true).await?;
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
-    #[tool(description = "Show transceiver DOM optical power levels for all ports")]
-    async fn show_optics(&self) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::Optics, None, AddressFamily::IPv4).await
+    #[tool(description = "Transceiver optical levels (temperature, voltage, Tx/Rx power, bias) as one row per port. \
+        Ports without a transceiver or DOM data are omitted unless include_empty is true. \
+        Pass device and/or asn to keep the output small; for one port use show_optics_detail.")]
+    async fn show_optics(
+        &self,
+        Parameters(params): Parameters<OpticsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.run_show(Resource::Optics, None, AddressFamily::IPv4, params.device, params.asn, params.include_empty.unwrap_or(false)).await
     }
 
     #[tool(description = "Show detailed transceiver DOM levels for a specific port on a specific device")]
@@ -308,13 +364,16 @@ impl McpHandler {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&cmd, true).await?;
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
-    #[tool(description = "Show LLDP neighbor discovery table")]
-    async fn show_lldp_neighbors(&self) -> Result<CallToolResult, McpError> {
-        self.run_show(Resource::LldpNeighbors, None, AddressFamily::IPv4).await
+    #[tool(description = "LLDP neighbour table (local port, neighbour device, neighbour port). Pass device to limit to one switch.")]
+    async fn show_lldp_neighbors(
+        &self,
+        Parameters(params): Parameters<DeviceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.run_show(Resource::LldpNeighbors, None, AddressFamily::IPv4, params.device, None, true).await
     }
 
     #[tool(description = "List IXP participants with their ASN and name")]
@@ -432,7 +491,7 @@ impl McpHandler {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&cmd, true).await?;
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
@@ -451,7 +510,7 @@ impl McpHandler {
             filter_vlan: None,
             filter_source: None,
         };
-        let output = self.execute_command(&cmd).await?;
+        let output = self.execute_command(&cmd, true).await?;
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 }
