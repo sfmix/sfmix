@@ -1,6 +1,15 @@
 # 009 - Looking Glass: public service VM + management-only route collector
 
-## Status: Repo side landed 2026-11-03; VM build, DNS cutover and NIC re-plumb pending (operator runbook below)
+## Status: DEPLOYED 2026-11-04 (lg-web live, collector mgmt-only; all 164 established sessions returned)
+
+As-built notes: lg-web is VM 115 on **pve01**-paulave200-sfo (pve02 had 10 GiB free with load 5,
+so anti-affinity lost to headroom), Debian 13 cloud image + cloud-init, 4 vCPU / 4 GiB (bump when
+Alice moves in). The re-plumb ran as a detached script with a 15-minute auto-revert watchdog
+(no guest agent or serial console on the OpenBSD VM); BGP bracket 01:06:26 down → 01:07:30 up,
+161/164 back after 45 s, 164/164 within ten minutes, the only state changes being two peers that
+were not established before either. The geerlingguy.certbot role does not expand an existing
+lineage, so the lg/lg-ng SANs were added once by hand with `certbot certonly --expand`; renewals
+carry them. Loki labels hosts by FQDN (`host="lg.sfmix.org"`, `host="lg-web.sfmix.org"`).
 
 ## Overview
 
