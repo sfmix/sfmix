@@ -202,6 +202,22 @@ pub enum PortClass {
 /// Nokia breakout ports are named like `1/1/c1/1` where `1/1/c1` is the
 /// connector and `/1` is the breakout lane. Returns `Some("1/1/c1")` for
 /// `1/1/c1/1`, or `None` if the name doesn't match the breakout pattern.
+/// The bare interface name of a NetBox "<service>/<interface>" entry, as the
+/// router reports it. Nokia SAPs are "FREE/as15169-peering" in NetBox and
+/// "as15169-peering" on the box; Juniper routing-instance interfaces likewise.
+/// Physical ports ("1/1/c1", "xe-0/0/13") have a numeric first component and
+/// are not service interfaces.
+fn service_interface_name(netbox_name: &str) -> Option<&str> {
+    let (service, iface) = netbox_name.split_once('/')?;
+    if service.is_empty() || iface.is_empty() || iface.contains('/') {
+        return None;
+    }
+    if service.chars().all(|c| c.is_ascii_digit()) || service.contains('-') {
+        return None; // "1/1/c1" style connectors, "xe-0/0/13" style Juniper ports
+    }
+    Some(iface)
+}
+
 fn nokia_parent_connector(interface: &str) -> Option<String> {
     // Pattern: digit/digit/cN/digit (e.g., 1/1/c1/1, 1/1/c12/1)
     let parts: Vec<&str> = interface.split('/').collect();
@@ -221,6 +237,10 @@ fn nokia_parent_connector(interface: &str) -> Option<String> {
 #[derive(Debug, Clone)]
 pub struct PortMap {
     ports: HashMap<(String, String), PortClass>,
+    /// Nokia/Juniper service interfaces are stored in NetBox as
+    /// "<vprn-or-instance>/<interface>" but the router reports just
+    /// "<interface>"; this maps (device, "<interface>") to the same class.
+    saps: HashMap<(String, String), PortClass>,
 }
 
 impl PortMap {
@@ -260,11 +280,18 @@ impl PortMap {
             );
         }
 
-        PortMap { ports }
+        let mut saps = HashMap::new();
+        for ((device, name), class) in &ports {
+            if let Some(sap) = service_interface_name(name) {
+                saps.insert((device.clone(), sap.to_string()), class.clone());
+            }
+        }
+
+        PortMap { ports, saps }
     }
 
     pub fn empty() -> Self {
-        PortMap { ports: HashMap::new() }
+        PortMap { ports: HashMap::new(), saps: HashMap::new() }
     }
 
     /// Classify a (device, interface) pair. Returns `None` if not in the map.
@@ -278,9 +305,12 @@ impl PortMap {
         }
         // For Nokia breakout ports like "1/1/c1/1", try parent connector "1/1/c1"
         if let Some(parent) = nokia_parent_connector(interface) {
-            return self.ports.get(&(device.to_string(), parent));
+            if let Some(class) = self.ports.get(&(device.to_string(), parent)) {
+                return Some(class);
+            }
         }
-        None
+        // Service interface reported without its VPRN / routing-instance prefix
+        self.saps.get(&(device.to_string(), interface.to_string()))
     }
 
     /// Total number of classified ports.

@@ -505,15 +505,12 @@ fn port_visible(
     if interface.starts_with("Loopback") || interface.starts_with("Lo") {
         return true;
     }
-    // Nokia SR-OS router/VPRN interfaces are always visible.
-    // They don't follow Arista naming and aren't participant-facing ports.
-    // VPRN peering interfaces end with "-peering" (e.g. as12276-peering).
-    // Physical connector ports use slot/mda/connector naming (e.g. 1/1/c1).
-    if interface == "system"
-        || interface.starts_with("lag-")
-        || interface.contains("-peering")
-        || (interface.chars().next().is_some_and(|c| c.is_ascii_digit()) && interface.contains("/c"))
-    {
+    // Router-internal interfaces that can never be customer-facing. Everything
+    // else on a Nokia/Juniper, including VPRN SAPs ("as15169-peering") and
+    // physical connectors ("1/1/c1"), goes through the NetBox port map:
+    // core_port, transit_peer (+participant) and admin_port tags, matched by
+    // the bare service-interface name (see PortMap::classify).
+    if interface == "system" || interface.starts_with("lag-") {
         return true;
     }
     match pmap.classify(device, interface) {
@@ -594,6 +591,42 @@ mod tests {
             (DEVICE.to_string(), "Ethernet50/1".to_string()),
         ];
         PortMap::build(&participants, &core_ports, &[])
+    }
+
+    const ROUTER: &str = "cr1.scl02.transit";
+
+    /// Nokia transit router as NetBox describes it: physical connectors tagged
+    /// core, tenant SAPs "VPRN/as<N>-peering" with a participant, an admin SAP.
+    fn router_pmap() -> PortMap {
+        let participants = vec![NetboxParticipant {
+            asn: 15169,
+            name: "Google".to_string(),
+            participant_type: None,
+            ports: vec![(ROUTER.to_string(), "FREE/as15169-peering".to_string())],
+            enriched_ports: Vec::new(),
+            ip_addresses: Vec::new(),
+        }];
+        let core_ports = vec![(ROUTER.to_string(), "1/1/c1".to_string())];
+        let admin_ports = vec![(ROUTER.to_string(), "PAID/snappy".to_string())];
+        PortMap::build(&participants, &core_ports, &admin_ports)
+    }
+
+    #[test]
+    fn nokia_sap_hidden_from_anon_visible_to_owner_and_admin() {
+        let pmap = router_pmap();
+        let names = ["as15169-peering", "snappy", "1/1/c1", "1/1/c1/1", "system", "lag-core-1-10"];
+        let run = |id: &Identity| -> Vec<String> {
+            let entries = names.iter().map(|n| iface_status(n)).collect();
+            match filter_output_with_lookup(
+                CommandOutput::InterfacesStatus(entries), ROUTER, id, &pmap, ADMIN_GROUP, &public_vlans(),
+            ) {
+                CommandOutput::InterfacesStatus(e) => e.into_iter().map(|x| x.name).collect(),
+                _ => panic!("wrong variant"),
+            }
+        };
+        assert_eq!(run(&anonymous()), vec!["1/1/c1", "1/1/c1/1", "system", "lag-core-1-10"]);
+        assert_eq!(run(&user_with_asn(15169)), vec!["as15169-peering", "1/1/c1", "1/1/c1/1", "system", "lag-core-1-10"]);
+        assert_eq!(run(&admin()), vec!["as15169-peering", "snappy", "1/1/c1", "1/1/c1/1", "system", "lag-core-1-10"]);
     }
 
     fn iface_status(name: &str) -> InterfaceStatus {
