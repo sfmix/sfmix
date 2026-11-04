@@ -4,7 +4,10 @@ sfmix_looking_glass_v4_bind_address: 206.197.187.1
 sfmix_looking_glass_v6_bind_address: 2001:504:30::ba01:2276:1
 sfmix_looking_glass_asn: 12276
 sfmix_server_ufw_enabled: false
-participants_json_output_directory: /var/www/htdocs
+# Design doc 009: the collector has no public leg; bgplg/bgplgd answer on the
+# mgmt network over plain HTTP and lg-web's nginx fronts them publicly.
+sfmix_looking_glass_web_tls: false
+sfmix_looking_glass_web_hostname: mgmt.lg.sfmix.org
 sfmix_server_snmp_community: !vault |
   $ANSIBLE_VAULT;1.1;AES256
   62303161663034333665396462333662616437303130636532326333376139356161646265386635
