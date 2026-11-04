@@ -39,6 +39,8 @@
   --state-trying: #fab219;
   --state-idle: #9aa7ad;
   --state-idle-ink: #5c6b72;
+  --state-up-ink: #0a7a0a;
+  --state-trying-ink: #8a5a00;
   color-scheme: light;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace;
@@ -49,6 +51,7 @@
   --color-text: #e4e9ec; --color-text-light: #9fb0b8; --color-border: #2a3f48;
   --color-heading: #cfe6ee; --color-link: #6fbcd0; --color-header-bg: #071f26;
   --color-shadow-tint: rgba(0,0,0,0.35); --state-idle: #4e616a; --state-idle-ink: #9fb0b8;
+  --state-up-ink: #3fc23f; --state-trying-ink: #fab219;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -57,6 +60,7 @@
     --color-text: #e4e9ec; --color-text-light: #9fb0b8; --color-border: #2a3f48;
     --color-heading: #cfe6ee; --color-link: #6fbcd0; --color-header-bg: #071f26;
     --color-shadow-tint: rgba(0,0,0,0.35); --state-idle: #4e616a; --state-idle-ink: #9fb0b8;
+    --state-up-ink: #3fc23f; --state-trying-ink: #fab219;
     color-scheme: dark;
   }
 }
@@ -72,7 +76,8 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 /* Header, same bar as sfmix.org */
 .site-header { background: var(--color-header-bg); color: #fff; }
 .site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 64px; }
-.brand { display: flex; align-items: center; gap: 0.8rem; color: #fff; text-decoration: none; }
+.brand { display: flex; align-items: center; gap: 0.8rem; }
+.brand a { color: #fff; text-decoration: none; display: inline-flex; align-items: center; }
 .brand img { height: 30px; width: auto; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
 .brand span { font-weight: 300; font-size: 1.15rem; letter-spacing: 0.01em; white-space: nowrap; }
 .site-nav { display: flex; align-items: center; gap: 1.1rem; }
@@ -114,12 +119,25 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .tile .asn { font-size: 0.74rem; color: var(--color-text-light); grid-column: 1; font-variant-numeric: tabular-nums; }
 .tile .lamps { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
 .tile:hover, .tile:focus-visible { border-color: var(--color-accent); }
-.tip { pointer-events: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); min-width: 250px; padding: 0.55rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 8px 24px var(--color-shadow-tint); font-size: 0.8rem; line-height: 1.45; display: none; }
+.tip { pointer-events: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); width: 300px; padding: 0.6rem 0.75rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 10px 28px var(--color-shadow-tint); font-size: 0.8rem; line-height: 1.4; display: none; white-space: nowrap; }
 .tile:hover .tip, .tile:focus-visible .tip { display: block; }
 .tile.flip .tip { left: auto; right: 0; }
-.tip b { font-weight: 600; }
-.tip .row { display: grid; grid-template-columns: 2.4rem 1fr; gap: 0.5rem; margin-top: 0.25rem; }
-.tip .row .k { color: var(--color-text-light); }
+.tip .who { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--color-border); }
+.tip .who b { font-weight: 600; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; }
+.tip .who span { color: var(--color-text-light); font-variant-numeric: tabular-nums; flex: none; }
+.tip .fam { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.5rem; align-items: center; margin-top: 0.5rem; }
+.tip .fam .lamp { grid-row: 1 / span 2; width: 22px; height: 22px; font-size: 12px; }
+.tip .fam .hd { display: flex; gap: 0.45rem; align-items: baseline; overflow: hidden; }
+.tip .fam .hd .f { font-weight: 600; }
+.tip .fam .hd .st { font-weight: 600; }
+.tip .fam .hd .st.up { color: var(--state-up-ink); }
+.tip .fam .hd .st.trying { color: var(--state-trying-ink); }
+.tip .fam .hd .st.idle { color: var(--state-idle-ink); }
+.tip .fam .addr { color: var(--color-text-light); overflow: hidden; text-overflow: ellipsis; }
+.tip .figs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.35rem; padding-left: calc(22px + 0.5rem); }
+.tip .figs .v { font-size: 1.05rem; font-weight: 600; color: var(--color-heading); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.tip .figs .v.dim { color: var(--color-text-light); font-weight: 400; }
+.tip .figs .l { color: var(--color-text-light); font-size: 0.74rem; }
 
 /* Sections */
 section.block { padding: 2rem 0 0.5rem; }
@@ -171,7 +189,7 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
 <body>
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="/"><img src="/assets/sfmix-logo-large.png" alt="SFMIX"><span>Looking Glass</span></a>
+    <span class="brand"><a href="https://sfmix.org/" title="sfmix.org"><img src="/assets/sfmix-logo-large.png" alt="SFMIX"></a><a href="/">Looking Glass</a></span>
     <nav class="site-nav" aria-label="Looking glass tools">
       <a href="/cgi-bin/bgplg">Looking Glass Query</a>
       <a href="https://alice.sfmix.org/">Route servers</a>
@@ -311,7 +329,7 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
 
   function cls(state) { return state === 'Established' ? 'up' : (state === 'Idle' ? 'idle' : 'trying'); }
   function glyph(state) { return state === 'Established' ? '✓' : (state === 'Idle' ? '–' : '…'); }
-  function words(state) { return state === 'Established' ? 'established' : (state === 'Idle' ? 'idle' : state.toLowerCase() + ', trying'); }
+  function words(state) { return state === 'Established' ? 'established' : (state === 'Idle' ? 'idle' : 'trying (' + state + ')'); }
   function uptime(sec) {
     if (sec == null) return '';
     var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
@@ -326,10 +344,14 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
     if (!n) return '<i class="lamp none" title="no session configured" aria-label="no session configured"> </i>';
     return '<i class="lamp ' + cls(n.state) + '" aria-label="' + esc(words(n.state)) + '">' + glyph(n.state) + '</i>';
   }
-  function tipRow(label, n) {
-    if (!n) return '<div class="row"><span class="k">' + label + '</span><span class="muted">no session</span></div>';
-    var pfx = n.pfx == null ? '' : ', ' + fmt.format(n.pfx) + ' prefixes';
-    return '<div class="row"><span class="k">' + label + '</span><span><span class="mono">' + esc(n.remote_addr) + '</span><br>' + esc(words(n.state)) + ' for ' + uptime(n.last_updown_sec) + pfx + '</span></div>';
+  function tipFamily(label, n) {
+    if (!n) return '<div class="fam">' + lamp(null) + '<div class="hd"><span class="f">' + label + '</span><span class="st idle">no session configured</span></div><div class="addr">&nbsp;</div></div>';
+    var up = n.state === 'Established', c = cls(n.state);
+    var figs = '<div class="figs">' +
+      '<div><div class="v">' + uptime(n.last_updown_sec) + '</div><div class="l">' + (up ? 'established for' : 'in this state for') + '</div></div>' +
+      '<div><div class="v' + (up && n.pfx != null ? '' : ' dim') + '">' + (up ? (n.pfx == null ? '…' : fmt.format(n.pfx)) : '–') + '</div><div class="l">prefixes accepted</div></div>' +
+      '</div>';
+    return '<div class="fam">' + lamp(n) + '<div class="hd"><span class="f">' + label + '</span><span class="st ' + c + '">' + esc(words(n.state)) + '</span></div><div class="addr mono">' + esc(n.remote_addr) + '</div></div>' + figs;
   }
 
   function visible() {
@@ -351,12 +373,12 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
         '<div class="name" title="' + esc(r.name) + '">' + esc(r.name) + '</div>' +
         '<div class="asn">AS ' + r.asn + (p && p.type && p.type !== 'Member' ? ' <span class="muted">' + esc(p.type.toLowerCase()) + '</span>' : '') + '</div>' +
         '<div class="lamps">' + lamp(r.v4) + lamp(r.v6) + '</div>' +
-        '<div class="tip"><b>' + esc(r.name) + '</b> AS ' + r.asn + tipRow('IPv4', r.v4) + tipRow('IPv6', r.v6) + '</div>' +
+        '<div class="tip"><div class="who"><b>' + esc(r.name) + '</b><span>AS ' + r.asn + '</span></div>' + tipFamily('IPv4', r.v4) + tipFamily('IPv6', r.v6) + '</div>' +
         '</div>';
     }).join('');
     // Flip tooltips that would overflow the right edge.
     var right = board.getBoundingClientRect().right;
-    board.querySelectorAll('.tile').forEach(function (t) { if (t.getBoundingClientRect().left + 260 > right) t.classList.add('flip'); });
+    board.querySelectorAll('.tile').forEach(function (t) { if (t.getBoundingClientRect().left + 310 > right) t.classList.add('flip'); });
     renderTable();
   }
 
