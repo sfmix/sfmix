@@ -86,11 +86,17 @@ server {
         add_header Cache-Control "public, max-age=86400";
     }
 
-    # The bare root: lg-http has no landing page yet (its fallback is 401),
-    # so keep the behaviour the OpenBSD httpd had and send visitors to the
-    # bgplg summary.
+    # The summary page (role files/index.html) and its fonts/logo. The page
+    # reads /api/summary, /api/memory, /api/neighbors and /api/v1/participants
+    # from this same origin.
     location = / {
-        return 302 /cgi-bin/bgplg?cmd=show+ip+bgp+summary&req=;
+        root {{ looking_glass_web_static_directory }};
+        try_files /index.html =404;
+        add_header Cache-Control "no-cache";
+    }
+    location /assets/ {
+        root {{ looking_glass_web_static_directory }};
+        add_header Cache-Control "public, max-age=604800";
     }
 
     # Everything else is lg-http.

@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SFMIX looking glass</title>
+<meta name="description" content="Live BGP session state of the SFMIX route collector, and the tools for looking into the exchange: route queries, ping and traceroute, route-server views, and the participant data API.">
+<meta name="theme-color" content="#0b3640">
+<link rel="icon" href="/assets/favicon-32x32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<script>
+  // Same contract as sfmix.org: an explicit pick in localStorage wins, else the OS setting.
+  try { var t = localStorage.getItem('sfmix-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+<style>
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('/assets/inter-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('/assets/inter-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Brand tokens, identical to sfmix.org so the two read as one family. */
+:root {
+  --color-primary: #0b3640;
+  --color-primary-light: #1a6070;
+  --color-accent: #e8913a;
+  --color-hero-dark: #071f26;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-text: #222222;
+  --color-text-light: #666666;
+  --color-border: #dee2e6;
+  --color-heading: var(--color-primary);
+  --color-link: var(--color-primary-light);
+  --color-header-bg: var(--color-primary);
+  --color-shadow-tint: rgba(11,54,64,0.06);
+  /* Session state. Fixed status scale: never themed, always paired with a glyph and a label. */
+  --state-up: #0ca30c;
+  --state-trying: #fab219;
+  --state-idle: #9aa7ad;
+  --state-idle-ink: #5c6b72;
+  color-scheme: light;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  --container: 1100px;
+}
+:root[data-theme="dark"] {
+  --color-bg: #0f1a1e; --color-bg-alt: #14232a; --color-surface: #172a31;
+  --color-text: #e4e9ec; --color-text-light: #9fb0b8; --color-border: #2a3f48;
+  --color-heading: #cfe6ee; --color-link: #6fbcd0; --color-header-bg: #071f26;
+  --color-shadow-tint: rgba(0,0,0,0.35); --state-idle: #4e616a; --state-idle-ink: #9fb0b8;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #0f1a1e; --color-bg-alt: #14232a; --color-surface: #172a31;
+    --color-text: #e4e9ec; --color-text-light: #9fb0b8; --color-border: #2a3f48;
+    --color-heading: #cfe6ee; --color-link: #6fbcd0; --color-header-bg: #071f26;
+    --color-shadow-tint: rgba(0,0,0,0.35); --state-idle: #4e616a; --state-idle-ink: #9fb0b8;
+    color-scheme: dark;
+  }
+}
+
+html { font-size: 16px; }
+body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+a { color: var(--color-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--color-accent); }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+.container { max-width: var(--container); margin: 0 auto; padding: 0 16px; }
+
+/* Header, same bar as sfmix.org */
+.site-header { background: var(--color-header-bg); color: #fff; }
+.site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 64px; }
+.brand { display: flex; align-items: center; gap: 0.8rem; color: #fff; text-decoration: none; }
+.brand img { height: 30px; width: auto; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+.brand span { font-weight: 300; font-size: 1.15rem; letter-spacing: 0.01em; white-space: nowrap; }
+.site-nav { display: flex; align-items: center; gap: 1.1rem; }
+.site-nav a { color: rgba(255,255,255,0.88); text-decoration: none; font-size: 0.9rem; }
+.site-nav a:hover { color: #fff; }
+.theme-toggle { background: none; border: 0; color: rgba(255,255,255,0.88); cursor: pointer; padding: 0.3rem; display: inline-flex; }
+.theme-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
+}
+
+/* Hero: headline figures on the left, the peering board fills the rest */
+.hero { padding: 2.2rem 0 1.5rem; }
+.hero h1 { font-size: 2rem; font-weight: 300; color: var(--color-heading); line-height: 1.2; max-width: 30ch; }
+.hero p.lede { margin-top: 0.6rem; max-width: 62ch; color: var(--color-text-light); }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem 2rem; margin-top: 1.6rem; }
+.figure .value { font-size: 2.6rem; font-weight: 600; line-height: 1; color: var(--color-heading); font-variant-numeric: tabular-nums; }
+.figure .value small { font-size: 1.1rem; font-weight: 400; color: var(--color-text-light); margin-left: 0.25rem; }
+.figure .label { margin-top: 0.3rem; color: var(--color-text-light); font-size: 0.9rem; }
+
+/* The peering board: one tile per participant, a lamp per address family */
+.board-wrap { margin-top: 1.6rem; }
+.board-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.6rem 1.5rem; margin-bottom: 0.7rem; }
+.board-head h2 { font-size: 1.25rem; font-weight: 600; color: var(--color-heading); }
+.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; font-size: 0.85rem; color: var(--color-text-light); }
+.legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.lamp { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 11px; font-weight: 700; line-height: 1; color: #fff; flex: none; }
+.lamp.up { background: var(--state-up); }
+.lamp.trying { background: var(--state-trying); color: #3b2a00; }
+.lamp.idle { background: var(--state-idle); color: #fff; }
+.lamp.none { background: transparent; border: 1px dashed var(--color-border); color: var(--color-text-light); }
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 6px; }
+.tile { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 0.1rem 0.5rem; align-items: center; padding: 0.45rem 0.55rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); min-width: 0; }
+.tile .name { font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; grid-column: 1; }
+.tile .asn { font-size: 0.74rem; color: var(--color-text-light); grid-column: 1; font-variant-numeric: tabular-nums; }
+.tile .lamps { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
+.tile:hover, .tile:focus-within { border-color: var(--color-accent); }
+.tip { position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); min-width: 250px; padding: 0.55rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 8px 24px var(--color-shadow-tint); font-size: 0.8rem; line-height: 1.45; display: none; }
+.tile:hover .tip, .tile:focus-within .tip { display: block; }
+.tile.flip .tip { left: auto; right: 0; }
+.tip b { font-weight: 600; }
+.tip .row { display: grid; grid-template-columns: 2.4rem 1fr; gap: 0.5rem; margin-top: 0.25rem; }
+.tip .row .k { color: var(--color-text-light); }
+
+/* Sections */
+section.block { padding: 2rem 0 0.5rem; }
+section.block h2 { font-size: 1.4rem; font-weight: 600; color: var(--color-heading); padding-bottom: 0.35rem; border-bottom: 2px solid var(--color-accent); display: inline-block; margin-bottom: 1rem; }
+.block p.note { color: var(--color-text-light); max-width: 70ch; margin-bottom: 1rem; }
+
+/* Session table */
+.table-tools { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin-bottom: 0.8rem; }
+.table-tools input { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); min-width: 16rem; }
+.table-tools label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--color-border); white-space: nowrap; vertical-align: middle; }
+th { position: sticky; top: 0; background: var(--color-bg-alt); color: var(--color-heading); font-weight: 600; cursor: pointer; user-select: none; }
+th[aria-sort="ascending"]::after { content: " \25B4"; }
+th[aria-sort="descending"]::after { content: " \25BE"; }
+tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--color-bg-alt) 55%, transparent); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.state { display: inline-flex; align-items: center; gap: 0.4rem; }
+.state .lamp { width: 14px; height: 14px; font-size: 9px; }
+.state.idle { color: var(--state-idle-ink); }
+.muted { color: var(--color-text-light); }
+
+/* Tools: a two-column definition list, not a card grid */
+.tools { display: grid; grid-template-columns: 1fr; gap: 1.2rem 2rem; }
+@media (min-width: 720px) { .tools { grid-template-columns: 1fr 1fr; } }
+.tool h3 { font-size: 1.05rem; font-weight: 600; color: var(--color-heading); }
+.tool p { margin-top: 0.2rem; color: var(--color-text-light); max-width: 48ch; }
+.tool ul { list-style: none; margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
+.tool pre { margin-top: 0.5rem; padding: 0.5rem 0.7rem; background: var(--color-bg-alt); border-radius: 6px; font-size: 0.8rem; overflow-x: auto; }
+
+footer { margin-top: 2.5rem; padding: 1.2rem 0 2rem; border-top: 1px solid var(--color-border); color: var(--color-text-light); font-size: 0.85rem; }
+footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-content: space-between; }
+#status[hidden] { display: none; }
+#status { margin-top: 0.8rem; padding: 0.6rem 0.8rem; border-radius: 6px; background: var(--color-bg-alt); border-left: 3px solid var(--color-accent); font-size: 0.9rem; }
+@media (prefers-reduced-motion: no-preference) { .tile { transition: border-color 120ms; } }
+@media (max-width: 600px) { .site-nav a:not(.keep) { display: none; } .brand img { height: 24px; } .brand span { font-size: 1rem; } .hero h1 { font-size: 1.6rem; } .figure .value { font-size: 2.1rem; } }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="/"><img src="/assets/sfmix-logo-large.png" alt="SFMIX"><span>Looking glass</span></a>
+    <nav class="site-nav" aria-label="Looking glass tools">
+      <a href="/cgi-bin/bgplg">Query the collector</a>
+      <a href="https://alice.sfmix.org/">Route servers</a>
+      <a href="#api">API</a>
+      <a class="keep" href="https://sfmix.org/">sfmix.org</a>
+      <button type="button" class="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section class="hero">
+    <h1>What the exchange looks like from the inside, right now.</h1>
+    <p class="lede">The SFMIX route collector (AS 12276) keeps a BGP session with every participant that chooses to peer with it and holds a copy of what they announce. This page is that collector's view, refreshed every minute.</p>
+    <div id="status" hidden></div>
+    <div class="figures" aria-live="polite">
+      <div class="figure"><div class="value" id="f-sessions">–</div><div class="label">sessions established</div></div>
+      <div class="figure"><div class="value" id="f-participants">–</div><div class="label">participants peering with the collector</div></div>
+      <div class="figure"><div class="value" id="f-v4">–</div><div class="label">IPv4 prefixes in the collector</div></div>
+      <div class="figure"><div class="value" id="f-v6">–</div><div class="label">IPv6 prefixes in the collector</div></div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board-head">
+        <h2>Peering board</h2>
+        <div class="legend" aria-label="Legend">
+          <span><i class="lamp up" aria-hidden="true">✓</i> established</span>
+          <span><i class="lamp trying" aria-hidden="true">…</i> trying to connect</span>
+          <span><i class="lamp idle" aria-hidden="true">–</i> idle</span>
+          <span><i class="lamp none" aria-hidden="true"> </i> no session configured</span>
+          <span class="muted">left lamp IPv4, right lamp IPv6</span>
+        </div>
+      </div>
+      <div class="board" id="board" role="list"></div>
+    </div>
+  </section>
+
+  <section class="block" id="sessions">
+    <h2>Sessions</h2>
+    <p class="note">One row per participant. Uptime is how long the session has been in its current state; prefixes are what the collector currently accepts from that session.</p>
+    <div class="table-tools">
+      <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN">
+      <label><input type="checkbox" id="only-down"> only sessions that are not established</label>
+      <span class="muted" id="table-count"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="sessions-table">
+        <thead>
+          <tr>
+            <th data-key="name" aria-sort="ascending">Participant</th>
+            <th data-key="asn">ASN</th>
+            <th data-key="v4state">IPv4 session</th>
+            <th data-key="v4up" class="num">Uptime</th>
+            <th data-key="v4pfx" class="num">Prefixes</th>
+            <th data-key="v6state">IPv6 session</th>
+            <th data-key="v6up" class="num">Uptime</th>
+            <th data-key="v6pfx" class="num">Prefixes</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block" id="tools">
+    <h2>Tools</h2>
+    <div class="tools">
+      <div class="tool">
+        <h3>Query the collector</h3>
+        <p>Look up a prefix, read a neighbor's advertisements, or run ping and traceroute from inside the exchange.</p>
+        <ul>
+          <li><a href="/cgi-bin/bgplg?cmd=show+ip+bgp+summary&amp;req=">BGP summary</a></li>
+          <li><a href="/cgi-bin/bgplg">Route lookup, ping, traceroute</a></li>
+          <li><a href="/api/neighbors">Neighbors as JSON</a></li>
+        </ul>
+      </div>
+      <div class="tool">
+        <h3>Route servers</h3>
+        <p>What the two SFMIX route servers (AS 63055) carry, per peer, with filtering reasons. Served by Alice.</p>
+        <ul>
+          <li><a href="https://alice.sfmix.org/">Browse route-server tables</a></li>
+          <li><a href="/rs-linux.sfmix.org.summary.html">rs-linux configuration summary</a></li>
+          <li><a href="/rs-openbsd.sfmix.org.summary.html">rs-openbsd configuration summary</a></li>
+        </ul>
+      </div>
+      <div class="tool" id="api">
+        <h3>API and MCP</h3>
+        <p>The same data this page uses, plus switch state: ports, optics, MAC and neighbor tables, LAN hygiene events. Public reads need no key; per-participant detail needs a sign-in at login.sfmix.org.</p>
+        <ul>
+          <li><a href="/api/v1/participants">/api/v1/participants</a></li>
+          <li><a href="/api/v1/peering-vlans">/api/v1/peering-vlans</a></li>
+          <li><a href="/api/v1/lan-events">/api/v1/lan-events</a></li>
+          <li><a href="https://github.com/sfmix/sfmix/tree/main/looking-glass">Documentation</a></li>
+        </ul>
+        <pre>MCP endpoint: https://lg.sfmix.org/mcp</pre>
+      </div>
+      <div class="tool">
+        <h3>Participant data</h3>
+        <p>Machine-readable lists of who is on the exchange, for peering automation and your own tooling.</p>
+        <ul>
+          <li><a href="/participants.json">IX-F member export</a></li>
+          <li><a href="/participants_table.json">Participant table</a></li>
+          <li><a href="https://sfmix.org/participants/">Participants on sfmix.org</a></li>
+          <li><a href="https://www.peeringdb.com/ix/4">SFMIX on PeeringDB</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <span>Collector AS 12276 at 206.197.187.1 and 2001:504:30::ba01:2276:1, running OpenBGPD.</span>
+    <span id="updated">Waiting for first data…</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  // Theme toggle, same storage key as sfmix.org.
+  var html = document.documentElement, meta = document.querySelector('meta[name="theme-color"]');
+  function systemTheme() { try { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) { return 'light'; } }
+  function currentTheme() { return html.getAttribute('data-theme') || systemTheme(); }
+  function reflect() { var d = currentTheme() === 'dark'; if (meta) meta.setAttribute('content', d ? '#071f26' : '#0b3640'); document.querySelector('.theme-toggle').setAttribute('aria-pressed', d ? 'true' : 'false'); }
+  document.querySelector('.theme-toggle').addEventListener('click', function () { var n = currentTheme() === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', n); try { localStorage.setItem('sfmix-theme', n); } catch (e) {} reflect(); });
+  reflect();
+
+  var $ = function (s) { return document.querySelector(s); };
+  var fmt = new Intl.NumberFormat('en-US');
+  var participants = {};   // asn -> {name, type}
+  var rows = [];           // table model
+  var sortKey = 'name', sortDir = 1;
+
+  function cls(state) { return state === 'Established' ? 'up' : (state === 'Idle' ? 'idle' : 'trying'); }
+  function glyph(state) { return state === 'Established' ? '✓' : (state === 'Idle' ? '–' : '…'); }
+  function words(state) { return state === 'Established' ? 'established' : (state === 'Idle' ? 'idle' : state.toLowerCase() + ', trying'); }
+  function uptime(sec) {
+    if (sec == null) return '';
+    var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+    return d ? d + 'd ' + h + 'h' : (h ? h + 'h ' + m + 'm' : m + 'm');
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function stripFamily(desc) { return desc.replace(/\s*\((v4|v6)\)\s*$/, ''); }
+
+  function status(msg) { var el = $('#status'); if (!msg) { el.hidden = true; return; } el.hidden = false; el.textContent = msg; }
+
+  function lamp(n) {
+    if (!n) return '<i class="lamp none" title="no session configured" aria-label="no session configured"> </i>';
+    return '<i class="lamp ' + cls(n.state) + '" aria-label="' + esc(words(n.state)) + '">' + glyph(n.state) + '</i>';
+  }
+  function tipRow(label, n) {
+    if (!n) return '<div class="row"><span class="k">' + label + '</span><span class="muted">no session</span></div>';
+    var pfx = n.pfx == null ? '' : ', ' + fmt.format(n.pfx) + ' prefixes';
+    return '<div class="row"><span class="k">' + label + '</span><span><span class="mono">' + esc(n.remote_addr) + '</span><br>' + esc(words(n.state)) + ' for ' + uptime(n.last_updown_sec) + pfx + '</span></div>';
+  }
+
+  function render() {
+    // Board
+    var board = $('#board');
+    var sorted = rows.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+    board.innerHTML = sorted.map(function (r) {
+      var p = participants[r.asn];
+      return '<div class="tile" role="listitem" tabindex="0" data-asn="' + r.asn + '">' +
+        '<div class="name" title="' + esc(r.name) + '">' + esc(r.name) + '</div>' +
+        '<div class="asn">AS ' + r.asn + (p && p.type && p.type !== 'Member' ? ' <span class="muted">' + esc(p.type.toLowerCase()) + '</span>' : '') + '</div>' +
+        '<div class="lamps">' + lamp(r.v4) + lamp(r.v6) + '</div>' +
+        '<div class="tip"><b>' + esc(r.name) + '</b> AS ' + r.asn + tipRow('IPv4', r.v4) + tipRow('IPv6', r.v6) + '</div>' +
+        '</div>';
+    }).join('');
+    // Flip tooltips that would overflow the right edge.
+    var right = board.getBoundingClientRect().right;
+    board.querySelectorAll('.tile').forEach(function (t) { if (t.getBoundingClientRect().left + 260 > right) t.classList.add('flip'); });
+    renderTable();
+  }
+
+  function cell(n) {
+    if (!n) return '<td class="muted">no session</td><td class="num"></td><td class="num"></td>';
+    return '<td><span class="state ' + cls(n.state) + '">' + lamp(n) + ' ' + esc(words(n.state)) + '</span></td>' +
+      '<td class="num">' + uptime(n.last_updown_sec) + '</td>' +
+      '<td class="num">' + (n.state === 'Established' && n.pfx != null ? fmt.format(n.pfx) : '') + '</td>';
+  }
+  function val(r, k) {
+    switch (k) {
+      case 'name': return r.name.toLowerCase();
+      case 'asn': return r.asn;
+      case 'v4state': return r.v4 ? r.v4.state : 'zz';
+      case 'v6state': return r.v6 ? r.v6.state : 'zz';
+      case 'v4up': return r.v4 ? r.v4.last_updown_sec : -1;
+      case 'v6up': return r.v6 ? r.v6.last_updown_sec : -1;
+      case 'v4pfx': return r.v4 && r.v4.pfx != null ? r.v4.pfx : -1;
+      case 'v6pfx': return r.v6 && r.v6.pfx != null ? r.v6.pfx : -1;
+    }
+  }
+  function renderTable() {
+    var q = $('#filter').value.trim().toLowerCase(), onlyDown = $('#only-down').checked;
+    var list = rows.filter(function (r) {
+      if (q && r.name.toLowerCase().indexOf(q) < 0 && String(r.asn).indexOf(q) < 0) return false;
+      if (onlyDown && (!r.v4 || r.v4.state === 'Established') && (!r.v6 || r.v6.state === 'Established')) return false;
+      return true;
+    }).sort(function (a, b) { var x = val(a, sortKey), y = val(b, sortKey); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
+    $('#sessions-table tbody').innerHTML = list.map(function (r) {
+      return '<tr><td>' + esc(r.name) + '</td><td class="mono">' + r.asn + '</td>' + cell(r.v4) + cell(r.v6) + '</tr>';
+    }).join('');
+    $('#table-count').textContent = list.length + ' of ' + rows.length + ' participants';
+    document.querySelectorAll('th[data-key]').forEach(function (th) { th.setAttribute('aria-sort', th.dataset.key === sortKey ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'); });
+  }
+
+  function getJSON(url) { return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) { if (!r.ok) throw new Error(url + ' returned ' + r.status); return r.json(); }); }
+
+  function build(summary) {
+    var byAsn = {};
+    summary.neighbors.forEach(function (n) {
+      var fam = n.remote_addr.indexOf(':') >= 0 ? 'v6' : 'v4';
+      var r = byAsn[n.remote_as] || (byAsn[n.remote_as] = { asn: Number(n.remote_as), name: (participants[n.remote_as] || {}).name || stripFamily(n.description || n.group || ('AS ' + n.remote_as)), v4: null, v6: null });
+      r[fam] = { state: n.state, remote_addr: n.remote_addr, last_updown_sec: n.last_updown_sec, pfx: null };
+    });
+    rows = Object.keys(byAsn).map(function (k) { return byAsn[k]; });
+    var est = summary.neighbors.filter(function (n) { return n.state === 'Established'; }).length;
+    $('#f-sessions').innerHTML = fmt.format(est) + '<small>of ' + summary.neighbors.length + '</small>';
+    var peering = rows.filter(function (r) { return (r.v4 && r.v4.state === 'Established') || (r.v6 && r.v6.state === 'Established'); }).length;
+    var members = Object.keys(participants).filter(function (a) { return participants[a].type !== 'Infrastructure'; }).length;
+    $('#f-participants').innerHTML = fmt.format(peering) + (members ? '<small>of ' + members + '</small>' : '');
+  }
+
+  function refresh(first) {
+    var started = new Date();
+    return getJSON('/api/summary').then(function (summary) {
+      build(summary); render();
+      $('#updated').textContent = 'Session data as of ' + started.toLocaleTimeString() + ', refreshed every minute.';
+      status('');
+      // Prefix counts and RIB sizes come from heavier endpoints; fill them in after the first paint.
+      return Promise.all([
+        getJSON('/api/memory').then(function (m) {
+          var v4 = m.memory && m.memory['IPv4 unicast'], v6 = m.memory && m.memory['IPv6 unicast'];
+          if (v4) $('#f-v4').textContent = fmt.format(v4.count);
+          if (v6) $('#f-v6').textContent = fmt.format(v6.count);
+        }).catch(function () {}),
+        getJSON('/api/neighbors').then(function (nb) {
+          var pfx = {}; nb.neighbors.forEach(function (n) { pfx[n.remote_addr] = n.stats && n.stats.prefixes ? n.stats.prefixes.received : null; });
+          rows.forEach(function (r) { ['v4', 'v6'].forEach(function (f) { if (r[f] && pfx[r[f].remote_addr] != null) r[f].pfx = pfx[r[f].remote_addr]; }); });
+          render();
+        }).catch(function () {})
+      ]);
+    }).catch(function (e) {
+      status((first ? 'The collector is not answering right now. ' : 'The last refresh failed; showing the previous data. ') + 'Error: ' + e.message);
+    });
+  }
+
+  document.querySelectorAll('th[data-key]').forEach(function (th) {
+    th.addEventListener('click', function () { if (sortKey === th.dataset.key) sortDir = -sortDir; else { sortKey = th.dataset.key; sortDir = 1; } renderTable(); });
+  });
+  $('#filter').addEventListener('input', renderTable);
+  $('#only-down').addEventListener('change', renderTable);
+  window.addEventListener('resize', function () { if (rows.length) render(); });
+
+  getJSON('/api/v1/participants').then(function (list) {
+    list.forEach(function (p) { participants[p.asn] = { name: p.name, type: p.participant_type }; });
+  }).catch(function () {}).then(function () { return refresh(true); }).then(function () { setInterval(refresh, 60000); });
+})();
+</script>
+</body>
+</html>

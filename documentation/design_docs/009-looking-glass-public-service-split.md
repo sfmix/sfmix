@@ -244,6 +244,11 @@ touched and the down/up bracket is the same either way.
   `lg-ng.sfmix.org` to `lg.sfmix.org` (`terraform/authentik`, `looking_glass_oidc_resource_url`).
 - **OpenBGPD backend in lg-server** talking to bgplgd over mgmt, replacing the nginx compat
   proxy.
+- **Summary page (done 2026-11-04).** `/` on lg.sfmix.org is a static page from the role
+  (`files/index.html`): headline figures, a peering board with one tile per participant and a
+  lamp per address family, a sortable session table, and the tools hub. It reads `/api/summary`,
+  `/api/memory`, `/api/neighbors` and `/api/v1/participants` client-side and refreshes every minute.
+  Its markup is the starting point for a native lg-http landing page.
 - **Public lg-cli.** Telnet/SSH stay bound to the mgmt address as on alice. Exposing them on
   192.33.255.8 (design doc 004 intent) is a one-line `looking_glass_bind_address` change plus
   ufw allows, once the policy engine's rate limits have been exercised.
