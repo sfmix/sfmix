@@ -6,10 +6,11 @@
 # (mgmt.lg.sfmix.org) for the legacy bgplg/bgplgd paths.
 sfmix_server_ufw_enabled: true
 
-# Names served. lg.sfmix.org and lg-ng.sfmix.org are added at DNS cutover
-# (http-01 cannot issue for them before the records point here).
+# Names served (one certbot lineage, named after the first).
 looking_glass_web_domains:
   - lg-web.sfmix.org
+  - lg.sfmix.org
+  - lg-ng.sfmix.org
 
 # participants*.json (website, sflow-rt, scripts) and the arouteserver
 # rs-*.summary.html pages are published straight into the nginx static root.

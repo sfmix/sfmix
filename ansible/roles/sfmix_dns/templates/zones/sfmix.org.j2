@@ -86,11 +86,10 @@ monitor.sfo02			IN	SSHFP 3 1 52ec7a6cf659beed3e8ca777cd3c7962edad057d
 monitor.sfo02			IN	SSHFP 3 2 cb0e5f76ac55206832976a34ac2b9b5a7d8f13aaf9b913898a4d2fdf04bf5b85
 netbox.sfo02			IN	A	192.33.255.6
 netbox.sfo02			IN	AAAA	2620:11A:B000::6
-lg				IN	A	192.33.255.7
-lg				IN	AAAA	2620:11A:B000::7
-; Public looking-glass VM (design doc 009). lg / lg-ng become CNAMEs here at cutover.
+; Public looking-glass VM (design doc 009); lg and lg-ng are aliases of it.
 lg-web				IN	A	192.33.255.8
 lg-web				IN	AAAA	2620:11A:B000::8
+lg				IN	CNAME	lg-web
 sentry				IN	A	192.33.255.9
 sentry				IN	AAAA	2620:11A:B000::9
 metrics.sfo02			IN	A	192.33.255.10
@@ -104,7 +103,7 @@ vlan100.gw.sfo02	IN	A	192.33.255.17
 vlan100.gw.sfo02	IN	AAAA	2620:11A:B000:100::1
 alice			IN	A	192.33.255.18
 alice			IN	AAAA	2620:11A:B000:100::2
-lg-ng			IN	CNAME	alice
+lg-ng			IN	CNAME	lg-web
 bcast-vlan100.gw.sfo02	IN	A	192.33.255.23
 ;
 ;; Hosted organizations

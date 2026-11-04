@@ -55,9 +55,11 @@ all:
       hosts:
         rs-openbsd.sfmix.org:
           ansible_host: mgmt.rs-openbsd.sfmix.org
+    # OpenBSD route collector; mgmt-only since design doc 009 Phase 3.
     looking_glass:
       hosts:
         lg.sfmix.org:
+          ansible_host: mgmt.lg.sfmix.org
     # lg-ng (lg-server/lg-cli/lg-http). Lives on the public LG VM, design doc 009.
     looking_glass_rust:
       hosts:
