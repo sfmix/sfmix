@@ -1,6 +1,9 @@
 ---
 sfmix_server_ufw_enabled: true
 sfmix_server_ufw_logging: "off"   # off|low|medium|high|full — block spam is useless to us
+# Restrict the OS sshd to these addresses (ListenAddress drop-in). Empty = all.
+# lg-web uses it to keep port 22 on the public leg free for the looking glass.
+sfmix_server_sshd_listen_addresses: []
 sfmix_server_dns_recursors:
   - 8.8.8.8
 sfmix_server_snmp_community: public

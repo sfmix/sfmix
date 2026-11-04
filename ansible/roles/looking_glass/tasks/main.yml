@@ -151,6 +151,20 @@
     - looking_glass_rpc_allow_from | default('') | length > 0
     - sfmix_server_ufw_enabled | default(false) | bool
 
+- name: Allow public lg-cli telnet and SSH
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    comment: "looking glass lg-cli (public)"
+  loop:
+    - "{{ looking_glass_telnet_port }}"
+    - "{{ looking_glass_ssh_port }}"
+  when:
+    - looking_glass_cli_public | bool
+    - sfmix_server_ufw_enabled | default(false) | bool
+
 # ── Config templates ──────────────────────────────────────────────────
 
 - name: Template lg-server config

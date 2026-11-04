@@ -51,16 +51,18 @@ struct CliConfig {
 
 #[derive(Debug, serde::Deserialize)]
 struct TelnetConfig {
-    #[serde(default = "default_telnet_bind")]
-    bind: String,
+    /// One "addr:port" or a list of them (one listener each, e.g. the public
+    /// IPv4 and IPv6 addresses while the OS sshd keeps the management one).
+    #[serde(default = "default_telnet_bind", deserialize_with = "one_or_many")]
+    bind: Vec<String>,
     #[serde(default = "default_true")]
     enabled: bool,
 }
 
 #[derive(Debug, serde::Deserialize)]
 struct SshConfig {
-    #[serde(default = "default_ssh_bind")]
-    bind: String,
+    #[serde(default = "default_ssh_bind", deserialize_with = "one_or_many")]
+    bind: Vec<String>,
     #[serde(default = "default_true")]
     enabled: bool,
     host_key: String,
@@ -68,14 +70,28 @@ struct SshConfig {
     ca_key: Option<String>,
 }
 
+/// Accept `bind: "addr:port"` as well as `bind: ["a:p", "b:p"]`.
+fn one_or_many<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(String),
+        Many(Vec<String>),
+    }
+    Ok(match <OneOrMany as serde::Deserialize>::deserialize(d)? {
+        OneOrMany::One(s) => vec![s],
+        OneOrMany::Many(v) => v,
+    })
+}
+
 fn default_rpc_secret_env() -> String {
     "LG_RPC_SECRET".to_string()
 }
-fn default_telnet_bind() -> String {
-    "[::]:23".to_string()
+fn default_telnet_bind() -> Vec<String> {
+    vec!["[::]:23".to_string()]
 }
-fn default_ssh_bind() -> String {
-    "[::]:2222".to_string()
+fn default_ssh_bind() -> Vec<String> {
+    vec!["[::]:2222".to_string()]
 }
 fn default_true() -> bool {
     true
@@ -125,20 +141,21 @@ async fn main() -> Result<()> {
     // Start telnet server
     if let Some(ref telnet_config) = config.telnet {
         if telnet_config.enabled {
-            let bind = telnet_config.bind.clone();
-            let ctx = ctx.clone();
-            tokio::spawn(async move {
-                if let Err(e) = run_telnet_server(&bind, ctx).await {
-                    tracing::error!("Telnet server error: {e}");
-                }
-            });
+            for bind in telnet_config.bind.clone() {
+                let ctx = ctx.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = run_telnet_server(&bind, ctx).await {
+                        tracing::error!("Telnet server error on {bind}: {e}");
+                    }
+                });
+            }
         }
     }
 
     // Start SSH server
     if let Some(ref ssh_config) = config.ssh {
         if ssh_config.enabled {
-            let bind = ssh_config.bind.clone();
+            let binds = ssh_config.bind.clone();
             let host_key_path = ssh_config.host_key.clone();
             let ca_key_path = ssh_config.ca_key.clone();
             let ctx = ctx.clone();
@@ -159,22 +176,30 @@ async fn main() -> Result<()> {
                 .map(|a| a.oidc.admin_group.clone())
                 .unwrap_or_else(|| "IX Administrators".to_string());
 
-            tokio::spawn(async move {
-                if let Err(e) = run_ssh_server(
-                    &bind,
-                    &host_key_path,
-                    ca_key_path.as_deref(),
-                    oidc,
-                    cert_lifetime,
-                    group_prefix,
-                    admin_group,
-                    ctx,
-                )
-                .await
-                {
-                    tracing::error!("SSH server error: {e}");
-                }
-            });
+            for bind in binds {
+                let host_key_path = host_key_path.clone();
+                let ca_key_path = ca_key_path.clone();
+                let oidc = oidc.clone();
+                let group_prefix = group_prefix.clone();
+                let admin_group = admin_group.clone();
+                let ctx = ctx.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = run_ssh_server(
+                        &bind,
+                        &host_key_path,
+                        ca_key_path.as_deref(),
+                        oidc,
+                        cert_lifetime,
+                        group_prefix,
+                        admin_group,
+                        ctx,
+                    )
+                    .await
+                    {
+                        tracing::error!("SSH server error on {bind}: {e}");
+                    }
+                });
+            }
         }
     }
 

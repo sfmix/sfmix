@@ -1,9 +1,15 @@
 ---
-# lg-cli (telnet/SSH) binds the lg-web mgmt address: admin-reachable over the
-# management network, not exposed on the public leg (unchanged from alice).
+# lg-cli (telnet/SSH) is public on lg.sfmix.org, ports 23 and 22, on the
+# public addresses only; the OS sshd keeps port 22 on the management address
+# (sfmix_server_sshd_listen_addresses in group_vars/looking_glass_web.yml).
+# looking_glass_bind_address stays the mgmt address for lg-server's RPC.
 looking_glass_bind_address: "10.1.1.17"
+looking_glass_bind_addresses:
+  - "192.33.255.8"
+  - "2620:11a:b000::8"
+looking_glass_cli_public: true
 looking_glass_telnet_enabled: true
-looking_glass_telnet_port: 2023
+looking_glass_telnet_port: 23
 looking_glass_device_password: !vault |
   $ANSIBLE_VAULT;1.1;AES256
   66333763643339333363366365646432613864323630663732643835656538393764336566616236
@@ -22,7 +28,7 @@ looking_glass_netbox_token: !vault |
           30333462636361393161356635653764306636636433623032646566373333656334633231326634
           3766373361663132303332646332633130323531376339646431
 looking_glass_ssh_enabled: true
-looking_glass_ssh_port: 2222
+looking_glass_ssh_port: 22
 looking_glass_oidc_enabled: true
 looking_glass_oidc_issuer: "https://login.sfmix.org/application/o/looking-glass/"
 looking_glass_oidc_client_id: "looking-glass"

@@ -5,12 +5,18 @@ rpc_secret_env: "LG_RPC_SECRET"
 
 telnet:
   enabled: true
-  bind: "{{ looking_glass_bind_address }}:{{ looking_glass_telnet_port }}"
+  bind:
+{% for addr in looking_glass_bind_addresses %}
+    - "{{ addr if ':' not in addr else '[' ~ addr ~ ']' }}:{{ looking_glass_telnet_port }}"
+{% endfor %}
 
 ssh:
   enabled: {{ looking_glass_ssh_enabled | lower }}
 {% if looking_glass_ssh_enabled %}
-  bind: "{{ looking_glass_bind_address }}:{{ looking_glass_ssh_port }}"
+  bind:
+{% for addr in looking_glass_bind_addresses %}
+    - "{{ addr if ':' not in addr else '[' ~ addr ~ ']' }}:{{ looking_glass_ssh_port }}"
+{% endfor %}
   host_key: "{{ looking_glass_config_dir }}/ssh_host_ed25519_key"
 {% if looking_glass_oidc_enabled %}
   ca_key: "{{ looking_glass_config_dir }}/ca_ed25519_key"
