@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SFMIX looking glass</title>
-<meta name="description" content="Live BGP session state of the SFMIX route collector, and the tools for looking into the exchange: route queries, ping and traceroute, route-server views, and the participant data API.">
+<title>SFMIX Looking Glass</title>
+<meta name="description" content="SFMIX Looking Glass: live BGP sessions with exchange participants, route lookups, ping and traceroute from inside the exchange, route-server views, and the participant data API.">
 <meta name="theme-color" content="#0b3640">
 <link rel="icon" href="/assets/favicon-32x32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -113,9 +113,9 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .tile .name { font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; grid-column: 1; }
 .tile .asn { font-size: 0.74rem; color: var(--color-text-light); grid-column: 1; font-variant-numeric: tabular-nums; }
 .tile .lamps { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
-.tile:hover, .tile:focus-within { border-color: var(--color-accent); }
-.tip { position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); min-width: 250px; padding: 0.55rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 8px 24px var(--color-shadow-tint); font-size: 0.8rem; line-height: 1.45; display: none; }
-.tile:hover .tip, .tile:focus-within .tip { display: block; }
+.tile:hover, .tile:focus-visible { border-color: var(--color-accent); }
+.tip { pointer-events: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); min-width: 250px; padding: 0.55rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 8px 24px var(--color-shadow-tint); font-size: 0.8rem; line-height: 1.45; display: none; }
+.tile:hover .tip, .tile:focus-visible .tip { display: block; }
 .tile.flip .tip { left: auto; right: 0; }
 .tip b { font-weight: 600; }
 .tip .row { display: grid; grid-template-columns: 2.4rem 1fr; gap: 0.5rem; margin-top: 0.25rem; }
@@ -124,11 +124,20 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 /* Sections */
 section.block { padding: 2rem 0 0.5rem; }
 section.block h2 { font-size: 1.4rem; font-weight: 600; color: var(--color-heading); padding-bottom: 0.35rem; border-bottom: 2px solid var(--color-accent); display: inline-block; margin-bottom: 1rem; }
-.block p.note { color: var(--color-text-light); max-width: 70ch; margin-bottom: 1rem; }
+p.note { color: var(--color-text-light); max-width: 70ch; margin-bottom: 1rem; font-size: 0.9rem; }
+.view-note[hidden] { display: none; }
+.view-switch { display: inline-flex; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; }
+.view-switch button { font: inherit; font-size: 0.9rem; padding: 0.4rem 0.9rem; border: 0; background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+.view-switch button + button { border-left: 1px solid var(--color-border); }
+.view-switch button[aria-pressed="true"] { background: var(--color-primary); color: #fff; }
+:root[data-theme="dark"] .view-switch button[aria-pressed="true"] { background: var(--color-primary-light); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .view-switch button[aria-pressed="true"] { background: var(--color-primary-light); } }
+.table-wrap[hidden] { display: none; }
+.board[hidden] { display: none; }
 
 /* Session table */
 .table-tools { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin-bottom: 0.8rem; }
-.table-tools input { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); min-width: 16rem; }
+.table-tools input[type="search"] { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); min-width: 16rem; }
 .table-tools label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
@@ -162,9 +171,9 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
 <body>
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="/"><img src="/assets/sfmix-logo-large.png" alt="SFMIX"><span>Looking glass</span></a>
+    <a class="brand" href="/"><img src="/assets/sfmix-logo-large.png" alt="SFMIX"><span>Looking Glass</span></a>
     <nav class="site-nav" aria-label="Looking glass tools">
-      <a href="/cgi-bin/bgplg">Query the collector</a>
+      <a href="/cgi-bin/bgplg">Looking Glass Query</a>
       <a href="https://alice.sfmix.org/">Route servers</a>
       <a href="#api">API</a>
       <a class="keep" href="https://sfmix.org/">sfmix.org</a>
@@ -178,55 +187,55 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
 
 <main class="container">
   <section class="hero">
-    <h1>What the exchange looks like from the inside, right now.</h1>
-    <p class="lede">The SFMIX route collector (AS 12276) keeps a BGP session with every participant that chooses to peer with it and holds a copy of what they announce. This page is that collector's view, refreshed every minute.</p>
+    <h1>SFMIX Looking Glass</h1>
+    <p class="lede">BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.</p>
     <div id="status" hidden></div>
     <div class="figures" aria-live="polite">
       <div class="figure"><div class="value" id="f-sessions">–</div><div class="label">sessions established</div></div>
-      <div class="figure"><div class="value" id="f-participants">–</div><div class="label">participants peering with the collector</div></div>
-      <div class="figure"><div class="value" id="f-v4">–</div><div class="label">IPv4 prefixes in the collector</div></div>
-      <div class="figure"><div class="value" id="f-v6">–</div><div class="label">IPv6 prefixes in the collector</div></div>
+      <div class="figure"><div class="value" id="f-participants">–</div><div class="label">participants peering with the looking glass</div></div>
+      <div class="figure"><div class="value" id="f-v4">–</div><div class="label">IPv4 prefixes received</div></div>
+      <div class="figure"><div class="value" id="f-v6">–</div><div class="label">IPv6 prefixes received</div></div>
     </div>
 
-    <div class="board-wrap">
+    <div class="board-wrap" id="sessions">
       <div class="board-head">
-        <h2>Peering board</h2>
+        <h2>Sessions</h2>
         <div class="legend" aria-label="Legend">
           <span><i class="lamp up" aria-hidden="true">✓</i> established</span>
           <span><i class="lamp trying" aria-hidden="true">…</i> trying to connect</span>
           <span><i class="lamp idle" aria-hidden="true">–</i> idle</span>
           <span><i class="lamp none" aria-hidden="true"> </i> no session configured</span>
-          <span class="muted">left lamp IPv4, right lamp IPv6</span>
         </div>
       </div>
+      <div class="table-tools">
+        <div class="view-switch" role="group" aria-label="View">
+          <button type="button" data-view="board" aria-pressed="true">Board</button>
+          <button type="button" data-view="table" aria-pressed="false">Table</button>
+        </div>
+        <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN">
+        <label><input type="checkbox" id="only-down"> only sessions that are not established</label>
+        <span class="muted" id="table-count"></span>
+      </div>
+      <p class="note view-note" data-for="board">One tile per participant: left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.</p>
+      <p class="note view-note" data-for="table">Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.</p>
       <div class="board" id="board" role="list"></div>
-    </div>
-  </section>
-
-  <section class="block" id="sessions">
-    <h2>Sessions</h2>
-    <p class="note">One row per participant. Uptime is how long the session has been in its current state; prefixes are what the collector currently accepts from that session.</p>
-    <div class="table-tools">
-      <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN">
-      <label><input type="checkbox" id="only-down"> only sessions that are not established</label>
-      <span class="muted" id="table-count"></span>
-    </div>
-    <div class="table-wrap">
-      <table id="sessions-table">
-        <thead>
-          <tr>
-            <th data-key="name" aria-sort="ascending">Participant</th>
-            <th data-key="asn">ASN</th>
-            <th data-key="v4state">IPv4 session</th>
-            <th data-key="v4up" class="num">Uptime</th>
-            <th data-key="v4pfx" class="num">Prefixes</th>
-            <th data-key="v6state">IPv6 session</th>
-            <th data-key="v6up" class="num">Uptime</th>
-            <th data-key="v6pfx" class="num">Prefixes</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="table-wrap" hidden>
+        <table id="sessions-table">
+          <thead>
+            <tr>
+              <th data-key="name" aria-sort="ascending">Participant</th>
+              <th data-key="asn">ASN</th>
+              <th data-key="v4state">IPv4 session</th>
+              <th data-key="v4up" class="num">Uptime</th>
+              <th data-key="v4pfx" class="num">Prefixes</th>
+              <th data-key="v6state">IPv6 session</th>
+              <th data-key="v6up" class="num">Uptime</th>
+              <th data-key="v6pfx" class="num">Prefixes</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -234,7 +243,7 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
     <h2>Tools</h2>
     <div class="tools">
       <div class="tool">
-        <h3>Query the collector</h3>
+        <h3>Looking Glass Query</h3>
         <p>Look up a prefix, read a neighbor's advertisements, or run ping and traceroute from inside the exchange.</p>
         <ul>
           <li><a href="/cgi-bin/bgplg?cmd=show+ip+bgp+summary&amp;req=">BGP summary</a></li>
@@ -278,7 +287,7 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
 
 <footer>
   <div class="container">
-    <span>Collector AS 12276 at 206.197.187.1 and 2001:504:30::ba01:2276:1, running OpenBGPD.</span>
+    <span>Looking glass AS 12276 at 206.197.187.1 and 2001:504:30::ba01:2276:1, running OpenBGPD.</span>
     <span id="updated">Waiting for first data…</span>
   </div>
 </footer>
@@ -323,10 +332,19 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
     return '<div class="row"><span class="k">' + label + '</span><span><span class="mono">' + esc(n.remote_addr) + '</span><br>' + esc(words(n.state)) + ' for ' + uptime(n.last_updown_sec) + pfx + '</span></div>';
   }
 
+  function visible() {
+    var q = $('#filter').value.trim().toLowerCase(), onlyDown = $('#only-down').checked;
+    return rows.filter(function (r) {
+      if (q && r.name.toLowerCase().indexOf(q) < 0 && String(r.asn).indexOf(q) < 0) return false;
+      if (onlyDown && (!r.v4 || r.v4.state === 'Established') && (!r.v6 || r.v6.state === 'Established')) return false;
+      return true;
+    });
+  }
+
   function render() {
     // Board
     var board = $('#board');
-    var sorted = rows.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var sorted = visible().sort(function (a, b) { return a.name.localeCompare(b.name); });
     board.innerHTML = sorted.map(function (r) {
       var p = participants[r.asn];
       return '<div class="tile" role="listitem" tabindex="0" data-asn="' + r.asn + '">' +
@@ -361,12 +379,7 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
     }
   }
   function renderTable() {
-    var q = $('#filter').value.trim().toLowerCase(), onlyDown = $('#only-down').checked;
-    var list = rows.filter(function (r) {
-      if (q && r.name.toLowerCase().indexOf(q) < 0 && String(r.asn).indexOf(q) < 0) return false;
-      if (onlyDown && (!r.v4 || r.v4.state === 'Established') && (!r.v6 || r.v6.state === 'Established')) return false;
-      return true;
-    }).sort(function (a, b) { var x = val(a, sortKey), y = val(b, sortKey); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
+    var list = visible().sort(function (a, b) { var x = val(a, sortKey), y = val(b, sortKey); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
     $('#sessions-table tbody').innerHTML = list.map(function (r) {
       return '<tr><td>' + esc(r.name) + '</td><td class="mono">' + r.asn + '</td>' + cell(r.v4) + cell(r.v6) + '</tr>';
     }).join('');
@@ -411,15 +424,32 @@ footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-
         }).catch(function () {})
       ]);
     }).catch(function (e) {
-      status((first ? 'The collector is not answering right now. ' : 'The last refresh failed; showing the previous data. ') + 'Error: ' + e.message);
+      status((first ? 'The looking glass is not answering right now. ' : 'The last refresh failed; showing the previous data. ') + 'Error: ' + e.message);
     });
   }
 
   document.querySelectorAll('th[data-key]').forEach(function (th) {
     th.addEventListener('click', function () { if (sortKey === th.dataset.key) sortDir = -sortDir; else { sortKey = th.dataset.key; sortDir = 1; } renderTable(); });
   });
-  $('#filter').addEventListener('input', renderTable);
-  $('#only-down').addEventListener('change', renderTable);
+  $('#filter').addEventListener('input', render);
+  $('#only-down').addEventListener('change', render);
+
+  // Board and table are two views of the same sessions; the pick is a per-viewer convenience.
+  function setView(v) {
+    $('#board').hidden = v !== 'board';
+    $('.table-wrap').hidden = v !== 'table';
+    document.querySelectorAll('.view-switch button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.view === v ? 'true' : 'false'); });
+    document.querySelectorAll('.view-note').forEach(function (n) { n.hidden = n.dataset.for !== v; });
+    try { localStorage.setItem('sfmix-lg-view', v); } catch (e) {}
+  }
+  document.querySelectorAll('.view-switch button').forEach(function (b) { b.addEventListener('click', function () { setView(b.dataset.view); }); });
+  function pickView() {
+    var h = location.hash.replace('#', '');
+    if (h === 'table' || h === 'board') return h;
+    try { return localStorage.getItem('sfmix-lg-view') === 'table' ? 'table' : 'board'; } catch (e) { return 'board'; }
+  }
+  setView(pickView());
+  window.addEventListener('hashchange', function () { var h = location.hash.replace('#', ''); if (h === 'table' || h === 'board') setView(h); });
   window.addEventListener('resize', function () { if (rows.length) render(); });
 
   getJSON('/api/v1/participants').then(function (list) {
