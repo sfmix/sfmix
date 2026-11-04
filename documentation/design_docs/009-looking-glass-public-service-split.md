@@ -240,15 +240,24 @@ touched and the down/up bracket is the same either way.
 
 - **Absorb Alice.** Either base-path support in lg-http so Alice can sit under a prefix on
   `lg.sfmix.org`, or lg-ng grows the route-browser features; then retire `alice.sfmix.org`,
-  its blackbox target, and move the authentik `meta_launch_url` / redirect regex from
-  `lg-ng.sfmix.org` to `lg.sfmix.org` (`terraform/authentik`, `looking_glass_oidc_resource_url`).
+  its blackbox target.
+- **MCP OAuth resource URL (done 2026-11-04).** lg-http's `looking_glass_oidc_resource_url` is
+  now `https://lg.sfmix.org`. It is what the `/mcp` 401 challenge, the RFC 9728 protected-resource
+  metadata and the RFC 8414 issuer advertise; with the old `lg-ng` value, a client connecting to
+  `lg.sfmix.org/mcp` failed with "Protected resource https://lg-ng.sfmix.org does not match
+  expected https://lg.sfmix.org". The authentik provider only allows loopback redirect URIs, so
+  nothing changed there; `terraform/authentik` `meta_launch_url` now says `lg.sfmix.org` but has
+  not been applied (cosmetic). MCP clients should use `https://lg.sfmix.org/mcp`; `lg-ng` remains
+  an HTTP alias but no longer matches the advertised resource.
 - **OpenBGPD backend in lg-server** talking to bgplgd over mgmt, replacing the nginx compat
   proxy.
 - **Summary page (done 2026-11-04).** `/` on lg.sfmix.org is a static page from the role
   (`files/index.html`): headline figures, a peering board with one tile per participant and a
   lamp per address family, a sortable session table, and the tools hub. It reads `/api/summary`,
   `/api/memory`, `/api/neighbors` and `/api/v1/participants` client-side and refreshes every minute.
-  Its markup is the starting point for a native lg-http landing page.
+  Its markup is the starting point for a native lg-http landing page. Board and table are two
+  views of one panel (`#board` / `#table` deep links; the pick is remembered per browser), and
+  the page says "looking glass" throughout, not "route collector".
 - **Public lg-cli.** Telnet/SSH stay bound to the mgmt address as on alice. Exposing them on
   192.33.255.8 (design doc 004 intent) is a one-line `looking_glass_bind_address` change plus
   ufw allows, once the policy engine's rate limits have been exercised.

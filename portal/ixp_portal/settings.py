@@ -225,7 +225,7 @@ OIDC_OP_END_SESSION_ENDPOINT = f"{_OIDC_ISSUER}/end-session/"
 OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = 900
 
 # --- Looking Glass REST API ---
-IXP_LOOKING_GLASS_URL = os.environ.get("IXP_LOOKING_GLASS_URL", "https://lg-ng.sfmix.org")
+IXP_LOOKING_GLASS_URL = os.environ.get("IXP_LOOKING_GLASS_URL", "https://lg.sfmix.org")
 
 # --- Alice Looking Glass (route-server session data) ---
 ALICE_LG_URL = os.environ.get("ALICE_LG_URL", "https://alice.sfmix.org")

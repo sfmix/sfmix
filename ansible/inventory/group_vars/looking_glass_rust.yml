@@ -38,7 +38,7 @@ looking_glass_oidc_allowed_issuers:
   - "https://login.sfmix.org/application/o/looking-glass-api/"
   - "https://login.sfmix.org/application/o/looking-glass/"
 looking_glass_oidc_authorization_server: "https://login.sfmix.org/application/o/looking-glass-api/"
-looking_glass_oidc_resource_url: "https://lg-ng.sfmix.org"
+looking_glass_oidc_resource_url: "https://lg.sfmix.org"
 looking_glass_oidc_authorization_endpoint: "https://login.sfmix.org/application/o/authorize/"
 looking_glass_oidc_mcp_client_id: "looking-glass"
 looking_glass_api_client_secret: !vault |
