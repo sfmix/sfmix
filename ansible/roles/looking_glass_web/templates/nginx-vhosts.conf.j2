@@ -86,7 +86,14 @@ server {
         add_header Cache-Control "public, max-age=86400";
     }
 
-    # Everything else is lg-http (landing / future UI).
+    # The bare root: lg-http has no landing page yet (its fallback is 401),
+    # so keep the behaviour the OpenBSD httpd had and send visitors to the
+    # bgplg summary.
+    location = / {
+        return 302 /cgi-bin/bgplg?cmd=show+ip+bgp+summary&req=;
+    }
+
+    # Everything else is lg-http.
     location / {
         limit_req zone=lg_ip burst={{ looking_glass_web_rate_limit_burst }} nodelay;
         proxy_pass {{ looking_glass_web_lg_http_upstream }};
