@@ -8,6 +8,19 @@
     group: sfmix
     mode: ug=rwx,o=rx
 
+- name: "Summary page and its assets"
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ looking_glass_web_static_directory }}/"
+    owner: sfmix
+    group: sfmix
+    mode: u=rw,go=r
+    directory_mode: u=rwx,go=rx
+  loop:
+    - index.html
+    - assets
+
 - name: "Create a dhparams file"
   become: true
   community.crypto.openssl_dhparam:
