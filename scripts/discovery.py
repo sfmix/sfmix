@@ -105,7 +105,16 @@ JUNIPER_TENANT_IFACE_RE = re.compile(r"^as(\d+)", re.IGNORECASE)
 
 # ── EOS constants ─────────────────────────────────────────────────────
 
-CORE_PORT_DESCRIPTION_PREFIXES = ("Core:", "Transport", "Transit:", "Access:")
+# EOS interfaces are classified by description prefix (the switches have no
+# per-port role). "Transport/Transit: ..." starts with "Transport" and stays
+# core: it is the physical transport link, even when a transit customer rides
+# on it; the customer's own dot1q subinterface is described "Transit: ...".
+CORE_PORT_DESCRIPTION_PREFIXES = ("Core:", "Transport", "Access:")
+# AS40271 transit customer ports: tagged transit_peer with the participant set
+# (never core_port) so the looking glass shows them only to that customer and
+# to admins, like the Nokia and Juniper tenant SAPs.
+TRANSIT_PORT_DESCRIPTION_PREFIX = "Transit:"
+EOS_DESCRIPTION_ASN_RE = re.compile(r"\(AS(\d+)\)")
 
 
 # ── NetBox API helpers ────────────────────────────────────────────────
@@ -1114,36 +1123,62 @@ class AristaEOSDevice(DeviceDiscovery):
     def sync_port_tags(
         self, dry_run: bool = False, tenants: Optional["TenantRegistry"] = None
     ) -> None:
-        """Add or remove 'core_port' tag on interfaces based on description and name."""
+        """Classify EOS interfaces by description and keep their NetBox tags in step.
+
+        peering_port (set by the VLAN sync)           -> left alone, never core
+        Loopbacks, "Core:", "Transport...", "Access:" -> core_port
+        "Transit: ... (AS<N>)"                        -> transit_peer + participant
+        "Transit: ..." without an ASN                 -> admin_port
+        anything else                                 -> no core_port/transit_peer
+
+        core_port and transit_peer are managed (added and removed); admin_port is
+        only ever added, so a hand-placed admin_port tag survives.
+        """
         netbox = netbox_api_client()
-        logger.debug(f"Checking core_port tags on {self.device_name}")
+        logger.debug(f"Classifying port tags on {self.device_name}")
+        if tenants is None:
+            tenants = TenantRegistry(netbox, dry_run=dry_run)
+        managed = {"core_port", "transit_peer"}
         for interface in netbox.dcim.interfaces.filter(device=self.device_name):
             tag_slugs = [tag["slug"] for tag in interface.tags]
-            should_be_core = _is_core_interface(
-                interface.name, interface.description, tag_slugs
-            )
-            is_core = "core_port" in tag_slugs
+            name = interface.name
+            desired, asn = _classify_eos_interface(name, interface.description, tag_slugs)
 
-            if should_be_core and not is_core:
-                new_tag_slugs = tag_slugs + ["core_port"]
+            if desired == "transit_peer" and asn is not None:
+                participant = tenants.resolve(asn)
+                if participant is None:
+                    logger.warning(
+                        f"No tenant for as{asn} (as_number or slug)"
+                        f" on {self.device_name} / {name}"
+                        f" — tagging transit_peer without a participant{tenants.hint}"
+                    )
+                else:
+                    old_participant = interface.custom_fields.get("participant")
+                    existing_id = old_participant["id"] if isinstance(old_participant, dict) else old_participant
+                    if existing_id != participant.id:
+                        old_slug = old_participant.get("slug") if isinstance(old_participant, dict) else old_participant
+                        logger.info(
+                            f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                            f" participant: {old_slug!r} -> {participant.slug}"
+                            f" on {self.device_name} / {name}"
+                        )
+                        if not dry_run:
+                            # Partial CF update, see NokiaSROSDevice.sync_port_tags.
+                            interface.update({"custom_fields": {"participant": participant.id}})
+
+            new_tags = [t for t in tag_slugs if t not in managed]
+            if desired is not None and desired not in new_tags:
+                new_tags.append(desired)
+            if set(new_tags) != set(tag_slugs):
                 logger.info(
-                    f"{'[DRY-RUN] Would add' if dry_run else 'Adding'} core_port tag to"
-                    f" {self.device_name} / {interface.name}"
+                    f"{'[DRY-RUN] Would set' if dry_run else 'Setting'}"
+                    f" tags: [{', '.join(sorted(tag_slugs))}]"
+                    f" -> [{', '.join(sorted(new_tags))}]"
+                    f" on {self.device_name} / {name}"
                     f" (desc: {interface.description!r})"
                 )
                 if not dry_run:
-                    interface.tags = [{"slug": s} for s in new_tag_slugs]
-                    interface.save()
-            elif not should_be_core and is_core:
-                logger.info(
-                    f"{'[DRY-RUN] Would remove' if dry_run else 'Removing'} core_port tag from"
-                    f" {self.device_name} / {interface.name}"
-                    f" (desc: {interface.description!r})"
-                )
-                if not dry_run:
-                    interface.tags = [
-                        {"slug": s} for s in tag_slugs if s != "core_port"
-                    ]
+                    interface.tags = [{"slug": t} for t in new_tags]
                     interface.save()
 
     def sync_interface_ips(self, dry_run: bool = False) -> None:
@@ -1938,14 +1973,27 @@ def update_netbox_peering_port_tags_by_vlan(dry_run: bool = False) -> None:
                 )
 
 
-def _is_core_interface(name: str, description: str, tag_slugs: List[str]) -> bool:
-    """Return True if this EOS interface should carry the 'core_port' tag."""
+def _classify_eos_interface(
+    name: str, description: str, tag_slugs: List[str]
+) -> Tuple[Optional[str], Optional[int]]:
+    """Desired role tag for an EOS interface, plus the transit customer ASN if any.
+
+    Returns one of ("core_port", None), ("transit_peer", asn), ("admin_port", None)
+    or (None, None) when the interface carries no role tag of ours.
+    """
     if "peering_port" in tag_slugs:
-        return False
+        return None, None
     if name.startswith("Loopback"):
-        return True
+        return "core_port", None
     desc = description.strip()
-    return any(desc.startswith(prefix) for prefix in CORE_PORT_DESCRIPTION_PREFIXES)
+    if desc.startswith(TRANSIT_PORT_DESCRIPTION_PREFIX):
+        m = EOS_DESCRIPTION_ASN_RE.search(desc)
+        if m:
+            return "transit_peer", int(m.group(1))
+        return "admin_port", None
+    if any(desc.startswith(prefix) for prefix in CORE_PORT_DESCRIPTION_PREFIXES):
+        return "core_port", None
+    return None, None
 
 
 def update_netbox_interface_description_asn_participant(
