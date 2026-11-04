@@ -1,0 +1,68 @@
+---
+- name: "Static directory for published artefacts"
+  become: true
+  ansible.builtin.file:
+    path: "{{ looking_glass_web_static_directory }}"
+    state: directory
+    owner: sfmix
+    group: sfmix
+    mode: ug=rwx,o=rx
+
+- name: "Create a dhparams file"
+  become: true
+  community.crypto.openssl_dhparam:
+    path: /etc/ssl/certs/dhparam.pem
+    size: 2048
+
+- name: "Firewall: Allow HTTP(S)"
+  become: true
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+  loop:
+    - http
+    - https
+  when: sfmix_server_ufw_enabled | default(false) | bool
+
+- name: "Install certbot (one lineage, all served names)"
+  ansible.builtin.include_role:
+    name: geerlingguy.certbot
+  vars:
+    certbot_admin_email: "{{ ixp_primary_tech_contact_email }}"
+    certbot_create_if_missing: true
+    certbot_create_standalone_stop_services: ["nginx.service"]
+    certbot_certs:
+      - domains: "{{ looking_glass_web_domains }}"
+
+- name: "Install nginx (base config only)"
+  ansible.builtin.include_role:
+    name: geerlingguy.nginx
+  vars:
+    nginx_remove_default_vhost: true
+    nginx_server_tokens: "off"
+    nginx_extra_http_options: |
+      ssl_session_cache shared:SSL:10m;
+      ssl_session_timeout 1h;
+      # An empty key is never counted, so exempt sources skip the zone.
+      geo $lg_limit_exempt {
+          default 0;
+      {% for subnet in looking_glass_web_rate_limit_exempt_subnets %}
+          {{ subnet }} 1;
+      {% endfor %}
+      }
+      map $lg_limit_exempt $lg_limit_key {
+          0 $binary_remote_addr;
+          1 "";
+      }
+      limit_req_zone $lg_limit_key zone=lg_ip:10m rate=5r/s;
+    nginx_vhosts: []
+
+- name: "Template nginx vhosts config"
+  become: true
+  ansible.builtin.template:
+    src: nginx-vhosts.conf.j2
+    dest: /etc/nginx/conf.d/vhosts.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx

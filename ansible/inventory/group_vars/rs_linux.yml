@@ -20,7 +20,7 @@ arouteserver_use_local_files:
 # fabric, untagged here); HTTP/query bound to the mgmt IP so lg-server on alice
 # can poll /neighbors. Fetches the IX IP list from lg-server's RPC over mgmt.
 sfmix_route_server_linux_lg_neighborhood_watch_bind: "10.1.1.18:29185"
-sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://10.2.1.26:9090"
+sfmix_route_server_linux_lg_neighborhood_watch_lg_rpc_url: "http://10.1.1.17:9090"
 # Evidence capture: rolling pcap ring buffer + extracted pcaps under the unit's
 # StateDirectory (/var/lib/lg-neighborhood-watch). Persisted here so deploys keep
 # it enabled (the role default is empty/off).

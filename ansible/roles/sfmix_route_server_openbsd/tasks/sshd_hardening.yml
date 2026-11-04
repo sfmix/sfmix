@@ -1,0 +1,18 @@
+---
+# Key-only SSH on the OpenBSD hosts. OpenBSD's sshd default is
+# PasswordAuthentication yes, so an internet-facing box (lg.sfmix.org until its
+# NIC moves to the mgmt network, design doc 009) collects ~30k failed password
+# guesses a week and trips the SshBruteForce Loki rule. Included standalone via
+# deploy_openbsd_sshd.playbook.yml so it never touches bgpd/rpki config.
+- name: "sshd: disable password and keyboard-interactive authentication"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?{{ item.key }}\\s"
+    line: "{{ item.key }} {{ item.value }}"
+    validate: /usr/sbin/sshd -t -f %s
+  loop:
+    - { key: PasswordAuthentication, value: "no" }
+    - { key: KbdInteractiveAuthentication, value: "no" }
+    - { key: PermitRootLogin, value: "no" }
+  notify: Restart sshd

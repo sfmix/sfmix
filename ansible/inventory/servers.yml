@@ -15,6 +15,7 @@ all:
         rs_openbsd:
         looking_glass:
         looking_glass_rust:
+        looking_glass_web:
         quarantine_looking_glass:
         alice:
         rpki_linux:
@@ -57,9 +58,15 @@ all:
     looking_glass:
       hosts:
         lg.sfmix.org:
+    # lg-ng (lg-server/lg-cli/lg-http). Lives on the public LG VM, design doc 009.
     looking_glass_rust:
       hosts:
-        alice.sfmix.org:
+        lg-web.sfmix.org:
+    # nginx front door for lg.sfmix.org (lg-ng + legacy bgplg/bgplgd proxy +
+    # published participants/summary artefacts).
+    looking_glass_web:
+      hosts:
+        lg-web.sfmix.org:
     quarantine_looking_glass:
       hosts:
         mgmt.quarantine-lg.sfmix.org:
@@ -108,6 +115,7 @@ all:
         netbox.sfo02.sfmix.org:
         metrics.sfo02.sfmix.org:
         alice.sfmix.org:
+        lg-web.sfmix.org:
         librenms.sfmix.org:
         tailscale-sfo02.sfmix.org:
         ns1.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }

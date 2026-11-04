@@ -168,7 +168,7 @@
         tasks_from: publish_as_set.yml
 
 - name: "Looking Glass: Publish Route Server Summary HTML documents"
-  hosts: looking_glass
+  hosts: looking_glass_web
   tags:
     - looking_glass
     - route_servers
@@ -213,17 +213,25 @@
     - netbox_data
     - sfmix_looking_glass
 
-- name: "Looking Glass: Configure OpenBGPD"
-  hosts: looking_glass
+# Public looking-glass front door (design doc 009). lg-ng itself is deployed by
+# deploy_looking_glass_rust.playbook.yml onto the same host.
+- name: "Looking Glass: nginx front door"
+  hosts: looking_glass_web
   tags:
     - looking_glass
-    # FIXME: Migrate usage of participants.json to Alice
-    # Currently used by sfmix.org/participants/
+    - looking_glass_web
+  roles:
+    - looking_glass_web
+
+# participants.json / participants_table.json, served from lg.sfmix.org and
+# used by sfmix.org/participants/, sflow-rt and scripts/participant_speeds.py.
+- name: "Looking Glass: participants.json"
+  hosts: looking_glass_web
+  tags:
+    - looking_glass
     - participants_json
   roles:
     - netbox_data
-    # FIXME: Migrate usage of participants.json to Alice
-    # Currently used by sfmix.org/participants/
     - participants_json
 
 - name: "Alice Looking Glass: Install alice"
@@ -233,14 +241,6 @@
   roles:
     - netbox_data
     - alice
-
-- name: "Alice Looking Glass: participants.json"
-  hosts: alice
-  tags:
-    - participants_json
-  roles:
-    - netbox_data
-    - participants_json
 
 - name: "RPKI Linux"
   hosts: rpki_linux

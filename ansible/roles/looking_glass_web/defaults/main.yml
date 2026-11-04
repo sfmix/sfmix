@@ -1,0 +1,43 @@
+---
+# Public HTTPS front door for the looking glass (design doc 009): nginx on the
+# lg-web VM serving lg-http (REST + MCP) at the root, the legacy bgplg/bgplgd
+# paths proxied to the OpenBSD route collector over the management network, and
+# the static artefacts Ansible publishes (participants*.json, rs-*.summary.html).
+#
+# Hostnames served by the single vhost. The first entry names the certbot
+# lineage (/etc/letsencrypt/live/<first>/). http-01 issuance only works for
+# names whose DNS already points here, so lg / lg-ng join the list at cutover.
+looking_glass_web_domains:
+  - lg-web.sfmix.org
+
+# Where the OpenBSD collector's httpd (bgplgd at /api/, bgplg at /cgi-bin/)
+# is reached. Plain HTTP over the mgmt network; the collector has no public
+# leg after design doc 009 Phase 3.
+looking_glass_web_collector_url: http://mgmt.lg.sfmix.org
+
+# lg-http upstream (roles/looking_glass binds it to 127.0.0.1:8080).
+looking_glass_web_lg_http_upstream: "http://127.0.0.1:{{ looking_glass_http_port | default(8080) }}"
+
+# Static files published by other roles (participants_json, sfmix_arouteserver
+# publish_html_summary) and served verbatim.
+looking_glass_web_static_directory: /var/www/lg-web
+
+# Per-IP request limiting (zone "lg_ip" is 5r/s). The portal fetches several
+# LG endpoints per page render from one address, so a large no-delay burst
+# lets a page's fan-out clear while sustained abuse still caps at 5r/s.
+looking_glass_web_rate_limit_burst: 40
+looking_glass_web_rate_limit_exempt_subnets: >-
+  {{ ixp_admin_source_subnets
+     + (sfmix_host_local_admin_source_subnets | default([], true)) }}
+
+# Bound how long nginx waits on lg-http so a hung backend can't pin
+# connection slots (lg-http's own RPC read timeout is 15s). MCP is SSE and
+# needs a long read timeout.
+looking_glass_web_proxy_connect_timeout: 5s
+looking_glass_web_proxy_read_timeout: 30s
+looking_glass_web_mcp_read_timeout: 1h
+
+looking_glass_web_robots_disallow:
+  - /api/
+  - /cgi-bin/
+  - /mcp

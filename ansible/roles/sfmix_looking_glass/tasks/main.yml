@@ -85,7 +85,7 @@
   notify: Restart httpd
 
 - name: Run acme-client once a day
-  when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_tls
+  when: sfmix_looking_glass_web_enabled
   become: true
   ansible.builtin.cron:
     name: run acme-client
@@ -93,6 +93,7 @@
     minute: "0"
     hour: "2"
     user: root
+    state: "{{ sfmix_looking_glass_web_tls | ternary('present', 'absent') }}"
 
 - name: Make cgi-bins executable
   when: sfmix_looking_glass_web_enabled and sfmix_looking_glass_web_bgplg

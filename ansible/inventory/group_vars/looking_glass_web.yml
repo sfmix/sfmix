@@ -1,0 +1,17 @@
+---
+# lg-web: the public looking-glass VM (design doc 009). Linux, sfo02,
+# public leg on VLAN 101 (192.33.255.8 / 2620:11a:b000::8), mgmt leg
+# 10.1.1.17. Runs lg-ng (group looking_glass_rust) behind the nginx front door
+# of roles/looking_glass_web, which also fronts the OpenBSD route collector
+# (mgmt.lg.sfmix.org) for the legacy bgplg/bgplgd paths.
+sfmix_server_ufw_enabled: true
+
+# Names served. lg.sfmix.org and lg-ng.sfmix.org are added at DNS cutover
+# (http-01 cannot issue for them before the records point here).
+looking_glass_web_domains:
+  - lg-web.sfmix.org
+
+# participants*.json (website, sflow-rt, scripts) and the arouteserver
+# rs-*.summary.html pages are published straight into the nginx static root.
+participants_json_output_directory: "{{ looking_glass_web_static_directory }}"
+sfmix_arouteserver_html_summary_directory: "{{ looking_glass_web_static_directory }}"

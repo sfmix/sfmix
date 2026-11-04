@@ -1,5 +1,7 @@
 ---
-looking_glass_bind_address: "10.2.1.26"
+# lg-cli (telnet/SSH) binds the lg-web mgmt address: admin-reachable over the
+# management network, not exposed on the public leg (unchanged from alice).
+looking_glass_bind_address: "10.1.1.17"
 looking_glass_telnet_enabled: true
 looking_glass_telnet_port: 2023
 looking_glass_device_password: !vault |
@@ -62,7 +64,7 @@ looking_glass_http_bind: "127.0.0.1"
 looking_glass_http_port: 8080
 # Bind RPC to the mgmt IP so internal peers (the lg-neighborhood-watch sensor on
 # rs-linux) can reach it; lg-http/lg-cli derive their rpc_url from this var too.
-looking_glass_rpc_bind: "10.2.1.26:9090"
+looking_glass_rpc_bind: "10.1.1.17:9090"
 # Poll the ARP/NDP sensor on rs-linux (its mgmt IP) for discovered neighbors.
 looking_glass_discovered_sensor_url: "http://10.1.1.18:29185"
 # MAC liveness/staleness window (matches the sensor's sensor_ttl_secs): excludes
