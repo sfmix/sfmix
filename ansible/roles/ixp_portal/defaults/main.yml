@@ -22,7 +22,7 @@ ixp_portal_oidc_provider_url: "https://login.sfmix.org/application/o/portal"
 ixp_portal_netbox_url: "https://netbox.sfmix.org"
 
 # Looking Glass REST API
-ixp_portal_looking_glass_url: "https://lg-ng.sfmix.org"
+ixp_portal_looking_glass_url: "https://lg.sfmix.org"
 
 # Prometheus — time-series backend for participant traffic charts (queried
 # server-side by the portal; never exposed to the browser).

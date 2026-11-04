@@ -231,7 +231,7 @@ pub struct OidcConfig {
     #[serde(default)]
     pub authorization_server: Option<String>,
     /// This server's public base URL, used to construct the resource metadata URL.
-    /// e.g. "https://lg-ng.sfmix.org"
+    /// e.g. "https://lg.sfmix.org"
     /// Used in WWW-Authenticate headers to direct clients to /.well-known/oauth-protected-resource.
     #[serde(default)]
     pub resource_url: Option<String>,

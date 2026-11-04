@@ -103,7 +103,7 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 
 ## MCP Interface
 
-The MCP (Model Context Protocol) endpoint at `/mcp/sse` allows LLM agents and tools (e.g. Windsurf, Claude Desktop) to query the looking glass programmatically.
+The MCP (Model Context Protocol) endpoint at `/mcp` allows LLM agents and tools (e.g. Windsurf, Claude Desktop) to query the looking glass programmatically.
 
 ### Configuration
 
@@ -113,7 +113,7 @@ In your MCP client, add the server URL:
 {
   "mcpServers": {
     "sfmix": {
-      "serverUrl": "https://lg-ng.sfmix.org/mcp/sse"
+      "serverUrl": "https://lg.sfmix.org/mcp"
     }
   }
 }

@@ -22,7 +22,7 @@ pub struct HttpState {
     pub rpc: RpcClient,
     pub oidc_client: Option<OidcClient>,
     pub group_prefix: String,
-    /// This server's public base URL (e.g. "https://lg-ng.sfmix.org").
+    /// This server's public base URL (e.g. "https://lg.sfmix.org").
     pub resource_url: Option<String>,
     /// OAuth2 authorization endpoint (Authentik's authorize URL).
     pub authorization_endpoint: Option<String>,
