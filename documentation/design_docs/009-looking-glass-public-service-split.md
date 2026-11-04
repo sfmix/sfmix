@@ -247,8 +247,12 @@ touched and the down/up bracket is the same either way.
   `lg.sfmix.org/mcp` failed with "Protected resource https://lg-ng.sfmix.org does not match
   expected https://lg.sfmix.org". The authentik provider only allows loopback redirect URIs, so
   nothing changed there; `terraform/authentik` `meta_launch_url` now says `lg.sfmix.org` but has
-  not been applied (cosmetic). MCP clients should use `https://lg.sfmix.org/mcp`; `lg-ng` remains
-  an HTTP alias but no longer matches the advertised resource.
+  not been applied (cosmetic). MCP clients should use `https://lg.sfmix.org/mcp`. Because lg-http
+  derives the `resource` field from the Host header, and Claude Code remembers the
+  resource-metadata URL from its first 401 (which pointed at `lg-ng`), nginx now answers
+  `lg-ng.sfmix.org` with a 308 to `lg.sfmix.org` (`looking_glass_web_redirect_domains`), so any
+  remembered alias URL resolves to the canonical resource. `sfmix.org` links to `lg.sfmix.org`
+  from the Services menu and the statistics page.
 - **OpenBGPD backend in lg-server** talking to bgplgd over mgmt, replacing the nginx compat
   proxy.
 - **Summary page (done 2026-11-04).** `/` on lg.sfmix.org is a static page from the role
