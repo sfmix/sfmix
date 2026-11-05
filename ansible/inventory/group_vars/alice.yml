@@ -14,10 +14,11 @@ postgresql_users:
   - name: alice
     password: "{{ alice_postgresql_password }}"
 
-# FIXME: Remove these overrides once these PRs land:
-## https://github.com/alice-lg/alice-lg/pull/141
-## https://github.com/alice-lg/alice-lg/pull/143
-alice_git_repo_version: "jof/sfmix"
+# FIXME: Remove these overrides once this PR lands:
+## https://github.com/alice-lg/alice-lg/pull/143 (per-source hidden_neighbors)
+# jof/sfmix-2026-11 = upstream main@0cb142c + hidden neighbors + ext-comm error
+# messages. Previous build (jof/sfmix, 2024) stays tagged on the host for rollback.
+alice_git_repo_version: "jof/sfmix-2026-11"
 alice_git_repo_url: "https://github.com/jof/alice-lg.git"
 
 alice_theme_repo_url: https://github.com/sfmix/alice-theme
