@@ -548,12 +548,20 @@ img { max-width: 100%; height: auto; }
   gap: 1.25rem;
   margin: 1.75rem 0 2rem;
 }
+/* Icon, title and arrow share the top row; the description gets the card's
+   full width underneath, so three-across cards (~300px) don't squeeze the
+   text into a one-word-per-line column between the icon and the arrow. */
 .stat-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "icon title arrow"
+    "desc desc  desc";
   align-items: center;
-  gap: 1.25rem;
+  align-content: start;
+  gap: 0.6rem 0.9rem;
   min-height: 96px;
-  padding: 1.5rem 1.75rem;
+  padding: 1.35rem 1.5rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-left: 4px solid var(--color-accent);
@@ -572,30 +580,28 @@ img { max-width: 100%; height: auto; }
   box-shadow: 0 8px 24px var(--color-shadow-tint-strong);
 }
 .stat-card-icon {
-  flex: 0 0 auto;
-  font-size: 2.25rem;
+  grid-area: icon;
+  font-size: 2rem;
   line-height: 1;
 }
-.stat-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  min-width: 0;
-}
+.stat-card-body { display: contents; }
 .stat-card-title {
+  grid-area: title;
+  min-width: 0;
+  line-height: 1.25;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--color-heading);
   letter-spacing: 0.01em;
 }
 .stat-card-desc {
+  grid-area: desc;
   font-size: 0.92rem;
   color: var(--color-text-light);
   line-height: 1.4;
 }
 .stat-card-arrow {
-  flex: 0 0 auto;
-  margin-left: auto;
+  grid-area: arrow;
   font-size: 1.5rem;
   color: var(--color-accent);
   transition: transform 0.15s;
@@ -605,8 +611,8 @@ img { max-width: 100%; height: auto; }
   transform: translateX(4px);
 }
 @media (max-width: 480px) {
-  .stat-card { padding: 1.25rem 1.35rem; gap: 1rem; }
-  .stat-card-icon { font-size: 1.9rem; }
+  .stat-card { padding: 1.15rem 1.25rem; }
+  .stat-card-icon { font-size: 1.75rem; }
   .stat-card-title { font-size: 1.1rem; }
 }
 
