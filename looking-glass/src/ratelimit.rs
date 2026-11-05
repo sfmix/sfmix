@@ -255,7 +255,7 @@ pub enum DeviceRateLimitError {
 
 /// Tracks active frontend connections and enforces global and per-source limits.
 ///
-/// Used by telnet, SSH, and MCP frontends to reject connections before they
+/// Used by the telnet and SSH frontends to reject connections before they
 /// consume backend resources.
 pub struct ConnectionTracker {
     /// Global max connections semaphore
