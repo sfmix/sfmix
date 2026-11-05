@@ -338,10 +338,10 @@ impl LookingGlass {
                 .target
                 .as_deref()
                 .ok_or_else(|| Error::BadRequest("destination required".to_string()))?;
-            let permit = crate::backend::local::try_acquire_traceroute_slot().ok_or_else(|| {
-                Error::RateLimited("too many traceroutes in progress, try again shortly".to_string())
+            let permit = crate::backend::local::try_acquire_slot().ok_or_else(|| {
+                Error::RateLimited("too many pings/traceroutes in progress, try again shortly".to_string())
             })?;
-            let rx = crate::backend::local::traceroute_stream(target, permit)
+            let rx = crate::backend::local::stream(command.verb, target, permit)
                 .map_err(|e| Error::DeviceError(e.to_string()))?;
             return Ok(vec![DeviceResult {
                 device: crate::backend::local::LOCAL_DEVICE_NAME.to_string(),

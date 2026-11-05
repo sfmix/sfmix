@@ -136,9 +136,9 @@ impl Command {
     }
 
     /// Whether this command runs once on the looking-glass host instead of on
-    /// devices. Traceroute does, unless a specific `@device` was requested.
+    /// devices. Ping and traceroute do, unless a specific `@device` was requested.
     pub fn runs_on_lg_host(&self) -> bool {
-        self.verb == Verb::Traceroute
+        matches!(self.verb, Verb::Ping | Verb::Traceroute)
             && self.resource == Resource::NetworkReachability
             && self.device.is_none()
     }

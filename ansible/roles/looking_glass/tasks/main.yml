@@ -78,10 +78,10 @@
     - Restart lg-cli
     - Restart lg-http
 
-- name: Install traceroute (lg-server runs traceroute locally)
+- name: Install ping and traceroute (lg-server runs them locally)
   become: true
   ansible.builtin.apt:
-    name: traceroute
+    name: [iputils-ping, traceroute]
     state: present
 
 # ── Binaries ──────────────────────────────────────────────────────────
