@@ -1,4 +1,9 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
+
+use crate::ratelimit::ConnectionTracker;
 
 use crate::command::{ParseError, Resource};
 use crate::format::ColorMode;
@@ -21,6 +26,154 @@ pub fn idle_disconnect_notice(timeout: std::time::Duration) -> String {
         format!("{secs}s")
     };
     format!("\n\nIdle timeout ({human} without input) \u{2014} disconnecting.\n")
+}
+
+/// `idle_timeout_secs` as an optional Duration (0 = disabled).
+pub fn idle_timeout_from_secs(secs: u64) -> Option<std::time::Duration> {
+    (secs > 0).then(|| std::time::Duration::from_secs(secs))
+}
+
+/// User-idle tracking for an interactive SSH shell.
+///
+/// russh's own `inactivity_timeout` resets on *any* client packet (including
+/// ServerAliveInterval keepalives), so it can't see an idle user. This tracks
+/// keystrokes instead; time spent running a command (`set_busy`) or waiting on
+/// an OIDC login doesn't count. The watchdog task is aborted on drop.
+pub struct IdleWatch {
+    last_input: Arc<Mutex<tokio::time::Instant>>,
+    busy: Arc<AtomicBool>,
+    task: Option<tokio::task::AbortHandle>,
+}
+
+impl Default for IdleWatch {
+    fn default() -> Self {
+        Self {
+            last_input: Arc::new(Mutex::new(tokio::time::Instant::now())),
+            busy: Arc::new(AtomicBool::new(false)),
+            task: None,
+        }
+    }
+}
+
+impl Drop for IdleWatch {
+    fn drop(&mut self) {
+        if let Some(t) = &self.task {
+            t.abort();
+        }
+    }
+}
+
+impl IdleWatch {
+    /// Record user input (or the end of a command).
+    pub fn touch(&self) {
+        *self.last_input.lock().unwrap() = tokio::time::Instant::now();
+    }
+
+    /// Mark a command as running (true) or finished (false; also touches).
+    pub fn set_busy(&self, busy: bool) {
+        if !busy {
+            self.touch();
+        }
+        self.busy.store(busy, Ordering::SeqCst);
+    }
+
+    /// Start the watchdog: after `idle` without input, print a notice on
+    /// `channel` and disconnect the session.
+    pub fn start(
+        &mut self,
+        handle: russh::server::Handle,
+        channel: russh::ChannelId,
+        idle: std::time::Duration,
+        login_in_progress: Arc<AtomicBool>,
+    ) {
+        self.touch();
+        let last_input = self.last_input.clone();
+        let busy = self.busy.clone();
+        let task = tokio::spawn(async move {
+            loop {
+                let deadline = *last_input.lock().unwrap() + idle;
+                tokio::time::sleep_until(deadline).await;
+                let now = tokio::time::Instant::now();
+                if busy.load(Ordering::SeqCst) || login_in_progress.load(Ordering::SeqCst) {
+                    *last_input.lock().unwrap() = now;
+                    continue;
+                }
+                if *last_input.lock().unwrap() + idle > now {
+                    continue; // input arrived while we slept
+                }
+                tracing::info!(idle_secs = idle.as_secs(), "SSH session idle timeout");
+                let notice = idle_disconnect_notice(idle).replace('\n', "\r\n");
+                let _ = handle.data(channel, notice.into_bytes()).await;
+                let _ = handle
+                    .disconnect(
+                        russh::Disconnect::ByApplication,
+                        "idle timeout".into(),
+                        "en".into(),
+                    )
+                    .await;
+                return;
+            }
+        });
+        if let Some(old) = self.task.replace(task.abort_handle()) {
+            old.abort();
+        }
+    }
+}
+
+/// russh server config's transport `inactivity_timeout`: a backstop for dead
+/// connections, a minute past the user-idle timeout so the watchdog's notice
+/// wins the race.
+pub fn ssh_inactivity_timeout(idle: Option<std::time::Duration>) -> Option<std::time::Duration> {
+    idle.map(|d| d + std::time::Duration::from_secs(60))
+}
+
+/// Accept SSH connections, enforcing `tracker`'s connection limits before the
+/// handshake (russh's `run_on_socket` has no admission hook).
+pub async fn serve_ssh_with_limits<S>(
+    listener: tokio::net::TcpListener,
+    config: Arc<russh::server::Config>,
+    tracker: &ConnectionTracker,
+    server_impl: &mut S,
+) -> Result<()>
+where
+    S: russh::server::Server,
+    S::Handler: Send + 'static,
+    <S::Handler as russh::server::Handler>::Error: std::fmt::Debug,
+{
+    use tokio::io::AsyncWriteExt;
+    loop {
+        let (mut socket, addr) = match listener.accept().await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(error = %e, "SSH accept failed");
+                continue;
+            }
+        };
+        let source_key = crate::ratelimit::ip_to_rate_key(addr.ip());
+        let conn_guard = match tracker.try_admit(&source_key) {
+            Ok(guard) => guard,
+            Err(e) => {
+                tracing::warn!("SSH connection rejected from {}: {}", addr, e);
+                // Pre-version-exchange text is permitted by RFC 4253 §4.2;
+                // `ssh -v` shows it.
+                let _ = socket.write_all(format!("{e}\r\n").as_bytes()).await;
+                continue;
+            }
+        };
+        let config = config.clone();
+        let handler = server_impl.new_client(Some(addr));
+        tokio::spawn(async move {
+            let _conn_guard = conn_guard;
+            match russh::server::run_stream(config, socket, handler).await {
+                Ok(session) => {
+                    if let Err(e) = session.await {
+                        tracing::debug!("SSH session from {} ended with error: {:?}", addr, e);
+                    }
+                }
+                Err(e) => tracing::debug!("SSH connection setup from {} failed: {:?}", addr, e),
+            }
+        });
+    }
 }
 
 pub const HELP_TEXT: &str = "\

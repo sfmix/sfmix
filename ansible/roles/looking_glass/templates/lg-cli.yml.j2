@@ -23,6 +23,13 @@ ssh:
 {% endif %}
 {% endif %}
 
+# Per-source fairness for telnet/SSH (sources grouped by /24 or /56) and
+# disconnect after idle_timeout_secs without keystrokes (0 = never).
+frontend_limits:
+  idle_timeout_secs: {{ looking_glass_cli_idle_timeout_secs }}
+  max_connections: {{ looking_glass_cli_max_connections }}
+  max_connections_per_source: {{ looking_glass_cli_max_connections_per_source }}
+
 {% if looking_glass_oidc_enabled %}
 auth:
   oidc:
