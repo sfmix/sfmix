@@ -36,6 +36,23 @@
     group: www-data
     mode: "0644"
 
+# The sfmix.org header/footer on the landing page uses the website's own
+# logo, favicons and Inter font, copied straight from website/static.
+- name: Place sfmix.org brand assets
+  become: true
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../website/static/{{ item }}"
+    dest: /var/www/snappy/static/
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  loop:
+    - img/sfmix-logo-large.png
+    - img/favicon-32x32.png
+    - img/apple-touch-icon.png
+    - fonts/inter-latin.woff2
+    - fonts/inter-latin-ext.woff2
+
 - name: Place landing page
   become: true
   ansible.builtin.template:
