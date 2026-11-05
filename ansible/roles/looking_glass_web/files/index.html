@@ -233,7 +233,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .state .lamp { width: 14px; height: 14px; font-size: 9px; }
 .state.idle { color: var(--state-idle-ink); }
 
-/* Peer with the looking glass */
+/* Peer with the looking glass: an expandable panel above the tools */
+.peer-panel { margin-bottom: 1.5rem; background: var(--color-surface); border: 1px solid var(--color-border); border-left: 4px solid var(--color-accent); border-radius: 8px; }
+.peer-panel > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 1rem; padding: 0.7rem 1rem; cursor: pointer; list-style: none; }
+.peer-panel > summary::-webkit-details-marker { display: none; }
+.peer-panel > summary::before { content: "▸"; color: var(--color-accent); display: inline-block; width: 0.8em; margin-right: -0.6rem; transition: transform 0.15s; }
+.peer-panel[open] > summary::before { transform: rotate(90deg); }
+.peer-panel[open] > summary { border-bottom: 1px solid var(--color-border); }
+.peer-panel > summary:hover .peer-title { color: var(--color-accent); }
+.peer-title { font-weight: 600; color: var(--color-heading); }
+.peer-sum { color: var(--color-text-light); font-size: 0.85rem; }
+.peer-panel .peer { padding: 1rem 1rem 0.25rem; }
 .peer { display: grid; grid-template-columns: 1fr; gap: 1rem 2.5rem; }
 @media (min-width: 820px) { .peer { grid-template-columns: 3fr 2fr; } }
 .peer ul { margin: 0 0 1rem 1.25rem; }
@@ -358,6 +368,35 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   <div class="content">
     <div class="container">
+      <!-- Collapsed by default: the BGP details stay one click away at the top,
+           and the summary line already carries the addresses. -->
+      <details class="peer-panel" id="peer">
+        <summary><span class="peer-title" data-t>Peer with the looking glass</span><span class="peer-sum mono">AS 12276 · 206.197.187.1 · 2001:504:30::ba01:2276:1</span></summary>
+          <div class="peer">
+            <div>
+              <p data-t>Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:</p>
+              <ul>
+                <li data-t>validate your router configuration when you first connect</li>
+                <li data-t>test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you</li>
+                <li data-t>see which prefixes are present at the exchange</li>
+                <li data-t>give SFMIX operators a quick reachability check</li>
+              </ul>
+              <p data-t-html="peer.quarantine"><strong>Quarantine VLAN.</strong> A parallel looking glass runs on the quarantine VLAN with the same addresses as production, so new participants can test their Ethernet, IP and BGP configuration before joining the production peering LAN. See the <a href="https://sfmix.org/connection-guide/" data-sfmix="/connection-guide/">connection guide</a>.</p>
+            </div>
+            <div>
+              <table>
+                <thead><tr><th colspan="2" data-t>BGP session</th></tr></thead>
+                <tbody>
+                  <tr><td>ASN</td><td class="mono">12276</td></tr>
+                  <tr><td>IPv4</td><td class="mono">206.197.187.1</td></tr>
+                  <tr><td>IPv6</td><td class="mono">2001:504:30::ba01:2276:1</td></tr>
+                  <tr><td data-t>Software</td><td>OpenBGPD</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+      </details>
+
       <section id="tools" aria-labelledby="tools-h">
         <h2 id="tools-h" data-t>Tools</h2>
         <div class="tools">
@@ -444,33 +483,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
             </thead>
             <tbody></tbody>
           </table>
-        </div>
-      </section>
-
-      <section id="peer" aria-labelledby="peer-h">
-        <h2 id="peer-h" data-t>Peer with the looking glass</h2>
-        <div class="peer">
-          <div>
-            <p data-t>Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:</p>
-            <ul>
-              <li data-t>validate your router configuration when you first connect</li>
-              <li data-t>test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you</li>
-              <li data-t>see which prefixes are present at the exchange</li>
-              <li data-t>give SFMIX operators a quick reachability check</li>
-            </ul>
-            <p data-t-html="peer.quarantine"><strong>Quarantine VLAN.</strong> A parallel looking glass runs on the quarantine VLAN with the same addresses as production, so new participants can test their Ethernet, IP and BGP configuration before joining the production peering LAN. See the <a href="https://sfmix.org/connection-guide/" data-sfmix="/connection-guide/">connection guide</a>.</p>
-          </div>
-          <div>
-            <table>
-              <thead><tr><th colspan="2" data-t>BGP session</th></tr></thead>
-              <tbody>
-                <tr><td>ASN</td><td class="mono">12276</td></tr>
-                <tr><td>IPv4</td><td class="mono">206.197.187.1</td></tr>
-                <tr><td>IPv6</td><td class="mono">2001:504:30::ba01:2276:1</td></tr>
-                <tr><td data-t>Software</td><td>OpenBGPD</td></tr>
-              </tbody>
-            </table>
-          </div>
         </div>
       </section>
     </div>
@@ -1141,6 +1153,8 @@ var LANGS = [
   setView(pickView());
   window.addEventListener('hashchange', function () { var h = location.hash.replace('#', ''); if (h === 'table' || h === 'board') setView(h); });
   window.addEventListener('resize', function () { if (rows.length) render(); });
+  function openPeer() { if (location.hash === '#peer') $('#peer').open = true; }
+  openPeer(); window.addEventListener('hashchange', openPeer);
 
   applyLang(pickLang());
   getJSON('/api/v1/participants').then(function (list) {
