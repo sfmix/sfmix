@@ -70,12 +70,17 @@ impl client::Handler for ClientHandler {
 
     async fn check_server_key(
         &mut self,
-        server_public_key: &russh::keys::PublicKey,
+        server_key: &russh::keys::PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
         match &self.expected_fingerprint {
             Some(expected) => {
+                // Pin against the underlying host key (a host cert's inner key).
+                let key_data = match server_key {
+                    russh::keys::PublicKeyOrCertificate::PublicKey { key, .. } => key.key_data(),
+                    russh::keys::PublicKeyOrCertificate::Certificate(cert) => cert.public_key(),
+                };
                 // Compute SHA-256 fingerprint; Display impl gives "SHA256:base64..."
-                let actual = server_public_key
+                let actual = key_data
                     .fingerprint(russh::keys::HashAlg::Sha256)
                     .to_string();
                 if actual == *expected {

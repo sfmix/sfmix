@@ -21,7 +21,7 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
-russh = "0.62"
+russh = "0.65"
 rand = "0.10"
 # Pager (see src/pager.rs): ratatui renders into a byte buffer that the SSH /
 # telnet session forwards, ansi-to-tui lifts the colored table output into

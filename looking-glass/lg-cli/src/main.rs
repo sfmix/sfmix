@@ -5,9 +5,9 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use clap::Parser;
-use russh::server::{self, Auth, ChannelOpenHandle, Msg, Session};
+use russh::server::{self, Auth, ChannelOpenHandle, Msg, PublicKeyOffer, Session, VerifiedPublicKey};
 use russh::{Channel, ChannelId, MethodKind};
-use russh::keys::{Certificate, PublicKey};
+use russh::keys::Certificate;
 use russh::keys::ssh_key::{self, Fingerprint, HashAlg};
 use tracing::{debug, info, warn};
 
@@ -682,7 +682,7 @@ impl server::Handler for SshSessionHandler {
     async fn auth_publickey_offered(
         &mut self,
         _user: &str,
-        public_key: &PublicKey,
+        offer: PublicKeyOffer<'_>,
     ) -> Result<Auth, Self::Error> {
         // Only a looking-glass cert authenticates here, and LG certs always wrap an
         // ephemeral Ed25519 key (see inject_agent_cert). The authoritative decision
@@ -691,7 +691,7 @@ impl server::Handler for SshSessionHandler {
         // algorithm can't be an LG cert before the client signs (and, for sk-* keys,
         // before it prompts for a hardware touch). Plain Ed25519 keys still proceed
         // and are rejected in auth_publickey.
-        if matches!(public_key.algorithm(), ssh_key::Algorithm::Ed25519) {
+        if matches!(offer.public_key.algorithm(), ssh_key::Algorithm::Ed25519) {
             Ok(Auth::Accept)
         } else {
             Ok(Auth::Reject {
@@ -704,7 +704,7 @@ impl server::Handler for SshSessionHandler {
     async fn auth_publickey(
         &mut self,
         user: &str,
-        _public_key: &PublicKey,
+        _public_key: VerifiedPublicKey<'_>,
     ) -> Result<Auth, Self::Error> {
         // Plain public keys never authenticate — only a looking-glass cert does.
         // Reject and keep offering publickey + keyboard-interactive so the client
