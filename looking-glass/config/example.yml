@@ -116,7 +116,7 @@ rate_limits:
 # Frontend limits — connection-level protection
 # ---------------------------------------------------------------------------
 # Protects the looking glass itself from connection floods.
-# Applied to telnet, SSH, and MCP frontends.
+# Applied to the telnet and SSH frontends (MCP/HTTP is not connection-limited here).
 #
 # frontend_limits:
 #   idle_timeout_secs: 300          # disconnect interactive telnet/SSH sessions after this

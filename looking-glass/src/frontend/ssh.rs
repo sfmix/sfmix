@@ -105,8 +105,47 @@ impl SshFrontend {
             oidc_client: self.oidc_client.clone(),
             cert_lifetime_secs: self.cert_lifetime_secs,
         };
-        server_impl.run_on_socket(self.config.clone(), &listener).await?;
-        Ok(())
+
+        // Own accept loop (rather than russh's run_on_socket) so connection
+        // limits are enforced before the handshake, same as telnet.
+        loop {
+            let (mut socket, addr) = match listener.accept().await {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!(error = %e, "SSH accept failed");
+                    continue;
+                }
+            };
+            let source_key = crate::ratelimit::ip_to_rate_key(addr.ip());
+            let conn_guard = match self.lg.connection_tracker.try_admit(&source_key) {
+                Ok(guard) => guard,
+                Err(e) => {
+                    warn!("SSH connection rejected from {}: {}", addr, e);
+                    // Pre-version-exchange text is permitted by RFC 4253 §4.2;
+                    // `ssh -v` shows it.
+                    let _ = tokio::io::AsyncWriteExt::write_all(
+                        &mut socket,
+                        format!("{e}\r\n").as_bytes(),
+                    )
+                    .await;
+                    continue;
+                }
+            };
+
+            let config = self.config.clone();
+            let handler = server_impl.new_client(Some(addr));
+            tokio::spawn(async move {
+                let _conn_guard = conn_guard;
+                match server::run_stream(config, socket, handler).await {
+                    Ok(session) => {
+                        if let Err(e) = session.await {
+                            debug!(error = %e, "SSH session from {} ended with error", addr);
+                        }
+                    }
+                    Err(e) => debug!(error = %e, "SSH connection setup from {} failed", addr),
+                }
+            });
+        }
     }
 }
 
