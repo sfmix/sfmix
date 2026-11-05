@@ -1,0 +1,21 @@
+{% comment %}Context: flow (analysis.sankey output), caption.{% endcomment %}
+<figure class="sankey">
+  <svg viewBox="-170 -6 {{ flow.width|add:430 }} {{ flow.height|add:12 }}" role="img" aria-label="{{ caption }}">
+    <g class="links">
+      {% for l in flow.links %}
+        <path d="{{ l.d }}" stroke-width="{{ l.w }}" style="stroke: {{ l.color|default:'var(--line-strong)' }}"><title>{{ l.src|cut:"c::"|cut:"o::"|cut:"d::"|cut:"k::" }} → {{ l.dst|cut:"d::"|cut:"k::" }}</title></path>
+      {% endfor %}
+    </g>
+    <g class="nodes">
+      {% for n in flow.nodes %}
+        <rect x="{{ n.x }}" y="{{ n.y }}" width="{{ flow.node_w }}" height="{{ n.h }}" rx="2" style="fill: {{ n.color|default:'var(--ink-soft)' }}"></rect>
+        {% if n.id|slice:":3" == "d::" %}
+          <a href="/device/{{ n.label }}/"><text x="{{ n.lx }}" y="{{ n.ly }}" text-anchor="{{ n.anchor }}" dominant-baseline="middle" class="mono">{{ n.label }}</text></a>
+        {% else %}
+          <text x="{{ n.lx }}" y="{{ n.ly }}" text-anchor="{{ n.anchor }}" dominant-baseline="middle">{{ n.label }}</text>
+        {% endif %}
+      {% endfor %}
+    </g>
+  </svg>
+  {% if caption %}<figcaption class="muted small">{{ caption }}</figcaption>{% endif %}
+</figure>

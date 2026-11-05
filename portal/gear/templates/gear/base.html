@@ -1,0 +1,54 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Peering Gear{% endblock %} · SFMIX</title>
+  <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+  <meta name="color-scheme" content="light dark">
+  <script>
+  /* Shared sfmix-theme cookie (Domain=sfmix.org): same pick as sfmix.org, portal, lg. */
+  (function () {
+    var html = document.documentElement;
+    function sys() { try { return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch (e) { return "light"; } }
+    function cookie() { var m = document.cookie.match(/(?:^|;\s*)sfmix-theme=(dark|light)(?:;|$)/); return m ? m[1] : null; }
+    html.setAttribute("data-theme", cookie() || sys());
+    window.toggleTheme = function () {
+      var next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      var dom = /(^|\.)sfmix\.org$/.test(location.hostname) ? "; domain=sfmix.org" : "";
+      document.cookie = "sfmix-theme=" + next + dom + "; path=/; max-age=31536000; samesite=lax" + (location.protocol === "https:" ? "; secure" : "");
+      html.setAttribute("data-theme", next);
+    };
+  })();
+  </script>
+  <link rel="stylesheet" href="{% static 'gear/gear.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><b>SFMIX</b> Peering Gear</span>
+      </a>
+      <nav class="nav">
+        <a href="/" {% if nav == "fleet" %}aria-current="page"{% endif %}>Fleet</a>
+        <a href="/needs/" {% if nav == "needs" %}aria-current="page"{% endif %}>Where donations could go</a>
+        <a href="/donations/" {% if nav == "donations" %}aria-current="page"{% endif %}>Donations</a>
+      </nav>
+      <div class="topbar-right">
+        <button class="icon-btn" type="button" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
+        {% if user.is_authenticated %}<a class="muted small" href="/logout/?next=/">Sign out</a>{% endif %}
+      </div>
+    </div>
+  </header>
+  <div class="preview-banner"><div class="wrap">Admin preview — visible to IX Administrators only while we build this up. Data: NetBox, fed by <code>scripts/hardware_inventory.py</code>.</div></div>
+  <main class="wrap">
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="wrap footer muted small">
+    SFMIX is a volunteer-run, non-profit internet exchange. Hardware donations keep it running.
+    <form method="post" action="/refresh/" class="inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="link-btn" type="submit">Refresh from NetBox</button></form>
+  </footer>
+</body>
+</html>

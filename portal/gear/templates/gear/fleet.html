@@ -1,0 +1,102 @@
+{% extends "gear/base.html" %}
+{% block title %}Fleet{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">The hardware that moves the Bay Area's peering traffic</p>
+  <h1>{{ stats.devices }} machines, {{ stats.parts }} parts, <span class="hl">{{ stats.spares }} spares</span>.</h1>
+  <p class="lede">
+    SFMIX runs on donated and second-hand hardware. Half of it is
+    {% if stats.median_age %}<b>{{ stats.median_age|floatformat:0 }}+ years old</b>{% else %}aging{% endif %}{% if stats.oldest %}, the oldest a {{ stats.oldest.model }} built in {{ stats.oldest.built_year }}{% endif %}.
+    Here's every chassis, slot and pluggable — and where a donation would make the biggest difference.
+  </p>
+  <div class="stat-row">
+    <div class="stat"><b>{{ stats.devices }}</b><span>chassis in service</span></div>
+    <div class="stat"><b>{{ stats.median_age|floatformat:0|default:"–" }}<small>y</small></b><span>median age</span></div>
+    <div class="stat warn"><b>{{ stats.critical }}</b><span>parts at end of life</span></div>
+    <div class="stat"><b>{{ stats.worn }}</b><span>parts aging / worn</span></div>
+    <div class="stat accent"><b>{{ stats.empty }}</b><span>empty slots</span></div>
+    {% if stats.mem_max_gb %}<div class="stat"><b>{{ stats.mem_installed_gb }}<small> / {{ stats.mem_max_gb }} GB</small></b><span>hypervisor RAM filled</span></div>{% endif %}
+    <div class="stat bad"><b>{{ stats.spares }}</b><span>spares on hand</span></div>
+  </div>
+</section>
+
+{% if need_summary %}
+<section class="section">
+  <div class="section-head">
+    <h2>Where a donation would go</h2>
+    <a href="/needs/" class="more">All needs →</a>
+  </div>
+  <div class="cat-grid">
+    {% for c in need_summary %}
+      <a class="cat cat-{{ c.category }}" href="/needs/#{{ c.category }}">
+        <span class="sev sev-{{ c.severity }}">{{ c.severity_label }}</span>
+        <h3>{{ c.label }}</h3>
+        <p><b>{{ c.units }}</b> part{{ c.units|pluralize }} across {{ c.devices }} device{{ c.devices|pluralize }}</p>
+      </a>
+    {% endfor %}
+  </div>
+  {% if flow %}{% include "gear/_sankey.html" with flow=flow caption="Need → device, weighted by urgency. Empty optic cages left out here; see all needs." %}{% endif %}
+</section>
+{% endif %}
+
+{% if top_needs %}
+<section class="section">
+  <h2>Most urgent</h2>
+  <ul class="need-list">
+    {% for n in top_needs %}
+      <li class="need need-{{ n.severity }}">
+        <span class="sev sev-{{ n.severity }}">{{ n.severity_label }}</span>
+        <a class="mono dev" href="/device/{{ n.device }}/">{{ n.device }}</a>
+        <b>{{ n.title }}</b>
+        <span class="muted">{{ n.detail }}</span>
+        <span class="suggest">→ {{ n.suggestion }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% for group in roles %}
+<section class="section">
+  <h2>{{ group.label }}</h2>
+  <div class="dev-grid">
+    {% for d in group.devices %}
+      <a class="dev-card worst-{{ d.worst }}" href="/device/{{ d.name }}/">
+        <div class="dev-top">
+          <span class="mono name">{{ d.name }}</span>
+          {% if d.age_years is not None %}<span class="age{% if d.age_years >= 6 %} old{% endif %}" title="{% if d.age_basis == 'built' %}built {{ d.built|date:'M Y' }}{% else %}platform from {{ d.built_year }} ({{ d.age_basis }}){% endif %}">{% if d.age_basis != 'built' %}~{% endif %}{{ d.age_years|floatformat:0 }}y</span>{% endif %}
+        </div>
+        <div class="dev-model">{{ d.manufacturer }} {{ d.model }} <span class="muted">· {{ d.site }}</span></div>
+        {% if d.memory %}
+          <div class="mem" title="{{ d.memory.installed_gb }} GB of {{ d.memory.max_gb }} GB possible">
+            <div class="meter mem-meter"><i style="width: {{ d.memory.pct|default:0 }}%"></i></div>
+            <span class="small">RAM {{ d.memory.installed_gb }} GB{% if d.memory.max_gb %} / {{ d.memory.max_gb }} GB{% endif %} · {{ d.memory.filled }}/{{ d.memory.slots }} DIMMs</span>
+          </div>
+        {% endif %}
+        <div class="strips">
+          {% for g in d.groups %}
+            <div class="strip" title="{{ g.label }}: {{ g.filled }}/{{ g.total }} populated">
+              <span class="strip-label">{{ g.label }}</span>
+              <span class="pips">{% for s in g.slots %}<i class="pip st-{{ s.state }}{% if s.donated %} donated{% endif %}"></i>{% endfor %}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </a>
+    {% empty %}
+    {% endfor %}
+  </div>
+</section>
+{% empty %}
+<section class="section"><p class="muted">No hardware in NetBox yet — run <code>scripts/hardware_inventory.py</code>.</p></section>
+{% endfor %}
+
+<section class="section legend">
+  <span><i class="pip st-ok"></i> healthy</span>
+  <span><i class="pip st-aging"></i> aging (6y+ / 5y powered on)</span>
+  <span><i class="pip st-worn"></i> worn (≥50% endurance / 7y on)</span>
+  <span><i class="pip st-critical"></i> end of life / failed</span>
+  <span><i class="pip st-empty"></i> empty — could take a donation</span>
+  <span><i class="pip st-wished"></i> wanted (planned in NetBox)</span>
+  <span><i class="pip st-ok donated"></i> donated</span>
+</section>
+{% endblock %}

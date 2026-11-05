@@ -39,6 +39,17 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 LG_USE_FIXTURES = DEBUG and os.environ.get("LG_USE_FIXTURES", "false").lower() in ("true", "1", "yes")
 DEV_LOGIN_ENABLED = DEBUG and os.environ.get("DEV_LOGIN", "true").lower() in ("true", "1", "yes")
 
+# ── peering-gear.sfmix.org (gear app) ──
+# Hosts served with gear.urls instead of the portal's URLconf (see
+# gear/middleware.py). In dev, `gear.localhost:8000` resolves to loopback in
+# browsers, so it's included by default when DEBUG.
+GEAR_HOSTS = [h for h in os.environ.get(
+    "GEAR_HOSTS", "peering-gear.sfmix.org" + (",gear.localhost" if DEBUG else "")
+).split(",") if h]
+GEAR_DEVICE_ROLES = os.environ.get("GEAR_DEVICE_ROLES", "peering_switch,edge-router,vm-hypervisor").split(",")
+# DEBUG-only: read gear/devmock/fleet.json (serial-scrubbed) instead of NetBox.
+GEAR_USE_FIXTURES = DEBUG and os.environ.get("GEAR_USE_FIXTURES", "false").lower() in ("true", "1", "yes")
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -48,6 +59,7 @@ INSTALLED_APPS = [
     "django_q",
     "dashboard.apps.DashboardConfig",
     "mapbuild.apps.MapbuildConfig",
+    "gear.apps.GearConfig",
 ]
 
 MIDDLEWARE = [
@@ -59,6 +71,9 @@ MIDDLEWARE = [
     # active language per request from the django_language cookie → session →
     # Accept-Language header → LANGUAGE_CODE.
     "django.middleware.locale.LocaleMiddleware",
+    # Host-routes peering-gear.sfmix.org to gear.urls; before CommonMiddleware
+    # so APPEND_SLASH resolves against the right URLconf.
+    "gear.middleware.GearHostMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

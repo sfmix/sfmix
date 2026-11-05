@@ -140,10 +140,24 @@ resource "authentik_provider_oauth2" "portal" {
       url               = "https://portal\\.sfmix\\.org/.*"
       redirect_uri_type = "logout"
     },
+    # peering-gear.sfmix.org is the portal's `gear` app on the same Django
+    # project, so it shares this client (and its groups claim / IX Administrators
+    # gating); it just signs in and out on its own origin. Kept with the other
+    # logout entry (logout-first ordering, see above).
+    {
+      matching_mode     = "regex"
+      url               = "https://peering-gear\\.sfmix\\.org/.*"
+      redirect_uri_type = "logout"
+    },
     {
       # Explicit redirect_uri_type avoids the same "-> null" drift as the others.
       matching_mode     = "strict"
       url               = "https://portal.sfmix.org/oidc/callback/"
+      redirect_uri_type = "authorization"
+    },
+    {
+      matching_mode     = "strict"
+      url               = "https://peering-gear.sfmix.org/oidc/callback/"
       redirect_uri_type = "authorization"
     },
   ]

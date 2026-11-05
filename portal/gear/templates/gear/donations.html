@@ -1,0 +1,52 @@
+{% extends "gear/base.html" %}
+{% block title %}Donations{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Donations</p>
+  <h1>{% if rows %}{{ rows|length }} part{{ rows|length|pluralize }} from {{ donors|length }} donor{{ donors|length|pluralize }}, and where each one went.{% else %}Where donations go.{% endif %}</h1>
+  <p class="lede">Every donated chassis and part is tracked to the exact device and slot it lives in, so donors can see their hardware moving traffic.</p>
+</section>
+
+{% if flow %}
+<section class="section">
+  <h2>Donor → device → part</h2>
+  {% include "gear/_sankey.html" with flow=flow caption="" %}
+</section>
+<section class="section">
+  <table class="table">
+    <thead><tr><th>Donor</th><th>Part</th><th>Installed in</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><b>{{ r.donor }}</b></td>
+        <td>{{ r.kind_label }} · <span class="mono">{{ r.part }}</span></td>
+        <td><a class="mono" href="/device/{{ r.device }}/">{{ r.device }}</a>{% if r.bay %} <span class="muted">/ {{ r.bay }}</span>{% endif %}</td>
+        <td><span class="pill pill-{{ r.status }}">{{ r.status }}</span></td>
+        <td class="muted">{{ r.donated_on|default:"" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="section empty-state">
+  <p>No donations are recorded in NetBox yet.</p>
+</section>
+{% endif %}
+
+{% if could_flow %}
+<section class="section">
+  <h2>…and where the next ones could go</h2>
+  {% include "gear/_sankey.html" with flow=could_flow caption="Open needs by category and device. Details on the needs page." %}
+</section>
+{% endif %}
+
+<section class="section howto">
+  <h2>Recording a donation (admins)</h2>
+  <ol>
+    <li><b>Pledged</b> — in NetBox, install a <b>Planned</b> module of the promised part in the empty bay and set its <code>Donor</code> field. It appears here as pledged and on the needs page as a specific ask.</li>
+    <li><b>Installed</b> — once the part is in, the next <code>hardware_inventory.py</code> run replaces the planned module with the real one and carries <code>Donor</code> / <code>Donated On</code> over.</li>
+    <li><b>Already installed</b> — set <code>Donor</code> and <code>Donated On</code> directly on the module (or on the device, for a whole chassis).</li>
+  </ol>
+</section>
+{% endblock %}

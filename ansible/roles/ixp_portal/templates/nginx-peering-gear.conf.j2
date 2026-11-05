@@ -1,0 +1,66 @@
+{% set cert_path = "/etc/letsencrypt/live/" + ixp_portal_gear_domain %}
+{% set has_cert = _gear_cert.stat.exists | default(false) %}
+# {{ ixp_portal_gear_domain }} — the hardware-fleet site. Same Django/gunicorn as
+# the portal; gear/middleware.py routes this Host to gear.urls. Auth is OIDC
+# (IX Administrators only) in Django, not here.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ ixp_portal_gear_domain }};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+{% if has_cert %}
+    location / {
+        return 301 https://{{ ixp_portal_gear_domain }}$request_uri;
+    }
+{% endif %}
+}
+
+{% if has_cert %}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{ ixp_portal_gear_domain }};
+
+    ssl_certificate {{ cert_path }}/fullchain.pem;
+    ssl_certificate_key {{ cert_path }}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers off;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # Admin preview: keep it out of search engines until it goes public.
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    gzip on;
+    gzip_types application/json application/javascript text/css image/svg+xml;
+    gzip_min_length 1024;
+    gzip_proxied any;
+
+    location /static/ {
+        alias {{ ixp_portal_static_dir | default('/opt/sfmix/portal-static') }}/;
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public";
+    }
+
+    location / {
+        # Zone defined in ixp-portal.conf (same nginx http context).
+        limit_req zone=portal_pages burst={{ ixp_portal_rate_limit_burst }} nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:{{ ixp_portal_listen_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+{% endif %}

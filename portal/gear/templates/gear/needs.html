@@ -1,0 +1,58 @@
+{% extends "gear/base.html" %}
+{% block title %}Where donations could go{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Where donations could go</p>
+  <h1>Every empty slot and tired part, ranked.</h1>
+  <p class="lede">Computed from what the hardware reports about itself: empty DIMM slots and bays, drive wear, missing redundant power, chassis age and empty optic cages. To ask for something specific, add a <b>planned</b> module in the empty bay in NetBox — it shows up here as a specific ask.</p>
+  <div class="cat-grid">
+    {% for c in need_summary %}
+      <a class="cat cat-{{ c.category }}" href="#{{ c.category }}">
+        <span class="sev sev-{{ c.severity }}">{{ c.severity_label }}</span>
+        <h3>{{ c.label }}</h3>
+        <p><b>{{ c.units }}</b> part{{ c.units|pluralize }} across {{ c.devices }} device{{ c.devices|pluralize }}</p>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% if flow %}
+<section class="section">
+  <h2>Need → device</h2>
+  {% include "gear/_sankey.html" with flow=flow caption="Band width = urgency × number of parts (log-damped)." %}
+</section>
+{% endif %}
+
+{% for g in groups %}
+<section class="section" id="{{ g.category }}">
+  <div class="section-head"><h2>{{ g.label }}</h2><span class="muted small">{{ g.units }} part{{ g.units|pluralize }}</span></div>
+  <table class="table">
+    <thead><tr><th>Urgency</th><th>Device</th><th>What</th><th>Why</th><th>Would fit</th></tr></thead>
+    <tbody>
+    {% for n in g.items %}
+      <tr>
+        <td><span class="sev sev-{{ n.severity }}">{{ n.severity_label }}</span></td>
+        <td><a class="mono" href="/device/{{ n.device }}/">{{ n.device }}</a></td>
+        <td><b>{{ n.title }}</b>{% if n.bays %}<details><summary class="small muted">{{ n.bays|length }} bay{{ n.bays|length|pluralize }}</summary><span class="mono small">{{ n.bays|join:", " }}</span></details>{% endif %}</td>
+        <td class="muted">{{ n.detail }}</td>
+        <td>{{ n.suggestion }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+
+<section class="section" id="spares">
+  <div class="section-head"><h2>Spares on hand</h2><span class="muted small">{{ spares|length }} distinct field-replaceable parts in service</span></div>
+  <p class="muted">When one of these fails today, the slot stays dark until a replacement is found. Spares aren't tracked in NetBox yet — and we don't have any.</p>
+  <table class="table">
+    <thead><tr><th>Kind</th><th>Part</th><th class="num">In service</th><th class="num">Devices</th><th class="num">Spares</th></tr></thead>
+    <tbody>
+    {% for r in spares %}
+      <tr><td>{{ r.kind }}</td><td><span class="muted">{{ r.manufacturer }}</span> <span class="mono">{{ r.model }}</span></td><td class="num">{{ r.in_service }}</td><td class="num">{{ r.devices }}</td><td class="num bad">{{ r.spares }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
