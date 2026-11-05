@@ -38,7 +38,7 @@ Available commands:
 Device targeting:
   @<device> anywhere in command   Target a specific device (e.g. show int @switch01)
                                   Without @device, commands run on all devices
-                                  (traceroute runs once, from the looking glass host)
+                                  (ping/traceroute run once, from the looking glass host)
 ";
 
 // ---------------------------------------------------------------------------

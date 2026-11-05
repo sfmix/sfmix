@@ -1,56 +1,79 @@
 //! Commands that run on the looking-glass host itself rather than on a device.
 //!
-//! Traceroute runs once from here instead of fanning out to every switch and
-//! router: the path out of the exchange is the same from any of them, and one
-//! trace is far cheaper than N device SSH sessions.
+//! Ping and traceroute run once from here instead of fanning out to every
+//! switch and router: one probe from inside the exchange answers the question,
+//! and it is far cheaper than N device SSH sessions.
 
 use std::net::Ipv6Addr;
 use std::process::Stdio;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, Semaphore, SemaphorePermit};
 use tokio::time::{timeout_at, Instant};
 use tracing::{debug, warn};
 
+use crate::command::Verb;
+
 /// Result label for output produced on the looking-glass host.
 pub const LOCAL_DEVICE_NAME: &str = "looking-glass";
 
-/// Concurrent local traceroutes, across all users.
-static TRACEROUTE_SLOTS: Semaphore = Semaphore::const_new(4);
+/// Concurrent local ping/traceroute runs, across all users.
+static SLOTS: Semaphore = Semaphore::const_new(4);
 
 /// Per-line idle timeout and overall timeout, matching device streams.
 const LINE_TIMEOUT: Duration = Duration::from_secs(10);
 const TOTAL_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// Reserve a local traceroute slot, or `None` if all are in use.
-pub fn try_acquire_traceroute_slot() -> Option<SemaphorePermit<'static>> {
-    TRACEROUTE_SLOTS.try_acquire().ok()
+/// Reserve a local run slot, or `None` if all are in use.
+pub fn try_acquire_slot() -> Option<SemaphorePermit<'static>> {
+    SLOTS.try_acquire().ok()
 }
 
-/// Run `traceroute` on this host and stream its output line by line.
+/// argv for `verb` to `target`.
+fn argv(verb: Verb, target: &str) -> Result<(&'static str, Vec<String>)> {
+    let mut args = Vec::new();
+    if target.parse::<Ipv6Addr>().is_ok() {
+        args.push("-6".to_string());
+    }
+    let prog = match verb {
+        // 5 echoes, 1s apart, 2s per-reply wait, hard 10s deadline.
+        Verb::Ping => {
+            args.extend(["-c", "5", "-i", "1", "-W", "2", "-w", "10"].map(String::from));
+            "ping"
+        }
+        Verb::Traceroute => {
+            args.extend(["-w", "2", "-q", "3", "-m", "30"].map(String::from));
+            "traceroute"
+        }
+        Verb::Show => bail!("show does not run locally"),
+    };
+    args.push(target.to_string());
+    Ok((prog, args))
+}
+
+/// Run ping/traceroute on this host and stream its output line by line.
 ///
 /// `target` must already be validated (`is_valid_destination`): it is passed
 /// as a single argv element (no shell) and cannot start with `-`. The child is
-/// killed if the reader goes away, the trace goes quiet, or it runs too long.
-pub fn traceroute_stream(
+/// killed if the reader goes away, output goes quiet, or it runs too long.
+pub fn stream(
+    verb: Verb,
     target: &str,
     permit: SemaphorePermit<'static>,
 ) -> Result<mpsc::Receiver<String>> {
-    let mut cmd = Command::new("traceroute");
-    if target.parse::<Ipv6Addr>().is_ok() {
-        cmd.arg("-6");
-    }
-    cmd.args(["-w", "2", "-q", "3", "-m", "30"])
-        .arg(target)
+    let (prog, args) = argv(verb, target)?;
+    debug!(prog, target, "local network probe");
+    let mut child = Command::new(prog)
+        .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    debug!(target, "local traceroute");
-    let mut child = cmd.spawn().context("failed to start traceroute")?;
+        .kill_on_drop(true)
+        .spawn()
+        .with_context(|| format!("failed to start {prog}"))?;
 
     let (line_tx, mut line_rx) = mpsc::channel::<String>(64);
     if let Some(out) = child.stdout.take() {
@@ -86,7 +109,7 @@ pub fn traceroute_stream(
         }
         let _ = child.start_kill();
         if let Err(e) = child.wait().await {
-            warn!(error = %e, "reaping local traceroute failed");
+            warn!(error = %e, "reaping local {prog} failed");
         }
     });
 
@@ -106,21 +129,38 @@ async fn forward_lines<R: AsyncRead + Unpin>(reader: R, tx: mpsc::Sender<String>
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn traceroute_loopback_streams_and_releases_slot() {
-        if std::process::Command::new("traceroute").arg("--version").output().is_err() {
-            eprintln!("traceroute not installed; skipping");
+    #[test]
+    fn argv_adds_family_flag_only_for_v6_literals() {
+        let (p, a) = argv(Verb::Ping, "2001:db8::1").unwrap();
+        assert_eq!(p, "ping");
+        assert_eq!(a.first().unwrap(), "-6");
+        assert_eq!(a.last().unwrap(), "2001:db8::1");
+        let (p, a) = argv(Verb::Traceroute, "example.com").unwrap();
+        assert_eq!(p, "traceroute");
+        assert!(!a.contains(&"-6".to_string()));
+        assert!(argv(Verb::Show, "x").is_err());
+    }
+
+    async fn run_loopback(verb: Verb, prog: &str) {
+        if std::process::Command::new(prog).arg("-V").output().is_err() {
+            eprintln!("{prog} not installed; skipping");
             return;
         }
-        let permit = try_acquire_traceroute_slot().expect("slot");
-        let mut rx = traceroute_stream("127.0.0.1", permit).expect("spawn");
+        let permit = try_acquire_slot().expect("slot");
+        let mut rx = stream(verb, "127.0.0.1", permit).expect("spawn");
         let mut lines = Vec::new();
         while let Some(l) = rx.recv().await {
             lines.push(l);
         }
         assert!(lines.iter().any(|l| l.contains("127.0.0.1")), "{lines:?}");
+    }
+
+    #[tokio::test]
+    async fn loopback_probes_stream_and_release_slots() {
+        run_loopback(Verb::Traceroute, "traceroute").await;
+        run_loopback(Verb::Ping, "ping").await;
         // The stream task drops its permit just after closing the channel.
         tokio::time::sleep(Duration::from_millis(100)).await;
-        assert_eq!(TRACEROUTE_SLOTS.available_permits(), 4);
+        assert_eq!(SLOTS.available_permits(), 4);
     }
 }

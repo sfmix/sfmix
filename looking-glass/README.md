@@ -90,7 +90,7 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 | `show lldp neighbors` | LLDP neighbor table |
 | `show mac address-table` | MAC address table |
 | `show participants` | List IXP participants (ASN + name) |
-| `ping <destination>` | Ping from the looking glass vantage point |
+| `ping <destination>` | Ping once from the looking glass host (`@device` to ping from a specific device) |
 | `traceroute <destination>` | Traceroute once from the looking glass host (`@device` to trace from a specific device) |
 
 ## Access Tiers
