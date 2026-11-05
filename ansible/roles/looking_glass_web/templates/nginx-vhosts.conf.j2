@@ -35,6 +35,14 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/{{ looking_glass_web_domains[0] }}/privkey.pem;
     ssl_dhparam /etc/ssl/certs/dhparam.pem;
 
+    # Per-source fairness: lg_ip caps request rate, lg_conn caps concurrent
+    # requests (slow CGI traceroutes, long-lived MCP streams). Exempt admin
+    # subnets have an empty key and are never counted. 429 = "slow down",
+    # not nginx's default 503 "broken".
+    limit_conn lg_conn {{ looking_glass_web_conn_limit_per_ip }};
+    limit_req_status 429;
+    limit_conn_status 429;
+
     # Live tools, not content worth indexing.
     location = /robots.txt {
         default_type text/plain;
@@ -63,6 +71,8 @@ server {
 
     # lg-ng MCP (SSE): no buffering, long read timeout, HTTP/1.1 keepalive.
     location ^~ /mcp {
+        limit_req zone=lg_ip burst={{ looking_glass_web_rate_limit_burst }} nodelay;
+        limit_conn lg_conn {{ looking_glass_web_mcp_conn_limit_per_ip }};
         proxy_pass {{ looking_glass_web_lg_http_upstream }};
         proxy_http_version 1.1;
         proxy_set_header Connection '';

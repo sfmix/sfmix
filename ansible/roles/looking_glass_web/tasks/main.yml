@@ -80,6 +80,8 @@
           1 "";
       }
       limit_req_zone $lg_limit_key zone=lg_ip:10m rate=5r/s;
+      # Concurrent requests per source (HTTP/2 streams count individually).
+      limit_conn_zone $lg_limit_key zone=lg_conn:10m;
     nginx_vhosts: []
 
 - name: "Template nginx vhosts config"
