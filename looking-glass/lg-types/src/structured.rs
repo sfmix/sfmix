@@ -74,6 +74,12 @@ pub struct MacEntry {
     pub first_seen: String,
     /// RFC3339 timestamp this entry was most recently observed.
     pub last_seen: String,
+    /// Participant owning the port this MAC was learned on, when that port is
+    /// participant-facing. Filled by lg-server from the NetBox port map.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_asn: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_name: Option<String>,
 }
 
 // ── LLDP Neighbors ──────────────────────────────────────────────────

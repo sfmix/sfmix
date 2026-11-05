@@ -63,6 +63,8 @@ pub enum Resource {
     IxIpAssignments,
     /// Discovered ARP/NDP neighbors heard on the IX fabric
     DiscoveredNeighbors,
+    /// IXP peering LANs (NetBox `peering_lan` VLANs with their prefixes)
+    PeeringVlans,
     /// Ping/traceroute destination (resource is the destination address)
     NetworkReachability,
     Help,

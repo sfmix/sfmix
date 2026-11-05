@@ -391,6 +391,12 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_show_vlans() {
+        assert_eq!(parse_command("show vlans").unwrap().resource, Resource::PeeringVlans);
+        assert_eq!(parse_command("sh vlan").unwrap().resource, Resource::PeeringVlans);
+    }
+
+    #[test]
     fn test_parse_show_ix_ip_assignments() {
         let command = parse_command("show ix-ip-assignments").unwrap();
         assert_eq!(command.resource, Resource::IxIpAssignments);

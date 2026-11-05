@@ -88,7 +88,8 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 | `show optics` | Transceiver DOM optical power levels (all ports) |
 | `show optics <port>` | Detailed DOM for a specific port |
 | `show lldp neighbors` | LLDP neighbor table |
-| `show mac address-table` | MAC address table |
+| `show mac address-table` | MAC address table, with the participant on participant-facing ports |
+| `show vlans` | IXP peering LANs (VLAN ID, name, IPv4/IPv6 prefixes) |
 | `show participants` | List IXP participants (ASN + name) |
 | `ping <destination>` | Ping once from the looking glass host (`@device` to ping from a specific device) |
 | `traceroute <destination>` | Traceroute once from the looking glass host (`@device` to trace from a specific device) |

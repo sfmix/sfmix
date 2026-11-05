@@ -143,6 +143,16 @@ impl LookingGlass {
             }]);
         }
 
+        if command.resource == Resource::PeeringVlans {
+            let ixp_data = self.ixp_data.load();
+            let text = crate::format::format_peering_vlans(&ixp_data.vlans, ColorMode::Plain);
+            return Ok(vec![DeviceResult {
+                device: "local".to_string(),
+                success: true,
+                output: CommandOutput::Participants(text),
+            }]);
+        }
+
         if command.resource == Resource::DiscoveredNeighbors {
             let cache = self.discovered.load();
             let text = crate::format::format_discovered_neighbors(
@@ -376,6 +386,12 @@ impl LookingGlass {
             if let Some(ref vlan) = command.filter_vlan {
                 r.output = apply_vlan_filter(r.output, vlan);
             }
+            r.output = annotate_mac_participants(
+                r.output,
+                &r.device,
+                &self.port_map.load(),
+                &self.participants.load(),
+            );
             results.push(DeviceResult {
                 device: r.device,
                 success: r.success,
@@ -446,6 +462,7 @@ impl LookingGlass {
         identity: &Identity,
     ) -> Vec<DeviceResult> {
         let pmap = self.port_map.load();
+        let participants = self.participants.load();
         let mut results = Vec::new();
 
         let mut device_names: Vec<&str> = cache.keys().map(|s| s.as_str()).collect();
@@ -492,6 +509,7 @@ impl LookingGlass {
             if let Some(ref vlan) = command.filter_vlan {
                 output = apply_vlan_filter(output, vlan);
             }
+            output = annotate_mac_participants(output, device_name, &pmap, &participants);
 
             results.push(DeviceResult {
                 device: device_name.to_string(),
@@ -697,6 +715,37 @@ fn apply_vlan_filter(output: CommandOutput, vlan: &str) -> CommandOutput {
     }
 }
 
+/// Tag MAC entries learned on a participant-facing port with that participant
+/// (ASN + name). Port ownership is public (`show participants <asn>`), and the
+/// entries have already been visibility-filtered, so this only adds context.
+fn annotate_mac_participants(
+    output: CommandOutput,
+    device: &str,
+    pmap: &PortMap,
+    participants: &ParticipantMap,
+) -> CommandOutput {
+    let CommandOutput::MacAddressTable(mut entries) = output else {
+        return output;
+    };
+    for e in &mut entries {
+        // Exact port first; then the parent LAG of a VLAN subinterface
+        // ("Port-Channel101.998" → "Port-Channel101"), then the VLAN
+        // subinterface of a bare LAG ("Port-Channel101" → ".998").
+        let class = pmap
+            .classify(device, &e.interface)
+            .or_else(|| {
+                let (base, _) = e.interface.split_once('.')?;
+                pmap.classify(device, base)
+            })
+            .or_else(|| pmap.classify(device, &format!("{}.{}", e.interface, e.vlan)));
+        if let Some(PortClass::Participant { asn }) = class {
+            e.participant_asn = Some(*asn);
+            e.participant_name = participants.get(*asn).map(|p| p.name.clone());
+        }
+    }
+    CommandOutput::MacAddressTable(entries)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -758,6 +807,52 @@ mod tests {
             member_interfaces: vec![],
             port_channel: port_channel.map(|s| s.to_string()),
         }
+    }
+
+    #[test]
+    fn mac_entries_get_participant_of_their_port() {
+        let pmap = test_port_map();
+        let np = |asn: u32, name: &str| NetboxParticipant {
+            asn,
+            name: name.to_string(),
+            participant_type: Some("Member".to_string()),
+            ports: Vec::new(),
+            enriched_ports: Vec::new(),
+            ip_addresses: Vec::new(),
+        };
+        let participants =
+            ParticipantMap::build_from_netbox(&[np(6939, "Hurricane Electric"), np(6140, "Two P")]);
+        let out = annotate_mac_participants(
+            CommandOutput::MacAddressTable(vec![
+                mac_entry("998", "aa:bb:cc:00:00:01", "Port-Channel101"),
+                mac_entry("998", "aa:bb:cc:00:00:02", "Port-Channel101.998"),
+                mac_entry("998", "aa:bb:cc:00:00:03", "Ethernet50/1"),
+                mac_entry("998", "aa:bb:cc:00:00:04", "Ethernet5/1"),
+            ]),
+            DEVICE,
+            &pmap,
+            &participants,
+        );
+        let CommandOutput::MacAddressTable(v) = out else { panic!("wrong variant") };
+        assert_eq!(v[0].participant_asn, Some(6939));
+        assert_eq!(v[0].participant_name.as_deref(), Some("Hurricane Electric"));
+        // VLAN subinterface falls back to its parent LAG
+        assert_eq!(v[1].participant_asn, Some(6939));
+        // Core port: no participant
+        assert_eq!(v[2].participant_asn, None);
+        // Participant port whose ASN is missing from the participant map: ASN only
+        assert_eq!(v[3].participant_asn, Some(13335));
+        assert_eq!(v[3].participant_name, None);
+
+        // Bare LAG name resolves to the NetBox VLAN subinterface
+        let out = annotate_mac_participants(
+            CommandOutput::MacAddressTable(vec![mac_entry("998", "aa:bb:cc:00:00:05", "Port-Channel114")]),
+            "switch01.fmt01.sfmix.org",
+            &pmap,
+            &participants,
+        );
+        let CommandOutput::MacAddressTable(v) = out else { panic!("wrong variant") };
+        assert_eq!(v[0].participant_name.as_deref(), Some("Two P"));
     }
 
     fn mac_entry(vlan: &str, mac: &str, interface: &str) -> MacEntry {
