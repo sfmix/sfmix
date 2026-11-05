@@ -12,16 +12,36 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#0b3640">
   {% comment %}Color scheme, applied before the stylesheet loads so there is no flash:
-     an explicit pick from localStorage wins, else the OS preference. The
-     toggle in the nav flips it and remembers the choice.{% endcomment %}
+     an explicit pick wins, else the OS preference. The pick is the "sfmix-theme"
+     cookie on Domain=sfmix.org, shared with sfmix.org, lg. and ip.; an older
+     per-origin localStorage pick is migrated into it once. The toggle in the
+     nav flips it and remembers the choice.{% endcomment %}
   <script>
   (function () {
     var KEY = "sfmix-theme", html = document.documentElement;
     function system() {
       try { return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch (e) { return "light"; }
     }
+    function readCookie() {
+      var m = document.cookie.match(/(?:^|;\s*)sfmix-theme=(dark|light)(?:;|$)/);
+      return m ? m[1] : null;
+    }
+    function save(t) {
+      var dom = /(^|\.)sfmix\.org$/.test(location.hostname) ? "; domain=sfmix.org" : "";
+      document.cookie = KEY + "=" + t + dom + "; path=/; max-age=31536000; samesite=lax" + (location.protocol === "https:" ? "; secure" : "");
+    }
     function stored() {
-      try { var v = localStorage.getItem(KEY); return v === "dark" || v === "light" ? v : null; } catch (e) { return null; }
+      var v = readCookie();
+      if (v) return v;
+      try {
+        v = localStorage.getItem(KEY);
+        if (v === "dark" || v === "light") {
+          save(v);
+          if (readCookie()) localStorage.removeItem(KEY);
+          return v;
+        }
+      } catch (e) {}
+      return null;
     }
     function apply(theme) {
       html.setAttribute("data-theme", theme);
@@ -33,9 +53,16 @@
     html.setAttribute("data-theme", stored() || system());
     window.toggleTheme = function () {
       var next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      try { localStorage.setItem(KEY, next); } catch (e) {}
+      try { save(next); } catch (e) {}
       apply(next);
     };
+    // Another *.sfmix.org site may have changed the shared pick meanwhile.
+    function resync() {
+      var t = readCookie();
+      if (t && t !== html.getAttribute("data-theme")) apply(t);
+    }
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) resync(); });
+    window.addEventListener("pageshow", function (e) { if (e.persisted) resync(); });
     try {
       var mq = matchMedia("(prefers-color-scheme: dark)");
       var follow = function () { if (!stored()) apply(system()); };
