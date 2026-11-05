@@ -1,0 +1,23 @@
+---
+# Proxmox hosts: let the job's key run ONLY the read-only inventory script.
+# Included from deploy_hardware_inventory.playbook.yml with
+# hardware_inventory_pubkey taken from the job host.
+- name: Install the inventory script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/hwinv/remote_linux_inventory.py"
+    dest: "{{ hardware_inventory_forced_command }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+# authorized_keys2, not authorized_keys: on PVE the latter is a symlink into
+# the cluster filesystem (/etc/pve/priv/authorized_keys). sshd reads both.
+- name: Authorize the job key as a forced command
+  ansible.posix.authorized_key:
+    user: root
+    path: /root/.ssh/authorized_keys2
+    manage_dir: false
+    key: "{{ hardware_inventory_pubkey }}"
+    key_options: 'command="{{ hardware_inventory_forced_command }}",restrict'
+    exclusive: false
+    state: present

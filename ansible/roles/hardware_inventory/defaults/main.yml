@@ -1,0 +1,24 @@
+---
+# Nightly scripts/hardware_inventory.py (design doc 010). Runs on the job host
+# (group `netbox`) as an unprivileged system user; reads devices with the
+# shared read-only `oxidized` credential and writes NetBox with a scoped token.
+hardware_inventory_user: hwinv
+hardware_inventory_home: /var/lib/hwinv
+hardware_inventory_dir: /opt/sfmix-hwinv
+hardware_inventory_netbox_url: "{{ ixp_netbox_api_endpoint | default('https://netbox.sfmix.org') }}"
+
+# Token of the NetBox user `hardware-inventory` (view_all + write on
+# module/modulebay/moduletype/manufacturer + change on device). Create with
+# scripts/hwinv/bootstrap_netbox_identity.py, then vault it here:
+#   ansible-vault encrypt_string --vault-password-file ~/.sfmix_ansible_vault \
+#     --stdin-name hardware_inventory_netbox_api_token < token-file
+hardware_inventory_netbox_api_token: ""
+
+# 10:30 UTC = 02:30 PST / 03:30 PDT; randomized so it doesn't line up with backups.
+hardware_inventory_on_calendar: "*-*-* 10:30:00 UTC"
+hardware_inventory_randomized_delay: 20min
+
+# On the Proxmox hosts: the inventory script, run as the forced command of the
+# job's key (root's authorized_keys2 -- authorized_keys is the cluster-shared
+# pmxcfs symlink and is left alone).
+hardware_inventory_forced_command: /usr/local/sbin/sfmix-hw-inventory

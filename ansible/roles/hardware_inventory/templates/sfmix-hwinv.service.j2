@@ -1,0 +1,23 @@
+# {{ ansible_managed }}
+# scripts/hardware_inventory.py: live chassis/FRU inventory -> NetBox.
+[Unit]
+Description=SFMIX hardware inventory sync (devices -> NetBox)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User={{ hardware_inventory_user }}
+Group={{ hardware_inventory_user }}
+EnvironmentFile=/etc/sfmix-hwinv.env
+Environment=HOME={{ hardware_inventory_home }}
+WorkingDirectory={{ hardware_inventory_dir }}/app
+ExecStart={{ hardware_inventory_dir }}/venv/bin/python hardware_inventory.py
+# A full run is ~10-15 min (NetBox bulk writes dominate).
+TimeoutStartSec=1h
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ hardware_inventory_home }}

@@ -1,0 +1,7 @@
+# Top-level deps of scripts/hardware_inventory.py, pinned to scripts/Pipfile.lock.
+pynetbox==7.9.0
+pyeapi==1.0.4
+junos-eznc==2.8.3
+ncclient==0.7.1
+lxml==6.1.3
+paramiko==5.1.0

@@ -1,0 +1,123 @@
+---
+# Job host: user, SSH identity, code + venv, credentials, systemd timer.
+- name: Require the vaulted NetBox token
+  ansible.builtin.assert:
+    that: hardware_inventory_netbox_api_token | length > 0
+    fail_msg: "Set hardware_inventory_netbox_api_token (see roles/hardware_inventory/defaults/main.yml)."
+
+- name: Create the job user
+  become: true
+  ansible.builtin.user:
+    name: "{{ hardware_inventory_user }}"
+    system: true
+    home: "{{ hardware_inventory_home }}"
+    create_home: true
+    shell: /usr/sbin/nologin
+    comment: "SFMIX nightly hardware inventory"
+
+- name: Create ~/.ssh
+  become: true
+  ansible.builtin.file:
+    path: "{{ hardware_inventory_home }}/.ssh"
+    state: directory
+    owner: "{{ hardware_inventory_user }}"
+    group: "{{ hardware_inventory_user }}"
+    mode: "0700"
+
+# Generated on the host; the private key never leaves it. Its public half is
+# authorized (read-only) on the Proxmox hosts by tasks/hypervisor.yml and on
+# the MX150s' `oxidized` login (class: view view-configuration).
+- name: Generate the job SSH key
+  become: true
+  become_user: "{{ hardware_inventory_user }}"
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ed25519 -N "" -C "hwinv@{{ inventory_hostname }}" -f {{ hardware_inventory_home }}/.ssh/id_ed25519
+    creates: "{{ hardware_inventory_home }}/.ssh/id_ed25519"
+
+- name: Read the job public key
+  become: true
+  ansible.builtin.slurp:
+    src: "{{ hardware_inventory_home }}/.ssh/id_ed25519.pub"
+  register: _hwinv_pub
+
+- name: Expose the public key to the hypervisor play
+  ansible.builtin.set_fact:
+    hardware_inventory_pubkey: "{{ _hwinv_pub.content | b64decode | trim }}"
+
+- name: Device credential (shared read-only `oxidized` login, as on every server)
+  become: true
+  ansible.builtin.template:
+    src: netrc.j2
+    dest: "{{ hardware_inventory_home }}/.netrc"
+    owner: "{{ hardware_inventory_user }}"
+    group: "{{ hardware_inventory_user }}"
+    mode: "0600"
+  no_log: true
+
+- name: Create install dir
+  become: true
+  ansible.builtin.file:
+    path: "{{ hardware_inventory_dir }}/app"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the inventory code
+  become: true
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../scripts/{{ item }}"
+    dest: "{{ hardware_inventory_dir }}/app/"
+    delete: "{{ item == 'hwinv' }}"
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--chmod=D755,F644"
+  loop:
+    - hwinv
+    - hardware_inventory.py
+    - discovery.py
+
+- name: Install pinned Python dependencies
+  become: true
+  ansible.builtin.copy:
+    src: requirements.txt
+    dest: "{{ hardware_inventory_dir }}/requirements.txt"
+    mode: "0644"
+  register: _hwinv_reqs
+
+- name: Create the virtualenv
+  become: true
+  ansible.builtin.pip:
+    requirements: "{{ hardware_inventory_dir }}/requirements.txt"
+    virtualenv: "{{ hardware_inventory_dir }}/venv"
+    virtualenv_command: python3 -m venv
+  when: _hwinv_reqs is changed or not (hardware_inventory_dir + '/venv/bin/python') is exists
+
+- name: Environment file (NetBox token)
+  become: true
+  ansible.builtin.template:
+    src: hwinv.env.j2
+    dest: /etc/sfmix-hwinv.env
+    owner: root
+    group: "{{ hardware_inventory_user }}"
+    mode: "0640"
+  no_log: true
+
+- name: systemd units
+  become: true
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - sfmix-hwinv.service
+    - sfmix-hwinv.timer
+  register: _hwinv_units
+
+- name: Enable the nightly timer
+  become: true
+  ansible.builtin.systemd_service:
+    name: sfmix-hwinv.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ _hwinv_units is changed }}"
