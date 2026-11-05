@@ -381,6 +381,11 @@ impl McpHandler {
         Ok(CallToolResult::success(vec![ContentBlock::text(self.format_participants().await)]))
     }
 
+    #[tool(description = "List the IXP peering LANs: VLAN ID, name, and IPv4/IPv6 prefixes")]
+    async fn show_peering_vlans(&self) -> Result<CallToolResult, McpError> {
+        self.run_show(Resource::PeeringVlans, None, AddressFamily::IPv4, None, None, true).await
+    }
+
     #[tool(description = "Get metadata for a specific participant by ASN, including their \
         port names and peering IPs. Use this before show_interface_detail to discover \
         which interfaces belong to this participant.")]
@@ -541,7 +546,8 @@ impl ServerHandler for McpHandler {
              4. {prefix}__show_optics_detail(interface) — transceiver optical power levels\n\
              \n\
              For connectivity checks: {prefix}__ping / {prefix}__traceroute\n\
-             Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_lldp_neighbors",
+             Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_lldp_neighbors, \
+             {prefix}__show_peering_vlans",
             self.network_slug,
         ))
     }
