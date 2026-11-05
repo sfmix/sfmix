@@ -144,7 +144,7 @@
       - name: mfg_date
         label: "Manufacture Date"
         type: date
-        object_types: ["dcim.device", "dcim.module"]
+        object_types: ["dcim.module", "dcim.device"]  # NetBox returns this order
         description: "Manufacturing/date code reported by the hardware"
       - name: hw_last_seen
         label: "Hardware Last Seen"
@@ -166,12 +166,12 @@
       - name: donor
         label: "Donor"
         type: text
-        object_types: ["dcim.device", "dcim.module"]
+        object_types: ["dcim.module", "dcim.device"]  # NetBox returns this order
         description: "Who donated this hardware (shown on peering-gear.sfmix.org)"
       - name: donated_on
         label: "Donated On"
         type: date
-        object_types: ["dcim.device", "dcim.module"]
+        object_types: ["dcim.module", "dcim.device"]  # NetBox returns this order
 
     netbox_tags:
       - {name: admin_port, slug: admin_port, color: "f44336"}

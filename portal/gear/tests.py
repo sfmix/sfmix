@@ -112,6 +112,54 @@ class AnalysisTests(SimpleTestCase):
         self.assertIsNone(analysis.donations_flow([]))
 
 
+class NetBoxMappingTests(SimpleTestCase):
+    """data._fetch_from_netbox against NetBox-shaped API payloads."""
+
+    API = {
+        "dcim/devices": [{
+            "id": 7, "name": "sw-test", "role": {"slug": "peering_switch"}, "site": {"name": "SFO01"},
+            "device_type": {"model": "DCS-7280SR-48C6-F", "manufacturer": {"name": "Arista"}},
+            "serial": "ABC", "custom_fields": {"mfg_date": "2018-10-12", "hw_last_seen": "2026-11-05", "donor": None, "donated_on": None},
+        }],
+        "dcim/module-bays": [
+            {"id": 1, "device": {"id": 7}, "name": "PSU 1", "label": "", "position": "1",
+             "custom_fields": {"slot_kind": {"value": "psu", "label": "Power supply"}, "slot_accepts": None}},
+            {"id": 2, "device": {"id": 7}, "name": "Ethernet2", "label": "SFP+ cage", "position": "2",
+             "custom_fields": {"slot_kind": {"value": "transceiver", "label": "Transceiver"}, "slot_accepts": {"form_factor": "SFP+"}}},
+            {"id": 3, "device": {"id": 7}, "name": "Cassette A", "label": "", "position": "",
+             "custom_fields": {"slot_kind": None, "slot_accepts": None}},
+        ],
+        "dcim/modules": [{
+            "id": 9, "module_bay": {"id": 1}, "module_type": {"id": 5}, "serial": "P1",
+            "status": {"value": "active", "label": "Active"},
+            "custom_fields": {"mfg_date": None, "power_on_hours": None, "endurance_used_pct": None,
+                              "donor": "Example Donor", "donated_on": "2026-01-02"},
+        }],
+        "dcim/module-types": [{
+            "id": 5, "model": "PWR-500AC-F", "description": "500W", "manufacturer": {"name": "Arista"},
+            "profile": {"name": "Power supply"}, "attributes": {"wattage": 500},
+        }],
+    }
+
+    @override_settings(IXP_NETBOX_URL="https://nb.test", GEAR_DEVICE_ROLES=["peering_switch"])
+    def test_maps_netbox_payloads(self):
+        from gear import data
+
+        with mock.patch.object(data, "_get_all", side_effect=lambda path, params: self.API[path]):
+            fleet = data._fetch_from_netbox()
+        dev = fleet[0]
+        self.assertEqual([s["bay"] for s in dev["slots"]], ["PSU 1", "Ethernet2"])  # unmodeled bay skipped
+        psu, cage = dev["slots"]
+        self.assertEqual(psu["kind"], "psu")  # select CF unwrapped to its value
+        self.assertEqual(psu["module"]["donor"], "Example Donor")
+        self.assertEqual(psu["module"]["attributes"]["wattage"], 500)
+        self.assertIsNone(cage["module"])
+        self.assertEqual(cage["accepts"], {"form_factor": "SFP+"})
+        # And the analysis accepts it end to end.
+        analysis.enrich(fleet, TODAY)
+        self.assertEqual(dev["slots"][1]["state"], "empty")
+
+
 @override_settings(
     GEAR_HOSTS=["gear.test"], ALLOWED_HOSTS=["*"], GEAR_USE_FIXTURES=False,
     STORAGES={

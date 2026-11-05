@@ -28,7 +28,9 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 CACHE_KEY = "gear:fleet"
-CACHE_TTL = 600
+# NetBox only changes when hardware_inventory.py runs; a cold fetch pages
+# through ~1k bays/modules (~10 s), so cache long and offer a manual refresh.
+CACHE_TTL = 3600
 FIXTURE = Path(__file__).parent / "devmock" / "fleet.json"
 
 ROLE_LABELS = {
@@ -75,7 +77,11 @@ def _get_all(path: str, params: List[tuple]) -> List[Dict[str, Any]]:
 
 
 def _cf(obj: Dict[str, Any], key: str) -> Any:
-    return (obj.get("custom_fields") or {}).get(key)
+    v = (obj.get("custom_fields") or {}).get(key)
+    # Select-type custom fields come back as {"value": ..., "label": ...}.
+    if isinstance(v, dict) and set(v) == {"value", "label"}:
+        return v["value"]
+    return v
 
 
 def _fetch_from_netbox() -> List[Dict[str, Any]]:
