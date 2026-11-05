@@ -332,6 +332,24 @@ impl LookingGlass {
             .await
             .map_err(|e| Error::RateLimited(e.to_string()))?;
 
+        // Runs once on this host, not on devices.
+        if command.runs_on_lg_host() {
+            let target = command
+                .target
+                .as_deref()
+                .ok_or_else(|| Error::BadRequest("destination required".to_string()))?;
+            let permit = crate::backend::local::try_acquire_traceroute_slot().ok_or_else(|| {
+                Error::RateLimited("too many traceroutes in progress, try again shortly".to_string())
+            })?;
+            let rx = crate::backend::local::traceroute_stream(target, permit)
+                .map_err(|e| Error::DeviceError(e.to_string()))?;
+            return Ok(vec![DeviceResult {
+                device: crate::backend::local::LOCAL_DEVICE_NAME.to_string(),
+                success: true,
+                output: CommandOutput::Stream(rx),
+            }]);
+        }
+
         // Device dispatch
         let mut rx = self
             .device_pool

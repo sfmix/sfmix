@@ -1,4 +1,5 @@
 pub mod driver;
+pub mod local;
 pub mod pool;
 pub mod ssh;
 pub mod ssh_pool;
