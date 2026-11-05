@@ -12,7 +12,6 @@ service:
   name: "SFMIX Looking Glass"
   operator: "SFMIX"                       # optional
   operator_url: "https://sfmix.org"       # optional
-  peeringdb_ix_id: 60                     # optional, PeeringDB IX ID
 
 # ---------------------------------------------------------------------------
 # Site — identifies which IXP site this instance serves

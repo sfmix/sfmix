@@ -13,7 +13,6 @@ service:
   name: "SFMIX Looking Glass"     # Display name shown in banners
   operator: "SFMIX"               # Operator name (optional)
   operator_url: "https://sfmix.org"  # Operator URL (optional)
-  peeringdb_ix_id: 60             # PeeringDB IX ID (optional)
 ```
 
 ### `site` (required)
