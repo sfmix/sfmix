@@ -3,14 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SFMIX Looking Glass</title>
+<title>Looking Glass | SFMIX</title>
 <meta name="description" content="SFMIX Looking Glass: live BGP sessions with exchange participants, route lookups, ping and traceroute from inside the exchange, route-server views, and the participant data API.">
 <meta name="theme-color" content="#0b3640">
+<meta name="color-scheme" content="light dark">
 <link rel="icon" href="/assets/favicon-32x32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <script>
-  // Same contract as sfmix.org: an explicit pick in localStorage wins, else the OS setting.
-  try { var t = localStorage.getItem('sfmix-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  // Same contract as sfmix.org, portal. and ip.: one explicit pick shared by every
+  // *.sfmix.org site through the "sfmix-theme" cookie on Domain=sfmix.org (an older
+  // per-origin localStorage pick is migrated once), else the OS setting.
+  window.sfmixReadTheme = function () {
+    var m = document.cookie.match(/(?:^|;\s*)sfmix-theme=(dark|light)(?:;|$)/);
+    return m ? m[1] : null;
+  };
+  window.sfmixSaveTheme = function (t) {
+    var dom = /(^|\.)sfmix\.org$/.test(location.hostname) ? '; domain=sfmix.org' : '';
+    document.cookie = 'sfmix-theme=' + t + dom + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
+  };
+  try {
+    var t = window.sfmixReadTheme();
+    if (!t) {
+      var legacy = null;
+      try { legacy = localStorage.getItem('sfmix-theme'); } catch (e) {}
+      if (legacy === 'dark' || legacy === 'light') {
+        t = legacy; window.sfmixSaveTheme(legacy);
+        if (window.sfmixReadTheme()) { try { localStorage.removeItem('sfmix-theme'); } catch (e) {} }
+      }
+    }
+    if (t) document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
 </script>
 <style>
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('/assets/inter-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
@@ -18,7 +40,9 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Brand tokens, identical to sfmix.org so the two read as one family. */
+/* Brand tokens, header, nav, headings, cards and footer are copied from
+   website/static/css/style.css so lg.sfmix.org reads as part of sfmix.org.
+   Change them there first, then mirror here. */
 :root {
   --color-primary: #0b3640;
   --color-primary-light: #1a6070;
@@ -30,10 +54,14 @@
   --color-text: #222222;
   --color-text-light: #666666;
   --color-border: #dee2e6;
+  --color-white: #ffffff;
   --color-heading: var(--color-primary);
   --color-link: var(--color-primary-light);
   --color-header-bg: var(--color-primary);
+  --color-code-bg: rgba(0,0,0,0.04);
+  --color-shadow: rgba(0,0,0,0.12);
   --color-shadow-tint: rgba(11,54,64,0.06);
+  --color-shadow-tint-strong: rgba(11,54,64,0.16);
   /* Session state. Fixed status scale: never themed, always paired with a glyph and a label. */
   --state-up: #0ca30c;
   --state-trying: #fab219;
@@ -44,14 +72,16 @@
   color-scheme: light;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  --container: 1100px;
+  --container-width: 1100px;
+  --header-height: 64px;
 }
 :root[data-theme="dark"] {
   --color-bg: #0f1a1e; --color-bg-alt: #14232a; --color-surface: #172a31;
   --color-text: #e4e9ec; --color-text-light: #9fb0b8; --color-border: #2a3f48;
   --color-heading: #cfe6ee; --color-link: #6fbcd0; --color-header-bg: #071f26;
-  --color-shadow-tint: rgba(0,0,0,0.35); --state-idle: #4e616a; --state-idle-ink: #9fb0b8;
-  --state-up-ink: #3fc23f; --state-trying-ink: #fab219;
+  --color-code-bg: rgba(255,255,255,0.08); --color-shadow: rgba(0,0,0,0.5);
+  --color-shadow-tint: rgba(0,0,0,0.35); --color-shadow-tint-strong: rgba(0,0,0,0.6);
+  --state-idle: #4e616a; --state-idle-ink: #9fb0b8; --state-up-ink: #3fc23f; --state-trying-ink: #fab219;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -59,32 +89,48 @@
     --color-bg: #0f1a1e; --color-bg-alt: #14232a; --color-surface: #172a31;
     --color-text: #e4e9ec; --color-text-light: #9fb0b8; --color-border: #2a3f48;
     --color-heading: #cfe6ee; --color-link: #6fbcd0; --color-header-bg: #071f26;
-    --color-shadow-tint: rgba(0,0,0,0.35); --state-idle: #4e616a; --state-idle-ink: #9fb0b8;
-    --state-up-ink: #3fc23f; --state-trying-ink: #fab219;
+    --color-code-bg: rgba(255,255,255,0.08); --color-shadow: rgba(0,0,0,0.5);
+    --color-shadow-tint: rgba(0,0,0,0.35); --color-shadow-tint-strong: rgba(0,0,0,0.6);
+    --state-idle: #4e616a; --state-idle-ink: #9fb0b8; --state-up-ink: #3fc23f; --state-trying-ink: #fab219;
     color-scheme: dark;
   }
 }
 
-html { font-size: 16px; }
-body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.55; -webkit-font-smoothing: antialiased; }
-a { color: var(--color-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
-a:hover { color: var(--color-accent); }
+html { font-size: 16px; scroll-behavior: smooth; scroll-padding-top: calc(var(--header-height) + 0.5rem); }
+body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; }
+a { color: var(--color-link); text-decoration: none; }
+a:hover { color: var(--color-accent); text-decoration: underline; }
+img { max-width: 100%; height: auto; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
-.container { max-width: var(--container); margin: 0 auto; padding: 0 16px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+code { background: var(--color-code-bg); padding: 0.1em 0.35em; border-radius: 3px; }
+.container { max-width: var(--container-width); margin: 0 auto; padding: 0 1.5rem; }
+.muted { color: var(--color-text-light); }
+.skip-link { position: absolute; top: -100%; left: 1rem; z-index: 1000; padding: 0.5rem 1rem; background: var(--color-surface); color: var(--color-heading); font-weight: 600; border-radius: 0 0 4px 4px; }
+.skip-link:focus { top: 0; text-decoration: none; }
 
-/* Header, same bar as sfmix.org */
-.site-header { background: var(--color-header-bg); color: #fff; }
-.site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 64px; }
-.brand { display: flex; align-items: center; gap: 0.8rem; }
-.brand a { color: #fff; text-decoration: none; display: inline-flex; align-items: center; }
-.brand img { height: 30px; width: auto; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
-.brand span { font-weight: 300; font-size: 1.15rem; letter-spacing: 0.01em; white-space: nowrap; }
-.site-nav { display: flex; align-items: center; gap: 1.1rem; }
-.site-nav a { color: rgba(255,255,255,0.88); text-decoration: none; font-size: 0.9rem; }
-.site-nav a:hover { color: #fff; }
-.theme-toggle { background: none; border: 0; color: rgba(255,255,255,0.88); cursor: pointer; padding: 0.3rem; display: inline-flex; }
+/* ===== Header / Nav (sfmix.org) ===== */
+.site-header { background: var(--color-header-bg); color: var(--color-white); position: sticky; top: 0; z-index: 100; height: var(--header-height); box-shadow: 0 2px 8px var(--color-shadow); }
+.nav-container { display: flex; align-items: center; justify-content: space-between; height: var(--header-height); }
+.site-logo { display: flex; align-items: center; flex-shrink: 0; }
+.logo-img { height: 40px; width: auto; flex-shrink: 0; }
+.nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: 0.5rem; flex-direction: column; gap: 5px; }
+.nav-toggle span { display: block; width: 24px; height: 2px; background: var(--color-white); transition: 0.2s; }
+.nav-list { display: flex; list-style: none; align-items: center; }
+.nav-item { position: relative; }
+.nav-link { display: inline-flex; align-items: center; height: var(--header-height); padding: 0 0.75rem; color: rgba(255,255,255,0.9); background: none; border: none; font: inherit; font-size: 0.9rem; line-height: 1; cursor: pointer; white-space: nowrap; text-decoration: none; -webkit-appearance: none; appearance: none; }
+.nav-link:hover { color: var(--color-white); background: rgba(255,255,255,0.06); text-decoration: none; box-shadow: inset 0 -2px 0 var(--color-accent); }
+.nav-link[aria-current="page"] { color: var(--color-white); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.dropdown-open > .nav-link { color: var(--color-white); background: rgba(255,255,255,0.10); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.dropdown-toggle::after { content: "▾"; font-size: 1.3em; margin-left: 0.4em; }
+.dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: var(--color-surface); min-width: 200px; box-shadow: 0 4px 16px var(--color-shadow); border-radius: 0 0 6px 6px; list-style: none; z-index: 200; }
+.dropdown-open > .dropdown-menu { display: block; }
+.dropdown-link { display: block; padding: 0.6rem 1rem; color: var(--color-text); font-size: 0.9rem; }
+.dropdown-link:hover { background: var(--color-bg-alt); color: var(--color-heading); text-decoration: none; }
+.theme-toggle .nav-link { padding: 0 0.7rem; }
 .theme-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle__label { display: none; margin-left: 0.5rem; }
 .theme-toggle .icon-sun { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
@@ -93,33 +139,57 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
   :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
 }
 
-/* Hero: headline figures on the left, the peering board fills the rest */
-.hero { padding: 2.2rem 0 1.5rem; }
-.hero h1 { font-size: 2rem; font-weight: 300; color: var(--color-heading); line-height: 1.2; max-width: 30ch; }
-.hero p.lede { margin-top: 0.6rem; max-width: 62ch; color: var(--color-text-light); }
-.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem 2rem; margin-top: 1.6rem; }
-.figure .value { font-size: 2.6rem; font-weight: 600; line-height: 1; color: var(--color-heading); font-variant-numeric: tabular-nums; }
-.figure .value small { font-size: 1.1rem; font-weight: 400; color: var(--color-text-light); margin-left: 0.25rem; }
-.figure .label { margin-top: 0.3rem; color: var(--color-text-light); font-size: 0.9rem; }
+/* ===== Page header: sfmix.org's inner-page band, compact, with the headline figures ===== */
+.page-header { background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-hero-dark) 100%); color: var(--color-white); padding: 1.5rem 0 1.4rem; }
+.page-header .container { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1.2rem 2.5rem; }
+.page-header h1 { font-size: 2rem; font-weight: 600; line-height: 1.2; }
+.page-header .lede { margin-top: 0.35rem; max-width: 40ch; color: rgba(255,255,255,0.78); font-size: 0.95rem; }
+.figures { display: grid; grid-template-columns: repeat(4, auto); gap: 0.5rem 1.75rem; }
+.figure .value { font-size: 1.9rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.figure .value small { font-size: 0.95rem; font-weight: 400; color: rgba(255,255,255,0.7); margin-left: 0.25rem; }
+.figure .label { margin-top: 0.3rem; color: rgba(255,255,255,0.72); font-size: 0.8rem; line-height: 1.3; max-width: 12ch; }
+#status[hidden] { display: none; }
+#status { flex-basis: 100%; padding: 0.55rem 0.8rem; border-radius: 6px; background: rgba(255,255,255,0.10); border-left: 3px solid var(--color-accent); font-size: 0.9rem; }
 
-/* The peering board: one tile per participant, a lamp per address family */
-.board-wrap { margin-top: 1.6rem; }
-.board-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.6rem 1.5rem; margin-bottom: 0.7rem; }
-.board-head h2 { font-size: 1.25rem; font-weight: 600; color: var(--color-heading); }
+/* ===== Content: sfmix.org section headings ===== */
+.content { padding: 1.5rem 0 3rem; }
+.content section + section { margin-top: 2rem; }
+.content h2 { font-size: 1.5rem; color: var(--color-heading); margin: 0 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-border); position: relative; }
+.content h2::after { content: ""; position: absolute; bottom: -2px; left: 0; width: 64px; height: 2px; background: var(--color-accent); }
+.content h3 { font-size: 1.1rem; color: var(--color-heading); }
+.content p { margin-bottom: 1rem; }
+.section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.4rem 1.5rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-border); position: relative; }
+.section-head::after { content: ""; position: absolute; bottom: -2px; left: 0; width: 64px; height: 2px; background: var(--color-accent); }
+.section-head h2 { margin: 0; padding: 0; border: 0; }
+.section-head h2::after { display: none; }
+
+/* ===== Tools: sfmix.org cards, four across on desktop ===== */
+.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.tool { background: var(--color-surface); border: 1px solid var(--color-border); border-top: 3px solid var(--color-accent); border-radius: 8px; padding: 0.85rem 1rem 0.95rem; transition: box-shadow 0.2s; display: flex; flex-direction: column; }
+.tool:hover { box-shadow: 0 4px 12px var(--color-shadow); }
+.tool h3 { margin: 0; }
+.content .tool p { margin: 0.2rem 0 0; color: var(--color-text-light); font-size: 0.85rem; line-height: 1.4; }
+.tool ul { list-style: none; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.88rem; }
+.tool ul a::after { content: "\00a0→"; color: var(--color-accent); }
+.tool ul a[href^="http"]::after { content: "\00a0↗"; }
+.content .tool .cmd { margin-top: auto; padding-top: 0.55rem; font-size: 0.8rem; }
+.tool .cmd code { font-size: 0.95em; white-space: nowrap; }
+
+/* ===== Sessions board: one tile per participant, a lamp per address family ===== */
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; font-size: 0.85rem; color: var(--color-text-light); }
 .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
-.lamp { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 11px; font-weight: 700; line-height: 1; color: #fff; flex: none; }
+.lamp { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 11px; font-style: normal; font-weight: 700; line-height: 1; color: #fff; flex: none; }
 .lamp.up { background: var(--state-up); }
 .lamp.trying { background: var(--state-trying); color: #3b2a00; }
 .lamp.idle { background: var(--state-idle); color: #fff; }
 .lamp.none { background: transparent; border: 1px dashed var(--color-border); color: var(--color-text-light); }
 .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 6px; }
-.tile { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 0.1rem 0.5rem; align-items: center; padding: 0.45rem 0.55rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); min-width: 0; }
+.tile { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 0.1rem 0.5rem; align-items: center; padding: 0.45rem 0.55rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); min-width: 0; line-height: 1.45; }
 .tile .name { font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; grid-column: 1; }
 .tile .asn { font-size: 0.74rem; color: var(--color-text-light); grid-column: 1; font-variant-numeric: tabular-nums; }
 .tile .lamps { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
 .tile:hover, .tile:focus-visible { border-color: var(--color-accent); }
-.tip { pointer-events: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); width: 300px; padding: 0.6rem 0.75rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 10px 28px var(--color-shadow-tint); font-size: 0.8rem; line-height: 1.4; display: none; white-space: nowrap; }
+.tip { pointer-events: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); width: 300px; padding: 0.6rem 0.75rem 0.7rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 10px 28px var(--color-shadow-tint-strong); font-size: 0.8rem; line-height: 1.4; display: none; white-space: nowrap; }
 .tile:hover .tip, .tile:focus-visible .tip { display: block; }
 .tile.flip .tip { left: auto; right: 0; }
 .tip .who { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--color-border); }
@@ -128,8 +198,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .tip .fam { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.5rem; align-items: center; margin-top: 0.5rem; }
 .tip .fam .lamp { grid-row: 1 / span 2; width: 22px; height: 22px; font-size: 12px; }
 .tip .fam .hd { display: flex; gap: 0.45rem; align-items: baseline; overflow: hidden; }
-.tip .fam .hd .f { font-weight: 600; }
-.tip .fam .hd .st { font-weight: 600; }
+.tip .fam .hd .f, .tip .fam .hd .st { font-weight: 600; }
 .tip .fam .hd .st.up { color: var(--state-up-ink); }
 .tip .fam .hd .st.trying { color: var(--state-trying-ink); }
 .tip .fam .hd .st.idle { color: var(--state-idle-ink); }
@@ -138,193 +207,350 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .tip .figs .v { font-size: 1.05rem; font-weight: 600; color: var(--color-heading); font-variant-numeric: tabular-nums; line-height: 1.15; }
 .tip .figs .v.dim { color: var(--color-text-light); font-weight: 400; }
 .tip .figs .l { color: var(--color-text-light); font-size: 0.74rem; }
-
-/* Sections */
-section.block { padding: 2rem 0 0.5rem; }
-section.block h2 { font-size: 1.4rem; font-weight: 600; color: var(--color-heading); padding-bottom: 0.35rem; border-bottom: 2px solid var(--color-accent); display: inline-block; margin-bottom: 1rem; }
-p.note { color: var(--color-text-light); max-width: 70ch; margin-bottom: 1rem; font-size: 0.9rem; }
-.view-note[hidden] { display: none; }
+.content p.note { color: var(--color-text-light); max-width: 80ch; margin-bottom: 0.8rem; font-size: 0.88rem; }
+.view-note[hidden], .table-wrap[hidden], .board[hidden] { display: none; }
 .view-switch { display: inline-flex; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; }
 .view-switch button { font: inherit; font-size: 0.9rem; padding: 0.4rem 0.9rem; border: 0; background: var(--color-surface); color: var(--color-text); cursor: pointer; }
 .view-switch button + button { border-left: 1px solid var(--color-border); }
 .view-switch button[aria-pressed="true"] { background: var(--color-primary); color: #fff; }
 :root[data-theme="dark"] .view-switch button[aria-pressed="true"] { background: var(--color-primary-light); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .view-switch button[aria-pressed="true"] { background: var(--color-primary-light); } }
-.table-wrap[hidden] { display: none; }
-.board[hidden] { display: none; }
-
-/* Session table */
 .table-tools { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin-bottom: 0.8rem; }
 .table-tools input[type="search"] { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); min-width: 16rem; }
 .table-tools label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); }
+
+/* Tables: sfmix.org header row (brand fill), hover rows */
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-th, td { text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--color-border); white-space: nowrap; vertical-align: middle; }
-th { position: sticky; top: 0; background: var(--color-bg-alt); color: var(--color-heading); font-weight: 600; cursor: pointer; user-select: none; }
+th, td { text-align: left; padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--color-border); white-space: nowrap; vertical-align: middle; }
+th { background: var(--color-primary); color: var(--color-white); font-weight: 600; }
+#sessions-table th { position: sticky; top: 0; cursor: pointer; user-select: none; }
 th[aria-sort="ascending"]::after { content: " \25B4"; }
 th[aria-sort="descending"]::after { content: " \25BE"; }
-tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--color-bg-alt) 55%, transparent); }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:hover td { background: var(--color-bg-alt); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .state { display: inline-flex; align-items: center; gap: 0.4rem; }
 .state .lamp { width: 14px; height: 14px; font-size: 9px; }
 .state.idle { color: var(--state-idle-ink); }
-.muted { color: var(--color-text-light); }
 
-/* Tools: a two-column definition list, not a card grid */
-.tools { display: grid; grid-template-columns: 1fr; gap: 1.2rem 2rem; }
-@media (min-width: 720px) { .tools { grid-template-columns: 1fr 1fr; } }
-.tool h3 { font-size: 1.05rem; font-weight: 600; color: var(--color-heading); }
-.tool p { margin-top: 0.2rem; color: var(--color-text-light); max-width: 48ch; }
-.tool ul { list-style: none; margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
-.tool pre { margin-top: 0.5rem; padding: 0.5rem 0.7rem; background: var(--color-bg-alt); border-radius: 6px; font-size: 0.8rem; overflow-x: auto; }
+/* Peer with the looking glass */
+.peer { display: grid; grid-template-columns: 1fr; gap: 1rem 2.5rem; }
+@media (min-width: 820px) { .peer { grid-template-columns: 3fr 2fr; } }
+.peer ul { margin: 0 0 1rem 1.25rem; }
+.peer li { margin-bottom: 0.3rem; }
+.peer table { border: 1px solid var(--color-border); }
+.peer td { white-space: normal; }
 
-footer { margin-top: 2.5rem; padding: 1.2rem 0 2rem; border-top: 1px solid var(--color-border); color: var(--color-text-light); font-size: 0.85rem; }
-footer .container { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-content: space-between; }
-#status[hidden] { display: none; }
-#status { margin-top: 0.8rem; padding: 0.6rem 0.8rem; border-radius: 6px; background: var(--color-bg-alt); border-left: 3px solid var(--color-accent); font-size: 0.9rem; }
+/* ===== Footer (sfmix.org) ===== */
+.site-footer { background: var(--color-header-bg); color: rgba(255,255,255,0.82); padding: 2.5rem 0 1.5rem; border-top: 4px solid var(--color-accent); font-size: 0.9rem; }
+.site-footer__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+.site-footer h4 { color: var(--color-white); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 0.85rem; font-weight: 600; }
+.site-footer ul { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+.site-footer a { color: rgba(255,255,255,0.85); }
+.site-footer a:hover { color: var(--color-accent); }
+.footer-brand img { height: 30px; width: auto; margin-bottom: 0.85rem; }
+.site-footer__about { font-size: 0.85rem; line-height: 1.5; color: rgba(255,255,255,0.7); max-width: 30ch; }
+.site-footer__legal { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.25rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.8rem; }
+.site-footer__legal a { color: var(--color-accent); font-weight: 600; }
+
 @media (prefers-reduced-motion: no-preference) { .tile { transition: border-color 120ms; } }
-@media (max-width: 600px) { .site-nav a:not(.keep) { display: none; } .brand img { height: 24px; } .brand span { font-size: 1rem; } .hero h1 { font-size: 1.6rem; } .figure .value { font-size: 2.1rem; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Same breakpoint as sfmix.org: the nav collapses to the hamburger. */
+@media (max-width: 1200px) {
+  .nav-toggle { display: flex; }
+  .site-nav { display: none; position: absolute; top: var(--header-height); left: 0; right: 0; background: var(--color-header-bg); box-shadow: 0 4px 16px var(--color-shadow); max-height: calc(100vh - var(--header-height)); overflow-y: auto; }
+  .site-nav.open { display: block; }
+  .nav-list { flex-direction: column; align-items: stretch; }
+  .nav-link { display: flex; height: 3rem; padding: 0 1.5rem; width: 100%; }
+  .dropdown-menu { position: static; box-shadow: none; border-radius: 0; background: rgba(0,0,0,0.15); }
+  .dropdown-link { color: rgba(255,255,255,0.85); padding-left: 2rem; }
+  .dropdown-link:hover { background: rgba(255,255,255,0.1); color: var(--color-white); }
+  .theme-toggle__label { display: inline; }
+}
+@media (max-width: 600px) {
+  .container { padding: 0 1rem; }
+  .page-header h1 { font-size: 1.6rem; }
+  .figure .value { font-size: 1.6rem; }
+  .figures { grid-template-columns: repeat(2, auto); }
+  .table-tools input[type="search"] { min-width: 0; flex: 1 1 100%; }
+  .site-footer__grid { grid-template-columns: 1fr; gap: 1.5rem; }
+  .site-footer__legal { flex-direction: column; text-align: center; }
+}
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<!-- Mirrors website/layouts/partials/nav.html and the menus in website/hugo.toml
+     (English, no language picker: the looking glass is English-only). -->
 <header class="site-header">
-  <div class="container">
-    <span class="brand"><a href="https://sfmix.org/" title="sfmix.org"><img src="/assets/sfmix-logo-large.png" alt="SFMIX"></a><a href="/">Looking Glass</a></span>
-    <nav class="site-nav" aria-label="Looking glass tools">
-      <a href="/cgi-bin/bgplg">Looking Glass Query</a>
-      <a href="https://alice.sfmix.org/">Route servers</a>
-      <a href="#api">API</a>
-      <a class="keep" href="https://sfmix.org/">sfmix.org</a>
-      <button type="button" class="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle dark mode">
-        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      </button>
+  <div class="container nav-container">
+    <a href="https://sfmix.org/" class="site-logo"><img src="/assets/sfmix-logo-large.png" alt="SFMIX" class="logo-img" width="160" height="40"></a>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
+    <nav class="site-nav" id="site-nav" aria-label="SFMIX">
+      <ul class="nav-list">
+        <li class="nav-item has-dropdown">
+          <button class="nav-link dropdown-toggle" aria-expanded="false">About</button>
+          <ul class="dropdown-menu">
+            <li><a href="https://sfmix.org/about/" class="dropdown-link">What is SFMIX?</a></li>
+            <li><a href="https://sfmix.org/team/" class="dropdown-link">The Team</a></li>
+            <li><a href="https://sfmix.org/documentation/" class="dropdown-link">Documentation</a></li>
+          </ul>
+        </li>
+        <li class="nav-item has-dropdown">
+          <button class="nav-link dropdown-toggle" aria-expanded="false">Connect</button>
+          <ul class="dropdown-menu">
+            <li><a href="https://sfmix.org/connection-guide/" class="dropdown-link">Connection Guide</a></li>
+            <li><a href="https://sfmix.org/locations/" class="dropdown-link">Locations</a></li>
+          </ul>
+        </li>
+        <li class="nav-item has-dropdown">
+          <button class="nav-link dropdown-toggle" aria-expanded="false">Services</button>
+          <ul class="dropdown-menu">
+            <li><a href="https://sfmix.org/route-servers/" class="dropdown-link">Route Servers</a></li>
+            <li><a href="https://sfmix.org/statistics/" class="dropdown-link">Statistics</a></li>
+            <li><a href="https://snappy.sfmix.org/" class="dropdown-link">Speed Test</a></li>
+            <li><a href="https://portal.sfmix.org/" class="dropdown-link">Participant Portal</a></li>
+            <li><a href="https://ip.sfmix.org/" class="dropdown-link">AS40271 IP Network</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a href="https://sfmix.org/connection-guide/" class="nav-link">Get Connected</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/participants/" class="nav-link">Participants</a></li>
+        <li class="nav-item"><a href="/" class="nav-link" aria-current="page">Looking Glass</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/sponsors/" class="nav-link">Sponsors</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/contact/" class="nav-link">Contact</a></li>
+        <li class="nav-item theme-toggle">
+          <button type="button" class="nav-link theme-toggle__btn" aria-label="Toggle dark mode" title="Toggle dark mode" aria-pressed="false">
+            <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            <span class="theme-toggle__label">Toggle dark mode</span>
+          </button>
+        </li>
+      </ul>
     </nav>
   </div>
 </header>
 
-<main class="container">
-  <section class="hero">
-    <h1>SFMIX Looking Glass</h1>
-    <p class="lede">BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.</p>
-    <div id="status" hidden></div>
-    <div class="figures" aria-live="polite">
-      <div class="figure"><div class="value" id="f-sessions">–</div><div class="label">sessions established</div></div>
-      <div class="figure"><div class="value" id="f-participants">–</div><div class="label">participants peering with the looking glass</div></div>
-      <div class="figure"><div class="value" id="f-v4">–</div><div class="label">IPv4 prefixes received</div></div>
-      <div class="figure"><div class="value" id="f-v6">–</div><div class="label">IPv6 prefixes received</div></div>
+<main id="main-content">
+  <div class="page-header">
+    <div class="container">
+      <div>
+        <h1>Looking Glass</h1>
+        <p class="lede">BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.</p>
+      </div>
+      <div class="figures" aria-live="polite">
+        <div class="figure"><div class="value" id="f-sessions">–</div><div class="label">sessions established</div></div>
+        <div class="figure"><div class="value" id="f-participants">–</div><div class="label">participants peering</div></div>
+        <div class="figure"><div class="value" id="f-v4">–</div><div class="label">IPv4 prefixes received</div></div>
+        <div class="figure"><div class="value" id="f-v6">–</div><div class="label">IPv6 prefixes received</div></div>
+      </div>
+      <div id="status" role="status" hidden></div>
     </div>
+  </div>
 
-    <div class="board-wrap" id="sessions">
-      <div class="board-head">
-        <h2>Sessions</h2>
-        <div class="legend" aria-label="Legend">
-          <span><i class="lamp up" aria-hidden="true">✓</i> established</span>
-          <span><i class="lamp trying" aria-hidden="true">…</i> trying to connect</span>
-          <span><i class="lamp idle" aria-hidden="true">–</i> idle</span>
-          <span><i class="lamp none" aria-hidden="true"> </i> no session configured</span>
+  <div class="content">
+    <div class="container">
+      <section id="tools" aria-labelledby="tools-h">
+        <h2 id="tools-h">Tools</h2>
+        <div class="tools">
+          <div class="tool">
+            <h3>Looking Glass Query</h3>
+            <p>Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.</p>
+            <ul>
+              <li><a href="/cgi-bin/bgplg">Lookup, ping, traceroute</a></li>
+              <li><a href="/cgi-bin/bgplg?cmd=show+ip+bgp+summary&amp;req=">BGP summary</a></li>
+              <li><a href="/api/neighbors">Neighbors as JSON</a></li>
+            </ul>
+            <p class="cmd" title="Ports, optics, MAC and neighbor tables. Type login to see your own ports.">Switch state in a terminal: <code>ssh lg.sfmix.org</code> or <code>telnet lg.sfmix.org</code></p>
+          </div>
+          <div class="tool">
+            <h3>Route servers</h3>
+            <p>What the two route servers (AS 63055) carry per peer, with filter reasons.</p>
+            <ul>
+              <li><a href="https://alice.sfmix.org/">Route browser (Alice)</a></li>
+              <li><a href="/rs-linux.sfmix.org.summary.html">rs-linux config summary</a></li>
+              <li><a href="/rs-openbsd.sfmix.org.summary.html">rs-openbsd config summary</a></li>
+              <li><a href="https://sfmix.org/route-servers/">How to peer with them</a></li>
+            </ul>
+          </div>
+          <div class="tool" id="api">
+            <h3>API and MCP</h3>
+            <p>Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.</p>
+            <ul>
+              <li><a href="/api/v1/participants">/api/v1/participants</a></li>
+              <li><a href="/api/v1/peering-vlans">/api/v1/peering-vlans</a></li>
+              <li><a href="/api/v1/lan-events">/api/v1/lan-events</a></li>
+              <li><a href="https://github.com/sfmix/sfmix/tree/main/looking-glass">Documentation</a></li>
+            </ul>
+            <p class="cmd">MCP: <code>https://lg.sfmix.org/mcp</code></p>
+          </div>
+          <div class="tool">
+            <h3>Participant data</h3>
+            <p>Who is on the exchange, machine-readable, for peering automation.</p>
+            <ul>
+              <li><a href="/participants.json">IX-F member export</a></li>
+              <li><a href="/participants_table.json">Participant table</a></li>
+              <li><a href="https://sfmix.org/participants/">Participants on sfmix.org</a></li>
+              <li><a href="https://www.peeringdb.com/ix/155">SFMIX on PeeringDB</a></li>
+            </ul>
+          </div>
         </div>
-      </div>
-      <div class="table-tools">
-        <div class="view-switch" role="group" aria-label="View">
-          <button type="button" data-view="board" aria-pressed="true">Board</button>
-          <button type="button" data-view="table" aria-pressed="false">Table</button>
-        </div>
-        <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN">
-        <label><input type="checkbox" id="only-down"> only sessions that are not established</label>
-        <span class="muted" id="table-count"></span>
-      </div>
-      <p class="note view-note" data-for="board">One tile per participant: left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.</p>
-      <p class="note view-note" data-for="table">Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.</p>
-      <div class="board" id="board" role="list"></div>
-      <div class="table-wrap" hidden>
-        <table id="sessions-table">
-          <thead>
-            <tr>
-              <th data-key="name" aria-sort="ascending">Participant</th>
-              <th data-key="asn">ASN</th>
-              <th data-key="v4state">IPv4 session</th>
-              <th data-key="v4up" class="num">Uptime</th>
-              <th data-key="v4pfx" class="num">Prefixes</th>
-              <th data-key="v6state">IPv6 session</th>
-              <th data-key="v6up" class="num">Uptime</th>
-              <th data-key="v6pfx" class="num">Prefixes</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <section class="block" id="tools">
-    <h2>Tools</h2>
-    <div class="tools">
-      <div class="tool">
-        <h3>Looking Glass Query</h3>
-        <p>Look up a prefix, read a neighbor's advertisements, or run ping and traceroute from inside the exchange.</p>
-        <ul>
-          <li><a href="/cgi-bin/bgplg?cmd=show+ip+bgp+summary&amp;req=">BGP summary</a></li>
-          <li><a href="/cgi-bin/bgplg">Route lookup, ping, traceroute</a></li>
-          <li><a href="/api/neighbors">Neighbors as JSON</a></li>
-        </ul>
-        <p>Switch state from a terminal: port status, optics, MAC and neighbor tables. Sign in with <code>login</code> to see your own ports.</p>
-        <pre>telnet lg.sfmix.org
-ssh lg.sfmix.org</pre>
-      </div>
-      <div class="tool">
-        <h3>Route servers</h3>
-        <p>What the two SFMIX route servers (AS 63055) carry, per peer, with filtering reasons. Served by Alice.</p>
-        <ul>
-          <li><a href="https://alice.sfmix.org/">Browse route-server tables</a></li>
-          <li><a href="/rs-linux.sfmix.org.summary.html">rs-linux configuration summary</a></li>
-          <li><a href="/rs-openbsd.sfmix.org.summary.html">rs-openbsd configuration summary</a></li>
-        </ul>
-      </div>
-      <div class="tool" id="api">
-        <h3>API and MCP</h3>
-        <p>The same data this page uses, plus switch state: ports, optics, MAC and neighbor tables, LAN hygiene events. Public reads need no key; per-participant detail needs a sign-in at login.sfmix.org.</p>
-        <ul>
-          <li><a href="/api/v1/participants">/api/v1/participants</a></li>
-          <li><a href="/api/v1/peering-vlans">/api/v1/peering-vlans</a></li>
-          <li><a href="/api/v1/lan-events">/api/v1/lan-events</a></li>
-          <li><a href="https://github.com/sfmix/sfmix/tree/main/looking-glass">Documentation</a></li>
-        </ul>
-        <pre>MCP endpoint: https://lg.sfmix.org/mcp</pre>
-      </div>
-      <div class="tool">
-        <h3>Participant data</h3>
-        <p>Machine-readable lists of who is on the exchange, for peering automation and your own tooling.</p>
-        <ul>
-          <li><a href="/participants.json">IX-F member export</a></li>
-          <li><a href="/participants_table.json">Participant table</a></li>
-          <li><a href="https://sfmix.org/participants/">Participants on sfmix.org</a></li>
-          <li><a href="https://www.peeringdb.com/ix/4">SFMIX on PeeringDB</a></li>
-        </ul>
-      </div>
+      <section id="sessions" aria-labelledby="sessions-h">
+        <div class="section-head">
+          <h2 id="sessions-h">Sessions</h2>
+          <div class="legend" aria-label="Legend">
+            <span><i class="lamp up" aria-hidden="true">✓</i> established</span>
+            <span><i class="lamp trying" aria-hidden="true">…</i> trying to connect</span>
+            <span><i class="lamp idle" aria-hidden="true">–</i> idle</span>
+            <span><i class="lamp none" aria-hidden="true"> </i> no session configured</span>
+          </div>
+        </div>
+        <div class="table-tools">
+          <div class="view-switch" role="group" aria-label="View">
+            <button type="button" data-view="board" aria-pressed="true">Board</button>
+            <button type="button" data-view="table" aria-pressed="false">Table</button>
+          </div>
+          <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN">
+          <label><input type="checkbox" id="only-down"> only sessions that are not established</label>
+          <span class="muted" id="table-count"></span>
+          <span class="muted" id="updated">Waiting for first data…</span>
+        </div>
+        <p class="note view-note" data-for="board">Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.</p>
+        <p class="note view-note" data-for="table">Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.</p>
+        <div class="board" id="board" role="list"></div>
+        <div class="table-wrap" hidden>
+          <table id="sessions-table">
+            <thead>
+              <tr>
+                <th data-key="name" aria-sort="ascending">Participant</th>
+                <th data-key="asn">ASN</th>
+                <th data-key="v4state">IPv4 session</th>
+                <th data-key="v4up" class="num">Uptime</th>
+                <th data-key="v4pfx" class="num">Prefixes</th>
+                <th data-key="v6state">IPv6 session</th>
+                <th data-key="v6up" class="num">Uptime</th>
+                <th data-key="v6pfx" class="num">Prefixes</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="peer" aria-labelledby="peer-h">
+        <h2 id="peer-h">Peer with the looking glass</h2>
+        <div class="peer">
+          <div>
+            <p>Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It lets you:</p>
+            <ul>
+              <li>validate your router configuration when first connecting,</li>
+              <li>test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you,</li>
+              <li>see which prefixes are present at the exchange,</li>
+              <li>and gives SFMIX operators a quick reachability check.</li>
+            </ul>
+            <p><strong>Quarantine VLAN.</strong> A parallel looking glass runs on the quarantine VLAN with the same addresses as production, so new participants can test their Ethernet, IP and BGP configuration before joining the production peering LAN. See the <a href="https://sfmix.org/connection-guide/">connection guide</a>.</p>
+          </div>
+          <div>
+            <table>
+              <thead><tr><th colspan="2">BGP session</th></tr></thead>
+              <tbody>
+                <tr><td>ASN</td><td class="mono">12276</td></tr>
+                <tr><td>IPv4</td><td class="mono">206.197.187.1</td></tr>
+                <tr><td>IPv6</td><td class="mono">2001:504:30::ba01:2276:1</td></tr>
+                <tr><td>Software</td><td>OpenBGPD</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
-  </section>
+  </div>
 </main>
 
-<footer>
+<footer class="site-footer">
   <div class="container">
-    <span>Looking glass AS 12276 at 206.197.187.1 and 2001:504:30::ba01:2276:1, running OpenBGPD.</span>
-    <span id="updated">Waiting for first data…</span>
+    <div class="site-footer__grid">
+      <div>
+        <div class="footer-brand"><img src="/assets/sfmix-logo-large.png" alt="SFMIX" width="120" height="30"></div>
+        <p class="site-footer__about">Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.</p>
+      </div>
+      <div>
+        <h4>About</h4>
+        <ul>
+          <li><a href="https://sfmix.org/about/">What is SFMIX?</a></li>
+          <li><a href="https://sfmix.org/team/">The Team</a></li>
+          <li><a href="https://sfmix.org/documentation/">Documentation</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Services</h4>
+        <ul>
+          <li><a href="https://sfmix.org/route-servers/">Route Servers</a></li>
+          <li><a href="https://sfmix.org/statistics/">Statistics</a></li>
+          <li><a href="https://snappy.sfmix.org/">Speed Test</a></li>
+          <li><a href="https://portal.sfmix.org/">Participant Portal</a></li>
+          <li><a href="https://ip.sfmix.org/">AS40271 IP Network</a></li>
+          <li><a href="/">Looking Glass</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Connect</h4>
+        <ul>
+          <li><a href="https://sfmix.org/connection-guide/">Connection Guide</a></li>
+          <li><a href="https://sfmix.org/locations/">Locations</a></li>
+          <li><a href="https://sfmix.org/participants/">Participants</a></li>
+          <li><a href="https://sfmix.org/sponsors/">Sponsors</a></li>
+          <li><a href="https://sfmix.org/contact/">Contact</a></li>
+          <li><a href="https://www.peeringdb.com/ix/155">PeeringDB ↗</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="site-footer__legal">
+      <span>&copy; <span id="year">2026</span> San Francisco Metropolitan Internet eXchange · IRS 501(c)(12) cooperative</span>
+      <span><a href="https://sfmix.org/privacy/">Privacy Policy</a></span>
+    </div>
   </div>
 </footer>
 
 <script>
 (function () {
   'use strict';
-  // Theme toggle, same storage key as sfmix.org.
+  var $ = function (s) { return document.querySelector(s); };
+  $('#year').textContent = new Date().getFullYear();
+
+  // Theme toggle, shared cookie with every *.sfmix.org site (see <head>).
   var html = document.documentElement, meta = document.querySelector('meta[name="theme-color"]');
   function systemTheme() { try { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) { return 'light'; } }
   function currentTheme() { return html.getAttribute('data-theme') || systemTheme(); }
-  function reflect() { var d = currentTheme() === 'dark'; if (meta) meta.setAttribute('content', d ? '#071f26' : '#0b3640'); document.querySelector('.theme-toggle').setAttribute('aria-pressed', d ? 'true' : 'false'); }
-  document.querySelector('.theme-toggle').addEventListener('click', function () { var n = currentTheme() === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', n); try { localStorage.setItem('sfmix-theme', n); } catch (e) {} reflect(); });
+  function reflect() { var d = currentTheme() === 'dark'; if (meta) meta.setAttribute('content', d ? '#071f26' : '#0b3640'); $('.theme-toggle__btn').setAttribute('aria-pressed', d ? 'true' : 'false'); }
+  $('.theme-toggle__btn').addEventListener('click', function (e) { e.stopPropagation(); var n = currentTheme() === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', n); try { window.sfmixSaveTheme(n); } catch (err) {} reflect(); });
+  function resync() { var t = null; try { t = window.sfmixReadTheme(); } catch (e) {} if (t && t !== html.getAttribute('data-theme')) { html.setAttribute('data-theme', t); reflect(); } }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) resync(); });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) resync(); });
+  try { var mq = matchMedia('(prefers-color-scheme: dark)'); var onMq = function () { if (!html.getAttribute('data-theme')) reflect(); }; if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq); } catch (e) {}
   reflect();
 
-  var $ = function (s) { return document.querySelector(s); };
+  // Nav: the same behaviour as sfmix.org (hamburger, click-to-open dropdowns, Escape/arrow keys).
+  var toggle = $('.nav-toggle'), nav = $('#site-nav');
+  toggle.addEventListener('click', function () { var ex = this.getAttribute('aria-expanded') === 'true'; this.setAttribute('aria-expanded', !ex); nav.classList.toggle('open'); });
+  function closeAll() { document.querySelectorAll('.dropdown-toggle').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); b.parentElement.classList.remove('dropdown-open'); }); }
+  document.querySelectorAll('.dropdown-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function (e) { e.stopPropagation(); var ex = this.getAttribute('aria-expanded') === 'true'; closeAll(); if (!ex) { this.setAttribute('aria-expanded', 'true'); this.parentElement.classList.add('dropdown-open'); } });
+  });
+  document.addEventListener('click', closeAll);
+  document.querySelectorAll('.has-dropdown').forEach(function (item) {
+    var btn = item.querySelector('.dropdown-toggle'), links = item.querySelectorAll('.dropdown-link');
+    item.addEventListener('keydown', function (e) {
+      var idx = Array.prototype.indexOf.call(links, document.activeElement);
+      if (e.key === 'Escape') { btn.setAttribute('aria-expanded', 'false'); item.classList.remove('dropdown-open'); btn.focus(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (idx < links.length - 1) links[idx + 1].focus(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); if (idx > 0) links[idx - 1].focus(); else if (idx === 0) btn.focus(); }
+    });
+    item.addEventListener('focusout', function () { setTimeout(function () { if (!item.contains(document.activeElement)) { btn.setAttribute('aria-expanded', 'false'); item.classList.remove('dropdown-open'); } }, 0); });
+  });
+
   var fmt = new Intl.NumberFormat('en-US');
   var participants = {};   // asn -> {name, type}
   var rows = [];           // table model
@@ -367,7 +593,6 @@ ssh lg.sfmix.org</pre>
   }
 
   function render() {
-    // Board
     var board = $('#board');
     var sorted = visible().sort(function (a, b) { return a.name.localeCompare(b.name); });
     board.innerHTML = sorted.map(function (r) {
@@ -433,7 +658,7 @@ ssh lg.sfmix.org</pre>
     var started = new Date();
     return getJSON('/api/summary').then(function (summary) {
       build(summary); render();
-      $('#updated').textContent = 'Session data as of ' + started.toLocaleTimeString() + ', refreshed every minute.';
+      $('#updated').textContent = 'updated ' + started.toLocaleTimeString();
       status('');
       // Prefix counts and RIB sizes come from heavier endpoints; fill them in after the first paint.
       return Promise.all([
