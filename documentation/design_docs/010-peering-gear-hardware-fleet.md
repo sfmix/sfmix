@@ -1,6 +1,7 @@
 # 010 — peering-gear.sfmix.org: hardware fleet & donations
 
-Status: phase 1 built (discovery → NetBox → admin-only web app). 2026-11-05.
+Status: phase 1 live (discovery → NetBox → admin-only web app). Schema
+applied, first sync run, deployed to portal.sfmix.org 2026-11-05.
 
 ## Why
 
@@ -71,7 +72,13 @@ session flag (IX Administrators) while we build it up. Pages: fleet, device
 slot map, needs ("where donations could go", with spares table), donations
 (ledger + sankey). Needs/severity/suggestions are computed in
 `gear/analysis.py`; curated upgrade candidates live in `gear/catalog.py`
-(vet before asking anyone). Dev: `GEAR_USE_FIXTURES=true DEV_AUTOLOGIN=admin
+(vet before asking anyone).
+
+Pages never wait on NetBox: a cold fetch pages through ~1k bays/modules
+(~12 s), and hardware changes rarely, so each gunicorn worker runs a thread
+that re-fetches a snapshot every 15 min (file-locked so one worker does it,
+backoff on failure) into the shared cache with no expiry. Stale-but-fast beats
+fresh-but-slow; the footer shows the snapshot's age and has "Refresh now". Dev: `GEAR_USE_FIXTURES=true DEV_AUTOLOGIN=admin
 python manage.py runserver` → http://gear.localhost:8000/ (serial-scrubbed
 fixture in `gear/devmock/fleet.json`).
 
