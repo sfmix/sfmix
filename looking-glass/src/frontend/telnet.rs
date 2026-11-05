@@ -118,6 +118,8 @@ async fn handle_telnet_session(
     writer.write_all(&to_crlf(banner.as_bytes())).await?;
 
     let mut editor = LineEditor::new();
+    let idle_timeout = lg.connection_tracker.idle_timeout;
+    let idle = (!idle_timeout.is_zero()).then_some(idle_timeout);
 
     loop {
         // Prompt
@@ -125,9 +127,9 @@ async fn handle_telnet_session(
         writer.flush().await?;
 
         // Interactive line editor — read char by char
-        let line = match read_line(&mut reader, &mut writer, &mut editor).await? {
+        let line = match read_line(&mut reader, &mut writer, &mut editor, idle).await? {
             Some(line) => line,
-            None => break, // EOF / Ctrl+D
+            None => break, // EOF / Ctrl+D / idle timeout
         };
 
         let rate_key = crate::ratelimit::ip_to_rate_key(peer_addr.ip());
@@ -219,10 +221,38 @@ async fn handle_telnet_login(
     Ok(())
 }
 
+/// Result of reading one byte from the telnet socket under the idle deadline.
+enum ReadByte {
+    Byte(u8),
+    Eof,
+    Idle,
+}
+
+/// Read one byte, giving up once `deadline` (if any) passes.
+async fn next_byte(
+    reader: &mut OwnedReadHalf,
+    deadline: Option<tokio::time::Instant>,
+) -> Result<ReadByte> {
+    let mut byte = [0u8; 1];
+    let n = match deadline {
+        Some(d) => match tokio::time::timeout_at(d, reader.read(&mut byte)).await {
+            Ok(r) => r?,
+            Err(_) => return Ok(ReadByte::Idle),
+        },
+        None => reader.read(&mut byte).await?,
+    };
+    Ok(if n == 0 { ReadByte::Eof } else { ReadByte::Byte(byte[0]) })
+}
+
 /// Interactive line reader with Tab completion and ? help (IOS-style).
 ///
 /// Reads from the telnet socket one byte at a time (character mode).
-/// Returns `Some(line)` on Enter, `None` on EOF/Ctrl+D.
+/// Returns `Some(line)` on Enter, `None` on EOF/Ctrl+D or idle timeout.
+///
+/// `idle` (if set) disconnects a session that sends no user input for that
+/// long. Only data bytes reset the clock (telnet option negotiation does not),
+/// and the deadline also bounds reads inside IAC sequences, so a client that
+/// stalls mid-sequence can't hold a connection slot forever.
 ///
 /// Telnet-specific concerns (IAC handling, CR consumption) are handled
 /// here; all other byte processing is delegated to the shared LineEditor.
@@ -230,46 +260,48 @@ async fn read_line(
     reader: &mut OwnedReadHalf,
     writer: &mut OwnedWriteHalf,
     editor: &mut LineEditor,
+    idle: Option<std::time::Duration>,
 ) -> Result<Option<String>> {
-    let mut byte = [0u8; 1];
     editor.clear();
+    let fresh_deadline = || idle.map(|d| tokio::time::Instant::now() + d);
+    let mut deadline = fresh_deadline();
 
-    loop {
-        if reader.read(&mut byte).await? == 0 {
-            return Ok(None); // EOF
-        }
-
-        match byte[0] {
-            // --- Telnet IAC sequence (telnet-specific, not in LineEditor) ---
-            IAC => {
-                let mut cmd = [0u8; 1];
-                if reader.read_exact(&mut cmd).await.is_err() {
+    // Read the next byte; return from read_line on EOF or idle expiry.
+    macro_rules! next {
+        () => {
+            match next_byte(reader, deadline).await? {
+                ReadByte::Byte(b) => b,
+                ReadByte::Eof => return Ok(None),
+                ReadByte::Idle => {
+                    let notice = super::common::idle_disconnect_notice(idle.unwrap_or_default());
+                    let _ = writer.write_all(&to_crlf(notice.as_bytes())).await;
+                    let _ = writer.flush().await;
                     return Ok(None);
                 }
-                match cmd[0] {
+            }
+        };
+    }
+
+    loop {
+        let b = next!();
+        if b != IAC {
+            deadline = fresh_deadline();
+        }
+
+        match b {
+            // --- Telnet IAC sequence (telnet-specific, not in LineEditor) ---
+            IAC => {
+                match next!() {
                     WILL | WONT | DO | DONT => {
-                        let mut opt = [0u8; 1];
-                        let _ = reader.read_exact(&mut opt).await;
+                        let _opt = next!();
                     }
                     SB => {
-                        loop {
-                            let mut sb = [0u8; 1];
-                            if reader.read_exact(&mut sb).await.is_err() {
-                                return Ok(None);
-                            }
-                            if sb[0] == IAC {
-                                let mut se = [0u8; 1];
-                                if reader.read_exact(&mut se).await.is_err() {
-                                    return Ok(None);
-                                }
-                                if se[0] == SE {
-                                    break;
-                                }
-                            }
-                        }
+                        // Consume subnegotiation up to IAC SE
+                        while next!() != IAC || next!() != SE {}
                     }
                     IAC => {
                         // Escaped 0xFF — feed as data byte
+                        deadline = fresh_deadline();
                         let mut output = Vec::new();
                         let _ = editor.feed_byte(0xFF, &mut output);
                         if !output.is_empty() {

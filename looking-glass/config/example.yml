@@ -119,7 +119,9 @@ rate_limits:
 # Applied to telnet, SSH, and MCP frontends.
 #
 # frontend_limits:
-#   idle_timeout_secs: 300          # disconnect idle telnet/SSH sessions (default: 300)
+#   idle_timeout_secs: 300          # disconnect interactive telnet/SSH sessions after this
+#                                   # long with no keystrokes (default: 300, 0 = disabled).
+#                                   # Keepalives and command run time don't count as input.
 #   max_connections: 50             # global max concurrent connections (default: 50)
 #   max_connections_per_source: 5   # per source IP prefix (default: 5)
 #                                   # Sources grouped by /24 (IPv4) or /56 (IPv6).

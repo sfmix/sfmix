@@ -12,6 +12,17 @@ use crate::service::{self, LookingGlass};
 
 pub const PROMPT: &str = "> ";
 
+/// Message shown just before an idle telnet/SSH session is disconnected.
+pub fn idle_disconnect_notice(timeout: std::time::Duration) -> String {
+    let secs = timeout.as_secs();
+    let human = if secs >= 60 && secs.is_multiple_of(60) {
+        format!("{} min", secs / 60)
+    } else {
+        format!("{secs}s")
+    };
+    format!("\n\nIdle timeout ({human} without input) \u{2014} disconnecting.\n")
+}
+
 pub const HELP_TEXT: &str = "\
 Available commands:
   show interfaces status          Interface summary (name, status, speed)
