@@ -14,11 +14,21 @@
     - "'systemd-resolved.service' in ansible_facts.services"
     - "ansible_facts.services['systemd-resolved.service']['status'] != 'not-found'"
 
-- name: Remove /etc/resolv.conf (symlink or managed by another service)
+- name: Call stat on /etc/resolv.conf
+  become: true
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+    follow: false
+  register: stat_etc_resolv_conf
+
+# Only a symlink (systemd-resolved stub, resolvconf) needs removing; copy
+# overwrites a regular file in place. `default` covers a missing file.
+- name: Remove /etc/resolv.conf symlink (systemd-resolved, resolvconf)
   become: true
   ansible.builtin.file:
     path: /etc/resolv.conf
     state: absent
+  when: stat_etc_resolv_conf.stat.islnk | default(false)
 
 - name: Create /etc/resolv.conf
   become: true
