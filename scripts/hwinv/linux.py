@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .model import DeviceHardware, Part, Slot
@@ -20,83 +22,11 @@ from .util import parse_date, title_vendor
 
 logger = logging.getLogger("hwinv")
 
-REMOTE_SCRIPT = r'''
-import glob, json, os, re, subprocess
-
-def sh(*cmd):
-    try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout
-    except Exception:
-        return ""
-
-def dmi(t):
-    """Parse `dmidecode -t T` into a list of {key: value} dicts."""
-    out, cur = [], None
-    for line in sh("dmidecode", "-t", str(t)).splitlines():
-        if line.startswith("Handle "):
-            cur = {}
-            out.append(cur)
-        elif cur is not None and line.startswith("\t") and not line.startswith("\t\t") and ":" in line:
-            k, v = line.strip().split(":", 1)
-            cur[k.strip()] = v.strip()
-    return [d for d in out if d]
-
-def rd(p):
-    try:
-        return open(p).read().strip()
-    except Exception:
-        return ""
-
-def disk_by_name():
-    lj = json.loads(sh("lsblk", "-J", "-d", "-b", "-o", "NAME,MODEL,SERIAL,SIZE,ROTA,TRAN,TYPE,VENDOR") or "{}")
-    return {d["name"]: d for d in lj.get("blockdevices", []) if d.get("type") == "disk" and not d["name"].startswith(("zd", "loop", "sr"))}
-
-disks = disk_by_name()
-bays = []
-seen = set()
-# 1) SES enclosures: every slot, populated or not.
-for slot in sorted(glob.glob("/sys/class/enclosure/*/*")):
-    if not os.path.isdir(slot) or not os.path.exists(os.path.join(slot, "slot")) and not re.search(r"[Ss]lot", os.path.basename(slot)):
-        continue
-    blk = glob.glob(os.path.join(slot, "device/block/*"))
-    name = os.path.basename(blk[0]) if blk else None
-    bays.append({"bay": "Drive Bay " + str(int(re.sub(r"\D", "", os.path.basename(slot)) or 0)), "disk": name, "bus": "SES"})
-    if name:
-        seen.add(name)
-# 2) ATA ports: one bay per port; a port with no device is an empty bay.
-for port in sorted(glob.glob("/sys/class/ata_port/ata*"), key=lambda p: int(re.sub(r"\D", "", p) or 0)):
-    n = os.path.basename(port)[3:]
-    devs = [d for d, info in disks.items() if re.search(r"/ata%s/" % n, os.path.realpath("/sys/block/" + d))]
-    devs = [d for d in devs if d not in seen]
-    if not devs and glob.glob("/sys/class/enclosure/*"):
-        continue  # host has SES bays; bare ATA ports here are onboard extras
-    bays.append({"bay": "SATA " + n, "disk": devs[0] if devs else None, "bus": "ATA"})
-    seen.update(devs)
-# 3) NVMe controllers.
-for ctrl in sorted(glob.glob("/sys/class/nvme/nvme*")):
-    ns = sorted(os.path.basename(p) for p in glob.glob(ctrl + "/nvme*n*") if re.match(r"nvme\d+n\d+$", os.path.basename(p)))
-    bays.append({"bay": "NVMe " + os.path.basename(ctrl)[4:], "disk": ns[0] if ns else None, "bus": "NVMe"})
-    seen.update(ns)
-# 4) Anything left over (USB/boot SATA DOM etc.).
-for d in disks:
-    if d not in seen:
-        bays.append({"bay": "Disk " + d, "disk": d, "bus": disks[d].get("tran") or "?"})
-
-smart = {}
-for d in disks:
-    try:
-        smart[d] = json.loads(sh("smartctl", "--json", "-x", "/dev/" + d) or "{}")
-    except ValueError:
-        smart[d] = {}
-
-print(json.dumps({
-    "system": dmi(1), "board": dmi(2), "chassis": dmi(3), "bios": dmi(0),
-    "cpu": dmi(4), "mem_array": dmi(16), "mem": dmi(17), "psu": dmi(39),
-    "bays": bays, "disks": disks, "smart": smart,
-    "uptime_s": float(rd("/proc/uptime").split()[0] or 0),
-    "pve": sh("pveversion").strip(),
-}))
-'''
+# The script that runs on the host; also installed as the PVE forced command.
+REMOTE_SCRIPT = (Path(__file__).parent / "remote_linux_inventory.py").read_text()
+# Jump host for reaching the hypervisors from outside the network; the nightly
+# job runs inside it and sets HWINV_SSH_PROXY_JUMP= (empty) to go direct.
+PROXY_JUMP = os.environ.get("HWINV_SSH_PROXY_JUMP", "shell.sfmix.org")
 
 _JUNK = {"", "Not Specified", "To Be Filled By O.E.M.", "Default string", "Unknown", "NO DIMM", "None", "0123456789"}
 
@@ -106,10 +36,13 @@ def _v(d: Dict[str, str], k: str) -> Optional[str]:
     return None if v in _JUNK else v
 
 
-def run_remote(host: str, proxy_jump: Optional[str] = "shell.sfmix.org") -> Dict[str, Any]:
-    cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20"]
+def run_remote(host: str, proxy_jump: Optional[str] = None) -> Dict[str, Any]:
+    proxy_jump = PROXY_JUMP if proxy_jump is None else proxy_jump
+    cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHostKeyChecking=accept-new"]
     if proxy_jump:
         cmd += ["-o", f"ProxyJump={proxy_jump}"]
+    # With the nightly job's key the host's forced command runs the same
+    # script and ignores this command line + stdin.
     cmd += [f"root@{host}", "python3", "-"]
     res = subprocess.run(cmd, input=REMOTE_SCRIPT, capture_output=True, text=True, timeout=300)
     if res.returncode != 0:

@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Nightly SFMIX hardware inventory sync
+
+[Timer]
+OnCalendar={{ hardware_inventory_on_calendar }}
+RandomizedDelaySec={{ hardware_inventory_randomized_delay }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

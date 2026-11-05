@@ -1,0 +1,25 @@
+---
+# Nightly hardware inventory -> NetBox (design doc 010).
+#   pipenv run ansible-playbook deploy_hardware_inventory.playbook.yml \
+#     --vault-password-file ~/.sfmix_ansible_vault
+# Play 1 sets up the job on the NetBox host and generates its SSH key; play 2
+# authorizes that key on the Proxmox hosts as a read-only forced command.
+# The MX150s' `oxidized` login gets the same public key by hand (network
+# device configs are applied directly, not via ansible).
+- name: "Hardware inventory: job host"
+  hosts: netbox
+  tags: [hardware_inventory]
+  roles:
+    - hardware_inventory
+
+- name: "Hardware inventory: Proxmox forced-command key"
+  hosts: proxmox_hypervisors
+  become: true
+  tags: [hardware_inventory]
+  vars:
+    hardware_inventory_pubkey: "{{ hostvars[groups['netbox'][0]].hardware_inventory_pubkey }}"
+  tasks:
+    - name: Authorize the job key on this hypervisor
+      ansible.builtin.include_role:
+        name: hardware_inventory
+        tasks_from: hypervisor.yml

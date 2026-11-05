@@ -60,8 +60,25 @@ Schema lives in `ansible/netbox_schema.playbook.yml` (custom fields, the
   donor fields carry over; bays are never deleted; no per-module "last seen"
   stamp (it would PATCH every module every run).
 
-Run: `make hardware_inventory` (dry run) / `make hardware_inventory_apply`
-in `scripts/` with the write token from `scripts/.env`. Not scheduled yet.
+Run by hand: `make hardware_inventory` (dry run) / `make
+hardware_inventory_apply` in `scripts/` with the write token from `scripts/.env`.
+
+Nightly: `deploy_hardware_inventory.playbook.yml` (role `hardware_inventory`)
+installs a systemd timer on netbox.sfo02 (10:30 UTC ± 20 min) running as an
+unprivileged `hwinv` user, which reaches every device directly from inside the
+network. Its credentials, least-privilege:
+
+- devices: the shared read-only `oxidized` netrc login (already on every
+  server via sfmix_server) for eAPI/NETCONF;
+- Proxmox: its own ed25519 key (generated on the host) in root's
+  `authorized_keys2` with `command="/usr/local/sbin/sfmix-hw-inventory",restrict`
+  -- it can only run the read-only inventory script (`hwinv/remote_linux_inventory.py`);
+  root's `authorized_keys` is the pmxcfs cluster symlink and is not touched;
+- MX150s: the same public key on the `oxidized` login (class view-only),
+  added by hand -- they refuse the shared password;
+- NetBox: user `hardware-inventory` (view_all + write on module bays/modules/
+  module types/manufacturers + change on devices), created by
+  `scripts/hwinv/bootstrap_netbox_identity.py`, token vaulted in the role.
 
 ## App (`portal/gear/`)
 
