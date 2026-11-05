@@ -285,6 +285,7 @@ LOGGING = {
         "mozilla_django_oidc": {"handlers": ["console"], "level": "WARNING", "propagate": False},
         "dashboard": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "mapbuild": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "gear": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 
