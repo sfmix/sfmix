@@ -34,6 +34,10 @@ looking_glass_web_static_directory: /var/www/lg-web
 # LG endpoints per page render from one address, so a large no-delay burst
 # lets a page's fan-out clear while sustained abuse still caps at 5r/s.
 looking_glass_web_rate_limit_burst: 40
+# Concurrent requests per source IP (zone "lg_conn"), vhost-wide and for the
+# long-lived MCP streams. Same exemptions as the rate limit.
+looking_glass_web_conn_limit_per_ip: 20
+looking_glass_web_mcp_conn_limit_per_ip: 5
 looking_glass_web_rate_limit_exempt_subnets: >-
   {{ ixp_admin_source_subnets
      + (sfmix_host_local_admin_source_subnets | default([], true)) }}
