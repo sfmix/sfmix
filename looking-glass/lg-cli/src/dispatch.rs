@@ -108,7 +108,8 @@ pub async fn dispatch_command<W: SessionWriter>(
     }
 
     // Everything else goes through RPC
-    let multi_device = command.device.is_none() && ctx.info.device_count > 1;
+    let multi_device =
+        command.device.is_none() && !command.runs_on_lg_host() && ctx.info.device_count > 1;
     let has_filter = command.filter_asn.is_some() || command.filter_vlan.is_some();
 
     let mut rx = ctx

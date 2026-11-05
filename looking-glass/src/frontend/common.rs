@@ -38,6 +38,7 @@ Available commands:
 Device targeting:
   @<device> anywhere in command   Target a specific device (e.g. show int @switch01)
                                   Without @device, commands run on all devices
+                                  (traceroute runs once, from the looking glass host)
 ";
 
 // ---------------------------------------------------------------------------
@@ -510,7 +511,8 @@ pub async fn dispatch_command<W: SessionWriter>(
     }
 
     // Delegate to the service layer
-    let multi_device = command.device.is_none() && lg.device_count() > 1;
+    let multi_device =
+        command.device.is_none() && !command.runs_on_lg_host() && lg.device_count() > 1;
     let has_filter = command.filter_asn.is_some() || command.filter_vlan.is_some();
 
     let req = service::Request {

@@ -517,6 +517,13 @@ mod tests {
     }
 
     #[test]
+    fn traceroute_runs_on_lg_host_unless_device_targeted() {
+        assert!(parse_command("traceroute 8.8.8.8").unwrap().runs_on_lg_host());
+        assert!(!parse_command("traceroute 8.8.8.8 @switch01").unwrap().runs_on_lg_host());
+        assert!(!parse_command("ping 8.8.8.8").unwrap().runs_on_lg_host());
+    }
+
+    #[test]
     fn test_abbrev_ambiguous_lo() {
         // "lo" is ambiguous between login and logout.
         assert!(matches!(

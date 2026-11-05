@@ -91,7 +91,7 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 | `show mac address-table` | MAC address table |
 | `show participants` | List IXP participants (ASN + name) |
 | `ping <destination>` | Ping from the looking glass vantage point |
-| `traceroute <destination>` | Traceroute from the looking glass vantage point |
+| `traceroute <destination>` | Traceroute once from the looking glass host (`@device` to trace from a specific device) |
 
 ## Access Tiers
 

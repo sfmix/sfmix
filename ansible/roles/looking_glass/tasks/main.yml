@@ -78,6 +78,12 @@
     - Restart lg-cli
     - Restart lg-http
 
+- name: Install traceroute (lg-server runs traceroute locally)
+  become: true
+  ansible.builtin.apt:
+    name: traceroute
+    state: present
+
 # ── Binaries ──────────────────────────────────────────────────────────
 # TEMPORARY: during active development we build the binaries locally and
 # copy them into place, because waiting on GitHub Actions is slow. The

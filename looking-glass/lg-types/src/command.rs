@@ -134,6 +134,14 @@ impl Command {
     pub fn requires_auth_for_participant_port(&self) -> bool {
         self.resource.is_port_scoped() && self.target.is_some()
     }
+
+    /// Whether this command runs once on the looking-glass host instead of on
+    /// devices. Traceroute does, unless a specific `@device` was requested.
+    pub fn runs_on_lg_host(&self) -> bool {
+        self.verb == Verb::Traceroute
+            && self.resource == Resource::NetworkReachability
+            && self.device.is_none()
+    }
 }
 
 #[derive(Debug)]
