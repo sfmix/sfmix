@@ -1054,7 +1054,7 @@ async fn handle_telnet_session(
 
     // Send banner + prompt
     let banner = format!(
-        "\n{} Looking Glass\n\nType 'help' for available commands.\n\n{}",
+        "\n{}\n\nType 'help' for available commands.\n\n{}",
         ctx.info.name, PROMPT,
     );
     writer.write_all(to_crlf(banner.as_bytes()).as_slice()).await?;
