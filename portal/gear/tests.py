@@ -161,6 +161,38 @@ class NetBoxMappingTests(SimpleTestCase):
 
 
 @override_settings(
+    GEAR_USE_FIXTURES=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "gear-snap"}},
+)
+class SnapshotTests(SimpleTestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_stale_snapshot_served_without_fetch(self):
+        from django.core.cache import cache
+        from gear import data
+
+        cache.set(data.CACHE_KEY, {"fleet": ["old"], "fetched_at": time.time() - 10 * data.REFRESH_INTERVAL}, None)
+        with mock.patch.object(data, "_fetch_from_netbox") as fetch:
+            self.assertEqual(data.get_fleet(), ["old"])
+            fetch.assert_not_called()
+        self.assertTrue(data._is_stale())  # ...and the warmer will replace it
+
+    def test_cold_start_and_refresh_fetch(self):
+        from gear import data
+
+        with mock.patch.object(data, "_fetch_from_netbox", return_value=["new"]) as fetch:
+            self.assertEqual(data.get_fleet(), ["new"])  # no snapshot yet: fetch once
+            self.assertEqual(data.get_fleet(), ["new"])
+            self.assertEqual(fetch.call_count, 1)
+            data.get_snapshot(refresh=True)
+            self.assertEqual(fetch.call_count, 2)
+        self.assertFalse(data._is_stale())
+
+
+@override_settings(
     GEAR_HOSTS=["gear.test"], ALLOWED_HOSTS=["*"], GEAR_USE_FIXTURES=False,
     STORAGES={
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
@@ -169,7 +201,10 @@ class NetBoxMappingTests(SimpleTestCase):
 )
 class RoutingAndAuthTests(TestCase):
     def setUp(self):
-        self.fleet_patch = mock.patch("gear.data.get_fleet", return_value=[_server(), _switch()])
+        self.fleet_patch = mock.patch(
+            "gear.data.get_snapshot",
+            side_effect=lambda refresh=False: {"fleet": [_server(), _switch()], "fetched_at": time.time() - 300},
+        )
         self.fleet_patch.start()
         self.addCleanup(self.fleet_patch.stop)
         self.user = get_user_model().objects.create_user("admin@example.org", "admin@example.org")
