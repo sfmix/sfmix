@@ -20,6 +20,14 @@ VENDOR_NAMES = {
     "FINISAR CORP": "Finisar",
     "CISCO": "Cisco",
     "INTEL CORP": "Intel",
+    "BRO FLEXOPTIX": "Flexoptix",  # Flexoptix optics coded for Brocade
+    "OPNEXT,INC": "Opnext",
+    "OPNEXT, INC": "Opnext",
+    "METHODE ELEC.": "Methode",
+    # Blank / placeholder vendor fields in the EEPROM.
+    "OEM": "Generic",
+    "UNDEFINED": "Generic",
+    "": "Generic",
 }
 
 

@@ -206,8 +206,13 @@ class NetBoxHardwareSync:
             cf_patch["mfg_date"] = hw.mfg_date.isoformat()
         if any(cf.get(k) != v for k, v in cf_patch.items()):
             patch["custom_fields"] = cf_patch
-        model = hw.facts.get("system_model") or hw.facts.get("model")
-        if model and dev.device_type.model.lower() not in model.lower() and model.lower() not in dev.device_type.model.lower():
+        model = (hw.facts.get("system_model") or hw.facts.get("model") or "").lower()
+        # Match on the type's model or part number (OEM SKUs like PIO-628U-...
+        # live in part_number), in either direction (DCS-7280SR-48C6 vs -F).
+        known = [s.lower() for s in (dev.device_type.model, getattr(dev.device_type, "part_number", "") or "") if s]
+        if not known:
+            known = [str(dev.device_type).lower()]
+        if model and not any(k in model or model in k for k in known):
             logger.warning("%s: NetBox device type %r but hardware reports %r", hw.name, dev.device_type.model, model)
             self.stats.bump("device_type_mismatches")
         if patch:
@@ -234,7 +239,7 @@ class NetBoxHardwareSync:
                     }
                 )
                 continue
-            cf = dict(bay.custom_fields or {})
+            cf = {k: _cf_value(v) for k, v in dict(bay.custom_fields or {}).items()}
             patch: Dict[str, Any] = {}
             if any(cf.get(k) != v for k, v in want_cf.items()):
                 patch["custom_fields"] = want_cf
@@ -346,6 +351,13 @@ class NetBoxHardwareSync:
                 logger.debug("[DRY-RUN] Would update module %s:%s %s", hw.name, slot.bay, patch)
             else:
                 mod.update(patch)
+
+
+def _cf_value(v: Any) -> Any:
+    """Select custom fields come back as {"value", "label"}; compare on value."""
+    if isinstance(v, dict) and set(v) == {"value", "label"}:
+        return v["value"]
+    return v
 
 
 class _Fake:
