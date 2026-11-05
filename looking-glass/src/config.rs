@@ -109,8 +109,6 @@ pub struct ServiceConfig {
     pub operator: Option<String>,
     #[serde(default)]
     pub operator_url: Option<String>,
-    #[serde(default)]
-    pub peeringdb_ix_id: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
