@@ -5,15 +5,18 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use clap::Parser;
-use russh::server::{self, Auth, ChannelOpenHandle, Msg, Server as _, Session};
+use russh::server::{self, Auth, ChannelOpenHandle, Msg, Session};
 use russh::{Channel, ChannelId, MethodKind};
 use russh::keys::{Certificate, PublicKey};
 use russh::keys::ssh_key::{self, Fingerprint, HashAlg};
 use tracing::{debug, info, warn};
 
 use looking_glass::frontend::common::{
-    CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
+    idle_disconnect_notice, serve_ssh_with_limits,
+    ssh_inactivity_timeout, CommandAction, IdleWatch, LineEditor, LineEvent, SessionWriter,
+    PROMPT,
 };
+use looking_glass::ratelimit::ConnectionTracker;
 use looking_glass::format::ColorMode;
 use looking_glass::identity::Identity;
 use looking_glass::oidc::OidcClient;
@@ -49,6 +52,9 @@ struct CliConfig {
     /// OIDC config for login command
     #[serde(default)]
     auth: Option<looking_glass::config::AuthConfig>,
+    /// Connection limits + idle timeout for telnet/SSH (defaults if omitted)
+    #[serde(default)]
+    frontend_limits: Option<looking_glass::config::FrontendLimitsConfig>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -120,7 +126,13 @@ async fn main() -> Result<()> {
         tracing::warn!("RPC secret env var '{}' not set", config.rpc_secret_env);
         String::new()
     });
-    let ctx = Arc::new(ServiceContext::connect(&config.rpc_url, &rpc_secret).await?);
+    let fl = config.frontend_limits.as_ref();
+    let connections = ConnectionTracker::new(
+        fl.map(|f| f.max_connections).unwrap_or(50),
+        fl.map(|f| f.max_connections_per_source).unwrap_or(5),
+        fl.map(|f| f.idle_timeout_secs).unwrap_or(300),
+    );
+    let ctx = Arc::new(ServiceContext::connect(&config.rpc_url, &rpc_secret, connections).await?);
     info!(
         "Connected to {} ({} devices)",
         ctx.info.name, ctx.info.device_count
@@ -293,7 +305,8 @@ async fn run_ssh_server(
     let config = server::Config {
         methods,
         keys: vec![key],
-        inactivity_timeout: Some(std::time::Duration::from_secs(300)),
+        // Transport backstop only; user idleness is enforced by IdleWatch.
+        inactivity_timeout: ssh_inactivity_timeout(ctx.idle_timeout()),
         // Clients walk through every agent identity before reaching the looking-glass
         // cert (and we reject all non-cert keys), so this constant-time rejection delay
         // is paid once per offered key. Keep it short: auth here is cert-or-anonymous,
@@ -306,7 +319,7 @@ async fn run_ssh_server(
     info!("SSH server listening on {}", bind_addr);
 
     let mut server_impl = SshServerImpl {
-        ctx,
+        ctx: ctx.clone(),
         ca_key,
         ca_fingerprint,
         oidc_client,
@@ -314,10 +327,7 @@ async fn run_ssh_server(
         group_prefix,
         admin_group,
     };
-    server_impl
-        .run_on_socket(Arc::new(config), &listener)
-        .await?;
-    Ok(())
+    serve_ssh_with_limits(listener, Arc::new(config), &ctx.connections, &mut server_impl).await
 }
 
 /// russh Server trait implementation — factory for per-client handlers.
@@ -353,6 +363,7 @@ impl server::Server for SshServerImpl {
             channel_id: None,
             session_handle: None,
             term: None,
+            idle: IdleWatch::default(),
         }
     }
 }
@@ -384,6 +395,8 @@ struct SshSessionHandler {
     #[allow(dead_code)]
     session_handle: Option<server::Handle>,
     term: Option<String>,
+    /// User-idle watchdog for the interactive shell.
+    idle: IdleWatch,
 }
 
 impl SshSessionHandler {
@@ -783,6 +796,10 @@ impl server::Handler for SshSessionHandler {
         }
         banner.push_str("Type 'help' for available commands.\n\n> ");
         self.write_data(session, banner.as_bytes()).await;
+
+        if let (Some(idle), Some(ch)) = (self.ctx.idle_timeout(), self.channel_id) {
+            self.idle.start(session.handle(), ch, idle, self.login_in_progress.clone());
+        }
         Ok(())
     }
 
@@ -808,6 +825,7 @@ impl server::Handler for SshSessionHandler {
         data: &[u8],
         session: &mut Session,
     ) -> Result<(), Self::Error> {
+        self.idle.touch();
         let mut output = Vec::new();
         let mut rest = data;
 
@@ -831,7 +849,10 @@ impl server::Handler for SshSessionHandler {
                         output.clear();
                     }
                     tokio::task::yield_now().await;
+                    // Command run time doesn't count toward the idle timeout.
+                    self.idle.set_busy(true);
                     let action = self.process_line(&line, session, true).await;
+                    self.idle.set_busy(false);
                     if matches!(action, CommandAction::Continue) && !self.pager.is_active() {
                         self.write_data(session, PROMPT.as_bytes()).await;
                     }
@@ -1094,10 +1115,21 @@ async fn run_telnet_server(bind_addr: &str, ctx: Arc<ServiceContext>) -> Result<
     info!("Telnet server listening on {}", bind_addr);
 
     loop {
-        let (socket, addr) = listener.accept().await?;
+        let (mut socket, addr) = listener.accept().await?;
         let ctx = ctx.clone();
 
+        let source_key = looking_glass::ratelimit::ip_to_rate_key(addr.ip());
+        let conn_guard = match ctx.connections.try_admit(&source_key) {
+            Ok(guard) => guard,
+            Err(e) => {
+                warn!("Telnet connection rejected from {}: {}", addr, e);
+                let _ = socket.write_all(format!("\r\n{e}\r\n").as_bytes()).await;
+                continue;
+            }
+        };
+
         tokio::spawn(async move {
+            let _conn_guard = conn_guard;
             if let Err(e) = handle_telnet_session(socket, addr, ctx).await {
                 tracing::debug!("Telnet session from {addr} ended: {e}");
             }
@@ -1151,9 +1183,26 @@ async fn handle_telnet_session(
     let mut pager = Pager::new();
     let mut after_cr = false;
     let mut buf = [0u8; 1024];
+    // Idle deadline: only user data bytes (not telnet IAC negotiation) push it
+    // out, and it is re-armed after any command those bytes ran.
+    let idle = ctx.idle_timeout();
+    let fresh_deadline = || idle.map(|d| tokio::time::Instant::now() + d);
+    let mut deadline = fresh_deadline();
 
     loop {
-        let n = reader.read(&mut buf).await?;
+        let n = match deadline {
+            Some(d) => match tokio::time::timeout_at(d, reader.read(&mut buf)).await {
+                Ok(r) => r?,
+                Err(_) => {
+                    let notice = idle_disconnect_notice(idle.unwrap_or_default());
+                    let _ = writer.write_all(&to_crlf(notice.as_bytes())).await;
+                    let _ = writer.flush().await;
+                    info!("Telnet session from {addr} idle timeout");
+                    return Ok(());
+                }
+            },
+            None => reader.read(&mut buf).await?,
+        };
         if n == 0 {
             break;
         }
@@ -1183,6 +1232,7 @@ async fn handle_telnet_session(
             }
         }
 
+        let saw_input = !input.is_empty();
         let mut rest = input.as_slice();
         while let Some((&byte, tail)) = rest.split_first() {
             // While output is being paged, keystrokes drive the pager.
@@ -1235,6 +1285,9 @@ async fn handle_telnet_session(
             }
         }
         writer.flush().await?;
+        if saw_input {
+            deadline = fresh_deadline();
+        }
     }
 
     Ok(())

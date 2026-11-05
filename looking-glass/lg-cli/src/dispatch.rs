@@ -29,13 +29,26 @@ const RPC_READY_TIMEOUT_SECS: u64 = 120;
 pub struct ServiceContext {
     pub info: ServiceInfo,
     pub rpc: RpcClient,
+    /// Telnet/SSH connection limits + idle timeout (shared across listeners).
+    pub connections: looking_glass::ratelimit::ConnectionTracker,
 }
 
 impl ServiceContext {
-    pub async fn connect(rpc_url: &str, rpc_secret: &str) -> Result<Self> {
+    pub async fn connect(
+        rpc_url: &str,
+        rpc_secret: &str,
+        connections: looking_glass::ratelimit::ConnectionTracker,
+    ) -> Result<Self> {
         let rpc = RpcClient::new(rpc_url, rpc_secret);
         let info = rpc.wait_for_ready(RPC_READY_TIMEOUT_SECS).await?;
-        Ok(Self { info, rpc })
+        Ok(Self { info, rpc, connections })
+    }
+
+    /// User-idle timeout for interactive sessions (None = disabled).
+    pub fn idle_timeout(&self) -> Option<std::time::Duration> {
+        looking_glass::frontend::common::idle_timeout_from_secs(
+            self.connections.idle_timeout.as_secs(),
+        )
     }
 }
 

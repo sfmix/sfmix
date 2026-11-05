@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
 
 use anyhow::Result;
-use russh::server::{self, Auth, ChannelOpenHandle, Msg, Server as _, Session};
+use russh::server::{self, Auth, ChannelOpenHandle, Msg, Session};
 use russh::{Channel, ChannelId, MethodKind};
 use russh::keys::{Certificate, PublicKey};
 use russh::keys::ssh_key::{self, Fingerprint, HashAlg};
@@ -16,7 +16,8 @@ use crate::oidc::OidcClient;
 use crate::service::LookingGlass;
 
 use super::common::{
-    CommandAction, LineEditor, LineEvent, SessionWriter, PROMPT,
+    idle_timeout_from_secs, serve_ssh_with_limits, ssh_inactivity_timeout, CommandAction,
+    IdleWatch, LineEditor, LineEvent, SessionWriter, PROMPT,
 };
 
 /// SSH frontend server.
@@ -70,11 +71,8 @@ impl SshFrontend {
         let config = server::Config {
             methods,
             keys: vec![key],
-            // Transport-level backstop only: russh resets this on *any* client
-            // packet (incl. ServerAliveInterval keepalives), so it can't see an
-            // idle user. User idleness is enforced by spawn_idle_watchdog; this
-            // sits a minute past it so the watchdog's notice wins the race.
-            inactivity_timeout: idle_timeout(&lg).map(|d| d + Duration::from_secs(60)),
+            // Transport backstop only; user idleness is enforced by IdleWatch.
+            inactivity_timeout: ssh_inactivity_timeout(idle_timeout(&lg)),
             // Clients walk through every agent identity before reaching the looking-glass
             // cert (and we reject all non-cert keys), so this constant-time rejection delay
             // is paid once per offered key. Keep it short: auth here is cert-or-anonymous,
@@ -106,46 +104,8 @@ impl SshFrontend {
             cert_lifetime_secs: self.cert_lifetime_secs,
         };
 
-        // Own accept loop (rather than russh's run_on_socket) so connection
-        // limits are enforced before the handshake, same as telnet.
-        loop {
-            let (mut socket, addr) = match listener.accept().await {
-                Ok(s) => s,
-                Err(e) => {
-                    warn!(error = %e, "SSH accept failed");
-                    continue;
-                }
-            };
-            let source_key = crate::ratelimit::ip_to_rate_key(addr.ip());
-            let conn_guard = match self.lg.connection_tracker.try_admit(&source_key) {
-                Ok(guard) => guard,
-                Err(e) => {
-                    warn!("SSH connection rejected from {}: {}", addr, e);
-                    // Pre-version-exchange text is permitted by RFC 4253 §4.2;
-                    // `ssh -v` shows it.
-                    let _ = tokio::io::AsyncWriteExt::write_all(
-                        &mut socket,
-                        format!("{e}\r\n").as_bytes(),
-                    )
-                    .await;
-                    continue;
-                }
-            };
-
-            let config = self.config.clone();
-            let handler = server_impl.new_client(Some(addr));
-            tokio::spawn(async move {
-                let _conn_guard = conn_guard;
-                match server::run_stream(config, socket, handler).await {
-                    Ok(session) => {
-                        if let Err(e) = session.await {
-                            debug!(error = %e, "SSH session from {} ended with error", addr);
-                        }
-                    }
-                    Err(e) => debug!(error = %e, "SSH connection setup from {} failed", addr),
-                }
-            });
-        }
+        serve_ssh_with_limits(listener, self.config.clone(), &self.lg.connection_tracker, &mut server_impl)
+            .await
     }
 }
 
@@ -177,66 +137,14 @@ impl server::Server for SshServerImpl {
             channel_id: None,
             session_handle: None,
             term: None,
-            last_input: Arc::new(std::sync::Mutex::new(tokio::time::Instant::now())),
-            command_running: Arc::new(AtomicBool::new(false)),
-            idle_watchdog: None,
+            idle: IdleWatch::default(),
         }
     }
 }
 
 /// Configured user-idle timeout, or None when disabled (`idle_timeout_secs: 0`).
 fn idle_timeout(lg: &LookingGlass) -> Option<Duration> {
-    let d = lg.connection_tracker.idle_timeout;
-    (!d.is_zero()).then_some(d)
-}
-
-/// Aborts the wrapped task when dropped (i.e. when the session handler goes away).
-struct AbortOnDrop(tokio::task::AbortHandle);
-
-impl Drop for AbortOnDrop {
-    fn drop(&mut self) {
-        self.0.abort();
-    }
-}
-
-/// Disconnect an interactive shell after `idle` with no keystrokes.
-///
-/// Time spent running a command or waiting on an OIDC login doesn't count:
-/// the clock restarts once those finish.
-fn spawn_idle_watchdog(
-    handle: server::Handle,
-    channel_id: ChannelId,
-    idle: Duration,
-    last_input: Arc<std::sync::Mutex<tokio::time::Instant>>,
-    command_running: Arc<AtomicBool>,
-    login_in_progress: Arc<AtomicBool>,
-) -> AbortOnDrop {
-    let task = tokio::spawn(async move {
-        loop {
-            let deadline = *last_input.lock().unwrap() + idle;
-            tokio::time::sleep_until(deadline).await;
-            let now = tokio::time::Instant::now();
-            if command_running.load(Ordering::SeqCst) || login_in_progress.load(Ordering::SeqCst) {
-                *last_input.lock().unwrap() = now;
-                continue;
-            }
-            if *last_input.lock().unwrap() + idle > now {
-                continue; // input arrived while we slept
-            }
-            info!(idle_secs = idle.as_secs(), "SSH session idle timeout");
-            let notice = super::common::idle_disconnect_notice(idle);
-            let _ = handle.data(channel_id, transform_line_endings(notice.as_bytes())).await;
-            let _ = handle
-                .disconnect(
-                    russh::Disconnect::ByApplication,
-                    "idle timeout".into(),
-                    "en".into(),
-                )
-                .await;
-            return;
-        }
-    });
-    AbortOnDrop(task.abort_handle())
+    idle_timeout_from_secs(lg.connection_tracker.idle_timeout.as_secs())
 }
 
 /// Certificate metadata captured during auth for display in the welcome banner.
@@ -262,18 +170,8 @@ struct SshSessionHandler {
     session_handle: Option<server::Handle>,
     /// Terminal type from PTY request (e.g. "xterm-256color").
     term: Option<String>,
-    /// Last keystroke (or end of the last command); drives the idle watchdog.
-    last_input: Arc<std::sync::Mutex<tokio::time::Instant>>,
-    /// Set while a command dispatched from `data()` is running.
-    command_running: Arc<AtomicBool>,
-    /// Idle watchdog for the interactive shell; aborted when the handler drops.
-    idle_watchdog: Option<AbortOnDrop>,
-}
-
-impl SshSessionHandler {
-    fn touch_input(&self) {
-        *self.last_input.lock().unwrap() = tokio::time::Instant::now();
-    }
+    /// User-idle watchdog for the interactive shell.
+    idle: IdleWatch,
 }
 
 impl SshSessionHandler {
@@ -674,15 +572,7 @@ impl server::Handler for SshSessionHandler {
         self.write_data(session, banner.as_bytes()).await;
 
         if let (Some(idle), Some(ch)) = (idle_timeout(&self.lg), self.channel_id) {
-            self.touch_input();
-            self.idle_watchdog = Some(spawn_idle_watchdog(
-                session.handle(),
-                ch,
-                idle,
-                self.last_input.clone(),
-                self.command_running.clone(),
-                self.login_in_progress.clone(),
-            ));
+            self.idle.start(session.handle(), ch, idle, self.login_in_progress.clone());
         }
         Ok(())
     }
@@ -712,7 +602,7 @@ impl server::Handler for SshSessionHandler {
         session: &mut Session,
     ) -> Result<(), Self::Error> {
         // Interactive shell: feed bytes through shared LineEditor
-        self.touch_input();
+        self.idle.touch();
         let mut output = Vec::new();
         let mut lines: Vec<String> = Vec::new();
         let mut got_eof = false;
@@ -737,15 +627,14 @@ impl server::Handler for SshSessionHandler {
 
         // Process any completed lines (interactive shell shows prompt after each)
         // Command run time doesn't count toward the idle timeout.
-        self.command_running.store(true, Ordering::SeqCst);
+        self.idle.set_busy(true);
         for line in lines {
             let action = self.process_line(&line, session).await;
             if matches!(action, CommandAction::Continue) {
                 self.write_data(session, PROMPT.as_bytes()).await;
             }
         }
-        self.touch_input();
-        self.command_running.store(false, Ordering::SeqCst);
+        self.idle.set_busy(false);
 
         if got_eof {
             self.write_data(session, b"Goodbye.\n").await;
