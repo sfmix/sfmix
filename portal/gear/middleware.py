@@ -12,6 +12,10 @@ class GearHostMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
         self.hosts = {h.strip().lower() for h in getattr(settings, "GEAR_HOSTS", []) if h.strip()}
+        if getattr(settings, "GEAR_BACKGROUND_REFRESH", False):
+            from . import data
+
+            data.start_background_refresh()  # keep the NetBox snapshot warm
 
     def __call__(self, request):
         host = request.get_host().split(":")[0].lower()

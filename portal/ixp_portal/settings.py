@@ -49,6 +49,11 @@ GEAR_HOSTS = [h for h in os.environ.get(
 GEAR_DEVICE_ROLES = os.environ.get("GEAR_DEVICE_ROLES", "peering_switch,edge-router,vm-hypervisor").split(",")
 # DEBUG-only: read gear/devmock/fleet.json (serial-scrubbed) instead of NetBox.
 GEAR_USE_FIXTURES = DEBUG and os.environ.get("GEAR_USE_FIXTURES", "false").lower() in ("true", "1", "yes")
+# Per-worker thread keeping the NetBox snapshot warm (gear/data.py). On by
+# default in production; off in DEBUG/tests unless asked for.
+GEAR_BACKGROUND_REFRESH = os.environ.get(
+    "GEAR_BACKGROUND_REFRESH", "false" if DEBUG else "true"
+).lower() in ("true", "1", "yes") and not GEAR_USE_FIXTURES
 
 INSTALLED_APPS = [
     "django.contrib.auth",

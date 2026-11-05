@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponseForbidden
@@ -34,9 +34,10 @@ def admin_only(view):
 
 def _load(request, refresh: bool = False):
     try:
-        fleet = data.get_fleet(refresh=refresh)
-        error = None
-    except Exception as exc:  # NetBox down: render the page with the error
+        snap = data.get_snapshot(refresh=refresh)
+        fleet, error = snap["fleet"], None
+        request.gear_fetched_at = datetime.fromtimestamp(snap["fetched_at"], tz=timezone.utc)
+    except Exception as exc:  # NetBox down and no snapshot yet: render the error
         logger.exception("peering-gear: NetBox fetch failed")
         fleet, error = [], f"Couldn't load hardware from NetBox: {exc}"
     today = date.today()
@@ -46,7 +47,8 @@ def _load(request, refresh: bool = False):
 
 
 def _ctx(request, nav, **kw):
-    return {"nav": nav, "user_email": getattr(request.user, "email", ""), **kw}
+    return {"nav": nav, "user_email": getattr(request.user, "email", ""),
+            "fetched_at": getattr(request, "gear_fetched_at", None), **kw}
 
 
 @admin_only
@@ -114,7 +116,7 @@ def donations(request):
 @require_POST
 @admin_only
 def refresh(request):
-    data.get_fleet(refresh=True)
+    data.get_snapshot(refresh=True)
     nxt = request.POST.get("next") or "/"
     if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
         nxt = "/"

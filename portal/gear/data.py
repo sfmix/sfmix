@@ -16,8 +16,13 @@ GEAR_USE_FIXTURES the same shape is read from gear/devmock/fleet.json.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import logging
+import os
+import threading
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -28,9 +33,14 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 CACHE_KEY = "gear:fleet"
-# NetBox only changes when hardware_inventory.py runs; a cold fetch pages
-# through ~1k bays/modules (~10 s), so cache long and offer a manual refresh.
-CACHE_TTL = 3600
+# Hardware changes rarely and a cold NetBox fetch pages through ~1k bays and
+# modules (~10 s), so pages always read a pre-built snapshot (stale-while-
+# revalidate): a background thread per worker re-fetches every REFRESH_INTERVAL,
+# one worker at a time via a file lock, and the snapshot never expires, so a
+# NetBox outage just means slightly older data, never a slow page.
+REFRESH_INTERVAL = 15 * 60
+POLL_INTERVAL = 60
+BACKOFF_MAX = 3600
 FIXTURE = Path(__file__).parent / "devmock" / "fleet.json"
 
 ROLE_LABELS = {
@@ -46,15 +56,76 @@ def roles() -> List[str]:
 
 
 def get_fleet(refresh: bool = False) -> List[Dict[str, Any]]:
+    return get_snapshot(refresh)["fleet"]
+
+
+def get_snapshot(refresh: bool = False) -> Dict[str, Any]:
+    """{"fleet": [...], "fetched_at": epoch}. Never blocks on NetBox once warm."""
     if getattr(settings, "GEAR_USE_FIXTURES", False):
-        return json.loads(FIXTURE.read_text())
+        return {"fleet": json.loads(FIXTURE.read_text()), "fetched_at": time.time()}
     if not refresh:
-        cached = cache.get(CACHE_KEY)
-        if cached is not None:
-            return cached
-    fleet = _fetch_from_netbox()
-    cache.set(CACHE_KEY, fleet, CACHE_TTL)
-    return fleet
+        snap = cache.get(CACHE_KEY)
+        if snap is not None:
+            return snap
+    return _refresh()  # first boot (no snapshot yet) or explicit refresh
+
+
+def _refresh() -> Dict[str, Any]:
+    t0 = time.monotonic()
+    snap = {"fleet": _fetch_from_netbox(), "fetched_at": time.time()}
+    cache.set(CACHE_KEY, snap, None)  # never expires; replaced by the next refresh
+    logger.info("peering-gear: refreshed %d devices from NetBox in %.1fs (pid=%d)",
+                len(snap["fleet"]), time.monotonic() - t0, os.getpid())
+    return snap
+
+
+@contextmanager
+def _lock():
+    path = Path(getattr(settings, "NETBOX_CACHE_LOCK_FILE", "/tmp/.netbox_refresh.lock")).with_name(".gear_refresh.lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_CREAT | os.O_RDWR)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+def _is_stale() -> bool:
+    snap = cache.get(CACHE_KEY)
+    return snap is None or time.time() - snap.get("fetched_at", 0) >= REFRESH_INTERVAL
+
+
+def _loop() -> None:
+    failures = 0
+    while True:
+        delay = POLL_INTERVAL
+        if _is_stale():
+            with _lock() as mine:
+                if mine and _is_stale():
+                    try:
+                        _refresh()
+                        failures = 0
+                    except Exception:
+                        failures += 1
+                        delay = min(30 * 2 ** (failures - 1), BACKOFF_MAX)
+                        logger.exception("peering-gear: NetBox refresh failed (#%d); retry in %ds", failures, delay)
+        time.sleep(delay)
+
+
+def start_background_refresh() -> None:
+    """Start the per-worker warmer (idempotent). Called from GearHostMiddleware."""
+    if getattr(start_background_refresh, "_started", False):
+        return
+    start_background_refresh._started = True
+    threading.Thread(target=_loop, name="gear-refresh", daemon=True).start()
 
 
 def _get_all(path: str, params: List[tuple]) -> List[Dict[str, Any]]:

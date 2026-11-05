@@ -48,7 +48,7 @@
   </main>
   <footer class="wrap footer muted small">
     SFMIX is a volunteer-run, non-profit internet exchange. Hardware donations keep it running.
-    <form method="post" action="/refresh/" class="inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="link-btn" type="submit">Refresh from NetBox</button></form>
+    <form method="post" action="/refresh/" class="inline">{% csrf_token %}{% if fetched_at %}<span title="{{ fetched_at|date:'c' }}">NetBox snapshot {{ fetched_at|timesince }} old · </span>{% endif %}<input type="hidden" name="next" value="{{ request.path }}"><button class="link-btn" type="submit">Refresh now</button></form>
   </footer>
 </body>
 </html>
