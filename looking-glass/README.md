@@ -93,6 +93,11 @@ All frontends accept the same command set. Commands support IOS-style abbreviati
 | `show participants` | List IXP participants (ASN + name) |
 | `ping <destination>` | Ping once from the looking glass host (`@device` to ping from a specific device) |
 | `traceroute <destination>` | Traceroute once from the looking glass host (`@device` to trace from a specific device) |
+| `terminal length <n\|0\|auto>` | Telnet/SSH pager page length: `auto` (default) follows the window size, `0` never pages |
+
+### Pager (telnet / SSH)
+
+Output that fits on one screen prints inline. Longer output opens a full-screen pager (`less`-style keys: SPACE/b page, j/k line, `/` search, `n`/`N`, `S` wrap/chop, `h` help, `q` quit) that reflows when the window is resized. On quit, the lines you paged through are left in your scrollback. The window size comes from the SSH PTY (and window-change requests) or telnet NAWS; clients that report none (SSH exec, `nc`) are never paged. Implementation: `lg-cli/src/pager.rs`.
 
 ## Access Tiers
 

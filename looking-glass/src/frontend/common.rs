@@ -32,6 +32,7 @@ Available commands:
   login                            Authenticate via OIDC (opens browser)
   whoami                           Show current identity and permissions
   logout                           Drop authentication (return to public tier)
+  terminal length <n|0|auto>       Pager page length (0 = no paging; auto = window size)
   help                             Show this help
   quit / exit                      Disconnect
 
