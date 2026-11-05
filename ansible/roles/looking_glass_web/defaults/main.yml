@@ -30,11 +30,11 @@ looking_glass_web_lg_http_upstream: "http://127.0.0.1:{{ looking_glass_http_port
 # publish_html_summary) and served verbatim.
 looking_glass_web_static_directory: /var/www/lg-web
 
-# Per-IP request limiting (zone "lg_ip" is 5r/s). The portal fetches several
+# Per-source-prefix (/24, /56) request limiting (zone "lg_ip" is 5r/s). The portal fetches several
 # LG endpoints per page render from one address, so a large no-delay burst
 # lets a page's fan-out clear while sustained abuse still caps at 5r/s.
 looking_glass_web_rate_limit_burst: 40
-# Concurrent requests per source IP (zone "lg_conn"), vhost-wide and for the
+# Concurrent requests per source prefix (zone "lg_conn"), vhost-wide and for the
 # long-lived MCP streams. Same exemptions as the rate limit.
 looking_glass_web_conn_limit_per_ip: 20
 looking_glass_web_mcp_conn_limit_per_ip: 5

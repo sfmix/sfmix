@@ -75,8 +75,27 @@
           {{ subnet }} 1;
       {% endfor %}
       }
+      # Limits are per source prefix, /24 (IPv4) or /56 (IPv6), like lg-cli's
+      # ip_to_rate_key, so one network can't dodge them by rotating
+      # addresses. nginx can't mask addresses, so this parses the canonical
+      # $remote_addr text (lowercase, no leading zeros, "::" may stand for any
+      # run of zero groups, even one): groups 0-2 plus the top byte of group 3,
+      # whose hex digits <t> captures ("" when zero). One line per position of
+      # "::" within the first four groups. Unmatched forms (::1,
+      # ::ffff:a.b.c.d) fall back to the single address.
+      map $remote_addr $lg_source_prefix {
+          default $remote_addr;
+          "~^(?<p>\d+\.\d+\.\d+)\.\d+$" "net:$p";
+          "~^(?<a>[0-9a-f]{1,4}):(?<b>[0-9a-f]{1,4}):(?<c>[0-9a-f]{1,4}):(?:[0-9a-f]{1,2}|(?<t>[0-9a-f]{1,2})[0-9a-f]{2})(?::|$)" "net:$a:$b:$c:$t";
+          "~^(?<a>[0-9a-f]{1,4}):(?<b>[0-9a-f]{1,4}):(?<c>[0-9a-f]{1,4})::" "net:$a:$b:$c:";
+          "~^(?<a>[0-9a-f]{1,4}):(?<b>[0-9a-f]{1,4})::(?:[0-9a-f]{1,2}|(?<t>[0-9a-f]{1,2})[0-9a-f]{2})(?::[0-9a-f]{1,4}){4}$" "net:$a:$b:0:$t";
+          "~^(?<a>[0-9a-f]{1,4}):(?<b>[0-9a-f]{1,4})::" "net:$a:$b:0:";
+          "~^(?<a>[0-9a-f]{1,4})::(?<c>[0-9a-f]{1,4}):(?:[0-9a-f]{1,2}|(?<t>[0-9a-f]{1,2})[0-9a-f]{2})(?::[0-9a-f]{1,4}){4}$" "net:$a:0:$c:$t";
+          "~^(?<a>[0-9a-f]{1,4})::(?:[0-9a-f]{1,2}|(?<t>[0-9a-f]{1,2})[0-9a-f]{2})(?::[0-9a-f]{1,4}){4}$" "net:$a:0:0:$t";
+          "~^(?<a>[0-9a-f]{1,4})::" "net:$a:0:0:";
+      }
       map $lg_limit_exempt $lg_limit_key {
-          0 $binary_remote_addr;
+          0 $lg_source_prefix;
           1 "";
       }
       limit_req_zone $lg_limit_key zone=lg_ip:10m rate=5r/s;
