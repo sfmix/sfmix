@@ -84,7 +84,14 @@ resource "authentik_provider_oauth2" "looking_glass_api" {
   invalidation_flow  = data.authentik_flow.default_invalidation.id
   signing_key        = data.authentik_certificate_key_pair.self_signed.id
 
+  # lg.sfmix.org is the public looking glass (design doc 009); lg-ng is a
+  # legacy alias that 308s to it, kept so older clients still complete auth.
   allowed_redirect_uris = [
+    {
+      matching_mode     = "regex"
+      url               = "https://lg\\.sfmix\\.org/.*"
+      redirect_uri_type = "authorization"
+    },
     {
       matching_mode     = "regex"
       url               = "https://lg-ng\\.sfmix\\.org/.*"
