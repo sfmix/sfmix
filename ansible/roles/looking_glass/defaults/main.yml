@@ -25,9 +25,9 @@ looking_glass_telnet_port: 2023
 looking_glass_ssh_enabled: false
 looking_glass_ssh_port: 2222
 # lg-cli telnet/SSH limits (rendered as frontend_limits in lg-cli.yml).
-looking_glass_cli_idle_timeout_secs: 300
-looking_glass_cli_max_connections: 50
-looking_glass_cli_max_connections_per_source: 5
+looking_glass_cli_idle_timeout_secs: 600
+looking_glass_cli_max_connections: 200
+looking_glass_cli_max_connections_per_source: 20
 looking_glass_user: looking-glass
 looking_glass_group: looking-glass
 looking_glass_config_dir: /etc/looking-glass
