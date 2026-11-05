@@ -77,8 +77,25 @@
       var current = {{ .Site.Language.Lang }};
       var translations = {{ $trans }};
       var autoLangs = ["en", "es", "de"]; // never auto-pick novelty locales
-      var stored = null;
-      try { stored = localStorage.getItem("sfmix-lang"); } catch (e) {}
+      /* An explicit language pick is the "sfmix-lang" cookie on
+         Domain=sfmix.org, shared with lg.sfmix.org; an older per-origin
+         localStorage pick is migrated into it once. */
+      window.sfmixSaveLang = function (l) {
+        var dom = /(^|\.)sfmix\.org$/.test(location.hostname) ? "; domain=sfmix.org" : "";
+        document.cookie = "sfmix-lang=" + l + dom + "; path=/; max-age=31536000; samesite=lax" + (location.protocol === "https:" ? "; secure" : "");
+      };
+      var readLang = function () {
+        var m = document.cookie.match(/(?:^|;\s*)sfmix-lang=([a-z]+)(?:;|$)/);
+        return m ? m[1] : null;
+      };
+      var stored = readLang();
+      if (!stored) {
+        try { stored = localStorage.getItem("sfmix-lang"); } catch (e) {}
+        if (stored) {
+          window.sfmixSaveLang(stored);
+          if (readLang()) { try { localStorage.removeItem("sfmix-lang"); } catch (e) {} }
+        }
+      }
 
       var pref = stored;
       if (!pref) {
@@ -184,9 +201,6 @@
             {{- range .Site.Menus.services }}
             <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}"{{ if hasPrefix .URL "http" }} target="_blank" rel="noopener"{{ end }}>{{ partial "T.html" .Name }}</a></li>
             {{- end }}
-            {{- range .Site.Menus.main }}{{ if hasPrefix .URL "http" }}
-            <li><a href="{{ .URL }}" target="_blank" rel="noopener">{{ partial "T.html" .Name }}</a></li>
-            {{- end }}{{ end }}
           </ul>
         </div>
         <div>
@@ -195,7 +209,7 @@
             {{- range .Site.Menus.connect }}
             <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
             {{- end }}
-            {{- range .Site.Menus.main }}{{ if and (ne .URL "/connection-guide/") (not (hasPrefix .URL "http")) }}
+            {{- range .Site.Menus.main }}{{ if ne .URL "/connection-guide/" }}
             <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
             {{- end }}{{ end }}
             <li><a href="https://www.peeringdb.com/ix/155" target="_blank" rel="noopener">PeeringDB ↗</a></li>

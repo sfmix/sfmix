@@ -11,7 +11,7 @@ SFMIX uses sFlow to sample exchange traffic metadata, including peer-to-peer vol
 
 <div class="stat-cta-grid">
 
-{{< stat-card icon="📈" url="https://portal.sfmix.org/statistics/" title="overall traffic dashboard" desc="the exchange's total throughput, peaks, and history — no cap 📊" >}}
+{{< stat-card icon="📈" url="https://portal.sfmix.org/statistics/" external="false" title="overall traffic dashboard" desc="the exchange's total throughput, peaks, and history — no cap 📊" >}}
 
 {{< stat-card icon="🗺️" url="/genz/weathermap/" external="false" title="traffic weathermap" desc="the classic weathermap but rebuilt: every backbone link color-coded by live usage. pan, zoom, tap any link for the rates + a 24h graph, it's giving realtime 🔥" >}}
 

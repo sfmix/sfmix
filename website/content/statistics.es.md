@@ -11,7 +11,7 @@ SFMIX usa sFlow para muestrear los metadatos del tráfico del intercambio, inclu
 
 <div class="stat-cta-grid">
 
-{{< stat-card icon="📈" url="https://portal.sfmix.org/statistics/" title="Panel de tráfico general" desc="Rendimiento agregado del intercambio, picos y tendencias históricas." >}}
+{{< stat-card icon="📈" url="https://portal.sfmix.org/statistics/" external="false" title="Panel de tráfico general" desc="Rendimiento agregado del intercambio, picos y tendencias históricas." >}}
 
 {{< stat-card icon="🗺️" url="/es/weathermap/" external="false" title="Mapa de calor del tráfico" desc="El clásico weathermap, renovado: cada enlace del backbone coloreado según su utilización en vivo. Desplázate, haz zoom y pulsa cualquier enlace para ver sus tasas y una gráfica de 24 horas." >}}
 

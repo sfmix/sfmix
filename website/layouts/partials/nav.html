@@ -44,8 +44,9 @@
         {{/*
           Language picker — native language names only (never translated), the
           same convention as the portal. Links to this page's translation when
-          one exists, otherwise to that language's home. The button stores the
-          choice in localStorage so the auto-detect redirect respects it.
+          one exists, otherwise to that language's home. The link stores the
+          choice in the sfmix-lang cookie (shared with lg.sfmix.org) so the
+          auto-detect redirect respects it.
           Reuses the .has-dropdown markup so the existing nav JS drives it.
         */}}
         {{ $trans := dict }}
@@ -62,7 +63,7 @@
             <li>
               <a href="{{ $url }}" class="dropdown-link{{ if eq .Lang $cur }} is-active{{ end }}"
                  hreflang="{{ .LanguageCode | default .Lang }}"
-                 onclick="try{localStorage.setItem('sfmix-lang','{{ .Lang }}');sessionStorage.setItem('sfmix-lang-redirected','1');}catch(e){}">
+                 onclick="try{window.sfmixSaveLang('{{ .Lang }}');sessionStorage.setItem('sfmix-lang-redirected','1');}catch(e){}">
                 {{ .LanguageName }}
               </a>
             </li>

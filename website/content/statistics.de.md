@@ -11,7 +11,7 @@ SFMIX verwendet sFlow, um Metadaten zum Datenverkehr des Internet-Knotens zu erf
 
 <div class="stat-cta-grid">
 
-{{< stat-card icon="📈" url="https://portal.sfmix.org/statistics/" title="Dashboard zum Gesamtverkehr" desc="Gesamtdurchsatz des Knotens, Spitzenwerte und historische Trends." >}}
+{{< stat-card icon="📈" url="https://portal.sfmix.org/statistics/" external="false" title="Dashboard zum Gesamtverkehr" desc="Gesamtdurchsatz des Knotens, Spitzenwerte und historische Trends." >}}
 
 {{< stat-card icon="🗺️" url="/de/weathermap/" external="false" title="Verkehrs-Wetterkarte" desc="Die klassische Wetterkarte, neu gebaut: jede Backbone-Verbindung nach Live-Auslastung eingefärbt. Verschieben, zoomen und jede Verbindung anklicken für Raten und einen 24-Stunden-Graphen." >}}
 
