@@ -47,11 +47,31 @@
   <script>
   (function () {
     /* Color scheme: apply an explicit light/dark pick before first paint.
-       With no pick the attribute stays unset and CSS follows prefers-color-scheme.
-       nav.html wires the toggle button. */
+       One pick is shared by every *.sfmix.org site (sfmix.org, lg., portal.,
+       ip.) through the "sfmix-theme" cookie on Domain=sfmix.org; localStorage
+       is per-origin, so an older per-site pick is migrated into the cookie
+       once. With no pick the attribute stays unset and CSS follows
+       prefers-color-scheme. nav.html wires the toggle button. */
+    window.sfmixReadTheme = function () {
+      var m = document.cookie.match(/(?:^|;\s*)sfmix-theme=(dark|light)(?:;|$)/);
+      return m ? m[1] : null;
+    };
+    window.sfmixSaveTheme = function (t) {
+      var dom = /(^|\.)sfmix\.org$/.test(location.hostname) ? "; domain=sfmix.org" : "";
+      document.cookie = "sfmix-theme=" + t + dom + "; path=/; max-age=31536000; samesite=lax" + (location.protocol === "https:" ? "; secure" : "");
+    };
     try {
-      var theme = localStorage.getItem("sfmix-theme");
-      if (theme === "dark" || theme === "light") document.documentElement.setAttribute("data-theme", theme);
+      var theme = window.sfmixReadTheme();
+      if (!theme) {
+        var legacy = null;
+        try { legacy = localStorage.getItem("sfmix-theme"); } catch (e) {}
+        if (legacy === "dark" || legacy === "light") {
+          theme = legacy;
+          window.sfmixSaveTheme(legacy);
+          if (window.sfmixReadTheme()) { try { localStorage.removeItem("sfmix-theme"); } catch (e) {} }
+        }
+      }
+      if (theme) document.documentElement.setAttribute("data-theme", theme);
     } catch (e) {}
     try {
       var current = {{ .Site.Language.Lang }};
@@ -164,6 +184,9 @@
             {{- range .Site.Menus.services }}
             <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}"{{ if hasPrefix .URL "http" }} target="_blank" rel="noopener"{{ end }}>{{ partial "T.html" .Name }}</a></li>
             {{- end }}
+            {{- range .Site.Menus.main }}{{ if hasPrefix .URL "http" }}
+            <li><a href="{{ .URL }}" target="_blank" rel="noopener">{{ partial "T.html" .Name }}</a></li>
+            {{- end }}{{ end }}
           </ul>
         </div>
         <div>
@@ -172,7 +195,7 @@
             {{- range .Site.Menus.connect }}
             <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
             {{- end }}
-            {{- range .Site.Menus.main }}{{ if ne .URL "/connection-guide/" }}
+            {{- range .Site.Menus.main }}{{ if and (ne .URL "/connection-guide/") (not (hasPrefix .URL "http")) }}
             <li><a href="{{ if hasPrefix .URL "http" }}{{ .URL }}{{ else }}{{ .URL | relLangURL }}{{ end }}">{{ partial "T.html" .Name }}</a></li>
             {{- end }}{{ end }}
             <li><a href="https://www.peeringdb.com/ix/155" target="_blank" rel="noopener">PeeringDB ↗</a></li>

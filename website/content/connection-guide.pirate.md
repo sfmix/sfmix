@@ -49,7 +49,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 - **One MAC address per logical link.** Port security allows 2 MACs temporarily for router migrations, but only 1 long-term.
 - **Allowed broadcast:** ARP an' ICMPv6 ND only. No RAs, CDP, DHCP, or STP.
 - **LLDP:** SFMIX transmits LLDP on all matey ports, includin' optical receive power levels. Mateys may transmit LLDP but be not required to.
-- **BGP session with th' [Looking Glass](/looking-glass/) be mandatory.** It be used only for debugging — no routes be redistributed, no traffic exchanged.
+- **BGP session with th' [Looking Glass](https://lg.sfmix.org/) be mandatory.** It be used only for debugging — no routes be redistributed, no traffic exchanged.
 - Do not propagate SFMIX peering subnets (206.197.187.0/24, 2001:504:30::/64) beyond yer edge router. Use ACLs if needed.
 - No static or default routes toward other mateys or SFMIX resources without permission.
 - [Route server](/route-servers/) peering be encouraged but not required.

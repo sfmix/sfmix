@@ -43,6 +43,8 @@ None of this filtering involves inspecting the content or payload of your traffi
 
 We may utilize usage analytics tools such as Google Analytics or PostHog to understand how visitors use this website. These tools may set cookies and collect anonymized usage data such as pages visited, time on site, and referral source. Server access logs may be retained for a limited period for operational and security purposes.
 
+If you pick light or dark mode, a `sfmix-theme` cookie on `sfmix.org` remembers that choice for a year, so it carries across our sites (sfmix.org, lg.sfmix.org, portal.sfmix.org, ip.sfmix.org). It holds only the word `light` or `dark` and is never used to identify you.
+
 ## Data Retention
 
 - **Participant contact information** is retained for the duration of the participant's connection to the exchange and for a reasonable period afterward for billing and legal purposes.

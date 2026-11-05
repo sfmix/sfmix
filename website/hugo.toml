@@ -111,14 +111,9 @@ defaultContentLanguageInSubdir = false
   weight = 1
 
 [[menus.services]]
-  name = "Statistics & Looking Glass"
+  name = "Statistics"
   url = "/statistics/"
   weight = 2
-
-[[menus.services]]
-  name = "Looking Glass"
-  url = "https://lg.sfmix.org/"
-  weight = 3
 
 [[menus.services]]
   name = "Speed Test"
@@ -146,6 +141,13 @@ defaultContentLanguageInSubdir = false
   name = "Participants"
   url = "/participants/"
   weight = 10
+
+# Top-level, not under Services: the LG is a daily tool for participants.
+# External main-menu items are listed under Services in the footer.
+[[menus.main]]
+  name = "Looking Glass"
+  url = "https://lg.sfmix.org/"
+  weight = 15
 
 [[menus.main]]
   name = "Sponsors"

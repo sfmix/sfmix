@@ -49,7 +49,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 - **Una dirección MAC por enlace lógico.** La seguridad de puertos permite 2 MAC de forma temporal para migraciones de routers, pero solo 1 a largo plazo.
 - **Difusión permitida:** únicamente ARP e ICMPv6 ND. No se permiten RA, CDP, DHCP ni STP.
 - **LLDP:** SFMIX transmite LLDP en todos los puertos de participantes, incluidos los niveles de potencia óptica recibida. Los participantes pueden transmitir LLDP, pero no es obligatorio.
-- **La sesión BGP con el [Looking Glass](/looking-glass/) es obligatoria.** Se utiliza únicamente para depuración: no se redistribuyen rutas ni se intercambia tráfico.
+- **La sesión BGP con el [Looking Glass](https://lg.sfmix.org/) es obligatoria.** Se utiliza únicamente para depuración: no se redistribuyen rutas ni se intercambia tráfico.
 - No propagues las subredes de intercambio de SFMIX (206.197.187.0/24, 2001:504:30::/64) más allá de tu router de borde. Usa ACL si es necesario.
 - No se permiten rutas estáticas ni predeterminadas hacia otros participantes o recursos de SFMIX sin autorización.
 - Se recomienda, pero no se exige, el intercambio con los [servidores de rutas](/route-servers/).
