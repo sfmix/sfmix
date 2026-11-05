@@ -6,6 +6,7 @@ help:
 	@echo "  setup"
 	@echo "  new_participant"
 	@echo "  services_sync (dry-run; services_sync_apply writes)"
+	@echo "  hardware_inventory (dry-run; hardware_inventory_apply writes)"
 
 setup:
 	pipenv sync
@@ -27,6 +28,12 @@ discovery:
 	NETBOX_API_TOKEN=$$NETBOX_API_TOKEN \
 		NETBOX_API_ENDPOINT=https://netbox.sfmix.org/ \
 		pipenv run ./discovery.py
+
+hardware_inventory:
+	pipenv run ./hardware_inventory.py --dry-run
+
+hardware_inventory_apply:
+	pipenv run ./hardware_inventory.py
 
 services_sync:
 	pipenv run ./netbox_services_sync.py

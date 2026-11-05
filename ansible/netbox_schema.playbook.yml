@@ -31,6 +31,17 @@
           - ["Member", "Member"]
           - ["Exempt", "Exempt"]
           - ["Infrastructure", "Infrastructure"]
+      - name: "hw_slot_kind Choices"
+        extra_choices:
+          - ["psu", "Power supply"]
+          - ["fan", "Fan"]
+          - ["transceiver", "Transceiver"]
+          - ["memory", "Memory"]
+          - ["disk", "Drive"]
+          - ["cpu", "CPU"]
+          - ["mainboard", "Mainboard"]
+          - ["linecard", "Line card"]
+          - ["expansion", "Expansion card"]
 
     netbox_custom_fields:
       # tenancy.tenant: participants
@@ -116,6 +127,52 @@
         object_types: ["virtualization.virtualmachine"]
         description: "Proxmox VM id; discovery match key"
 
+      # Hardware fleet (scripts/hardware_inventory.py writes; portal gear app
+      # at peering-gear.sfmix.org reads). Slots are module bays, FRUs are
+      # modules; a `planned` module in an empty bay is a donation wish.
+      - name: slot_kind
+        label: "Slot Kind"
+        type: select
+        object_types: ["dcim.modulebay"]
+        choice_set: "hw_slot_kind Choices"
+        description: "What kind of FRU this bay takes"
+      - name: slot_accepts
+        label: "Slot Accepts"
+        type: json
+        object_types: ["dcim.modulebay"]
+        description: "What fits this bay, e.g. {\"form_factor\": \"QSFP28\"} or {\"class\": \"DDR4\", \"ecc\": true}"
+      - name: mfg_date
+        label: "Manufacture Date"
+        type: date
+        object_types: ["dcim.device", "dcim.module"]
+        description: "Manufacturing/date code reported by the hardware"
+      - name: hw_last_seen
+        label: "Hardware Last Seen"
+        type: date
+        object_types: ["dcim.device"]
+        description: "Last date hardware discovery inventoried this device"
+      - name: power_on_hours
+        label: "Power-on Hours"
+        type: integer
+        object_types: ["dcim.module"]
+        description: "SMART power-on hours (drives)"
+      - name: endurance_used_pct
+        label: "Endurance Used (%)"
+        type: integer
+        object_types: ["dcim.module"]
+        description: "Drive-reported percentage of rated write endurance consumed"
+        validation_minimum: 0
+        validation_maximum: 255
+      - name: donor
+        label: "Donor"
+        type: text
+        object_types: ["dcim.device", "dcim.module"]
+        description: "Who donated this hardware (shown on peering-gear.sfmix.org)"
+      - name: donated_on
+        label: "Donated On"
+        type: date
+        object_types: ["dcim.device", "dcim.module"]
+
     netbox_tags:
       - {name: admin_port, slug: admin_port, color: "f44336"}
       - {name: Core Port, slug: core_port, color: "ff5722"}
@@ -135,6 +192,37 @@
         color: "607d8b"
         description: "Business service maintained by scripts/netbox_services_sync.py"
       - {name: transit_peer, slug: transit_peer, color: "9c27b0"}
+      - name: "Hardware: Discovered"
+        slug: hwinv
+        color: "795548"
+        description: "Module bay / module maintained by scripts/hardware_inventory.py"
+
+    # Module-type profiles beyond NetBox's built-ins (CPU, Fan, Hard disk,
+    # Memory, Power supply, Expansion card, GPU). No collection module exists
+    # for these, so they're enforced via the REST API below.
+    netbox_module_type_profiles:
+      - name: Transceiver
+        description: "Pluggable optic / DAC"
+        schema:
+          properties:
+            form_factor: {type: string, title: "Form factor", description: "SFP+, SFP28, QSFP28, QSFP-DD, ..."}
+            media: {type: string, title: "Media", description: "e.g. 100GBASE-LR4"}
+            speed_gbps: {type: integer, title: "Speed (Gbps)"}
+            wavelength_nm: {type: integer, title: "Wavelength (nm)"}
+      - name: Mainboard
+        description: "Server motherboard"
+        schema:
+          properties:
+            dimm_slots: {type: integer, title: "DIMM slots"}
+            max_memory_gb: {type: integer, title: "Max memory (GB)"}
+            bios_version: {type: string, title: "BIOS version"}
+            bios_date: {type: string, title: "BIOS date"}
+      - name: Line card
+        description: "Router/switch line card, IOM or MDA"
+        schema:
+          properties:
+            ports: {type: integer, title: "Ports"}
+            capacity_gbps: {type: integer, title: "Capacity (Gbps)"}
 
     netbox_custom_links:
       - name: "Participant Documentation"
@@ -212,3 +300,37 @@
       loop: "{{ netbox_custom_links }}"
       loop_control:
         label: "{{ item.name }}"
+
+    - name: Read module-type profiles
+      ansible.builtin.uri:
+        url: "{{ netbox_schema_url }}/api/dcim/module-type-profiles/?name={{ item.name | urlencode }}"
+        headers:
+          Authorization: "Token {{ netbox_schema_token }}"
+      register: netbox_schema_profiles_current
+      check_mode: false
+      loop: "{{ netbox_module_type_profiles }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Ensure module-type profiles
+      ansible.builtin.uri:
+        url: >-
+          {{ netbox_schema_url }}/api/dcim/module-type-profiles/{{
+          (item.json.results[0].id ~ '/') if item.json.results else '' }}
+        method: "{{ 'PATCH' if item.json.results else 'POST' }}"
+        status_code: [200, 201]
+        headers:
+          Authorization: "Token {{ netbox_schema_token }}"
+        body_format: json
+        body:
+          name: "{{ item.item.name }}"
+          description: "{{ item.item.description }}"
+          schema: "{{ item.item.schema }}"
+      loop: "{{ netbox_schema_profiles_current.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: >-
+        not item.json.results
+        or item.json.results[0].schema != item.item.schema
+        or item.json.results[0].description != item.item.description
+      changed_when: true

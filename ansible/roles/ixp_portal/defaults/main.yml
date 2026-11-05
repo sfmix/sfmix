@@ -1,5 +1,7 @@
 ---
 ixp_portal_domain: portal.sfmix.org
+# Hardware-fleet site served by the same container (portal/gear app).
+ixp_portal_gear_domain: peering-gear.sfmix.org
 ixp_portal_install_dir: /opt/ixp_portal
 ixp_portal_user: sfmix
 ixp_portal_group: sfmix

@@ -1,0 +1,27 @@
+{% comment %}One bay tile. Context: s (slot dict). {% endcomment %}
+<div class="slot st-{{ s.state }}{% if s.donated %} donated{% endif %}" title="{{ s.bay }}{% if s.module %} · {{ s.module.manufacturer }} {{ s.module.model }}{% endif %}">
+  <div class="slot-head">
+    <span class="led" aria-hidden="true"></span>
+    <span class="bay">{{ s.bay }}</span>
+    {% if s.donated %}<span class="gift" title="Donated by {{ s.module.donor }}">★</span>{% endif %}
+  </div>
+  {% if s.module and s.state != "wished" %}
+    <div class="part mono">{{ s.module.model }}</div>
+    <div class="desc">{{ s.module.manufacturer }}{% if s.module.description %} · {{ s.module.description }}{% endif %}</div>
+    {% if s.module.endurance_used_pct is not None %}
+      <div class="meter" title="{{ s.module.endurance_used_pct }}% of rated write endurance used"><i style="width: {{ s.module.endurance_used_pct }}%"></i></div>
+      <div class="meta">{{ s.module.endurance_used_pct }}% endurance used{% if s.power_on_years %} · {{ s.power_on_years }}y on{% endif %}</div>
+    {% elif s.power_on_years %}
+      <div class="meta">{{ s.power_on_years }} years powered on</div>
+    {% elif s.age_years is not None %}
+      <div class="meta">made {{ s.module.mfg_date|slice:":7" }} · {{ s.age_years }}y</div>
+    {% endif %}
+    {% if s.donated %}<div class="meta gift-line">Donated by {{ s.module.donor }}{% if s.module.donated_on %} · {{ s.module.donated_on|slice:":7" }}{% endif %}</div>{% endif %}
+  {% elif s.state == "wished" %}
+    <div class="part mono">{{ s.module.model }}</div>
+    <div class="desc">Wanted{% if s.module.donor %} · pledged by {{ s.module.donor }}{% endif %}</div>
+  {% else %}
+    <div class="empty-label">Empty{% if s.accepts.form_factor %} · {{ s.accepts.form_factor }}{% elif s.accepts.class %} · {{ s.accepts.class }}{% elif s.label %} · {{ s.label }}{% endif %}</div>
+    <div class="desc">A donation could go here</div>
+  {% endif %}
+</div>

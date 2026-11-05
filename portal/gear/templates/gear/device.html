@@ -1,0 +1,45 @@
+{% extends "gear/base.html" %}
+{% block title %}{{ dev.name }}{% endblock %}
+{% block content %}
+<section class="hero device-hero">
+  <p class="eyebrow"><a href="/">Fleet</a> / {{ dev.role_label }}</p>
+  <h1 class="mono">{{ dev.name }}</h1>
+  <p class="lede">{{ dev.manufacturer }} <b>{{ dev.model }}</b> at {{ dev.site }}{% if dev.built %} — {% if dev.age_basis == "built" %}built {{ dev.built|date:"F Y" }}{% else %}a {{ dev.built_year }}-generation platform{% endif %}, <b>{{ dev.age_years|floatformat:0 }} years</b> ago{% endif %}.</p>
+  <dl class="facts">
+    {% if dev.serial %}<div><dt>Serial</dt><dd class="mono">{{ dev.serial }}</dd></div>{% endif %}
+    {% if dev.memory %}<div><dt>Memory</dt><dd>{{ dev.memory.installed_gb }} GB{% if dev.memory.max_gb %} of {{ dev.memory.max_gb }} GB{% endif %} ({{ dev.memory.filled }}/{{ dev.memory.slots }} slots)</dd></div>{% endif %}
+    {% for g in dev.groups %}<div><dt>{{ g.label }}</dt><dd>{{ g.filled }} / {{ g.total }} populated</dd></div>{% endfor %}
+    {% if dev.donor %}<div><dt>Donated by</dt><dd>{{ dev.donor }}{% if dev.donated_on %} ({{ dev.donated_on }}){% endif %}</dd></div>{% endif %}
+    {% if dev.hw_last_seen %}<div><dt>Inventoried</dt><dd>{{ dev.hw_last_seen }}</dd></div>{% endif %}
+  </dl>
+  <p class="small"><a href="{{ dev.netbox_url }}">Open in NetBox →</a></p>
+</section>
+
+{% if needs %}
+<section class="section">
+  <h2>What this box needs</h2>
+  <ul class="need-list">
+    {% for n in needs %}
+      <li class="need need-{{ n.severity }}">
+        <span class="sev sev-{{ n.severity }}">{{ n.severity_label }}</span>
+        <b>{{ n.title }}</b>
+        <span class="muted">{{ n.detail }}</span>
+        <span class="suggest">→ {{ n.suggestion }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+  {% if dev.successor %}<p class="small muted">Refresh candidate (admin-curated, verify before asking): {{ dev.successor.suggest }}</p>{% endif %}
+</section>
+{% endif %}
+
+{% for g in dev.groups %}
+<section class="section">
+  <div class="section-head"><h2>{{ g.label }}</h2><span class="muted small">{{ g.filled }} / {{ g.total }} populated</span></div>
+  <div class="slot-grid{% if g.kind == 'transceiver' %} panel{% endif %}">
+    {% for s in g.slots %}{% include "gear/_slot.html" with s=s %}{% endfor %}
+  </div>
+</section>
+{% empty %}
+<section class="section"><p class="muted">No slots inventoried yet for this device.</p></section>
+{% endfor %}
+{% endblock %}

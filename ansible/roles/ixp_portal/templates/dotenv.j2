@@ -1,6 +1,7 @@
 DJANGO_SECRET_KEY={{ ixp_portal_django_secret_key }}
 DJANGO_DEBUG=false
-DJANGO_ALLOWED_HOSTS={{ ixp_portal_domain }},localhost
+DJANGO_ALLOWED_HOSTS={{ ixp_portal_domain }},{{ ixp_portal_gear_domain }},localhost
+GEAR_HOSTS={{ ixp_portal_gear_domain }}
 OIDC_RP_CLIENT_ID={{ ixp_portal_oidc_client_id }}
 OIDC_RP_CLIENT_SECRET={{ ixp_portal_oidc_client_secret }}
 OIDC_PROVIDER_URL={{ ixp_portal_oidc_provider_url }}
