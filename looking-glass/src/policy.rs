@@ -129,7 +129,7 @@ impl PolicyEngine {
         participants: &ParticipantMap,
     ) -> PolicyDecision {
         // Help, Whoami, and Logout are always allowed
-        if matches!(command.resource, Resource::Help | Resource::Whoami | Resource::Logout | Resource::NetboxCache | Resource::DeviceCache | Resource::IxIpAssignments | Resource::DiscoveredNeighbors) {
+        if matches!(command.resource, Resource::Help | Resource::Whoami | Resource::Logout | Resource::NetboxCache | Resource::DeviceCache | Resource::IxIpAssignments | Resource::DiscoveredNeighbors | Resource::PeeringVlans) {
             return PolicyDecision::Allow;
         }
 
@@ -296,6 +296,7 @@ fn command_to_match_string(command: &Command) -> String {
         Resource::Participants => "participants",
         Resource::IxIpAssignments => return "show ix-ip-assignments".to_string(),
         Resource::DiscoveredNeighbors => return "show discovered-neighbors".to_string(),
+        Resource::PeeringVlans => return "show vlans".to_string(),
         Resource::NdEvents => return "show lan-events".to_string(),
         Resource::NdEventDetail => {
             return format!("show lan-events detail {}", command.target.as_deref().unwrap_or("*"));

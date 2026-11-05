@@ -279,6 +279,39 @@ pub fn format_participants(participants: &crate::participants::ParticipantMap, m
     format!("{table}\n")
 }
 
+/// Render the IXP peering LANs (NetBox `peering_lan` VLANs) with their prefixes.
+pub fn format_peering_vlans(vlans: &[crate::netbox::IxpVlan], mode: ColorMode) -> String {
+    if vlans.is_empty() {
+        return "No peering LANs.\n".to_string();
+    }
+    let prefix = |net: &Option<String>, len: Option<u32>| match (net, len) {
+        (Some(n), Some(l)) => format!("{n}/{l}"),
+        (Some(n), None) => n.clone(),
+        _ => "-".to_string(),
+    };
+    let mut sorted: Vec<_> = vlans.iter().collect();
+    sorted.sort_by_key(|v| v.vid);
+
+    let mut builder = Builder::default();
+    builder.push_record([
+        bold_str("VLAN", mode),
+        bold_str("Name", mode),
+        bold_str("IPv4 Prefix", mode),
+        bold_str("IPv6 Prefix", mode),
+    ]);
+    for v in sorted {
+        builder.push_record([
+            v.vid.to_string(),
+            v.name.clone(),
+            prefix(&v.ipv4_prefix, v.ipv4_mask_length),
+            prefix(&v.ipv6_prefix, v.ipv6_mask_length),
+        ]);
+    }
+    let mut table = builder.build();
+    apply_style(&mut table, mode);
+    format!("{table}\n")
+}
+
 /// Render the flat list of assigned IX IPs with their tenant/ASN.
 pub fn format_ix_ip_assignments(
     participants: &[crate::netbox::NetboxParticipant],
@@ -803,13 +836,19 @@ fn render_mac_table(entries: &[MacEntry], color: ColorMode) -> String {
     }
 
     let mut builder = Builder::default();
-    builder.push_record([bold_str("VLAN", color), bold_str("MAC Address", color), bold_str("Type", color), bold_str("Interface", color)]);
+    builder.push_record([bold_str("VLAN", color), bold_str("MAC Address", color), bold_str("Type", color), bold_str("Interface", color), bold_str("Participant", color)]);
     for e in entries {
+        let participant = match (e.participant_asn, e.participant_name.as_deref()) {
+            (Some(asn), Some(name)) => format!("AS{asn} {name}"),
+            (Some(asn), None) => format!("AS{asn}"),
+            _ => String::new(),
+        };
         builder.push_record([
             e.vlan.clone(),
             e.mac_address.clone(),
             e.entry_type.clone(),
             e.interface.clone(),
+            participant,
         ]);
     }
     let mut table = builder.build();

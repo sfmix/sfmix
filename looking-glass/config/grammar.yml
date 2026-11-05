@@ -64,6 +64,9 @@ commands:
                 name: "<vlan>"
                 help: VLAN ID (e.g. 998)
                 command: { verb: show, resource: mac_address_table, filter_vlan: "$arg" }
+      vlans:
+        help: IXP peering LANs (VLAN ID, name, IPv4/IPv6 prefixes)
+        command: { verb: show, resource: peering_vlans }
       arp:
         help: ARP table (IPv4 neighbor-to-MAC mapping)
         command: { verb: show, resource: arp }
