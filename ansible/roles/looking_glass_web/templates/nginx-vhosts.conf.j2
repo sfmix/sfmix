@@ -35,7 +35,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/{{ looking_glass_web_domains[0] }}/privkey.pem;
     ssl_dhparam /etc/ssl/certs/dhparam.pem;
 
-    # Per-source fairness: lg_ip caps request rate, lg_conn caps concurrent
+    # Per-source-prefix (/24, /56) fairness: lg_ip caps request rate, lg_conn caps concurrent
     # requests (slow CGI traceroutes, long-lived MCP streams). Exempt admin
     # subnets have an empty key and are never counted. 429 = "slow down",
     # not nginx's default 503 "broken".
