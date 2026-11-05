@@ -257,7 +257,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 /* Same breakpoint as sfmix.org: the nav collapses to the hamburger. */
-@media (max-width: 1200px) {
+@media (max-width: 1080px) {
   .nav-toggle { display: flex; }
   .site-nav { display: none; position: absolute; top: var(--header-height); left: 0; right: 0; background: var(--color-header-bg); box-shadow: 0 4px 16px var(--color-shadow); max-height: calc(100vh - var(--header-height)); overflow-y: auto; }
   .site-nav.open { display: block; }
@@ -277,53 +277,61 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .site-footer__grid { grid-template-columns: 1fr; gap: 1.5rem; }
   .site-footer__legal { flex-direction: column; text-align: center; }
 }
+.dropdown-link[aria-current="page"], .dropdown-link.is-active { font-weight: 600; }
+.nav-item.is-current > .nav-link { color: var(--color-white); box-shadow: inset 0 -2px 0 var(--color-accent); }
 </style>
 </head>
 <body>
-<a href="#main-content" class="skip-link">Skip to main content</a>
-<!-- Mirrors website/layouts/partials/nav.html and the menus in website/hugo.toml
-     (English, no language picker: the looking glass is English-only). -->
+<a href="#main-content" class="skip-link" data-t>Skip to main content</a>
+<!-- Mirrors website/layouts/partials/nav.html and the menus in website/hugo.toml.
+     Labels are English source strings, translated by the catalog at the end of
+     this file (copied from website/i18n/*.toml where sfmix.org has them).
+     data-sfmix links are rewritten to the active language's sfmix.org subtree. -->
 <header class="site-header">
   <div class="container nav-container">
-    <a href="https://sfmix.org/" class="site-logo"><img src="/assets/sfmix-logo-large.png" alt="SFMIX" class="logo-img" width="160" height="40"></a>
-    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
+    <a href="https://sfmix.org/" data-sfmix="/" class="site-logo"><img src="/assets/sfmix-logo-large.png" alt="SFMIX" class="logo-img" width="160" height="40"></a>
+    <button class="nav-toggle" aria-label="Toggle navigation" data-t-attr="aria-label" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
     <nav class="site-nav" id="site-nav" aria-label="SFMIX">
       <ul class="nav-list">
         <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle" aria-expanded="false">About</button>
+          <button class="nav-link dropdown-toggle" aria-expanded="false" data-t>About</button>
           <ul class="dropdown-menu">
-            <li><a href="https://sfmix.org/about/" class="dropdown-link">What is SFMIX?</a></li>
-            <li><a href="https://sfmix.org/team/" class="dropdown-link">The Team</a></li>
-            <li><a href="https://sfmix.org/documentation/" class="dropdown-link">Documentation</a></li>
+            <li><a href="https://sfmix.org/about/" data-sfmix="/about/" class="dropdown-link" data-t>What is SFMIX?</a></li>
+            <li><a href="https://sfmix.org/team/" data-sfmix="/team/" class="dropdown-link" data-t>The Team</a></li>
+            <li><a href="https://sfmix.org/documentation/" data-sfmix="/documentation/" class="dropdown-link" data-t>Documentation</a></li>
           </ul>
         </li>
         <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle" aria-expanded="false">Connect</button>
+          <button class="nav-link dropdown-toggle" aria-expanded="false" data-t>Connect</button>
           <ul class="dropdown-menu">
-            <li><a href="https://sfmix.org/connection-guide/" class="dropdown-link">Connection Guide</a></li>
-            <li><a href="https://sfmix.org/locations/" class="dropdown-link">Locations</a></li>
+            <li><a href="https://sfmix.org/connection-guide/" data-sfmix="/connection-guide/" class="dropdown-link" data-t>Connection Guide</a></li>
+            <li><a href="https://sfmix.org/locations/" data-sfmix="/locations/" class="dropdown-link" data-t>Locations</a></li>
           </ul>
         </li>
-        <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle" aria-expanded="false">Services</button>
+        <li class="nav-item has-dropdown is-current">
+          <button class="nav-link dropdown-toggle" aria-expanded="false" data-t>Services</button>
           <ul class="dropdown-menu">
-            <li><a href="https://sfmix.org/route-servers/" class="dropdown-link">Route Servers</a></li>
-            <li><a href="https://sfmix.org/statistics/" class="dropdown-link">Statistics</a></li>
-            <li><a href="https://snappy.sfmix.org/" class="dropdown-link">Speed Test</a></li>
-            <li><a href="https://portal.sfmix.org/" class="dropdown-link">Participant Portal</a></li>
-            <li><a href="https://ip.sfmix.org/" class="dropdown-link">AS40271 IP Network</a></li>
+            <li><a href="https://sfmix.org/route-servers/" data-sfmix="/route-servers/" class="dropdown-link" data-t>Route Servers</a></li>
+            <li><a href="https://sfmix.org/statistics/" data-sfmix="/statistics/" class="dropdown-link" data-t>Statistics</a></li>
+            <li><a href="/" class="dropdown-link" aria-current="page" data-t>Looking Glass</a></li>
+            <li><a href="https://snappy.sfmix.org/" class="dropdown-link" data-t>Speed Test</a></li>
+            <li><a href="https://portal.sfmix.org/" class="dropdown-link" data-t>Participant Portal</a></li>
+            <li><a href="https://ip.sfmix.org/" class="dropdown-link" data-t>AS40271 IP Network</a></li>
           </ul>
         </li>
-        <li class="nav-item"><a href="https://sfmix.org/connection-guide/" class="nav-link">Get Connected</a></li>
-        <li class="nav-item"><a href="https://sfmix.org/participants/" class="nav-link">Participants</a></li>
-        <li class="nav-item"><a href="/" class="nav-link" aria-current="page">Looking Glass</a></li>
-        <li class="nav-item"><a href="https://sfmix.org/sponsors/" class="nav-link">Sponsors</a></li>
-        <li class="nav-item"><a href="https://sfmix.org/contact/" class="nav-link">Contact</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/connection-guide/" data-sfmix="/connection-guide/" class="nav-link" data-t>Get Connected</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/participants/" data-sfmix="/participants/" class="nav-link" data-t>Participants</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/sponsors/" data-sfmix="/sponsors/" class="nav-link" data-t>Sponsors</a></li>
+        <li class="nav-item"><a href="https://sfmix.org/contact/" data-sfmix="/contact/" class="nav-link" data-t>Contact</a></li>
+        <li class="nav-item has-dropdown lang-picker">
+          <button class="nav-link dropdown-toggle" id="lang-current" aria-expanded="false" aria-label="Change language" data-t-attr="aria-label">English</button>
+          <ul class="dropdown-menu" id="lang-menu"></ul>
+        </li>
         <li class="nav-item theme-toggle">
-          <button type="button" class="nav-link theme-toggle__btn" aria-label="Toggle dark mode" title="Toggle dark mode" aria-pressed="false">
+          <button type="button" class="nav-link theme-toggle__btn" aria-label="Toggle dark mode" title="Toggle dark mode" data-t-attr="aria-label title" aria-pressed="false">
             <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
             <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-            <span class="theme-toggle__label">Toggle dark mode</span>
+            <span class="theme-toggle__label" data-t>Toggle dark mode</span>
           </button>
         </li>
       </ul>
@@ -335,14 +343,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   <div class="page-header">
     <div class="container">
       <div>
-        <h1>Looking Glass</h1>
-        <p class="lede">BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.</p>
+        <h1 data-t>Looking Glass</h1>
+        <p class="lede" data-t>BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.</p>
       </div>
       <div class="figures" aria-live="polite">
-        <div class="figure"><div class="value" id="f-sessions">–</div><div class="label">sessions established</div></div>
-        <div class="figure"><div class="value" id="f-participants">–</div><div class="label">participants peering</div></div>
-        <div class="figure"><div class="value" id="f-v4">–</div><div class="label">IPv4 prefixes received</div></div>
-        <div class="figure"><div class="value" id="f-v6">–</div><div class="label">IPv6 prefixes received</div></div>
+        <div class="figure"><div class="value" id="f-sessions">–</div><div class="label" data-t>sessions established</div></div>
+        <div class="figure"><div class="value" id="f-participants">–</div><div class="label" data-t>participants peering</div></div>
+        <div class="figure"><div class="value" id="f-v4">–</div><div class="label" data-t>IPv4 prefixes received</div></div>
+        <div class="figure"><div class="value" id="f-v6">–</div><div class="label" data-t>IPv6 prefixes received</div></div>
       </div>
       <div id="status" role="status" hidden></div>
     </div>
@@ -351,47 +359,47 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   <div class="content">
     <div class="container">
       <section id="tools" aria-labelledby="tools-h">
-        <h2 id="tools-h">Tools</h2>
+        <h2 id="tools-h" data-t>Tools</h2>
         <div class="tools">
           <div class="tool">
-            <h3>Looking Glass Query</h3>
-            <p>Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.</p>
+            <h3 data-t>Looking Glass Query</h3>
+            <p data-t>Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.</p>
             <ul>
-              <li><a href="/cgi-bin/bgplg">Lookup, ping, traceroute</a></li>
-              <li><a href="/cgi-bin/bgplg?cmd=show+ip+bgp+summary&amp;req=">BGP summary</a></li>
-              <li><a href="/api/neighbors">Neighbors as JSON</a></li>
+              <li><a href="/cgi-bin/bgplg" data-t>Lookup, ping, traceroute</a></li>
+              <li><a href="/cgi-bin/bgplg?cmd=show+ip+bgp+summary&amp;req=" data-t>BGP summary</a></li>
+              <li><a href="/api/neighbors" data-t>Neighbors as JSON</a></li>
             </ul>
-            <p class="cmd" title="Ports, optics, MAC and neighbor tables. Type login to see your own ports.">Switch state in a terminal: <code>ssh lg.sfmix.org</code> or <code>telnet lg.sfmix.org</code></p>
+            <p class="cmd" data-t-html="tools.cli">Command-line looking glass: <code>ssh lg.sfmix.org</code> or <code>telnet lg.sfmix.org</code></p>
           </div>
           <div class="tool">
-            <h3>Route servers</h3>
-            <p>What the two route servers (AS 63055) carry per peer, with filter reasons.</p>
+            <h3 data-t>Route servers</h3>
+            <p data-t>What the two route servers (AS 63055) carry per peer, with filter reasons.</p>
             <ul>
-              <li><a href="https://alice.sfmix.org/">Route browser (Alice)</a></li>
-              <li><a href="/rs-linux.sfmix.org.summary.html">rs-linux config summary</a></li>
-              <li><a href="/rs-openbsd.sfmix.org.summary.html">rs-openbsd config summary</a></li>
-              <li><a href="https://sfmix.org/route-servers/">How to peer with them</a></li>
+              <li><a href="https://alice.sfmix.org/" data-t>Route browser (Alice)</a></li>
+              <li><a href="/rs-linux.sfmix.org.summary.html" data-t>rs-linux config summary</a></li>
+              <li><a href="/rs-openbsd.sfmix.org.summary.html" data-t>rs-openbsd config summary</a></li>
+              <li><a href="https://sfmix.org/route-servers/" data-sfmix="/route-servers/" data-t>How to peer with them</a></li>
             </ul>
           </div>
           <div class="tool" id="api">
-            <h3>API and MCP</h3>
-            <p>Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.</p>
+            <h3 data-t>API and MCP</h3>
+            <p data-t>Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.</p>
             <ul>
               <li><a href="/api/v1/participants">/api/v1/participants</a></li>
               <li><a href="/api/v1/peering-vlans">/api/v1/peering-vlans</a></li>
               <li><a href="/api/v1/lan-events">/api/v1/lan-events</a></li>
-              <li><a href="https://github.com/sfmix/sfmix/tree/main/looking-glass">Documentation</a></li>
+              <li><a href="https://github.com/sfmix/sfmix/tree/main/looking-glass" data-t>Documentation</a></li>
             </ul>
             <p class="cmd">MCP: <code>https://lg.sfmix.org/mcp</code></p>
           </div>
           <div class="tool">
-            <h3>Participant data</h3>
-            <p>Who is on the exchange, machine-readable, for peering automation.</p>
+            <h3 data-t>Participant data</h3>
+            <p data-t>Who is on the exchange, machine-readable, for peering automation.</p>
             <ul>
-              <li><a href="/participants.json">IX-F member export</a></li>
-              <li><a href="/participants_table.json">Participant table</a></li>
-              <li><a href="https://sfmix.org/participants/">Participants on sfmix.org</a></li>
-              <li><a href="https://www.peeringdb.com/ix/155">SFMIX on PeeringDB</a></li>
+              <li><a href="/participants.json" data-t>IX-F member export</a></li>
+              <li><a href="/participants_table.json" data-t>Participant table</a></li>
+              <li><a href="https://sfmix.org/participants/" data-sfmix="/participants/" data-t>Participants on sfmix.org</a></li>
+              <li><a href="https://www.peeringdb.com/ix/155" data-t>SFMIX on PeeringDB</a></li>
             </ul>
           </div>
         </div>
@@ -399,39 +407,39 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
       <section id="sessions" aria-labelledby="sessions-h">
         <div class="section-head">
-          <h2 id="sessions-h">Sessions</h2>
-          <div class="legend" aria-label="Legend">
-            <span><i class="lamp up" aria-hidden="true">✓</i> established</span>
-            <span><i class="lamp trying" aria-hidden="true">…</i> trying to connect</span>
-            <span><i class="lamp idle" aria-hidden="true">–</i> idle</span>
-            <span><i class="lamp none" aria-hidden="true"> </i> no session configured</span>
+          <h2 id="sessions-h" data-t>Sessions</h2>
+          <div class="legend" aria-label="Legend" data-t-attr="aria-label">
+            <span><i class="lamp up" aria-hidden="true">✓</i> <span data-t>established</span></span>
+            <span><i class="lamp trying" aria-hidden="true">…</i> <span data-t>trying to connect</span></span>
+            <span><i class="lamp idle" aria-hidden="true">–</i> <span data-t>idle</span></span>
+            <span><i class="lamp none" aria-hidden="true"> </i> <span data-t>no session configured</span></span>
           </div>
         </div>
         <div class="table-tools">
-          <div class="view-switch" role="group" aria-label="View">
-            <button type="button" data-view="board" aria-pressed="true">Board</button>
-            <button type="button" data-view="table" aria-pressed="false">Table</button>
+          <div class="view-switch" role="group" aria-label="View" data-t-attr="aria-label">
+            <button type="button" data-view="board" aria-pressed="true" data-t>Board</button>
+            <button type="button" data-view="table" aria-pressed="false" data-t>Table</button>
           </div>
-          <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN">
-          <label><input type="checkbox" id="only-down"> only sessions that are not established</label>
+          <input type="search" id="filter" placeholder="Filter by name or ASN" aria-label="Filter sessions by name or ASN" data-t-attr="placeholder aria-label">
+          <label><input type="checkbox" id="only-down"> <span data-t>only sessions that are not established</span></label>
           <span class="muted" id="table-count"></span>
-          <span class="muted" id="updated">Waiting for first data…</span>
+          <span class="muted" id="updated"></span>
         </div>
-        <p class="note view-note" data-for="board">Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.</p>
-        <p class="note view-note" data-for="table">Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.</p>
+        <p class="note view-note" data-for="board" data-t>Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.</p>
+        <p class="note view-note" data-for="table" data-t>Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.</p>
         <div class="board" id="board" role="list"></div>
         <div class="table-wrap" hidden>
           <table id="sessions-table">
             <thead>
               <tr>
-                <th data-key="name" aria-sort="ascending">Participant</th>
+                <th data-key="name" aria-sort="ascending" data-t>Participant</th>
                 <th data-key="asn">ASN</th>
-                <th data-key="v4state">IPv4 session</th>
-                <th data-key="v4up" class="num">Uptime</th>
-                <th data-key="v4pfx" class="num">Prefixes</th>
-                <th data-key="v6state">IPv6 session</th>
-                <th data-key="v6up" class="num">Uptime</th>
-                <th data-key="v6pfx" class="num">Prefixes</th>
+                <th data-key="v4state" data-t>IPv4 session</th>
+                <th data-key="v4up" class="num" data-t>Uptime</th>
+                <th data-key="v4pfx" class="num" data-t>Prefixes</th>
+                <th data-key="v6state" data-t>IPv6 session</th>
+                <th data-key="v6up" class="num" data-t>Uptime</th>
+                <th data-key="v6pfx" class="num" data-t>Prefixes</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -440,26 +448,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
       </section>
 
       <section id="peer" aria-labelledby="peer-h">
-        <h2 id="peer-h">Peer with the looking glass</h2>
+        <h2 id="peer-h" data-t>Peer with the looking glass</h2>
         <div class="peer">
           <div>
-            <p>Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It lets you:</p>
+            <p data-t>Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:</p>
             <ul>
-              <li>validate your router configuration when first connecting,</li>
-              <li>test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you,</li>
-              <li>see which prefixes are present at the exchange,</li>
-              <li>and gives SFMIX operators a quick reachability check.</li>
+              <li data-t>validate your router configuration when you first connect</li>
+              <li data-t>test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you</li>
+              <li data-t>see which prefixes are present at the exchange</li>
+              <li data-t>give SFMIX operators a quick reachability check</li>
             </ul>
-            <p><strong>Quarantine VLAN.</strong> A parallel looking glass runs on the quarantine VLAN with the same addresses as production, so new participants can test their Ethernet, IP and BGP configuration before joining the production peering LAN. See the <a href="https://sfmix.org/connection-guide/">connection guide</a>.</p>
+            <p data-t-html="peer.quarantine"><strong>Quarantine VLAN.</strong> A parallel looking glass runs on the quarantine VLAN with the same addresses as production, so new participants can test their Ethernet, IP and BGP configuration before joining the production peering LAN. See the <a href="https://sfmix.org/connection-guide/" data-sfmix="/connection-guide/">connection guide</a>.</p>
           </div>
           <div>
             <table>
-              <thead><tr><th colspan="2">BGP session</th></tr></thead>
+              <thead><tr><th colspan="2" data-t>BGP session</th></tr></thead>
               <tbody>
                 <tr><td>ASN</td><td class="mono">12276</td></tr>
                 <tr><td>IPv4</td><td class="mono">206.197.187.1</td></tr>
                 <tr><td>IPv6</td><td class="mono">2001:504:30::ba01:2276:1</td></tr>
-                <tr><td>Software</td><td>OpenBGPD</td></tr>
+                <tr><td data-t>Software</td><td>OpenBGPD</td></tr>
               </tbody>
             </table>
           </div>
@@ -474,65 +482,482 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="site-footer__grid">
       <div>
         <div class="footer-brand"><img src="/assets/sfmix-logo-large.png" alt="SFMIX" width="120" height="30"></div>
-        <p class="site-footer__about">Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.</p>
+        <p class="site-footer__about" data-t>Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.</p>
       </div>
       <div>
-        <h4>About</h4>
+        <h4 data-t>About</h4>
         <ul>
-          <li><a href="https://sfmix.org/about/">What is SFMIX?</a></li>
-          <li><a href="https://sfmix.org/team/">The Team</a></li>
-          <li><a href="https://sfmix.org/documentation/">Documentation</a></li>
+          <li><a href="https://sfmix.org/about/" data-sfmix="/about/" data-t>What is SFMIX?</a></li>
+          <li><a href="https://sfmix.org/team/" data-sfmix="/team/" data-t>The Team</a></li>
+          <li><a href="https://sfmix.org/documentation/" data-sfmix="/documentation/" data-t>Documentation</a></li>
         </ul>
       </div>
       <div>
-        <h4>Services</h4>
+        <h4 data-t>Services</h4>
         <ul>
-          <li><a href="https://sfmix.org/route-servers/">Route Servers</a></li>
-          <li><a href="https://sfmix.org/statistics/">Statistics</a></li>
-          <li><a href="https://snappy.sfmix.org/">Speed Test</a></li>
-          <li><a href="https://portal.sfmix.org/">Participant Portal</a></li>
-          <li><a href="https://ip.sfmix.org/">AS40271 IP Network</a></li>
-          <li><a href="/">Looking Glass</a></li>
+          <li><a href="https://sfmix.org/route-servers/" data-sfmix="/route-servers/" data-t>Route Servers</a></li>
+          <li><a href="https://sfmix.org/statistics/" data-sfmix="/statistics/" data-t>Statistics</a></li>
+          <li><a href="/" data-t>Looking Glass</a></li>
+          <li><a href="https://snappy.sfmix.org/" data-t>Speed Test</a></li>
+          <li><a href="https://portal.sfmix.org/" data-t>Participant Portal</a></li>
+          <li><a href="https://ip.sfmix.org/" data-t>AS40271 IP Network</a></li>
         </ul>
       </div>
       <div>
-        <h4>Connect</h4>
+        <h4 data-t>Connect</h4>
         <ul>
-          <li><a href="https://sfmix.org/connection-guide/">Connection Guide</a></li>
-          <li><a href="https://sfmix.org/locations/">Locations</a></li>
-          <li><a href="https://sfmix.org/participants/">Participants</a></li>
-          <li><a href="https://sfmix.org/sponsors/">Sponsors</a></li>
-          <li><a href="https://sfmix.org/contact/">Contact</a></li>
+          <li><a href="https://sfmix.org/connection-guide/" data-sfmix="/connection-guide/" data-t>Connection Guide</a></li>
+          <li><a href="https://sfmix.org/locations/" data-sfmix="/locations/" data-t>Locations</a></li>
+          <li><a href="https://sfmix.org/participants/" data-sfmix="/participants/" data-t>Participants</a></li>
+          <li><a href="https://sfmix.org/sponsors/" data-sfmix="/sponsors/" data-t>Sponsors</a></li>
+          <li><a href="https://sfmix.org/contact/" data-sfmix="/contact/" data-t>Contact</a></li>
           <li><a href="https://www.peeringdb.com/ix/155">PeeringDB ↗</a></li>
         </ul>
       </div>
     </div>
     <div class="site-footer__legal">
-      <span>&copy; <span id="year">2026</span> San Francisco Metropolitan Internet eXchange · IRS 501(c)(12) cooperative</span>
-      <span><a href="https://sfmix.org/privacy/">Privacy Policy</a></span>
+      <span>&copy; <span id="year">2026</span> San Francisco Metropolitan Internet eXchange · <span data-t>IRS 501(c)(12) cooperative</span></span>
+      <!-- The privacy policy is English-only on sfmix.org too. -->
+      <span><a href="https://sfmix.org/privacy/" data-t>Privacy Policy</a></span>
     </div>
   </div>
 </footer>
 
 <script>
+// UI catalog: English source string -> translation, the same gettext style as
+// website/i18n/*.toml (nav and footer strings are copied from there). Missing
+// strings fall back to English. data-t-html blocks are keyed by name instead,
+// because they carry markup.
+var I18N = {
+  es: {
+    "Skip to main content": "Saltar al contenido principal",
+    "Toggle navigation": "Alternar navegación",
+    "About": "Acerca de",
+    "What is SFMIX?": "¿Qué es SFMIX?",
+    "The Team": "El equipo",
+    "Documentation": "Documentación",
+    "Connect": "Conéctate",
+    "Connection Guide": "Guía de conexión",
+    "Locations": "Ubicaciones",
+    "Services": "Servicios",
+    "Route Servers": "Servidores de rutas",
+    "Statistics": "Estadísticas",
+    "Looking Glass": "Looking Glass",
+    "Speed Test": "Prueba de velocidad",
+    "Participant Portal": "Portal de participantes",
+    "AS40271 IP Network": "Red IP AS40271",
+    "Get Connected": "Únete",
+    "Participants": "Participantes",
+    "Sponsors": "Patrocinadores",
+    "Contact": "Contacto",
+    "Toggle dark mode": "Cambiar modo oscuro",
+    "Change language": "Cambiar idioma",
+    "BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.": "Sesiones BGP entre el looking glass (AS 12276) y los participantes de SFMIX, y las rutas que anuncian. Se actualiza cada minuto.",
+    "sessions established": "sesiones establecidas",
+    "participants peering": "participantes conectados",
+    "IPv4 prefixes received": "prefijos IPv4 recibidos",
+    "IPv6 prefixes received": "prefijos IPv6 recibidos",
+    "of {n}": "de {n}",
+    "The looking glass is not answering right now.": "El looking glass no responde en este momento.",
+    "The last refresh failed; showing the previous data.": "La última actualización falló; se muestran los datos anteriores.",
+    "Error: {msg}": "Error: {msg}",
+    "Tools": "Herramientas",
+    "Looking Glass Query": "Consulta del Looking Glass",
+    "Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.": "Consultas de prefijos, las rutas de un vecino, ping y traceroute desde dentro del intercambio.",
+    "Lookup, ping, traceroute": "Consulta, ping, traceroute",
+    "BGP summary": "Resumen BGP",
+    "Neighbors as JSON": "Vecinos en JSON",
+    "tools.cli": "Looking glass por línea de comandos: <code>ssh lg.sfmix.org</code> o <code>telnet lg.sfmix.org</code>",
+    "Route servers": "Servidores de rutas",
+    "What the two route servers (AS 63055) carry per peer, with filter reasons.": "Lo que llevan los dos servidores de rutas (AS 63055) para cada par, con los motivos de filtrado.",
+    "Route browser (Alice)": "Explorador de rutas (Alice)",
+    "rs-linux config summary": "Configuración de rs-linux",
+    "rs-openbsd config summary": "Configuración de rs-openbsd",
+    "How to peer with them": "Cómo conectarte con ellos",
+    "API and MCP": "API y MCP",
+    "Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.": "Sesiones, puertos, ópticas, tablas MAC y eventos de la LAN. Las consultas públicas no necesitan clave; inicia sesión para ver tus propios puertos.",
+    "Participant data": "Datos de participantes",
+    "Who is on the exchange, machine-readable, for peering automation.": "Quién está en el intercambio, en formato legible por máquina, para automatizar el peering.",
+    "IX-F member export": "Exportación IX-F",
+    "Participant table": "Tabla de participantes",
+    "Participants on sfmix.org": "Participantes en sfmix.org",
+    "SFMIX on PeeringDB": "SFMIX en PeeringDB",
+    "Sessions": "Sesiones",
+    "Legend": "Leyenda",
+    "established": "establecida",
+    "trying to connect": "intentando conectar",
+    "idle": "inactiva",
+    "no session configured": "sin sesión configurada",
+    "View": "Vista",
+    "Board": "Tablero",
+    "Table": "Tabla",
+    "Filter by name or ASN": "Filtrar por nombre o ASN",
+    "Filter sessions by name or ASN": "Filtrar sesiones por nombre o ASN",
+    "only sessions that are not established": "solo sesiones no establecidas",
+    "{n} of {total} participants": "{n} de {total} participantes",
+    "updated {time}": "actualizado {time}",
+    "Waiting for first data…": "Esperando los primeros datos…",
+    "Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.": "Indicador izquierdo IPv4, derecho IPv6. Pasa el cursor o enfoca un recuadro para ver direcciones, tiempo y número de prefijos.",
+    "Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.": "El tiempo indica cuánto lleva la sesión en su estado actual; los prefijos son los que el looking glass acepta actualmente de esa sesión.",
+    "Participant": "Participante",
+    "IPv4 session": "Sesión IPv4",
+    "Uptime": "Tiempo",
+    "Prefixes": "Prefijos",
+    "IPv6 session": "Sesión IPv6",
+    "trying ({state})": "intentando ({state})",
+    "no session": "sin sesión",
+    "established for": "establecida hace",
+    "in this state for": "en este estado hace",
+    "prefixes accepted": "prefijos aceptados",
+    "infrastructure": "infraestructura",
+    "Peer with the looking glass": "Intercambia tráfico con el looking glass",
+    "Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:": "Todos los participantes deben establecer una sesión con el looking glass de SFMIX. La sesión es solo para visibilidad y depuración: no se redistribuyen rutas ni se intercambia tráfico. Sirve para:",
+    "validate your router configuration when you first connect": "validar la configuración de tu router al conectarte por primera vez",
+    "test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you": "probar cambios de configuración contra un par de bajo impacto, con una vista de autoservicio de lo que el looking glass ve desde tu lado",
+    "see which prefixes are present at the exchange": "ver qué prefijos están presentes en el intercambio",
+    "give SFMIX operators a quick reachability check": "dar a los operadores de SFMIX una comprobación rápida de alcanzabilidad",
+    "peer.quarantine": "<strong>VLAN de cuarentena.</strong> Un looking glass paralelo se ejecuta en la VLAN de cuarentena con las mismas direcciones que producción, para que los nuevos participantes puedan probar su configuración de Ethernet, IP y BGP antes de unirse a la LAN de intercambio de producción. Consulta la <a href=\"https://sfmix.org/connection-guide/\" data-sfmix=\"/connection-guide/\">guía de conexión</a>.",
+    "BGP session": "Sesión BGP",
+    "Software": "Software",
+    "Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.": "El punto de intercambio de Internet sin fines de lucro y gobernado por sus miembros del Área de la Bahía. Conéctate con casi 100 redes en 9 ubicaciones en San Francisco, San José, Santa Clara y Fremont.",
+    "Privacy Policy": "Política de privacidad"
+  },
+  de: {
+    "Skip to main content": "Zum Hauptinhalt springen",
+    "Toggle navigation": "Navigation umschalten",
+    "About": "Über uns",
+    "What is SFMIX?": "Was ist SFMIX?",
+    "The Team": "Das Team",
+    "Documentation": "Dokumentation",
+    "Connect": "Verbinden",
+    "Connection Guide": "Verbindungsanleitung",
+    "Locations": "Standorte",
+    "Services": "Dienste",
+    "Route Servers": "Route-Server",
+    "Statistics": "Statistiken",
+    "Looking Glass": "Looking Glass",
+    "Speed Test": "Geschwindigkeitstest",
+    "Participant Portal": "Teilnehmerportal",
+    "AS40271 IP Network": "AS40271 IP-Netzwerk",
+    "Get Connected": "Loslegen",
+    "Participants": "Teilnehmer",
+    "Sponsors": "Sponsoren",
+    "Contact": "Kontakt",
+    "Toggle dark mode": "Dunkelmodus umschalten",
+    "Change language": "Sprache ändern",
+    "BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.": "BGP-Sitzungen zwischen dem Looking Glass (AS 12276) und den SFMIX-Teilnehmern sowie die Routen, die sie ankündigen. Jede Minute aktualisiert.",
+    "sessions established": "Sitzungen aufgebaut",
+    "participants peering": "Teilnehmer mit Sitzung",
+    "IPv4 prefixes received": "IPv4-Präfixe empfangen",
+    "IPv6 prefixes received": "IPv6-Präfixe empfangen",
+    "of {n}": "von {n}",
+    "The looking glass is not answering right now.": "Das Looking Glass antwortet gerade nicht.",
+    "The last refresh failed; showing the previous data.": "Die letzte Aktualisierung ist fehlgeschlagen; es werden die vorherigen Daten angezeigt.",
+    "Error: {msg}": "Fehler: {msg}",
+    "Tools": "Werkzeuge",
+    "Looking Glass Query": "Looking-Glass-Abfrage",
+    "Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.": "Präfix-Abfragen, die Routen eines Nachbarn, Ping und Traceroute aus dem Internet-Knoten heraus.",
+    "Lookup, ping, traceroute": "Abfrage, Ping, Traceroute",
+    "BGP summary": "BGP-Übersicht",
+    "Neighbors as JSON": "Nachbarn als JSON",
+    "tools.cli": "Looking Glass auf der Kommandozeile: <code>ssh lg.sfmix.org</code> oder <code>telnet lg.sfmix.org</code>",
+    "Route servers": "Route-Server",
+    "What the two route servers (AS 63055) carry per peer, with filter reasons.": "Was die beiden Route-Server (AS 63055) pro Peer führen, mit Filtergründen.",
+    "Route browser (Alice)": "Route-Browser (Alice)",
+    "rs-linux config summary": "Konfigurationsübersicht rs-linux",
+    "rs-openbsd config summary": "Konfigurationsübersicht rs-openbsd",
+    "How to peer with them": "So peeren Sie mit ihnen",
+    "API and MCP": "API und MCP",
+    "Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.": "Sitzungen, Ports, Optiken, MAC-Tabellen und LAN-Ereignisse. Öffentliche Abfragen brauchen keinen Schlüssel; melden Sie sich an, um Ihre eigenen Ports zu sehen.",
+    "Participant data": "Teilnehmerdaten",
+    "Who is on the exchange, machine-readable, for peering automation.": "Wer am Internet-Knoten ist, maschinenlesbar, für die Peering-Automatisierung.",
+    "IX-F member export": "IX-F-Mitgliederexport",
+    "Participant table": "Teilnehmertabelle",
+    "Participants on sfmix.org": "Teilnehmer auf sfmix.org",
+    "SFMIX on PeeringDB": "SFMIX bei PeeringDB",
+    "Sessions": "Sitzungen",
+    "Legend": "Legende",
+    "established": "aufgebaut",
+    "trying to connect": "Verbindungsversuch",
+    "idle": "inaktiv",
+    "no session configured": "keine Sitzung konfiguriert",
+    "View": "Ansicht",
+    "Board": "Kacheln",
+    "Table": "Tabelle",
+    "Filter by name or ASN": "Nach Name oder ASN filtern",
+    "Filter sessions by name or ASN": "Sitzungen nach Name oder ASN filtern",
+    "only sessions that are not established": "nur nicht aufgebaute Sitzungen",
+    "{n} of {total} participants": "{n} von {total} Teilnehmern",
+    "updated {time}": "aktualisiert {time}",
+    "Waiting for first data…": "Warte auf erste Daten…",
+    "Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.": "Linke Lampe IPv4, rechte Lampe IPv6. Zeigen Sie auf eine Kachel oder fokussieren Sie sie für Adressen, Laufzeit und Präfixanzahl.",
+    "Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.": "Die Laufzeit gibt an, wie lange die Sitzung schon im aktuellen Zustand ist; Präfixe sind die, die das Looking Glass derzeit von dieser Sitzung annimmt.",
+    "Participant": "Teilnehmer",
+    "IPv4 session": "IPv4-Sitzung",
+    "Uptime": "Laufzeit",
+    "Prefixes": "Präfixe",
+    "IPv6 session": "IPv6-Sitzung",
+    "trying ({state})": "Verbindungsversuch ({state})",
+    "no session": "keine Sitzung",
+    "established for": "aufgebaut seit",
+    "in this state for": "in diesem Zustand seit",
+    "prefixes accepted": "Präfixe angenommen",
+    "infrastructure": "Infrastruktur",
+    "Peer with the looking glass": "Mit dem Looking Glass peeren",
+    "Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:": "Alle Teilnehmer sind verpflichtet, mit dem SFMIX Looking Glass zu peeren. Die Sitzung dient nur der Einsicht und dem Debugging: Es werden keine Routen weiterverteilt und kein Datenverkehr ausgetauscht. Sie dient dazu,",
+    "validate your router configuration when you first connect": "Ihre Router-Konfiguration bei der ersten Verbindung zu überprüfen,",
+    "test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you": "Konfigurationsänderungen gegenüber einem risikoarmen Peer zu testen, mit einer Selbstbedienungsansicht dessen, was das Looking Glass von Ihnen sieht,",
+    "see which prefixes are present at the exchange": "zu sehen, welche Präfixe am Internet-Knoten vorhanden sind,",
+    "give SFMIX operators a quick reachability check": "und den SFMIX-Betreibern eine schnelle Erreichbarkeitsprüfung zu ermöglichen.",
+    "peer.quarantine": "<strong>Quarantäne-VLAN.</strong> Ein paralleles Looking Glass läuft im Quarantäne-VLAN mit denselben Adressen wie in der Produktion, damit neue Teilnehmer ihre Ethernet-, IP- und BGP-Konfiguration testen können, bevor sie dem produktiven Peering-LAN beitreten. Siehe die <a href=\"https://sfmix.org/connection-guide/\" data-sfmix=\"/connection-guide/\">Verbindungsanleitung</a>.",
+    "BGP session": "BGP-Sitzung",
+    "Software": "Software",
+    "Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.": "Der gemeinnützige, von seinen Mitgliedern verwaltete Internet-Knoten der Bay Area. Vernetzen Sie sich mit fast 100 Netzwerken an 9 Standorten in SF, San Jose, Santa Clara und Fremont.",
+    "Privacy Policy": "Datenschutzerklärung"
+  },
+  pirate: {
+    "Skip to main content": "Skip to th' main content",
+    "Toggle navigation": "Toggle th' helm",
+    "About": "About, Arrr",
+    "What is SFMIX?": "What be SFMIX?",
+    "The Team": "Th' Crew",
+    "Documentation": "Ship's Papers",
+    "Connect": "Climb Aboard",
+    "Connection Guide": "Boardin' Guide",
+    "Locations": "Ports o' Call",
+    "Statistics": "Tallies",
+    "Looking Glass": "Looking Glass",
+    "Speed Test": "Speed Trials",
+    "Participant Portal": "Mateys' Quarters",
+    "Get Connected": "Set Sail",
+    "Participants": "Mateys",
+    "Sponsors": "Benefactors",
+    "Contact": "Hail Us",
+    "Toggle dark mode": "Douse or light the lanterns",
+    "Change language": "Change yer tongue",
+    "BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.": "BGP sessions 'twixt th' looking glass (AS 12276) an' SFMIX mateys, an' th' routes they hoist. Freshened every minute.",
+    "sessions established": "sessions shipshape",
+    "participants peering": "mateys peerin'",
+    "IPv4 prefixes received": "IPv4 prefixes hauled in",
+    "IPv6 prefixes received": "IPv6 prefixes hauled in",
+    "of {n}": "o' {n}",
+    "The looking glass is not answering right now.": "Th' looking glass be not answerin' right now.",
+    "The last refresh failed; showing the previous data.": "Th' last refresh ran aground; showin' th' old data.",
+    "Error: {msg}": "Blunder: {msg}",
+    "Tools": "Tools o' th' Trade",
+    "Looking Glass Query": "Peer Through th' Glass",
+    "Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.": "Prefix lookups, a neighbor's routes, ping an' traceroute from inside th' exchange.",
+    "BGP summary": "BGP manifest",
+    "tools.cli": "Th' looking glass from yer command line: <code>ssh lg.sfmix.org</code> or <code>telnet lg.sfmix.org</code>",
+    "What the two route servers (AS 63055) carry per peer, with filter reasons.": "What th' two route servers (AS 63055) carry fer each peer, an' why routes walked th' plank.",
+    "How to peer with them": "How t' peer with 'em",
+    "API and MCP": "API an' MCP",
+    "Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.": "Sessions, ports, optics, MAC tables an' LAN events. Public reads need no key; sign in t' see yer own ports.",
+    "Participant data": "Matey Manifests",
+    "Who is on the exchange, machine-readable, for peering automation.": "Who be aboard th' exchange, machine-readable, fer peerin' automation.",
+    "Participant table": "Matey table",
+    "Participants on sfmix.org": "Mateys on sfmix.org",
+    "Legend": "Chart key",
+    "established": "shipshape",
+    "trying to connect": "tryin' t' connect",
+    "idle": "becalmed",
+    "no session configured": "no session rigged",
+    "Filter by name or ASN": "Search by name or ASN",
+    "Filter sessions by name or ASN": "Search sessions by name or ASN",
+    "only sessions that are not established": "only sessions that ain't shipshape",
+    "{n} of {total} participants": "{n} o' {total} mateys",
+    "updated {time}": "freshened {time}",
+    "Waiting for first data…": "Waitin' fer th' first data…",
+    "Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.": "Left lamp IPv4, right lamp IPv6. Hover or focus a tile fer addresses, uptime an' prefix counts.",
+    "Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.": "Uptime be how long th' session's held its current state; prefixes be what th' looking glass now takes aboard from that session.",
+    "Participant": "Matey",
+    "trying ({state})": "tryin' ({state})",
+    "established for": "shipshape fer",
+    "in this state for": "in this state fer",
+    "prefixes accepted": "prefixes taken aboard",
+    "infrastructure": "ship's riggin'",
+    "Peer with the looking glass": "Peer with th' looking glass",
+    "Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:": "Every matey be required t' peer with th' SFMIX looking glass. Th' session be only fer visibility an' debuggin': no routes be redistributed an' no traffic exchanged. It be used t':",
+    "validate your router configuration when you first connect": "validate yer router configuration when ye first climb aboard",
+    "test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you": "test configuration changes against a low-impact peer, with a self-service view o' what th' looking glass spies from ye",
+    "see which prefixes are present at the exchange": "see what prefixes be present at th' exchange",
+    "give SFMIX operators a quick reachability check": "give th' SFMIX crew a quick reachability check",
+    "peer.quarantine": "<strong>Quarantine VLAN.</strong> A parallel looking glass runs on th' quarantine VLAN with th' same addresses as production, so new mateys can test their Ethernet, IP an' BGP configuration before joinin' th' production peering LAN. See th' <a href=\"https://sfmix.org/connection-guide/\" data-sfmix=\"/connection-guide/\">Boardin' Guide</a>.",
+    "Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.": "Th' Bay Area's nonprofit, crew-governed Internet Exchange. Peer with nigh on 100 networks at 9 ports o' call across SF, San Jose, Santa Clara, an' Fremont.",
+    "Privacy Policy": "Privacy Code"
+  },
+  genz: {
+    "Skip to main content": "skip to the main stuff ⏭️",
+    "Toggle navigation": "toggle the menu 🍔",
+    "About": "about (the lore) 📖",
+    "What is SFMIX?": "so what's sfmix? 🤔",
+    "The Team": "the BFFs 💖",
+    "Documentation": "the docs 📚",
+    "Connect": "pull up 🚀",
+    "Connection Guide": "how to pull up 🔌",
+    "Locations": "spots 📍",
+    "Services": "services",
+    "Route Servers": "route servers 🖥️",
+    "Statistics": "stats 📊",
+    "Looking Glass": "looking glass 🔭",
+    "Speed Test": "speed test (how fast we goin) 🏎️💨",
+    "Participant Portal": "the portal (members only) 🚪✨",
+    "Get Connected": "link up 🔌",
+    "Participants": "the squad 🫂",
+    "Sponsors": "the sponsors (real ones) 🙏",
+    "Contact": "slide in 💬",
+    "Toggle dark mode": "flip the lights 🌙",
+    "Change language": "switch the vibe 🌐",
+    "BGP sessions between the looking glass (AS 12276) and SFMIX participants, and the routes they announce. Updated every minute.": "BGP sessions between the looking glass (AS 12276) and the SFMIX squad, plus the routes they announce. refreshes every minute, no cap 🔭",
+    "sessions established": "sessions locked in",
+    "participants peering": "participants peering",
+    "IPv4 prefixes received": "IPv4 prefixes received",
+    "IPv6 prefixes received": "IPv6 prefixes received",
+    "The looking glass is not answering right now.": "the looking glass is ghosting us rn 👻",
+    "The last refresh failed; showing the previous data.": "last refresh flopped; showing the old data 😬",
+    "Error: {msg}": "error: {msg}",
+    "Tools": "tools 🛠️",
+    "Looking Glass Query": "looking glass query 🔍",
+    "Prefix lookups, a neighbor's routes, ping and traceroute from inside the exchange.": "prefix lookups, a neighbor's routes, ping + traceroute from inside the exchange.",
+    "Lookup, ping, traceroute": "lookup, ping, traceroute",
+    "BGP summary": "BGP summary",
+    "Neighbors as JSON": "neighbors as JSON",
+    "tools.cli": "the looking glass but make it CLI 💻: <code>ssh lg.sfmix.org</code> or <code>telnet lg.sfmix.org</code>",
+    "Route servers": "route servers 🖥️",
+    "What the two route servers (AS 63055) carry per peer, with filter reasons.": "what the two route servers (AS 63055) carry per peer, plus why routes got filtered (the receipts 🧾).",
+    "Route browser (Alice)": "route browser (Alice) 🗺️",
+    "How to peer with them": "how to peer with them",
+    "API and MCP": "API + MCP 🤖",
+    "Sessions, ports, optics, MAC tables and LAN events. Public reads need no key; sign in for your own ports.": "sessions, ports, optics, MAC tables and LAN events. public reads need no key; sign in to see your own ports 🔐",
+    "Participant data": "participant data",
+    "Who is on the exchange, machine-readable, for peering automation.": "who's on the exchange, machine-readable, for your peering automation.",
+    "Participant table": "participant table",
+    "Participants on sfmix.org": "the squad on sfmix.org",
+    "Sessions": "sessions",
+    "Legend": "legend",
+    "established": "locked in",
+    "trying to connect": "tryna connect",
+    "idle": "idle 💤",
+    "no session configured": "no session set up",
+    "View": "view",
+    "Board": "board",
+    "Table": "table",
+    "Filter by name or ASN": "search by name or ASN",
+    "Filter sessions by name or ASN": "search sessions by name or ASN",
+    "only sessions that are not established": "only sessions that aren't locked in",
+    "{n} of {total} participants": "{n} of {total} in the squad",
+    "Waiting for first data…": "loading the tea… ☕",
+    "Left lamp IPv4, right lamp IPv6. Hover or focus a tile for addresses, uptime and prefix counts.": "left lamp = IPv4, right lamp = IPv6. hover or focus a tile for addresses, uptime and prefix counts.",
+    "Uptime is how long the session has been in its current state; prefixes are what the looking glass currently accepts from that session.": "uptime = how long the session's been in its current state; prefixes = what the looking glass accepts from that session rn.",
+    "Participant": "participant",
+    "Uptime": "uptime",
+    "Prefixes": "prefixes",
+    "trying ({state})": "tryna ({state})",
+    "established for": "locked in for",
+    "in this state for": "stuck like this for",
+    "infrastructure": "infra",
+    "Peer with the looking glass": "peer with the looking glass 🔭",
+    "Every participant is required to peer with the SFMIX looking glass. The session is only for visibility and debugging: no routes are redistributed and no traffic is exchanged. It is used to:": "every participant has to peer with the SFMIX looking glass, non-negotiable. it's only for visibility and debugging: no routes get redistributed and no traffic gets exchanged. it's for:",
+    "validate your router configuration when you first connect": "validating your router config when you first connect ✅",
+    "test configuration changes against a low-impact peer, with a self-service view of what the looking glass sees from you": "testing config changes against a low-impact peer, with a self-service view of what the looking glass sees from you",
+    "see which prefixes are present at the exchange": "seeing which prefixes are present at the exchange (the receipts 🧾)",
+    "give SFMIX operators a quick reachability check": "giving SFMIX operators a quick reachability check",
+    "peer.quarantine": "<strong>quarantine VLAN 🧪</strong> a parallel looking glass runs on the quarantine VLAN with the same addresses as production, so new participants can test their ethernet, IP and BGP config before joining the production peering LAN. practice round, no pressure. peep the <a href=\"https://sfmix.org/connection-guide/\" data-sfmix=\"/connection-guide/\">connection guide</a>.",
+    "Software": "software",
+    "Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 9 locations across SF, San Jose, Santa Clara, and Fremont.": "the bay area's nonprofit, member-run internet exchange, fr fr 🌉. peer with hella networks (nearly 100) at 9 spots across sf, san jose, santa clara, and fremont. bet 🤝",
+    "Privacy Policy": "privacy policy 🔒"
+  }
+};
+// Same languages, native names and URL subtrees as sfmix.org (website/hugo.toml).
+var LANGS = [
+  { code: 'en', name: 'English', tag: 'en', locale: 'en-US', path: '' },
+  { code: 'es', name: 'Español', tag: 'es', locale: 'es', path: '/es' },
+  { code: 'de', name: 'Deutsch', tag: 'de', locale: 'de', path: '/de' },
+  { code: 'pirate', name: 'Pirate', tag: 'en-x-pirate', locale: 'en-US', path: '/pirate' },
+  { code: 'genz', name: 'Gen Z', tag: 'en-x-genz', locale: 'en-US', path: '/genz' }
+];
+</script>
+<script>
 (function () {
   'use strict';
   var $ = function (s) { return document.querySelector(s); };
+  var html = document.documentElement;
   $('#year').textContent = new Date().getFullYear();
 
-  // Theme toggle, shared cookie with every *.sfmix.org site (see <head>).
-  var html = document.documentElement, meta = document.querySelector('meta[name="theme-color"]');
+  // ---- Language: ?lang=, else the shared sfmix-lang cookie (also written by
+  // sfmix.org's picker), else the browser's first of en/es/de. Novelty locales
+  // are only ever an explicit pick, as on sfmix.org.
+  var byCode = {}; LANGS.forEach(function (l) { byCode[l.code] = l; });
+  var lang = 'en', dict = {}, fmt = new Intl.NumberFormat('en-US');
+  function norm(s) { return s.replace(/\s+/g, ' ').trim(); }
+  function t(key, vars) {
+    var s = Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : key;
+    return vars ? s.replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }) : s;
+  }
+  function readLangCookie() { var m = document.cookie.match(/(?:^|;\s*)sfmix-lang=([a-z]+)(?:;|$)/); return m && byCode[m[1]] ? m[1] : null; }
+  function saveLang(l) {
+    var dom = /(^|\.)sfmix\.org$/.test(location.hostname) ? '; domain=sfmix.org' : '';
+    document.cookie = 'sfmix-lang=' + l + dom + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
+  }
+  function pickLang() {
+    var q = null; try { q = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+    if (q && byCode[q]) return q;
+    var c = readLangCookie(); if (c) return c;
+    var prefs = navigator.languages || [navigator.language || 'en'];
+    for (var i = 0; i < prefs.length; i++) { var b = String(prefs[i]).toLowerCase().split('-')[0]; if (b === 'en' || b === 'es' || b === 'de') return b; }
+    return 'en';
+  }
+  // Remember each element's English source once, then translate in place.
+  var textEls = [], htmlEls = [], attrEls = [];
+  document.querySelectorAll('[data-t]').forEach(function (el) { textEls.push([el, norm(el.textContent)]); });
+  document.querySelectorAll('[data-t-html]').forEach(function (el) { htmlEls.push([el, el.dataset.tHtml, el.innerHTML]); });
+  document.querySelectorAll('[data-t-attr]').forEach(function (el) {
+    var orig = {}; el.dataset.tAttr.split(' ').forEach(function (a) { orig[a] = el.getAttribute(a); }); attrEls.push([el, orig]);
+  });
+  var menu = $('#lang-menu');
+  menu.innerHTML = LANGS.map(function (l) { return '<li><a href="/?lang=' + l.code + '" class="dropdown-link" data-lang="' + l.code + '" hreflang="' + l.tag + '">' + l.name + '</a></li>'; }).join('');
+  function applyLang(code) {
+    lang = byCode[code] ? code : 'en';
+    var L = byCode[lang];
+    dict = I18N[lang] || {};
+    fmt = new Intl.NumberFormat(L.locale);
+    html.lang = L.tag;
+    textEls.forEach(function (p) { p[0].textContent = t(p[1]); });
+    htmlEls.forEach(function (p) { p[0].innerHTML = Object.prototype.hasOwnProperty.call(dict, p[1]) ? dict[p[1]] : p[2]; });
+    attrEls.forEach(function (p) { Object.keys(p[1]).forEach(function (a) { p[0].setAttribute(a, t(p[1][a])); }); });
+    document.querySelectorAll('[data-sfmix]').forEach(function (a) { a.href = 'https://sfmix.org' + L.path + a.dataset.sfmix; });
+    $('#lang-current').textContent = L.name;
+    menu.querySelectorAll('a').forEach(function (a) { a.classList.toggle('is-active', a.dataset.lang === lang); });
+    document.title = t('Looking Glass') + ' | SFMIX';
+    paint();
+  }
+  menu.addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-lang]'); if (!a) return;
+    e.preventDefault();
+    try { saveLang(a.dataset.lang); } catch (err) {}
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (err) {}
+    closeAll();
+    applyLang(a.dataset.lang);
+  });
+
+  // ---- Theme toggle, shared cookie with every *.sfmix.org site (see <head>).
+  var meta = document.querySelector('meta[name="theme-color"]');
   function systemTheme() { try { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) { return 'light'; } }
   function currentTheme() { return html.getAttribute('data-theme') || systemTheme(); }
   function reflect() { var d = currentTheme() === 'dark'; if (meta) meta.setAttribute('content', d ? '#071f26' : '#0b3640'); $('.theme-toggle__btn').setAttribute('aria-pressed', d ? 'true' : 'false'); }
   $('.theme-toggle__btn').addEventListener('click', function (e) { e.stopPropagation(); var n = currentTheme() === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', n); try { window.sfmixSaveTheme(n); } catch (err) {} reflect(); });
-  function resync() { var t = null; try { t = window.sfmixReadTheme(); } catch (e) {} if (t && t !== html.getAttribute('data-theme')) { html.setAttribute('data-theme', t); reflect(); } }
+  // Theme or language may have changed on another *.sfmix.org site meanwhile.
+  function resync() {
+    var th = null; try { th = window.sfmixReadTheme(); } catch (e) {}
+    if (th && th !== html.getAttribute('data-theme')) { html.setAttribute('data-theme', th); reflect(); }
+    var l = readLangCookie(); if (l && l !== lang && !/[?&]lang=/.test(location.search)) applyLang(l);
+  }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) resync(); });
   window.addEventListener('pageshow', function (e) { if (e.persisted) resync(); });
   try { var mq = matchMedia('(prefers-color-scheme: dark)'); var onMq = function () { if (!html.getAttribute('data-theme')) reflect(); }; if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq); } catch (e) {}
   reflect();
 
-  // Nav: the same behaviour as sfmix.org (hamburger, click-to-open dropdowns, Escape/arrow keys).
+  // ---- Nav: the same behaviour as sfmix.org (hamburger, click-to-open dropdowns, Escape/arrow keys).
   var toggle = $('.nav-toggle'), nav = $('#site-nav');
   toggle.addEventListener('click', function () { var ex = this.getAttribute('aria-expanded') === 'true'; this.setAttribute('aria-expanded', !ex); nav.classList.toggle('open'); });
   function closeAll() { document.querySelectorAll('.dropdown-toggle').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); b.parentElement.classList.remove('dropdown-open'); }); }
@@ -543,6 +968,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   document.querySelectorAll('.has-dropdown').forEach(function (item) {
     var btn = item.querySelector('.dropdown-toggle'), links = item.querySelectorAll('.dropdown-link');
     item.addEventListener('keydown', function (e) {
+      links = item.querySelectorAll('.dropdown-link');
       var idx = Array.prototype.indexOf.call(links, document.activeElement);
       if (e.key === 'Escape') { btn.setAttribute('aria-expanded', 'false'); item.classList.remove('dropdown-open'); btn.focus(); }
       if (e.key === 'ArrowDown') { e.preventDefault(); if (idx < links.length - 1) links[idx + 1].focus(); }
@@ -551,14 +977,16 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     item.addEventListener('focusout', function () { setTimeout(function () { if (!item.contains(document.activeElement)) { btn.setAttribute('aria-expanded', 'false'); item.classList.remove('dropdown-open'); } }, 0); });
   });
 
-  var fmt = new Intl.NumberFormat('en-US');
+  // ---- Sessions
   var participants = {};   // asn -> {name, type}
   var rows = [];           // table model
   var sortKey = 'name', sortDir = 1;
+  var fig = null;          // headline figures, repainted on language change
+  var updatedAt = null, statusMsg = null;
 
   function cls(state) { return state === 'Established' ? 'up' : (state === 'Idle' ? 'idle' : 'trying'); }
   function glyph(state) { return state === 'Established' ? '✓' : (state === 'Idle' ? '–' : '…'); }
-  function words(state) { return state === 'Established' ? 'established' : (state === 'Idle' ? 'idle' : 'trying (' + state + ')'); }
+  function words(state) { return state === 'Established' ? t('established') : (state === 'Idle' ? t('idle') : t('trying ({state})', { state: state })); }
   function uptime(sec) {
     if (sec == null) return '';
     var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
@@ -567,18 +995,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function stripFamily(desc) { return desc.replace(/\s*\((v4|v6)\)\s*$/, ''); }
 
-  function status(msg) { var el = $('#status'); if (!msg) { el.hidden = true; return; } el.hidden = false; el.textContent = msg; }
+  function status(msg) { statusMsg = msg; var el = $('#status'); if (!msg) { el.hidden = true; return; } el.hidden = false; el.textContent = msg(); }
 
   function lamp(n) {
-    if (!n) return '<i class="lamp none" title="no session configured" aria-label="no session configured"> </i>';
+    if (!n) return '<i class="lamp none" title="' + esc(t('no session configured')) + '" aria-label="' + esc(t('no session configured')) + '"> </i>';
     return '<i class="lamp ' + cls(n.state) + '" aria-label="' + esc(words(n.state)) + '">' + glyph(n.state) + '</i>';
   }
   function tipFamily(label, n) {
-    if (!n) return '<div class="fam">' + lamp(null) + '<div class="hd"><span class="f">' + label + '</span><span class="st idle">no session configured</span></div><div class="addr">&nbsp;</div></div>';
+    if (!n) return '<div class="fam">' + lamp(null) + '<div class="hd"><span class="f">' + label + '</span><span class="st idle">' + esc(t('no session configured')) + '</span></div><div class="addr">&nbsp;</div></div>';
     var up = n.state === 'Established', c = cls(n.state);
     var figs = '<div class="figs">' +
-      '<div><div class="v">' + uptime(n.last_updown_sec) + '</div><div class="l">' + (up ? 'established for' : 'in this state for') + '</div></div>' +
-      '<div><div class="v' + (up && n.pfx != null ? '' : ' dim') + '">' + (up ? (n.pfx == null ? '…' : fmt.format(n.pfx)) : '–') + '</div><div class="l">prefixes accepted</div></div>' +
+      '<div><div class="v">' + uptime(n.last_updown_sec) + '</div><div class="l">' + esc(up ? t('established for') : t('in this state for')) + '</div></div>' +
+      '<div><div class="v' + (up && n.pfx != null ? '' : ' dim') + '">' + (up ? (n.pfx == null ? '…' : fmt.format(n.pfx)) : '–') + '</div><div class="l">' + esc(t('prefixes accepted')) + '</div></div>' +
       '</div>';
     return '<div class="fam">' + lamp(n) + '<div class="hd"><span class="f">' + label + '</span><span class="st ' + c + '">' + esc(words(n.state)) + '</span></div><div class="addr mono">' + esc(n.remote_addr) + '</div></div>' + figs;
   }
@@ -599,19 +1027,19 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
       var p = participants[r.asn];
       return '<div class="tile" role="listitem" tabindex="0" data-asn="' + r.asn + '">' +
         '<div class="name" title="' + esc(r.name) + '">' + esc(r.name) + '</div>' +
-        '<div class="asn">AS ' + r.asn + (p && p.type && p.type !== 'Member' ? ' <span class="muted">' + esc(p.type.toLowerCase()) + '</span>' : '') + '</div>' +
+        '<div class="asn">AS ' + r.asn + (p && p.type && p.type !== 'Member' ? ' <span class="muted">' + esc(t(p.type.toLowerCase())) + '</span>' : '') + '</div>' +
         '<div class="lamps">' + lamp(r.v4) + lamp(r.v6) + '</div>' +
         '<div class="tip"><div class="who"><b>' + esc(r.name) + '</b><span>AS ' + r.asn + '</span></div>' + tipFamily('IPv4', r.v4) + tipFamily('IPv6', r.v6) + '</div>' +
         '</div>';
     }).join('');
     // Flip tooltips that would overflow the right edge.
     var right = board.getBoundingClientRect().right;
-    board.querySelectorAll('.tile').forEach(function (t) { if (t.getBoundingClientRect().left + 310 > right) t.classList.add('flip'); });
+    board.querySelectorAll('.tile').forEach(function (tl) { if (tl.getBoundingClientRect().left + 310 > right) tl.classList.add('flip'); });
     renderTable();
   }
 
   function cell(n) {
-    if (!n) return '<td class="muted">no session</td><td class="num"></td><td class="num"></td>';
+    if (!n) return '<td class="muted">' + esc(t('no session')) + '</td><td class="num"></td><td class="num"></td>';
     return '<td><span class="state ' + cls(n.state) + '">' + lamp(n) + ' ' + esc(words(n.state)) + '</span></td>' +
       '<td class="num">' + uptime(n.last_updown_sec) + '</td>' +
       '<td class="num">' + (n.state === 'Established' && n.pfx != null ? fmt.format(n.pfx) : '') + '</td>';
@@ -633,8 +1061,21 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     $('#sessions-table tbody').innerHTML = list.map(function (r) {
       return '<tr><td>' + esc(r.name) + '</td><td class="mono">' + r.asn + '</td>' + cell(r.v4) + cell(r.v6) + '</tr>';
     }).join('');
-    $('#table-count').textContent = list.length + ' of ' + rows.length + ' participants';
+    $('#table-count').textContent = rows.length ? t('{n} of {total} participants', { n: list.length, total: rows.length }) : '';
     document.querySelectorAll('th[data-key]').forEach(function (th) { th.setAttribute('aria-sort', th.dataset.key === sortKey ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'); });
+  }
+
+  // Everything that depends on the language and the latest data.
+  function paint() {
+    if (fig) {
+      if (fig.total != null) $('#f-sessions').innerHTML = fmt.format(fig.est) + '<small>' + esc(t('of {n}', { n: fig.total })) + '</small>';
+      if (fig.peering != null) $('#f-participants').innerHTML = fmt.format(fig.peering) + (fig.members ? '<small>' + esc(t('of {n}', { n: fig.members })) + '</small>' : '');
+      if (fig.v4 != null) $('#f-v4').textContent = fmt.format(fig.v4);
+      if (fig.v6 != null) $('#f-v6').textContent = fmt.format(fig.v6);
+    }
+    $('#updated').textContent = updatedAt ? t('updated {time}', { time: updatedAt.toLocaleTimeString(byCode[lang].locale) }) : t('Waiting for first data…');
+    if (statusMsg) status(statusMsg);
+    render();
   }
 
   function getJSON(url) { return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) { if (!r.ok) throw new Error(url + ' returned ' + r.status); return r.json(); }); }
@@ -647,25 +1088,24 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
       r[fam] = { state: n.state, remote_addr: n.remote_addr, last_updown_sec: n.last_updown_sec, pfx: null };
     });
     rows = Object.keys(byAsn).map(function (k) { return byAsn[k]; });
-    var est = summary.neighbors.filter(function (n) { return n.state === 'Established'; }).length;
-    $('#f-sessions').innerHTML = fmt.format(est) + '<small>of ' + summary.neighbors.length + '</small>';
-    var peering = rows.filter(function (r) { return (r.v4 && r.v4.state === 'Established') || (r.v6 && r.v6.state === 'Established'); }).length;
-    var members = Object.keys(participants).filter(function (a) { return participants[a].type !== 'Infrastructure'; }).length;
-    $('#f-participants').innerHTML = fmt.format(peering) + (members ? '<small>of ' + members + '</small>' : '');
+    fig = fig || {};
+    fig.est = summary.neighbors.filter(function (n) { return n.state === 'Established'; }).length;
+    fig.total = summary.neighbors.length;
+    fig.peering = rows.filter(function (r) { return (r.v4 && r.v4.state === 'Established') || (r.v6 && r.v6.state === 'Established'); }).length;
+    fig.members = Object.keys(participants).filter(function (a) { return participants[a].type !== 'Infrastructure'; }).length;
   }
 
   function refresh(first) {
     var started = new Date();
     return getJSON('/api/summary').then(function (summary) {
-      build(summary); render();
-      $('#updated').textContent = 'updated ' + started.toLocaleTimeString();
-      status('');
+      build(summary); updatedAt = started; statusMsg = null; $('#status').hidden = true; paint();
       // Prefix counts and RIB sizes come from heavier endpoints; fill them in after the first paint.
       return Promise.all([
         getJSON('/api/memory').then(function (m) {
           var v4 = m.memory && m.memory['IPv4 unicast'], v6 = m.memory && m.memory['IPv6 unicast'];
-          if (v4) $('#f-v4').textContent = fmt.format(v4.count);
-          if (v6) $('#f-v6').textContent = fmt.format(v6.count);
+          if (v4) fig.v4 = v4.count;
+          if (v6) fig.v6 = v6.count;
+          paint();
         }).catch(function () {}),
         getJSON('/api/neighbors').then(function (nb) {
           var pfx = {}; nb.neighbors.forEach(function (n) { pfx[n.remote_addr] = n.stats && n.stats.prefixes ? n.stats.prefixes.received : null; });
@@ -674,7 +1114,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
         }).catch(function () {})
       ]);
     }).catch(function (e) {
-      status((first ? 'The looking glass is not answering right now. ' : 'The last refresh failed; showing the previous data. ') + 'Error: ' + e.message);
+      status(function () { return t(first ? 'The looking glass is not answering right now.' : 'The last refresh failed; showing the previous data.') + ' ' + t('Error: {msg}', { msg: e.message }); });
     });
   }
 
@@ -702,6 +1142,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   window.addEventListener('hashchange', function () { var h = location.hash.replace('#', ''); if (h === 'table' || h === 'board') setView(h); });
   window.addEventListener('resize', function () { if (rows.length) render(); });
 
+  applyLang(pickLang());
   getJSON('/api/v1/participants').then(function (list) {
     list.forEach(function (p) { participants[p.asn] = { name: p.name, type: p.participant_type }; });
   }).catch(function () {}).then(function () { return refresh(true); }).then(function () { setInterval(refresh, 60000); });
