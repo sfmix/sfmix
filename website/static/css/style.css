@@ -62,7 +62,7 @@
   :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: block; }
   :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
 }
-@media (max-width: 992px) {
+@media (max-width: 1200px) {
   .theme-toggle__label { display: inline; }
 }
 
@@ -233,7 +233,7 @@ img { max-width: 100%; height: auto; }
   display: inline-flex;
   align-items: center;
   height: var(--header-height);
-  padding: 0 0.9rem;
+  padding: 0 0.75rem;
   color: rgba(255,255,255,0.9);
   background: none;
   border: none;
@@ -860,9 +860,10 @@ img { max-width: 100%; height: auto; }
 /*
  * Nav collapses to the hamburger earlier than the content breakpoint: the
  * horizontal desktop nav (three dropdowns + top-level items + language picker)
- * stops fitting next to the logo around ~990px, so switch before it overflows.
+ * stops fitting next to the logo around ~1180px (es is the widest real locale;
+ * the genz novelty labels need ~1350px), so switch before it overflows.
  */
-@media (max-width: 992px) {
+@media (max-width: 1200px) {
   .nav-toggle { display: flex; }
   .site-nav {
     display: none;

@@ -13,7 +13,7 @@ SFMIX is an IRS 501(c)(12) cooperative Internet Exchange Point (IXP) in the San 
 - [Participants](https://sfmix.org/participants/): Current participant list with ASNs, IPs, and port speeds
 - [Locations](https://sfmix.org/locations/): Facility locations across the Bay Area
 - [Route Servers](https://sfmix.org/route-servers/): Route server details, IPs, and communities
-- [Looking Glass](https://sfmix.org/looking-glass/): Network diagnostic tools
+- [Looking Glass](https://lg.sfmix.org/): Network diagnostic tools
 - [Statistics](https://sfmix.org/statistics/): Traffic graphs and metrics
 - [The Team](https://sfmix.org/team/): People behind SFMIX
 - [Documentation](https://sfmix.org/documentation/): Board minutes, architecture docs, bylaws

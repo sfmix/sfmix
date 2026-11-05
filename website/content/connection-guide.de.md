@@ -49,7 +49,7 @@ mobile_image: "img/mobile-fiber-cables.jpg"
 - **Eine MAC-Adresse pro logischer Verbindung.** Die Port-Sicherheit erlaubt vorübergehend 2 MACs für Router-Migrationen, langfristig jedoch nur 1.
 - **Erlaubter Broadcast:** nur ARP und ICMPv6 ND. Keine RAs, kein CDP, DHCP oder STP.
 - **LLDP:** SFMIX überträgt LLDP auf allen Teilnehmer-Ports, einschließlich der optischen Empfangsleistungswerte. Teilnehmer dürfen LLDP übertragen, sind dazu aber nicht verpflichtet.
-- **Eine BGP-Sitzung mit dem [Looking Glass](/looking-glass/) ist verpflichtend.** Sie dient ausschließlich dem Debugging — es werden keine Routen weiterverteilt und kein Datenverkehr ausgetauscht.
+- **Eine BGP-Sitzung mit dem [Looking Glass](https://lg.sfmix.org/) ist verpflichtend.** Sie dient ausschließlich dem Debugging — es werden keine Routen weiterverteilt und kein Datenverkehr ausgetauscht.
 - Propagieren Sie die SFMIX-Peering-Subnetze (206.197.187.0/24, 2001:504:30::/64) nicht über Ihren Edge-Router hinaus. Verwenden Sie bei Bedarf ACLs.
 - Keine statischen oder Standardrouten zu anderen Teilnehmern oder SFMIX-Ressourcen ohne Genehmigung.
 - Peering mit dem [Route-Server](/route-servers/) wird empfohlen, ist aber nicht erforderlich.

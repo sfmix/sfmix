@@ -102,10 +102,19 @@ document.addEventListener('DOMContentLoaded', function() {
         e.stopPropagation();
         var next = currentTheme() === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
-        try { localStorage.setItem('sfmix-theme', next); } catch (err) {}
+        try { window.sfmixSaveTheme(next); } catch (err) {}
         reflect();
       });
     });
+    // The pick may have changed on another *.sfmix.org site (shared cookie)
+    // while this tab sat in the background or the back/forward cache.
+    function resync() {
+      var t = null;
+      try { t = window.sfmixReadTheme(); } catch (e) {}
+      if (t && t !== html.getAttribute('data-theme')) { html.setAttribute('data-theme', t); reflect(); }
+    }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) resync(); });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) resync(); });
     try {
       var mq = window.matchMedia('(prefers-color-scheme: dark)');
       var onChange = function () { if (!html.getAttribute('data-theme')) reflect(); };
