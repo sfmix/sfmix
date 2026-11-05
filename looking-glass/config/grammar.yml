@@ -167,6 +167,17 @@ commands:
     help: Show available commands
     command: { verb: show, resource: help }
 
+  terminal:
+    help: Settings for this terminal session
+    children:
+      length:
+        help: Lines per page for the output pager
+        children:
+          _arg:
+            name: "<lines>"
+            help: "auto (follow the window size, default), 0 (never page), or a line count"
+            builtin: terminal_length
+
   quit:
     help: Disconnect
     builtin: quit

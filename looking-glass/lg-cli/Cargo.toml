@@ -23,3 +23,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
 russh = "0.62"
 rand = "0.10"
+# Pager (see src/pager.rs): ratatui renders into a byte buffer that the SSH /
+# telnet session forwards, ansi-to-tui lifts the colored table output into
+# styled ratatui text so it survives rewrapping on resize.
+ratatui = { version = "0.30", default-features = false, features = ["crossterm", "unstable-rendered-line-info", "unstable-backend-writer"] }
+ansi-to-tui = "8"
+# Telnet option parsing (NAWS window size); a hardened libtelnet-rs fork.
+libmudtelnet-rs = "2"

@@ -183,6 +183,48 @@ pub fn parse_command(input: &str) -> Result<Command, ParseError> {
     Ok(command)
 }
 
+/// A grammar `builtin:` node matched by [`parse_builtin`]: a command the
+/// frontend implements itself (quit, terminal settings) rather than one that
+/// becomes a [`Command`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Builtin {
+    pub name: String,
+    /// The `_arg` value captured on the way to the builtin, if any.
+    pub arg: Option<String>,
+}
+
+/// Resolve `input` (with IOS-style abbreviations) to a `builtin:` grammar
+/// node. Returns `None` for anything that is not a builtin, including inputs
+/// that fail to parse, so callers can fall through to [`parse_command`] and
+/// its error reporting.
+pub fn parse_builtin(input: &str) -> Option<Builtin> {
+    let tokens: Vec<&str> = input.split_whitespace().collect();
+    let mut children = &grammar().commands;
+    let mut arg: Option<&str> = None;
+    for (i, token) in tokens.iter().enumerate() {
+        let keywords: Vec<&str> = children
+            .keys()
+            .map(String::as_str)
+            .filter(|k| *k != "_arg")
+            .collect();
+        let node = match try_abbrev(token, &keywords) {
+            Some(k) => &children[k],
+            None => {
+                arg = Some(token);
+                children.get("_arg")?
+            }
+        };
+        if i + 1 == tokens.len() {
+            return node.builtin.as_ref().map(|name| Builtin {
+                name: name.clone(),
+                arg: arg.map(str::to_string),
+            });
+        }
+        children = node.children.as_ref()?;
+    }
+    None
+}
+
 /// Extract `@device` from input, returning (remaining_input, Option<device_name>).
 ///
 /// Examples:
@@ -347,6 +389,20 @@ fn abbrev<'a>(input: &str, candidates: &[&'a str]) -> Result<&'a str, ParseError
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_builtin_terminal_length() {
+        for input in ["terminal length 0", "term len 40", "te l auto"] {
+            let b = parse_builtin(input).unwrap_or_else(|| panic!("no builtin for {input}"));
+            assert_eq!(b.name, "terminal_length", "input: {input}");
+        }
+        assert_eq!(parse_builtin("term len 40").unwrap().arg.as_deref(), Some("40"));
+        assert_eq!(parse_builtin("quit").unwrap().name, "quit");
+        // Incomplete builtins and ordinary commands are not builtins.
+        assert_eq!(parse_builtin("terminal length"), None);
+        assert_eq!(parse_builtin("show interfaces"), None);
+        assert_eq!(parse_builtin(""), None);
+    }
 
     #[test]
     fn test_grammar_loads() {

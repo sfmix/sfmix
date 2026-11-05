@@ -19,8 +19,10 @@ use looking_glass::identity::Identity;
 use looking_glass::oidc::OidcClient;
 
 mod dispatch;
+mod pager;
 
 use dispatch::ServiceContext;
+use pager::Pager;
 
 #[derive(Parser)]
 #[command(name = "lg-cli", about = "Looking glass CLI frontend (telnet + SSH)")]
@@ -232,6 +234,11 @@ fn transform_line_endings(data: &[u8]) -> Vec<u8> {
     out
 }
 
+/// Window dimension from an SSH request (u32 on the wire) as a terminal size.
+fn clamp_dim(n: u32) -> u16 {
+    n.min(u32::from(u16::MAX)) as u16
+}
+
 /// Encode a byte slice as an SSH wire-format string (uint32 length + data).
 fn encode_string(buf: &mut Vec<u8>, data: &[u8]) {
     buf.extend_from_slice(&(data.len() as u32).to_be_bytes());
@@ -342,6 +349,7 @@ impl server::Server for SshServerImpl {
             cert_info: None,
             login_in_progress: Arc::new(AtomicBool::new(false)),
             editor: LineEditor::new(),
+            pager: Pager::new(),
             channel_id: None,
             session_handle: None,
             term: None,
@@ -370,6 +378,8 @@ struct SshSessionHandler {
     cert_info: Option<CertInfo>,
     login_in_progress: Arc<AtomicBool>,
     editor: LineEditor,
+    /// Pages long output; owns the keyboard while it is on screen.
+    pager: Pager,
     channel_id: Option<ChannelId>,
     #[allow(dead_code)]
     session_handle: Option<server::Handle>,
@@ -549,11 +559,22 @@ impl SshSessionHandler {
         }
     }
 
-    // `drop(writer)` ends writer's borrow of `session` before it is reused;
-    // clippy's drop_non_drop flags this as a no-op, but the borrow release is
-    // the point.
-    #[allow(clippy::drop_non_drop)]
-    async fn process_line(&mut self, line: &str, session: &mut Session) -> CommandAction {
+    /// Run one command line. `interactive` is false for SSH exec requests,
+    /// whose output is never paged (the channel closes right after).
+    async fn process_line(
+        &mut self,
+        line: &str,
+        session: &mut Session,
+        interactive: bool,
+    ) -> CommandAction {
+        if let Some(builtin) = looking_glass::grammar::parse_builtin(line) {
+            if builtin.name == "terminal_length" {
+                let msg = self.pager.set_length(builtin.arg.as_deref());
+                self.write_data(session, msg.as_bytes()).await;
+                return CommandAction::Continue;
+            }
+        }
+
         let identity = self.identity.lock().unwrap().clone();
         let rate_key = if identity.authenticated {
             identity
@@ -565,23 +586,31 @@ impl SshSessionHandler {
                 .map(|a| format!("ssh:{}", a.ip()))
                 .unwrap_or_else(|| "unknown".to_string())
         };
+        let color = self.color_mode();
 
-        let mut writer = SshWriter {
-            channel_id: self.channel_id,
-            session,
+        self.pager.begin(interactive);
+        let result = {
+            let mut writer = pager::PagedWriter {
+                pager: &mut self.pager,
+                inner: SshWriter {
+                    channel_id: self.channel_id,
+                    session,
+                },
+            };
+            dispatch::dispatch_command(line, &self.ctx, &identity, &rate_key, color, &mut writer)
+                .await
         };
+        let tail = self.pager.finish();
+        self.write_data(session, &tail).await;
 
-        match dispatch::dispatch_command(line, &self.ctx, &identity, &rate_key, self.color_mode(), &mut writer)
-            .await
-        {
+        match result {
             Ok(CommandAction::Quit) => {
                 if let Some(ch) = self.channel_id {
-                    let _ = writer.session.close(ch);
+                    let _ = session.close(ch);
                 }
                 CommandAction::Quit
             }
             Ok(CommandAction::Login) => {
-                drop(writer);
                 self.start_login(session).await;
                 CommandAction::Login
             }
@@ -592,7 +621,6 @@ impl SshSessionHandler {
                     *id = Identity::anonymous();
                     was
                 };
-                drop(writer);
                 if was_auth {
                     self.write_data(session, b"Logged out. Returned to public tier.\n")
                         .await;
@@ -768,7 +796,7 @@ impl server::Handler for SshSessionHandler {
         debug!(command = cmd_str, "SSH exec request");
 
         self.channel_id = Some(channel);
-        self.process_line(&cmd_str, session).await;
+        self.process_line(&cmd_str, session, false).await;
 
         let _ = session.close(channel);
         Ok(())
@@ -781,10 +809,19 @@ impl server::Handler for SshSessionHandler {
         session: &mut Session,
     ) -> Result<(), Self::Error> {
         let mut output = Vec::new();
-        let mut lines: Vec<String> = Vec::new();
-        let mut got_eof = false;
+        let mut rest = data;
 
-        for &byte in data {
+        while let Some((&byte, tail)) = rest.split_first() {
+            // While output is being paged, keystrokes drive the pager.
+            if self.pager.is_active() {
+                let (out, done) = self.pager.input(rest);
+                self.write_data(session, &out).await;
+                if done {
+                    self.write_data(session, PROMPT.as_bytes()).await;
+                }
+                break;
+            }
+            rest = tail;
             match self.editor.feed_byte(byte, &mut output) {
                 LineEvent::Line(line) => {
                     // Flush echo (including the newline) before the command runs,
@@ -794,11 +831,21 @@ impl server::Handler for SshSessionHandler {
                         output.clear();
                     }
                     tokio::task::yield_now().await;
-                    lines.push(line);
+                    let action = self.process_line(&line, session, true).await;
+                    if matches!(action, CommandAction::Continue) && !self.pager.is_active() {
+                        self.write_data(session, PROMPT.as_bytes()).await;
+                    }
                 }
                 LineEvent::Eof => {
-                    got_eof = true;
-                    break;
+                    if !output.is_empty() {
+                        self.write_data(session, &output).await;
+                        output.clear();
+                    }
+                    self.write_data(session, b"Goodbye.\n").await;
+                    if let Some(ch) = self.channel_id {
+                        let _ = session.close(ch);
+                    }
+                    return Ok(());
                 }
                 LineEvent::Continue => {}
             }
@@ -807,21 +854,6 @@ impl server::Handler for SshSessionHandler {
         if !output.is_empty() {
             self.write_data(session, &output).await;
         }
-
-        for line in lines {
-            let action = self.process_line(&line, session).await;
-            if matches!(action, CommandAction::Continue) {
-                self.write_data(session, PROMPT.as_bytes()).await;
-            }
-        }
-
-        if got_eof {
-            self.write_data(session, b"Goodbye.\n").await;
-            if let Some(ch) = self.channel_id {
-                let _ = session.close(ch);
-            }
-        }
-
         Ok(())
     }
 
@@ -829,15 +861,30 @@ impl server::Handler for SshSessionHandler {
         &mut self,
         _channel: ChannelId,
         term: &str,
-        _col_width: u32,
-        _row_height: u32,
+        col_width: u32,
+        row_height: u32,
         _pix_width: u32,
         _pix_height: u32,
         _modes: &[(russh::Pty, u32)],
         _session: &mut Session,
     ) -> Result<(), Self::Error> {
-        debug!(term, "SSH PTY request");
+        debug!(term, col_width, row_height, "SSH PTY request");
         self.term = Some(term.to_string());
+        self.pager.resize(clamp_dim(col_width), clamp_dim(row_height));
+        Ok(())
+    }
+
+    async fn window_change_request(
+        &mut self,
+        _channel: ChannelId,
+        col_width: u32,
+        row_height: u32,
+        _pix_width: u32,
+        _pix_height: u32,
+        session: &mut Session,
+    ) -> Result<(), Self::Error> {
+        let out = self.pager.resize(clamp_dim(col_width), clamp_dim(row_height));
+        self.write_data(session, &out).await;
         Ok(())
     }
 
@@ -1015,14 +1062,32 @@ impl<'a> SessionWriter for TelnetWriter<'a> {
 
 // Telnet protocol constants
 const IAC: u8 = 255;
-const WILL: u8 = 251;
-const WONT: u8 = 252;
 const DO: u8 = 253;
-const DONT: u8 = 254;
-const SB: u8 = 250;
-const SE: u8 = 240;
+const IP: u8 = 244;
 const OPT_ECHO: u8 = 1;
 const OPT_SGA: u8 = 3;
+const OPT_NAWS: u8 = 31;
+
+use libmudtelnet_rs::compatibility::CompatibilityEntry;
+use libmudtelnet_rs::events::TelnetEvents;
+use libmudtelnet_rs::Parser as TelnetParser;
+
+/// A telnet option parser set up for this server: we perform ECHO and SGA
+/// (character-at-a-time input with server-side echo) and ask the client for
+/// NAWS window-size reports. Everything else is refused by the parser.
+fn telnet_parser() -> TelnetParser {
+    let mut parser = TelnetParser::new();
+    parser.options.support_local(OPT_ECHO);
+    parser.options.support_local(OPT_SGA);
+    // NAWS is performed by the client, but libmudtelnet only surfaces a
+    // subnegotiation for an option marked local+enabled, so mark it that way.
+    // Marking it remote-enabled up front also means the client's WILL NAWS
+    // (answering the DO we send in the greeting) doesn't draw a second DO.
+    parser
+        .options
+        .set_option(OPT_NAWS, CompatibilityEntry::new(true, true, true, true));
+    parser
+}
 
 async fn run_telnet_server(bind_addr: &str, ctx: Arc<ServiceContext>) -> Result<()> {
     let listener = TcpListener::bind(bind_addr).await?;
@@ -1040,17 +1105,38 @@ async fn run_telnet_server(bind_addr: &str, ctx: Arc<ServiceContext>) -> Result<
     }
 }
 
+/// Collapse the CR LF / CR NUL a telnet client sends for Enter to a single CR,
+/// so one keypress is one Enter (and not an extra blank command line).
+fn normalize_telnet_newlines(data: &[u8], after_cr: &mut bool, out: &mut Vec<u8>) {
+    for &b in data {
+        let prev_cr = std::mem::replace(after_cr, b == b'\r');
+        if prev_cr && (b == b'\n' || b == 0) {
+            continue;
+        }
+        out.push(b);
+    }
+}
+
 async fn handle_telnet_session(
     socket: tokio::net::TcpStream,
     addr: std::net::SocketAddr,
     ctx: Arc<ServiceContext>,
 ) -> Result<()> {
     let (mut reader, mut writer) = socket.into_split();
+    let mut telnet = telnet_parser();
 
-    // Send telnet negotiation: WILL ECHO, WILL SGA
-    writer
-        .write_all(&[IAC, WILL, OPT_ECHO, IAC, WILL, OPT_SGA])
-        .await?;
+    // Negotiate: WILL ECHO, WILL SGA, DO NAWS.
+    let mut hello = Vec::new();
+    for ev in [telnet._will(OPT_ECHO), telnet._will(OPT_SGA)]
+        .into_iter()
+        .flatten()
+    {
+        if let TelnetEvents::DataSend(b) = ev {
+            hello.extend_from_slice(&b);
+        }
+    }
+    hello.extend_from_slice(&[IAC, DO, OPT_NAWS]);
+    writer.write_all(&hello).await?;
 
     // Send banner + prompt
     let banner = format!(
@@ -1062,8 +1148,8 @@ async fn handle_telnet_session(
     let identity = Identity::anonymous();
     let rate_key = format!("telnet:{}", addr.ip());
     let mut line_editor = LineEditor::new();
-    let mut in_iac = false;
-    let mut iac_state = 0u8;
+    let mut pager = Pager::new();
+    let mut after_cr = false;
     let mut buf = [0u8; 1024];
 
     loop {
@@ -1072,116 +1158,163 @@ async fn handle_telnet_session(
             break;
         }
 
-        for &byte in &buf[..n] {
-            // Simple telnet IAC state machine
-            if in_iac {
-                match iac_state {
-                    0 => {
-                        // First byte after IAC
-                        match byte {
-                            WILL | WONT | DO | DONT => {
-                                iac_state = 1;
-                                continue;
-                            }
-                            SB => {
-                                iac_state = 2;
-                                continue;
-                            }
-                            _ => {
-                                in_iac = false;
-                                iac_state = 0;
-                                continue;
-                            }
-                        }
-                    }
-                    1 => {
-                        // Option byte after WILL/WONT/DO/DONT
-                        in_iac = false;
-                        iac_state = 0;
-                        continue;
-                    }
-                    2 => {
-                        // Inside subnegotiation, wait for IAC SE
-                        if byte == IAC {
-                            iac_state = 3;
-                        }
-                        continue;
-                    }
-                    3 => {
-                        if byte == SE {
-                            in_iac = false;
-                            iac_state = 0;
-                        } else {
-                            iac_state = 2;
-                        }
-                        continue;
-                    }
-                    _ => {
-                        in_iac = false;
-                        iac_state = 0;
+        // Peel off telnet protocol: answer negotiations, track window size,
+        // and keep the user's keystrokes.
+        let mut input = Vec::new();
+        for event in telnet.receive(&buf[..n]) {
+            match event {
+                TelnetEvents::DataReceive(data) => {
+                    normalize_telnet_newlines(&data, &mut after_cr, &mut input)
+                }
+                TelnetEvents::DataSend(data) => writer.write_all(&data).await?,
+                TelnetEvents::Subnegotiation(sb) if sb.option == OPT_NAWS => {
+                    let body = TelnetParser::unescape_iac(sb.buffer);
+                    if let [w0, w1, h0, h1] = body[..] {
+                        let cols = u16::from_be_bytes([w0, w1]);
+                        let rows = u16::from_be_bytes([h0, h1]);
+                        debug!(%addr, cols, rows, "telnet NAWS");
+                        let out = pager.resize(cols, rows);
+                        writer.write_all(&to_crlf(&out)).await?;
                     }
                 }
+                // Interrupt Process (the client's Ctrl-C in some modes).
+                TelnetEvents::IAC(iac) if iac.command == IP => input.push(0x03),
+                _ => {}
             }
+        }
 
-            if byte == IAC {
-                in_iac = true;
-                iac_state = 0;
-                continue;
+        let mut rest = input.as_slice();
+        while let Some((&byte, tail)) = rest.split_first() {
+            // While output is being paged, keystrokes drive the pager.
+            if pager.is_active() {
+                let (out, done) = pager.input(rest);
+                writer.write_all(&to_crlf(&out)).await?;
+                if done {
+                    writer.write_all(&to_crlf(PROMPT.as_bytes())).await?;
+                }
+                break;
             }
+            rest = tail;
 
             let mut echo = Vec::new();
             match line_editor.feed_byte(byte, &mut echo) {
                 LineEvent::Continue => {
                     if !echo.is_empty() {
                         writer.write_all(&to_crlf(&echo)).await?;
-                        writer.flush().await?;
                     }
                 }
                 LineEvent::Line(line) => {
                     if !echo.is_empty() {
                         writer.write_all(&to_crlf(&echo)).await?;
                     }
-                    let mut tw = TelnetWriter { inner: &mut writer };
-                    let action = dispatch::dispatch_command(
+                    let action = run_telnet_command(
                         &line,
                         &ctx,
                         &identity,
                         &rate_key,
-                        ColorMode::Plain,
-                        &mut tw,
+                        &mut pager,
+                        &mut writer,
                     )
                     .await?;
 
                     match action {
-                        CommandAction::Continue => {
-                            writer
-                                .write_all(to_crlf(PROMPT.as_bytes()).as_slice())
-                                .await?;
-                        }
                         CommandAction::Quit => return Ok(()),
                         CommandAction::Login => {
                             // TODO: OIDC login via RPC or local
                             writer
-                                .write_all(
-                                    to_crlf(b"Login not yet supported in lg-cli.\n")
-                                        .as_slice(),
-                                )
-                                .await?;
-                            writer
-                                .write_all(to_crlf(PROMPT.as_bytes()).as_slice())
+                                .write_all(&to_crlf(b"Login not yet supported in lg-cli.\n"))
                                 .await?;
                         }
-                        CommandAction::Logout => {
-                            writer
-                                .write_all(to_crlf(PROMPT.as_bytes()).as_slice())
-                                .await?;
-                        }
+                        CommandAction::Continue | CommandAction::Logout => {}
+                    }
+                    if !pager.is_active() {
+                        writer.write_all(&to_crlf(PROMPT.as_bytes())).await?;
                     }
                 }
                 LineEvent::Eof => return Ok(()),
             }
         }
+        writer.flush().await?;
     }
 
     Ok(())
+}
+
+/// Run one telnet command line through the pager.
+async fn run_telnet_command(
+    line: &str,
+    ctx: &ServiceContext,
+    identity: &Identity,
+    rate_key: &str,
+    pager: &mut Pager,
+    writer: &mut OwnedWriteHalf,
+) -> Result<CommandAction> {
+    if let Some(builtin) = looking_glass::grammar::parse_builtin(line) {
+        if builtin.name == "terminal_length" {
+            let msg = pager.set_length(builtin.arg.as_deref());
+            writer.write_all(&to_crlf(msg.as_bytes())).await?;
+            return Ok(CommandAction::Continue);
+        }
+    }
+
+    pager.begin(true);
+    let result = {
+        let mut pw = pager::PagedWriter {
+            pager: &mut *pager,
+            inner: TelnetWriter { inner: &mut *writer },
+        };
+        dispatch::dispatch_command(line, ctx, identity, rate_key, ColorMode::Plain, &mut pw).await
+    };
+    let tail = pager.finish();
+    writer.write_all(&to_crlf(&tail)).await?;
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn telnet_enter_variants_are_one_newline() {
+        let mut after_cr = false;
+        let mut out = Vec::new();
+        normalize_telnet_newlines(b"a\r\nb\r\0c\nd\r", &mut after_cr, &mut out);
+        // CR split from its LF across two reads is still one Enter.
+        normalize_telnet_newlines(b"\ne", &mut after_cr, &mut out);
+        assert_eq!(out, b"a\rb\rc\nd\re");
+    }
+
+    #[test]
+    fn telnet_naws_is_parsed_including_escaped_iac_and_se() {
+        let mut parser = telnet_parser();
+        // Width 255 (IAC, doubled on the wire) x height 240 (the SE byte value),
+        // split across two reads mid-subnegotiation.
+        let mut events = parser.receive(&[IAC, 250, OPT_NAWS, 0, IAC, IAC]);
+        events.extend(parser.receive(&[0, 240, IAC, 240, b'x']));
+        let mut naws = None;
+        let mut data = Vec::new();
+        for ev in events {
+            match ev {
+                TelnetEvents::Subnegotiation(sb) if sb.option == OPT_NAWS => {
+                    let body = TelnetParser::unescape_iac(sb.buffer);
+                    naws = Some(body.to_vec());
+                }
+                TelnetEvents::DataReceive(d) => data.extend_from_slice(&d),
+                _ => {}
+            }
+        }
+        assert_eq!(naws, Some(vec![0, 255, 0, 240]));
+        assert_eq!(data, b"x");
+    }
+
+    #[test]
+    fn telnet_client_will_naws_is_not_answered_twice() {
+        let mut parser = telnet_parser();
+        let sends: Vec<_> = parser
+            .receive(&[IAC, 251, OPT_NAWS])
+            .into_iter()
+            .filter(|e| matches!(e, TelnetEvents::DataSend(_)))
+            .collect();
+        assert!(sends.is_empty());
+    }
 }
