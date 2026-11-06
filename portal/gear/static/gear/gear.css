@@ -312,3 +312,8 @@ h2 { font-size: 19px; letter-spacing: -.01em; }
   .table { display: block; overflow-x: auto; }
   .strip { grid-template-columns: 54px 1fr; }
 }
+/* Non-deductibility notice (IRC 6113): same size as the ask it accompanies, never fine print. */
+.tax-notice { color: var(--ink); }
+.cta-body .tax-notice { margin-top: 10px; color: var(--ink); }
+.submit-notice { margin: 0 0 14px; }
+.submit-notice p { margin: 0 0 6px; }

@@ -112,6 +112,17 @@ installed) with confirmed opted-in pledges; `catalog.DONORS` adds links.
 Contact details never leave the admin pledge table. Each new pledge posts to
 Slack #pledges (`gear/notify.py`, webhook vaulted as `ixp_portal_pledge_slack_webhook`).
 
+**Tax and member-income disclosure.** SFMIX is a 501(c)(12) with gross receipts far
+above $100k (2026 income ~$373k, Oct 2026 members meeting), so IRC §6113 applies to
+every ask: `_tax_notice.html` carries the Notice 88-120 safe-harbor sentence ("not
+deductible as charitable contributions for federal income tax purposes") as its own
+paragraph at the size of the surrounding ask (pledge form + submit, needs hero, CTA,
+thank-you, footer). Penalty for omission is $1,000/day (§6710). The same partial
+asks for member gifts first: a cooperative must get >=85% of income from members
+(bylaws §3.2: networks connected to SFMIX), so pledges record `is_member` and
+non-member gifts are checked with the bookkeeper/CPA before confirming. Never issue
+receipts, valuations or sign Form 8283.
+
 Pages never wait on NetBox: a cold fetch pages through ~1k bays/modules
 (~12 s), and hardware changes rarely, so each gunicorn worker runs a thread
 that re-fetches a snapshot every 15 min (file-locked so one worker does it,

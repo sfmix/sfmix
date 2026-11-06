@@ -4,7 +4,8 @@
 <section class="hero">
   <p class="eyebrow">Pledge hardware</p>
   <h1>Put your spare parts to work moving the Bay Area's internet traffic.</h1>
-  <p class="lede">SFMIX is a volunteer-run, non-profit internet exchange. It runs on donated hardware and has no spares. A pledge isn't a commitment to ship anything yet: tell us what you might have, and a volunteer will get back to you to confirm it fits.</p>
+  <p class="lede">SFMIX is a volunteer-run, member-owned internet exchange. It runs on donated hardware and has no spares. A pledge isn't a commitment to ship anything yet: tell us what you might have, and a volunteer will get back to you to confirm it fits.</p>
+  {% include "gear/_tax_notice.html" with cls="lede" %}
 </section>
 
 <div class="pledge-layout">
@@ -51,6 +52,7 @@
         <p class="hint">Only SFMIX volunteers see this. We use it to follow up about this pledge.</p>
         {{ form.email.errors }}
       </div>
+      <label class="check">{{ form.is_member }} <span><b>{{ form.is_member.label }}</b><br><span class="muted small">Members are the networks connected to SFMIX. We can accept only a limited amount from non-members, so this tells us how to count your gift.</span></span></label>
     </fieldset>
 
     <fieldset class="credit">
@@ -71,6 +73,7 @@
     </fieldset>
 
     <div class="hp" aria-hidden="true"><label>Leave this empty {{ form.website }}</label></div>
+    <div class="submit-notice">{% include "gear/_tax_notice.html" with compact=True %}</div>
     <button class="btn btn-lg" type="submit">Send pledge</button>
   </form>
 

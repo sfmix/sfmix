@@ -29,6 +29,8 @@ class Pledge(models.Model):
     name = models.CharField(max_length=120)
     organization = models.CharField(max_length=160, blank=True)
     email = models.EmailField()
+    # 501(c)(12): >=85% of income must come from members (networks connected to SFMIX).
+    is_member = models.BooleanField(default=False)
     show_as_donor = models.BooleanField(default=True)
     credit_as = models.CharField(max_length=160, blank=True)
     url = models.URLField(blank=True)

@@ -73,7 +73,7 @@
       <tr>
         <td class="muted small">{{ p.created_at|date:"Y-m-d" }}</td>
         <td><b>{{ p.quantity }}× {{ p.item_title|default:"Other" }}</b>{% if p.details %}<div class="small muted">{{ p.details|linebreaksbr }}</div>{% endif %}</td>
-        <td>{{ p.name }}{% if p.organization %} · {{ p.organization }}{% endif %}<div class="small"><a href="mailto:{{ p.email }}">{{ p.email }}</a></div></td>
+        <td>{{ p.name }}{% if p.organization %} · {{ p.organization }}{% endif %} {% if p.is_member %}<span class="pill pill-installed">member</span>{% else %}<span class="pill pill-pledged">non-member</span>{% endif %}<div class="small"><a href="mailto:{{ p.email }}">{{ p.email }}</a></div></td>
         <td>{% if p.show_as_donor %}{{ p.display_name }}{% if p.url %} <a class="small" href="{{ p.url }}" rel="noopener nofollow">link</a>{% endif %}{% else %}<span class="muted">no listing</span>{% endif %}</td>
         <td>
           <form method="post" action="/pledges/{{ p.pk }}/status/" class="status-form">{% csrf_token %}
@@ -98,6 +98,7 @@
     <li><b>Pledge comes in</b> — it appears above as <i>New</i>, and counts toward “pledged” on the wishlist. Email the donor; set <i>Confirmed</i> once it's agreed (opted-in donors then show on the wall), <i>Declined</i> if it won't fit.</li>
     <li><b>Earmarked for a slot</b> (optional) — in NetBox, install a <b>Planned</b> module of the promised part in the empty bay and set its <code>Donor</code> field. It shows on the device page as wanted/pledged.</li>
     <li><b>Installed</b> — the next <code>hardware_inventory.py</code> run replaces the planned module with the real one and carries <code>Donor</code> / <code>Donated On</code> over; set the pledge to <i>Received</i>. Without a planned module, set <code>Donor</code> / <code>Donated On</code> directly on the module (or on the device, for a whole chassis).</li>
+    <li><b>Non-member gifts</b> — before confirming, check that we can take it: a 501(c)(12) must get at least 85% of its income from members each year. Tell the bookkeeper what arrived and its rough value so the CPA can count it. Never give a donor a receipt, valuation or signed Form 8283.</li>
   </ol>
 </section>
 {% endblock %}
