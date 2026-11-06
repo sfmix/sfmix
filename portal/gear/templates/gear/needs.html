@@ -56,12 +56,12 @@
 
 <section class="section" id="spares">
   <div class="section-head"><h2>Spares on hand</h2><span class="muted small">{{ spares|length }} distinct field-replaceable parts in service</span></div>
-  <p class="muted">When one of these fails today, the slot stays dark until a replacement is found. A chassis on hand but not installed counts as a spare for its model; spare FRUs (PSUs, optics, drives, DIMMs) aren't tracked in NetBox yet{% if not stats.spares %} — and we don't have any{% endif %}.</p>
+  <p class="muted">Spares are minimal: when one of these fails, the slot usually stays dark until a replacement is found. A chassis on hand but not installed counts as a spare for its model. There are some spare optics — unused ones still plugged into switches, plus more in storage — but they aren't catalogued yet, and neither are spare PSUs, drives or DIMMs, so those rows show “–”.</p>
   <table class="table">
     <thead><tr><th>Kind</th><th>Part</th><th class="num">In service</th><th class="num">Devices</th><th class="num">Spares</th></tr></thead>
     <tbody>
     {% for r in spares %}
-      <tr><td>{{ r.kind }}</td><td><span class="muted">{{ r.manufacturer }}</span> <span class="mono">{{ r.model }}</span></td><td class="num">{{ r.in_service }}</td><td class="num">{{ r.devices }}</td><td class="num{% if not r.spares %} bad{% endif %}">{{ r.spares }}</td></tr>
+      <tr><td>{{ r.kind }}</td><td><span class="muted">{{ r.manufacturer }}</span> <span class="mono">{{ r.model }}</span></td><td class="num">{{ r.in_service }}</td><td class="num">{{ r.devices }}</td>{% if r.spares is None %}<td class="num muted" title="Not catalogued yet">–</td>{% else %}<td class="num{% if not r.spares %} bad{% endif %}">{{ r.spares }}</td>{% endif %}</tr>
     {% endfor %}
     </tbody>
   </table>
