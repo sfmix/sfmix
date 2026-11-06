@@ -354,3 +354,27 @@ class RoutingAndAuthTests(TestCase):
         r = self.client.post("/pledge/", {"item_slug": "", "quantity": 1, "name": "Pat", "email": "p@x.test"},
                              HTTP_HOST="gear.test")
         self.assertContains(r, "Tell us what you")
+
+    @override_settings(GEAR_PLEDGE_SLACK_WEBHOOK="https://hooks.slack.test/x")
+    def test_pledge_notifies_slack(self):
+        self.login(True)
+        with mock.patch("gear.notify.threading.Thread") as thread, mock.patch("gear.notify.httpx.post") as post:
+            thread.side_effect = lambda target, args, **kw: mock.Mock(start=lambda: target(*args))
+            self.client.post("/pledge/", {"item_slug": "ddr4-rdimm", "quantity": 2, "name": "Pat <!channel>",
+                                          "email": "pat@acme.test", "details": "two 32 GB sticks"},
+                             HTTP_HOST="gear.test")
+        url, = post.call_args.args
+        text = post.call_args.kwargs["json"]["text"]
+        self.assertEqual(url, "https://hooks.slack.test/x")
+        self.assertIn("2× DDR4 ECC registered DIMMs (RDIMM)", text)
+        self.assertIn("Pat &lt;!channel&gt;", text)  # no mention injection
+        self.assertIn("> two 32 GB sticks", text)
+        self.assertIn("/donations/#pledges|", text)
+        self.assertNotIn("pat@acme.test", text)  # contact details stay in the admin table
+
+    def test_pledge_without_webhook_does_not_post(self):
+        self.login(True)
+        with mock.patch("gear.notify.httpx.post") as post:
+            self.client.post("/pledge/", {"item_slug": "ddr4-rdimm", "quantity": 1, "name": "Pat",
+                                          "email": "pat@acme.test"}, HTTP_HOST="gear.test")
+        post.assert_not_called()
