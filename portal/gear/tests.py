@@ -119,6 +119,7 @@ class AnalysisTests(SimpleTestCase):
         sp = {r["model"]: r for r in analysis.spares(self.fleet)}
         self.assertEqual(sp["PWR-500AC-F"]["in_service"], 2)
         self.assertNotIn("PLANNED", sp)  # wishes aren't in service
+        self.assertIsNone(sp["PWR-500AC-F"]["spares"])  # FRU spares not catalogued
 
     def test_sankey_layout(self):
         flow = analysis.donations_flow(analysis.donations(self.fleet))
@@ -170,7 +171,9 @@ class IncomingHardwareTests(SimpleTestCase):
         sw = rows[("Chassis", "DCS-7280SR-48C6-F")]
         self.assertEqual((sw["in_service"], sw["spares"]), (1, 1))
         self.assertNotIn(("Chassis", "ProLiant DL360 Gen9"), rows)  # not in service -> no spare row
-        self.assertEqual(analysis.stats(fleet, [])["spares"], 1)
+        st = analysis.stats(fleet, [])
+        self.assertEqual(st["spares"], 1)
+        self.assertEqual(st["oldest"]["model"], "DCS-7280SR-48C6-F")  # not the incoming 2014 DL360
 
 
 class NetBoxMappingTests(SimpleTestCase):

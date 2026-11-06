@@ -5,7 +5,8 @@ applied, first sync run, deployed to portal.sfmix.org 2026-11-05.
 
 ## Why
 
-SFMIX runs on donated and second-hand hardware with **no spares**. We want one
+SFMIX runs on donated and second-hand hardware with **minimal spares** (some
+unused optics, still plugged in or in storage, but uncatalogued). We want one
 place that shows the main fleet (peering switches, transit/core routers,
 hypervisors) down to every slot and pluggable, makes the age/wear case
 honestly from data the hardware reports, and shows **where a donation would
@@ -167,7 +168,9 @@ First use: 3x HPE DL360 Gen9 (incoming-dl360g9-1..3), 2026-11-05; their
 
 ## Later
 
-- Track spares (e.g. a "spares shelf" device per site, modules `offline`).
+- Track spares (e.g. a "spares shelf" device per site, modules `offline`):
+  optics in storage, and plugged-in optics with no link / no cable (needs
+  port state from the collectors, which only record module presence today).
 - Collectors for edge-gw (Gowin R86S), mgmt switches/gateways, PDUs.
 - Schedule discovery (systemd timer / Django-Q) once trusted.
 - Public mode: drop the admin gate, hide serials (donor opt-in + pledge form exist), rate-limit /pledge/.

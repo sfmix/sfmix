@@ -487,7 +487,8 @@ def spares(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Part numbers in service vs. spares on hand.
 
     Chassis: a device on hand but not installed (status != active) of a model
-    that's in service counts as its spare. FRU spares aren't tracked yet -> 0.
+    that's in service counts as its spare. FRU spares (incl. optics plugged in
+    but unused, and optics in storage) aren't catalogued yet -> None.
     """
     rows: List[Dict[str, Any]] = []
     active = [d for d in fleet if d.get("status", "active") == "active"]
@@ -506,7 +507,7 @@ def spares(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 devices[key].add(dev["name"])
     rows += [
         {"kind": KIND_LABELS[k[0]], "manufacturer": k[1], "model": k[2], "in_service": n,
-         "devices": len(devices[k]), "spares": 0}
+         "devices": len(devices[k]), "spares": None}
         for k, n in counts.items()
     ]
     rows.sort(key=lambda r: (r["kind"] != "Chassis", -r["devices"], -r["in_service"], r["model"]))
@@ -517,13 +518,15 @@ def spares(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def stats(fleet: List[Dict[str, Any]], ns: List[Need]) -> Dict[str, Any]:
-    ages = [d["age_years"] for d in fleet if d.get("age_years") is not None]
-    oldest = min((d for d in fleet if d.get("built")), key=lambda d: d["built"], default=None)
+    # Age stats cover in-service chassis only; incoming hardware isn't racked yet.
+    active = [d for d in fleet if d.get("status", "active") == "active"]
+    ages = [d["age_years"] for d in active if d.get("age_years") is not None]
+    oldest = min((d for d in active if d.get("built")), key=lambda d: d["built"], default=None)
     slots = [s for d in fleet for s in d["slots"]]
     mem = [d["memory"] for d in fleet if d.get("memory")]
     return {
-        "devices": sum(1 for d in fleet if d.get("status", "active") == "active"),
-        "incoming": sum(1 for d in fleet if d.get("status", "active") != "active"),
+        "devices": len(active),
+        "incoming": len(fleet) - len(active),
         "median_age": sorted(ages)[len(ages) // 2] if ages else None,
         "oldest": oldest,
         "slots": len(slots),
@@ -535,7 +538,7 @@ def stats(fleet: List[Dict[str, Any]], ns: List[Need]) -> Dict[str, Any]:
         "mem_installed_gb": sum(m["installed_gb"] for m in mem),
         "mem_max_gb": sum(m["max_gb"] or 0 for m in mem),
         "urgent_needs": sum(1 for n in ns if n.severity >= 3),
-        "spares": sum(r["spares"] for r in spares(fleet)),
+        "spares": sum(r["spares"] or 0 for r in spares(fleet)),
     }
 
 

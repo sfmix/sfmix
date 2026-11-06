@@ -3,7 +3,7 @@
 {% block content %}
 <section class="hero">
   <p class="eyebrow">The hardware that moves the Bay Area's peering traffic</p>
-  <h1>{{ stats.devices }} machines, {{ stats.parts }} parts, <span class="hl">{{ stats.spares }} spare{{ stats.spares|pluralize }}</span>.</h1>
+  <h1>{{ stats.devices }} machines, {{ stats.parts }} parts, <span class="hl">minimal spares</span>.</h1>
   <p class="lede">
     SFMIX runs on donated and second-hand hardware. Half of it is
     {% if stats.median_age %}<b>{{ stats.median_age|floatformat:0 }}+ years old</b>{% else %}aging{% endif %}{% if stats.oldest %}, the oldest a {{ stats.oldest.model }} built in {{ stats.oldest.built_year }}{% endif %}.
@@ -16,7 +16,7 @@
     <div class="stat"><b>{{ stats.worn }}</b><span>parts aging / worn</span></div>
     <div class="stat accent"><b>{{ stats.empty }}</b><span>empty slots</span></div>
     {% if stats.mem_max_gb %}<div class="stat"><b>{{ stats.mem_installed_gb }}<small> / {{ stats.mem_max_gb }} GB</small></b><span>hypervisor RAM filled</span></div>{% endif %}
-    <div class="stat bad"><b>{{ stats.spares }}</b><span>spares on hand</span></div>
+    <div class="stat{% if not stats.spares %} bad{% endif %}"><b>{{ stats.spares }}</b><span>spare chassis on hand</span></div>
   </div>
 </section>
 
