@@ -1,0 +1,45 @@
+---
+- name: Build the staging site locally
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.command:
+    cmd: "{{ playbook_dir }}/../website/build-staging.sh"
+  changed_when: false
+
+- name: Create staging web root
+  become: true
+  ansible.builtin.file:
+    path: "{{ www_staging_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Publish staging site
+  become: true
+  ansible.posix.synchronize:
+    src: "{{ www_staging_src }}"
+    dest: "{{ www_staging_root }}/"
+    delete: true
+    checksum: true
+    rsync_opts:
+      - "--chmod=D0755,F0644"
+      - "--chown=root:root"
+
+- name: Deploy staging nginx vhost
+  become: true
+  ansible.builtin.template:
+    src: nginx-www-staging.conf.j2
+    dest: /etc/nginx/sites-available/www-staging.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable staging nginx vhost
+  become: true
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/www-staging.conf
+    dest: /etc/nginx/sites-enabled/www-staging.conf
+    state: link
+  notify: Reload nginx

@@ -25,6 +25,7 @@ blackbox_tls_targets:
   - alertmanager.sfmix.org:443
   - prometheus.sfmix.org:443
   - sflow-rt.sfmix.org:443
+  - www-staging.sfmix.org:443
   - netbox.sfmix.org:443
   - alice.sfmix.org:443
   - snappy.sfmix.org:443

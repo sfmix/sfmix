@@ -1,0 +1,172 @@
+<style>
+  .mx-intro { max-width: 64ch; color: var(--color-text-light); margin-bottom: 1.5rem; }
+  .mx-wrap { overflow-x: auto; }
+  table.mx { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.95rem; }
+  .content table.mx th, .content table.mx td { background: none; border: 0; padding: 0; }
+  .mx thead th { vertical-align: bottom; padding: 0 0.25rem 0.6rem !important; text-align: center; font-weight: 600; }
+  .mx thead th:first-child { text-align: left; }
+  .mx thead button {
+    font: inherit; cursor: pointer; white-space: nowrap; padding: 0.3rem 0.7rem; border-radius: 999px;
+    border: 1px solid transparent; background: none; color: var(--color-text);
+  }
+  .mx thead button span { display: block; font-weight: 400; font-size: 0.8rem; color: var(--color-text-light); }
+  .mx thead button:hover { border-color: var(--color-border); }
+  .mx thead button[aria-pressed="true"] { background: var(--color-primary); color: #fff; }
+  .mx thead button[aria-pressed="true"] span { color: rgba(255,255,255,0.75); }
+
+  .mx tbody tr { cursor: pointer; }
+  .mx tbody td { border-top: 1px solid var(--color-border) !important; height: 64px; }
+  .mx tbody tr:hover td, .mx tbody tr:focus-within td { background: var(--color-bg-alt) !important; }
+  .mx td.who { padding: 0.5rem 1rem 0.5rem 0.25rem !important; }
+  .who__in { display: flex; align-items: center; gap: 0.8rem; }
+  .who .av { width: 44px; height: 44px; font-size: 0.85rem; }
+  .who .n { font-weight: 600; color: var(--color-heading); text-align: left; }
+  .who .a { font-size: 0.82rem; color: var(--color-text-light); line-height: 1.3; }
+  .who .chips { display: none; margin-top: 0.3rem; }
+
+  /* Role cells: a dot where the person holds the role, and a thread through
+     the row joining their first and last role — the overlap made visible. */
+  .mx td.r { position: relative; text-align: center; width: 13%; min-width: 96px; }
+  .mx td.r::before {
+    content: ""; position: absolute; top: 50%; height: 2px; margin-top: -1px; left: 0; right: 0;
+    background: var(--rc, var(--color-text-light)); opacity: 0;
+  }
+  .mx td.r.th-mid::before { opacity: 0.35; }
+  .mx td.r.th-start::before { left: 50%; opacity: 0.35; }
+  .mx td.r.th-end::before { right: 50%; opacity: 0.35; }
+  .mx td.r.th-start.th-end::before { opacity: 0; }
+  .dot {
+    position: relative; z-index: 1; display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--rc); box-shadow: 0 0 0 4px var(--color-bg);
+  }
+  .mx tbody tr:hover .dot { box-shadow: 0 0 0 4px var(--color-bg-alt); }
+  .dot-label {
+    position: absolute; left: 50%; top: calc(50% + 12px); transform: translateX(-50%);
+    font-size: 0.72rem; font-weight: 600; white-space: nowrap; color: var(--rc-ink, var(--rc));
+  }
+  .c-ops { --rc: var(--ops); --rc-ink: var(--ops-ink); }
+  .c-board { --rc: var(--board); --rc-ink: var(--board-ink); }
+  .c-founder, .c-alumni, .c-hackathon { --rc: var(--color-text-light); }
+  .c-founder .dot { background: var(--color-bg); box-shadow: inset 0 0 0 3px var(--rc), 0 0 0 4px var(--color-bg); }
+
+  /* Column crosshair */
+  .mx[data-col] td.r.col-hl, .mx[data-col] th.col-hl { background: var(--quiet-wash) !important; }
+
+  .mx tbody.group-head td { height: auto; padding: 1.4rem 0.25rem 0.4rem !important; border-top: 0 !important; cursor: default; background: none !important; }
+  .mx tbody.group-head h2 { margin: 0; font-size: 1.05rem; }
+  .mx tbody.group-head h2::after { display: none; }
+  .mx tr.more td { height: 48px; text-align: left; padding-left: 0.25rem !important; }
+  .mx tr.more button { color: var(--color-link); font-weight: 600; cursor: pointer; }
+  .mx tr.hidden { display: none; }
+  .mx tr.filtered { display: none; }
+  .mx-empty { color: var(--color-text-light); }
+
+  @media (max-width: 680px) {
+    .mx thead th:not(:first-child), .mx td.r { display: none; }
+    .who .chips { display: flex; }
+    .mx tbody td { height: auto; }
+    .mx td.who { padding: 0.75rem 0.25rem !important; }
+  }
+</style>
+
+<p class="mx-intro">One row per person, one column per role. Lines join each person's roles, so overlaps such as Matt Peterson running operations and sitting on the board stand out. Pick a column to show only that role; pick a name for their bio.</p>
+
+<div class="mx-wrap">
+  <table class="mx" id="mx">
+    <thead><tr id="mx-head"></tr></thead>
+  </table>
+</div>
+
+<script>
+(function () {
+  var T = window.Team, esc = T.esc, table = document.getElementById("mx");
+  var cols = T.roles;
+
+  document.getElementById("mx-head").innerHTML = '<th scope="col">Person</th>' + cols.map(function (r, i) {
+    return '<th scope="col" data-ci="' + i + '"><button type="button" data-filter="' + r.key + '" aria-pressed="false">' +
+      esc(r.label) + "<span>" + T.byRole(r.key).length + "</span></button></th>";
+  }).join("");
+
+  function row(p) {
+    var idx = cols.map(function (r, i) { return T.has(p, r.key) ? i : -1; }).filter(function (i) { return i >= 0; });
+    var first = idx[0], last = idx[idx.length - 1];
+    var cells = cols.map(function (r, i) {
+      var role = T.role(p, r.key), cls = "r c-" + r.key;
+      /* the thread inherits the colour of the role it leads into */
+      if (i > first && i < last) cls += " th-mid";
+      if (i === first) cls += " th-start";
+      if (i === last) cls += " th-end";
+      var label = role ? (role.title || (role.since ? String(role.since) : "")) : "";
+      return '<td class="' + cls + '" data-ci="' + i + '">' + (role ? '<span class="dot" title="' + esc(r.label) + '"></span>' +
+        (label ? '<span class="dot-label">' + esc(label) + "</span>" : "") : "") + "</td>";
+    }).join("");
+    return '<tr tabindex="0" data-bio="' + p.id + '" data-roles="' + p.roles.map(function (r) { return r.role; }).join(" ") + '">' +
+      '<td class="who"><div class="who__in">' + T.avatar(p) + '<div><div class="n">' + esc(p.name) + "</div>" +
+      (p.affiliation ? '<div class="a">' + p.affiliation + "</div>" : "") + T.chips(p, { titles: true }) +
+      "</div></div></td>" + cells + "</tr>";
+  }
+  function group(title, ps, opts) {
+    opts = opts || {};
+    var html = '<tbody class="group-head"><tr><td colspan="' + (cols.length + 1) + '"><h2>' + esc(title) + "</h2></td></tr></tbody><tbody>";
+    ps.forEach(function (p, i) {
+      var r = row(p);
+      if (opts.fold && i >= opts.fold) r = r.replace("<tr ", '<tr class="hidden folded" ');
+      html += r;
+    });
+    if (opts.fold && ps.length > opts.fold)
+      html += '<tr class="more"><td colspan="' + (cols.length + 1) + '"><button type="button" class="reset" data-unfold>Show all ' + ps.length + "</button></td></tr>";
+    return html + "</tbody>";
+  }
+  var primary = function (p) { return p.roles[0].role; };
+  table.insertAdjacentHTML("beforeend",
+    group("Operations and technical advisory", T.people.filter(function (p) { return primary(p) === "ops"; })) +
+    group("Board of directors", T.people.filter(function (p) { return primary(p) === "board"; })) +
+    group("Alumni and contributors", T.people.filter(function (p) { return ["ops", "board"].indexOf(primary(p)) === -1; }), { fold: 4 }));
+
+  /* Column filter: show only rows holding that role (folded rows unfold). */
+  var active = null;
+  table.querySelector("thead").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-filter]"); if (!b) return;
+    var key = b.getAttribute("data-filter");
+    active = active === key ? null : key;
+    table.querySelectorAll("[data-filter]").forEach(function (x) { x.setAttribute("aria-pressed", String(x.getAttribute("data-filter") === active)); });
+    table.querySelectorAll("tbody tr[data-roles]").forEach(function (tr) {
+      tr.classList.toggle("filtered", !!active && tr.getAttribute("data-roles").split(" ").indexOf(active) === -1);
+      if (active) tr.classList.remove("hidden");
+      else if (tr.classList.contains("folded") && !table.classList.contains("unfolded")) tr.classList.add("hidden");
+    });
+    table.querySelectorAll("tbody").forEach(function (tb) {
+      var shown = tb.querySelectorAll("tr[data-roles]:not(.filtered)").length;
+      if (tb.querySelector("tr[data-roles]")) tb.style.display = shown ? "" : "none";
+      var prev = tb.previousElementSibling;
+      if (prev && prev.classList.contains("group-head")) prev.style.display = tb.style.display;
+      var more = tb.querySelector("tr.more"); if (more) more.style.display = active || table.classList.contains("unfolded") ? "none" : "";
+    });
+  });
+  table.addEventListener("click", function (e) {
+    if (!e.target.closest("[data-unfold]")) return;
+    e.stopPropagation();
+    table.classList.add("unfolded");
+    table.querySelectorAll("tr.folded").forEach(function (tr) { tr.classList.remove("hidden"); });
+    e.target.closest("tr").style.display = "none";
+  }, true);
+  table.addEventListener("keydown", function (e) {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-bio]")) { e.preventDefault(); T.openBio(e.target.getAttribute("data-bio"), e.target); }
+  });
+
+  /* Column crosshair on hover */
+  table.addEventListener("mouseover", function (e) {
+    var c = e.target.closest("[data-ci]");
+    var ci = c ? c.getAttribute("data-ci") : null;
+    if (table.getAttribute("data-col") === ci) return;
+    table.querySelectorAll(".col-hl").forEach(function (x) { x.classList.remove("col-hl"); });
+    if (ci === null) { table.removeAttribute("data-col"); return; }
+    table.setAttribute("data-col", ci);
+    table.querySelectorAll('[data-ci="' + ci + '"]').forEach(function (x) { x.classList.add("col-hl"); });
+  });
+  table.addEventListener("mouseleave", function () {
+    table.removeAttribute("data-col");
+    table.querySelectorAll(".col-hl").forEach(function (x) { x.classList.remove("col-hl"); });
+  });
+})();
+</script>

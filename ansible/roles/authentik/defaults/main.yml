@@ -10,6 +10,7 @@ authentik_proxied_hosts:
   - alertmanager.sfmix.org
   - prometheus.sfmix.org
   - sflow-rt.sfmix.org
+  - www-staging.sfmix.org
 
 # Postgres connection ceiling. Changing this recreates the postgresql container
 # (max_connections is a postmaster setting and cannot be reloaded), which is a

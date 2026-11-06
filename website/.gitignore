@@ -13,3 +13,6 @@ data/
 *.sw*
 .idea/
 .vscode/
+
+# Staging build (build-staging.sh)
+.staging/

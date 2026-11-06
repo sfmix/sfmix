@@ -1,0 +1,162 @@
+<style>
+  .wall-intro { max-width: 62ch; color: var(--color-text-light); margin-bottom: 1.25rem; }
+  .wall-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; }
+  .wall-filters button {
+    font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    padding: 0.35rem 0.85rem; border-radius: 999px;
+    border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);
+  }
+  .wall-filters button span { font-weight: 400; color: var(--color-text-light); margin-left: 0.2rem; }
+  .wall-filters button[aria-pressed="true"] { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+  .wall-filters button[aria-pressed="true"] span { color: rgba(255,255,255,0.75); }
+  .wall-filters button[data-f="ops"][aria-pressed="true"] { background: var(--ops); border-color: var(--ops); color: #2a1503; }
+  .wall-filters button[data-f="ops"][aria-pressed="true"] span { color: rgba(42,21,3,0.7); }
+  .wall-status { min-height: 1.6em; font-size: 0.925rem; color: var(--color-text-light); margin-bottom: 1.75rem; }
+
+  .tier { margin-bottom: 2.5rem; }
+  .tier > h2 { margin-bottom: 1rem; }
+  .tier__note { margin: -0.4rem 0 1rem; font-size: 0.925rem; color: var(--color-text-light); }
+  .tier__note button { color: var(--color-link); text-decoration: underline; cursor: pointer; }
+
+  /* Tiles: one person each; dimmed when the active filter doesn't include them. */
+  .tile { transition: opacity 180ms ease, filter 180ms ease, box-shadow 180ms ease; border-radius: 14px; }
+  .wall[data-f]:not([data-f="all"]) .tile:not(.is-hit) { opacity: 0.28; filter: grayscale(1); }
+  .wall[data-f="ops"] .tile.is-hit { box-shadow: 0 0 0 2px var(--ops); }
+  .wall[data-f="board"] .tile.is-hit { box-shadow: 0 0 0 2px var(--board); }
+  .wall[data-f="founder"] .tile.is-hit,
+  .wall[data-f="alumni"] .tile.is-hit,
+  .wall[data-f="hackathon"] .tile.is-hit { box-shadow: 0 0 0 2px var(--color-text-light); }
+  @media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
+
+  .ops-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .op-tile {
+    display: flex; gap: 1.1rem; align-items: flex-start; width: 100%;
+    padding: 1.1rem 1.2rem; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-left: 4px solid var(--ops);
+  }
+  .op-tile .av { width: 96px; height: 96px; font-size: 1.6rem; }
+  .op-tile h3 { margin: 0; font-size: 1.15rem; color: var(--color-heading); }
+  .op-tile .t { font-weight: 600; color: var(--ops-ink); font-size: 0.925rem; }
+  .op-tile .f { font-size: 0.9rem; margin: 0.35rem 0 0.55rem; color: var(--color-text); }
+  .op-tile .f.muted { color: var(--color-text-light); }
+
+  .board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 1rem; }
+  .bd-tile { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; padding: 1rem 0.6rem 0.9rem; }
+  .bd-tile:hover { background: var(--color-bg-alt); }
+  .bd-tile .av { width: 92px; height: 92px; margin-bottom: 0.6rem; box-shadow: 0 0 0 3px var(--board-wash); }
+  .bd-tile h3 { margin: 0; font-size: 0.975rem; color: var(--color-heading); line-height: 1.3; }
+  .bd-tile .t { font-size: 0.85rem; font-weight: 600; color: var(--board-ink); min-height: 1.3em; }
+  .bd-tile .a { font-size: 0.8rem; color: var(--color-text-light); line-height: 1.35; margin-top: 0.15rem; }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .pill { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.8rem 0.25rem 0.3rem; border-radius: 999px; background: var(--color-bg-alt); font-size: 0.9rem; }
+  .pill .av { width: 28px; height: 28px; font-size: 0.7rem; }
+  button.pill { cursor: pointer; }
+
+  @media (max-width: 760px) {
+    .ops-grid { grid-template-columns: 1fr; }
+    .op-tile .av { width: 72px; height: 72px; }
+  }
+</style>
+
+<p class="wall-intro">Everyone who runs, governs and has helped build SFMIX, on one screen. Pick a role to see who holds it; people with more than one role light up under each.</p>
+
+<div class="wall-filters" role="group" aria-label="Highlight people by role" id="filters"></div>
+<p class="wall-status" id="status" aria-live="polite"></p>
+
+<div class="wall" id="wall" data-f="all">
+  <section class="tier">
+    <h2>Running the exchange</h2>
+    <div class="ops-grid" id="tier-ops"></div>
+  </section>
+  <section class="tier">
+    <h2>On the board</h2>
+    <p class="tier__note" id="board-note"></p>
+    <div class="board-grid" id="tier-board"></div>
+  </section>
+  <section class="tier">
+    <h2>Helped build it</h2>
+    <div class="pill-row" id="tier-rest"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var T = window.Team, esc = T.esc;
+  /* Tier = the person's first role. Everyone appears exactly once. */
+  var primary = function (p) { return p.roles[0].role; };
+  var opsP = T.people.filter(function (p) { return primary(p) === "ops"; });
+  var boardP = T.people.filter(function (p) { return primary(p) === "board"; });
+  var restP = T.people.filter(function (p) { return ["ops", "board"].indexOf(primary(p)) === -1; });
+
+  function data(p) { return 'data-id="' + p.id + '" data-roles="' + p.roles.map(function (r) { return r.role; }).join(" ") + '"'; }
+
+  document.getElementById("tier-ops").innerHTML = opsP.map(function (p) {
+    return '<button type="button" class="reset tile op-tile" data-bio="' + p.id + '" ' + data(p) + ">" + T.avatar(p) +
+      "<div><h3>" + esc(p.name) + '</h3><div class="t">' + esc(T.titleFor(p, "ops")) + "</div>" +
+      (p.focus ? '<p class="f">' + esc(p.focus) + "</p>" : '<p class="f muted">Bio coming soon.</p>') +
+      T.chips(p, { titles: false }) + "</div></button>";
+  }).join("");
+
+  document.getElementById("tier-board").innerHTML = boardP.map(function (p) {
+    var r = T.role(p, "board");
+    return '<button type="button" class="reset tile bd-tile" data-bio="' + p.id + '" ' + data(p) + ">" + T.avatar(p) +
+      "<h3>" + esc(p.name) + '</h3><div class="t">' + esc(r.title || "") + '</div><div class="a">' + (p.affiliation || "") + "</div></button>";
+  }).join("");
+
+  document.getElementById("tier-rest").innerHTML = restP.map(function (p) {
+    var label = T.roleMeta[primary(p)].label;
+    var tag = T.hasBio(p) ? "button" : "span";
+    return "<" + tag + (tag === "button" ? ' type="button" data-bio="' + p.id + '"' : "") + ' class="reset tile pill" ' + data(p) + ' title="' + esc(label) + '">' + T.avatar(p) + esc(p.name) + "</" + tag + ">";
+  }).join("");
+
+  /* Board members who live in another tier get a pointer, so the board list is complete. */
+  var elsewhere = T.byRole("board").filter(function (p) { return primary(p) !== "board"; });
+  document.getElementById("board-note").innerHTML = elsewhere.length
+    ? "Also on the board: " + elsewhere.map(function (p) {
+        return '<button type="button" class="reset" data-jump="' + p.id + '">' + esc(p.name) + "</button>";
+      }).join(", ") + ", shown above with operations."
+    : "";
+
+  /* Filters */
+  var wall = document.getElementById("wall"), status = document.getElementById("status");
+  var filters = [{ key: "all", label: "Everyone", n: T.people.length }].concat(T.roles.map(function (r) {
+    return { key: r.key, label: r.plural, n: T.byRole(r.key).length };
+  }));
+  var box = document.getElementById("filters");
+  box.innerHTML = filters.map(function (f) {
+    return '<button type="button" data-f="' + f.key + '" aria-pressed="' + (f.key === "all") + '">' + esc(f.label) + "<span>" + f.n + "</span></button>";
+  }).join("");
+
+  function describe(key) {
+    if (key === "all") return "";
+    var hit = T.byRole(key);
+    var multi = hit.filter(function (p) { return p.roles.length > 1; });
+    var s = T.roleMeta[key].plural + ": " + hit.length + (hit.length === 1 ? " person." : " people.");
+    if (multi.length && key !== "hackathon")
+      s += " With other roles too: " + multi.map(function (p) {
+        var others = p.roles.filter(function (r) { return r.role !== key; }).map(function (r) { return T.roleMeta[r.role].label.toLowerCase(); });
+        return (p.short || p.name) + " (" + others.join(", ") + ")";
+      }).join(", ") + ".";
+    return s;
+  }
+  function apply(key) {
+    wall.setAttribute("data-f", key);
+    box.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-f") === key)); });
+    wall.querySelectorAll(".tile").forEach(function (t) {
+      t.classList.toggle("is-hit", key === "all" || t.getAttribute("data-roles").split(" ").indexOf(key) !== -1);
+    });
+    status.textContent = describe(key);
+  }
+  box.addEventListener("click", function (e) { var b = e.target.closest("button"); if (!b) return; var f = b.getAttribute("data-f"); apply(f); history.replaceState(null, "", f === "all" ? location.pathname : "#" + f); });
+  document.addEventListener("click", function (e) {
+    var j = e.target.closest("[data-jump]"); if (!j) return;
+    apply("board");
+    var t = wall.querySelector('[data-id="' + j.getAttribute("data-jump") + '"]');
+    t.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    t.focus({ preventScroll: true });
+  });
+  var h = location.hash.slice(1);
+  apply(T.roleMeta[h] ? h : "all");
+})();
+</script>

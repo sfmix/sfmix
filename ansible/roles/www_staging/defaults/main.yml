@@ -1,0 +1,22 @@
+---
+# Admin-only staging copy of the website, https://www-staging.sfmix.org.
+#
+# Static files served by this host's nginx on a dedicated port. The public name
+# is a CNAME to login.sfmix.org, where authentik's embedded outpost requires an
+# IX Administrators session and proxies here (terraform/authentik var.proxied_apps,
+# ansible role authentik: authentik_proxied_hosts). Host nginx rather than a
+# container: a docker-published port would bypass UFW.
+www_staging_domain: www-staging.sfmix.org
+www_staging_root: /var/www/www-staging
+www_staging_port: 8081
+
+# Built locally by website/build-staging.sh (run by the playbook first).
+www_staging_src: "{{ playbook_dir }}/../website/.staging/"
+
+# Only the outpost may fetch from www_staging_port (UFW already limits it to
+# the admin subnets; this narrows it to login.sfmix.org itself).
+www_staging_allowed_sources:
+  - 127.0.0.1
+  - ::1
+  - 192.33.255.71               # login.sfmix.org
+  - 2620:11a:b000:110::71       # login.sfmix.org
