@@ -54,6 +54,8 @@ GEAR_USE_FIXTURES = DEBUG and os.environ.get("GEAR_USE_FIXTURES", "false").lower
 GEAR_BACKGROUND_REFRESH = os.environ.get(
     "GEAR_BACKGROUND_REFRESH", "false" if DEBUG else "true"
 ).lower() in ("true", "1", "yes") and not GEAR_USE_FIXTURES
+# Slack incoming webhook (#pledges) told about each new hardware pledge; empty = off.
+GEAR_PLEDGE_SLACK_WEBHOOK = os.environ.get("GEAR_PLEDGE_SLACK_WEBHOOK", "").strip()
 
 INSTALLED_APPS = [
     "django.contrib.auth",

@@ -17,7 +17,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from . import analysis, data
+from . import analysis, data, notify
 from .forms import PledgeForm
 from .models import Pledge
 
@@ -144,6 +144,7 @@ def pledge(request):
             p.submitted_by = getattr(request.user, "email", "") or ""
             p.save()
             logger.info("peering-gear: new pledge #%d (%s × %s)", p.pk, p.quantity, p.item_slug or "other")
+            notify.notify_new_pledge(p, request.build_absolute_uri("/").rstrip("/"))
             return redirect("gear_pledge_thanks", pk=p.pk)
     else:
         item = request.GET.get("item", "")

@@ -15,3 +15,5 @@ NETBOX_API_TOKEN={{ ixp_portal_netbox_token }}
 # substitutes these; nginx serves the same paths via alias).
 SFMIX_PORTAL_STATIC_DIR={{ ixp_portal_static_dir }}
 SFMIX_MAP_PUBLIC_DIR={{ ixp_portal_map_public_dir }}
+# peering-gear: Slack incoming webhook for new hardware pledges (#pledges); empty = off.
+GEAR_PLEDGE_SLACK_WEBHOOK={{ ixp_portal_pledge_slack_webhook | default("") }}

@@ -109,8 +109,8 @@ listed. Open pledges (new/confirmed) count as "pledged" on the wishlist;
 admins move them through new → confirmed → received/declined on `/donations/`.
 The donor wall merges NetBox `donor` values (the record of what was actually
 installed) with confirmed opted-in pledges; `catalog.DONORS` adds links.
-Contact details never leave the admin pledge table. Pledges don't notify
-anyone yet; check `/donations/#pledges`.
+Contact details never leave the admin pledge table. Each new pledge posts to
+Slack #pledges (`gear/notify.py`, webhook vaulted as `ixp_portal_pledge_slack_webhook`).
 
 Pages never wait on NetBox: a cold fetch pages through ~1k bays/modules
 (~12 s), and hardware changes rarely, so each gunicorn worker runs a thread
@@ -159,4 +159,4 @@ First use: 3x HPE DL360 Gen9 (incoming-dl360g9-1..3), 2026-11-05; their
 - Track spares (e.g. a "spares shelf" device per site, modules `offline`).
 - Collectors for edge-gw (Gowin R86S), mgmt switches/gateways, PDUs.
 - Schedule discovery (systemd timer / Django-Q) once trusted.
-- Public mode: drop the admin gate, hide serials (donor opt-in + pledge form exist), rate-limit /pledge/, notify on new pledges.
+- Public mode: drop the admin gate, hide serials (donor opt-in + pledge form exist), rate-limit /pledge/.
