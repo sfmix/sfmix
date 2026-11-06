@@ -264,13 +264,17 @@ def needs(fleet: List[Dict[str, Any]], today: Optional[date] = None) -> List[Nee
         psus = [s for s in slots if s["kind"] == "psu"]
         empty_psu = [s for s in psus if s["state"] == "empty"]
         live_psu = [s for s in psus if s.get("module") and s["state"] not in ("wished",)]
-        if empty_psu:
-            model = live_psu[0]["module"]["model"] if live_psu else (empty_psu[0].get("accepts") or {}).get("part_number", "matching PSU")
+        target = catalog.psu_target(dev.get("model", ""), len(psus))
+        short = empty_psu[:max(0, target - len(live_psu))]  # slots past the steady-state count aren't a need
+        if short:
+            model = live_psu[0]["module"]["model"] if live_psu else (short[0].get("accepts") or {}).get("part_number", "matching PSU")
             sev = 3 if len(live_psu) <= 1 else 1
             out.append(Need("psu", sev, name,
-                            "No redundant power supply" if len(live_psu) <= 1 else f"{len(empty_psu)} empty PSU slot{'s' if len(empty_psu) != 1 else ''}",
-                            f"{len(live_psu)} of {len(psus)} PSU slots populated", f"{live_psu[0]['module']['manufacturer'] + ' ' if live_psu else ''}{model}",
-                            [s["bay"] for s in empty_psu], len(empty_psu)))
+                            "No redundant power supply" if len(live_psu) <= 1 else f"{len(short)} empty PSU slot{'s' if len(short) != 1 else ''}",
+                            f"{len(live_psu)} of {len(psus)} PSU slots populated"
+                            + (f"; runs on {target}" if target < len(psus) else ""),
+                            f"{live_psu[0]['module']['manufacturer'] + ' ' if live_psu else ''}{model}",
+                            [s["bay"] for s in short], len(short)))
         failed_psu = [s for s in live_psu if s["state"] == "critical"]
         if failed_psu:
             out.append(Need("psu", 3, name, "Failed power supply", ", ".join(s["bay"] for s in failed_psu),
@@ -441,7 +445,9 @@ def wishlist(fleet: List[Dict[str, Any]], pledged: Optional[Dict[str, int]] = No
         # Power: the exact PSU part for empty or failed PSU slots.
         psus = [s for s in slots if s["kind"] == "psu"]
         live = [s for s in psus if s.get("module") and s["state"] not in ("wished", "critical")]
-        need = [s for s in psus if s["state"] in ("empty", "wished", "critical")]
+        need = [s for s in psus if s["state"] in ("wished", "critical")]
+        target = catalog.psu_target(dev.get("model", ""), len(psus))
+        need += [s for s in psus if s["state"] == "empty"][:max(0, target - len(live) - len(need))]
         if need:
             ref = (live[0]["module"] if live else None) or (need[0].get("module") or {})
             part = (need[0].get("accepts") or {}).get("part_number") or ref.get("model")
@@ -449,7 +455,7 @@ def wishlist(fleet: List[Dict[str, Any]], pledged: Optional[Dict[str, int]] = No
                 mfr = ref.get("manufacturer") or dev["manufacturer"]
                 failed = [s for s in need if s["state"] == "critical"]
                 sev = 3 if len(live) <= 1 or failed else 1
-                reason = (f"Running on {len(live)} of {len(psus)} power supplies"
+                reason = (f"Running on {len(live)} of {target} power supplies"
                           + (f" ({len(failed)} failed)" if failed else ""))
                 info = {"title": f"{mfr} {part} power supplies",
                         "fits": f"{mfr} {part}" + (f" — {ref['description']}" if ref.get("description") else "")

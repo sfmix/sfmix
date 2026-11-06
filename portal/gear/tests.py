@@ -97,6 +97,22 @@ class AnalysisTests(SimpleTestCase):
         self.assertIn("32 GB", mem.suggestion)  # 128 GB / 4 slots
         self.assertEqual(ns[0].severity, 3)  # sorted most urgent first
 
+    def test_psu_steady_state_below_slot_count(self):
+        def router(name, n_psus):
+            slots = [_slot(f"PS{i}", "psu", _mod("3HE16724AA") if i <= n_psus else None, {"part_number": "3HE16724AA"})
+                     for i in (1, 2, 3)]
+            return {"name": name, "role": "transit_router", "site": "z", "manufacturer": "Nokia",
+                    "model": "7750 SR-1-24D 24QSFPDD-400ge", "serial": "", "mfg_date": "2024-01-01", "donor": None,
+                    "donated_on": None, "netbox_url": "#", "slots": slots}
+
+        fleet = analysis.enrich([router("cr-two", 2), router("cr-one", 1)], TODAY)
+        psu = {n.device: n for n in analysis.needs(fleet, TODAY) if n.category == "psu"}
+        self.assertNotIn("cr-two", psu)  # 2 feeds: the third slot stays empty
+        self.assertEqual((psu["cr-one"].severity, psu["cr-one"].units), (3, 1))
+        wl = analysis.wishlist(fleet)
+        self.assertEqual([(d["device"], d["units"]) for d in wl[0]["devices"]], [("cr-one", 1)])
+        self.assertEqual(wl[0]["devices"][0]["reason"], "Running on 1 of 2 power supplies")
+
     def test_donations_and_spares(self):
         rows = analysis.donations(self.fleet)
         self.assertEqual({(r["donor"], r["status"]) for r in rows}, {("Example Donor", "installed"), ("Pledger", "pledged")})
