@@ -76,6 +76,13 @@ network. Its credentials, least-privilege:
   root's `authorized_keys` is the pmxcfs cluster symlink and is not touched;
 - MX150s: the same public key on the `oxidized` login (class view-only),
   added by hand -- they refuse the shared password;
+- Nokia cr1s: dedicated user `hwinv` (access netconf only, profile
+  `hwinv-readonly` = read-only-all + NETCONF get/get-config/get-schema/
+  close-session, the job's ECDSA key -- SR-OS takes no ed25519 user keys;
+  random never-stored password because SR-OS requires one). Not `oxidized`:
+  on SR-OS it has no NETCONF and its profile is `default-action permit-all`
+  (i.e. not read-only) while its password sits in /home/sfmix/.netrc on every
+  server -- worth tightening separately;
 - NetBox: user `hardware-inventory` (view_all + write on module bays/modules/
   module types/manufacturers + change on devices), created by
   `scripts/hwinv/bootstrap_netbox_identity.py`, token vaulted in the role.
@@ -119,6 +126,19 @@ fixture in `gear/devmock/fleet.json`).
   data drives are desktop ST4000DM000 at up to 8.9 years powered on.
 - cr1.scl02 runs on one PSU of three; cr1.sjc01 on two.
 - switch01.sfo01 still carries 2005–2009 SFP+ optics.
+
+## Incoming (not yet installed) hardware
+
+Recorded by hand: device status `inventory` (the app's "Incoming" section),
+site `unassigned` ("pending site planning"; no lat/lon or region so it stays
+off the map, and never role `peering_switch` -- the IX-F export and
+new_participant.py don't filter on status). Bays/modules entered manually
+(no `hwinv` tag); a worn part without SMART data gets tag `hw-worn`, a dead
+one module status `failed`. The nightly job only collects `active` devices, so
+it never touches these; once a server is installed and active, discovery
+creates its real bays -- delete the hand-made ones then.
+First use: 3x HPE DL360 Gen9 (incoming-dl360g9-1..3), 2026-11-05; their
+8x SFF drive bays are assumed, not confirmed.
 
 ## Later
 

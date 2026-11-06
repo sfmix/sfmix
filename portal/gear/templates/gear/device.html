@@ -4,6 +4,7 @@
 <section class="hero device-hero">
   <p class="eyebrow"><a href="/">Fleet</a> / {{ dev.role_label }}</p>
   <h1 class="mono">{{ dev.name }}</h1>
+  {% if dev.status and dev.status != "active" %}<p><span class="pill pill-pledged">On hand, not yet installed ({{ dev.status }})</span></p>{% endif %}
   <p class="lede">{{ dev.manufacturer }} <b>{{ dev.model }}</b> at {{ dev.site }}{% if dev.built %} — {% if dev.age_basis == "built" %}built {{ dev.built|date:"F Y" }}{% else %}a {{ dev.built_year }}-generation platform{% endif %}, <b>{{ dev.age_years|floatformat:0 }} years</b> ago{% endif %}.</p>
   <dl class="facts">
     {% if dev.serial %}<div><dt>Serial</dt><dd class="mono">{{ dev.serial }}</dd></div>{% endif %}

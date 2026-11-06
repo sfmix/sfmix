@@ -7,12 +7,26 @@ hardware_inventory_home: /var/lib/hwinv
 hardware_inventory_dir: /opt/sfmix-hwinv
 hardware_inventory_netbox_url: "{{ ixp_netbox_api_endpoint | default('https://netbox.sfmix.org') }}"
 
-# Token of the NetBox user `hardware-inventory` (view_all + write on
+# Token (v1) of the NetBox user `hardware-inventory` (view_all + write on
 # module/modulebay/moduletype/manufacturer + change on device). Create with
 # scripts/hwinv/bootstrap_netbox_identity.py, then vault it here:
 #   ansible-vault encrypt_string --vault-password-file ~/.sfmix_ansible_vault \
 #     --stdin-name hardware_inventory_netbox_api_token < token-file
-hardware_inventory_netbox_api_token: ""
+hardware_inventory_netbox_api_token: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          65376539386636663034303466663036366332306137396163346634626333663330636434653435
+          3133613435363138393238623962633938386631366365330a666230323237626135363831313561
+          33383435353635326161666138346263306139656433323064336331666432623633363331306530
+          3865356565646263620a353061653436303830386636616334306563653730326161313436393565
+          38356564373738316661663162386565326664346339363632663538326634336438396332646563
+          3565333933643835613664303034303466613038383233626437
+
+# Devices the nightly run leaves out (e.g. while their access is being fixed).
+# The Nokia cr1s are read via the dedicated read-only NETCONF user `hwinv`
+# (profile hwinv-readonly: read-only-all + NETCONF get/get-config only, the
+# job's ECDSA key): the shared `oxidized` login has no NETCONF there, and its
+# SR-OS profile is permit-all, so it must not get NETCONF.
+hardware_inventory_skip: []
 
 # 10:30 UTC = 02:30 PST / 03:30 PDT; randomized so it doesn't line up with backups.
 hardware_inventory_on_calendar: "*-*-* 10:30:00 UTC"

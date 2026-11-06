@@ -10,7 +10,7 @@
     Here's every chassis, slot and pluggable — and where a donation would make the biggest difference.
   </p>
   <div class="stat-row">
-    <div class="stat"><b>{{ stats.devices }}</b><span>chassis in service</span></div>
+    <div class="stat"><b>{{ stats.devices }}</b><span>chassis in service{% if stats.incoming %} (+{{ stats.incoming }} incoming){% endif %}</span></div>
     <div class="stat"><b>{{ stats.median_age|floatformat:0|default:"–" }}<small>y</small></b><span>median age</span></div>
     <div class="stat warn"><b>{{ stats.critical }}</b><span>parts at end of life</span></div>
     <div class="stat"><b>{{ stats.worn }}</b><span>parts aging / worn</span></div>
@@ -66,7 +66,7 @@
           <span class="mono name">{{ d.name }}</span>
           {% if d.age_years is not None %}<span class="age{% if d.age_years >= 6 %} old{% endif %}" title="{% if d.age_basis == 'built' %}built {{ d.built|date:'M Y' }}{% else %}platform from {{ d.built_year }} ({{ d.age_basis }}){% endif %}">{% if d.age_basis != 'built' %}~{% endif %}{{ d.age_years|floatformat:0 }}y</span>{% endif %}
         </div>
-        <div class="dev-model">{{ d.manufacturer }} {{ d.model }} <span class="muted">· {{ d.site }}</span></div>
+        <div class="dev-model">{{ d.manufacturer }} {{ d.model }} <span class="muted">· {{ d.site }}</span>{% if d.status and d.status != "active" %} <span class="pill pill-pledged">not yet installed</span>{% endif %}</div>
         {% if d.memory %}
           <div class="mem" title="{{ d.memory.installed_gb }} GB of {{ d.memory.max_gb }} GB possible">
             <div class="meter mem-meter"><i style="width: {{ d.memory.pct|default:0 }}%"></i></div>

@@ -72,7 +72,7 @@ def slot_state(slot: Dict[str, Any], today: date) -> str:
         return "critical"
     age = years_between(_d(m.get("mfg_date")), today)
     poh = m.get("power_on_hours")
-    if (endurance is not None and endurance >= 50) or (poh and poh >= 7 * HOURS_PER_YEAR):
+    if (endurance is not None and endurance >= 50) or (poh and poh >= 7 * HOURS_PER_YEAR) or m.get("flagged_worn"):
         return "worn"
     if (age is not None and age >= 6) or (poh and poh >= 5 * HOURS_PER_YEAR):
         return "aging"
@@ -104,6 +104,9 @@ def enrich(fleet: List[Dict[str, Any]], today: Optional[date] = None) -> List[Di
             if years:
                 built = date(min(years), 7, 1)
                 dev["age_basis"] = "cpu generation"
+            elif catalog.platform_year(dev["model"]):
+                built = date(catalog.platform_year(dev["model"]), 7, 1)
+                dev["age_basis"] = "platform generation"
         dev["built"] = built
         dev["built_year"] = built.year if built else None
         dev["age_years"] = years_between(built, today)
@@ -158,9 +161,14 @@ def _worst(states: Iterable[str]) -> str:
 
 
 def by_role(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Groups for the fleet page: incoming (not yet installed) first, then roles."""
     out = []
-    for role in ROLE_ORDER + sorted({d["role"] for d in fleet} - set(ROLE_ORDER)):
-        devs = sorted((d for d in fleet if d["role"] == role), key=lambda d: (-(d["age_years"] or 0), d["name"]))
+    incoming = sorted((d for d in fleet if d.get("status", "active") != "active"), key=lambda d: d["name"])
+    if incoming:
+        out.append({"role": "incoming", "label": "Incoming — on hand, not yet installed", "devices": incoming})
+    in_service = [d for d in fleet if d.get("status", "active") == "active"]
+    for role in ROLE_ORDER + sorted({d["role"] for d in in_service} - set(ROLE_ORDER)):
+        devs = sorted((d for d in in_service if d["role"] == role), key=lambda d: (-(d["age_years"] or 0), d["name"]))
         if devs:
             out.append({"role": role, "label": ROLE_LABELS.get(role, role), "devices": devs})
     return out
@@ -236,11 +244,17 @@ def needs(fleet: List[Dict[str, Any]], today: Optional[date] = None) -> List[Nee
                 facts.append(f"up to {max(poh)} years powered on")
             if any(catalog.is_consumer_drive(s["module"]["model"]) for s in group):
                 facts.append("consumer-class drives")
+            if any(s["module"].get("status") == "failed" for s in group):
+                facts.append("failed")
+            if not facts and any(s["module"].get("flagged_worn") for s in group):
+                facts.append("marked worn by an admin (no SMART data yet)")
+            models = ", ".join(sorted({f"{s['module']['manufacturer']} {s['module']['model']}" for s in group}))
             out.append(Need("disk", sev, name, f"{len(group)} drive{'s' if len(group) != 1 else ''} {verb}",
-                            f"{m0['manufacturer']} {m0['model']}: " + ", ".join(facts),
+                            models + (": " + ", ".join(facts) if facts else ""),
                             catalog.SSD_SUGGESTION if ssd else catalog.HDD_SUGGESTION,
                             [s["bay"] for s in group], len(group)))
-        empty_bays = [s for s in slots if s["kind"] == "disk" and s["state"] == "empty" and (s.get("accepts") or {}).get("bus") in ("SES", "NVMe")]
+        empty_bays = [s for s in slots if s["kind"] == "disk" and s["state"] == "empty"
+                      and ((s.get("accepts") or {}).get("bus") in ("SES", "NVMe") or (s.get("accepts") or {}).get("hot_swap"))]
         if empty_bays:
             out.append(Need("disk", 1, name, f"{len(empty_bays)} empty drive bay{'s' if len(empty_bays) != 1 else ''}",
                             "Hot-swap bays with nothing in them", catalog.SSD_SUGGESTION,
@@ -337,7 +351,8 @@ def stats(fleet: List[Dict[str, Any]], ns: List[Need]) -> Dict[str, Any]:
     slots = [s for d in fleet for s in d["slots"]]
     mem = [d["memory"] for d in fleet if d.get("memory")]
     return {
-        "devices": len(fleet),
+        "devices": sum(1 for d in fleet if d.get("status", "active") == "active"),
+        "incoming": sum(1 for d in fleet if d.get("status", "active") != "active"),
         "median_age": sorted(ages)[len(ages) // 2] if ages else None,
         "oldest": oldest,
         "slots": len(slots),

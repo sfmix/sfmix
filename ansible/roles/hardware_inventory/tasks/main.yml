@@ -34,6 +34,15 @@
     cmd: ssh-keygen -q -t ed25519 -N "" -C "hwinv@{{ inventory_hostname }}" -f {{ hardware_inventory_home }}/.ssh/id_ed25519
     creates: "{{ hardware_inventory_home }}/.ssh/id_ed25519"
 
+# SR-OS (cr1) local users take RSA/ECDSA keys but not ed25519; this one is
+# authorized on the read-only `hwinv` NETCONF user there.
+- name: Generate the job ECDSA key (for SR-OS)
+  become: true
+  become_user: "{{ hardware_inventory_user }}"
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ecdsa -b 384 -N "" -C "hwinv@{{ inventory_hostname }}" -f {{ hardware_inventory_home }}/.ssh/id_ecdsa
+    creates: "{{ hardware_inventory_home }}/.ssh/id_ecdsa"
+
 - name: Read the job public key
   become: true
   ansible.builtin.slurp:

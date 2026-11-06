@@ -58,6 +58,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--device", action="append", help="limit to device name (repeatable)")
     ap.add_argument("--role", action="append", help=f"device role slug (default: {', '.join(DEFAULT_ROLES)})")
+    ap.add_argument("--skip", action="append", default=[], metavar="DEVICE", help="leave this device out (repeatable)")
     ap.add_argument("--dry-run", action="store_true", help="collect and diff, write nothing")
     ap.add_argument("--dump-json", metavar="DIR", help="write each collected DeviceHardware as JSON here")
     ap.add_argument("--workers", type=int, default=6)
@@ -86,6 +87,9 @@ def main() -> int:
 
     work = []
     for d in devices:
+        if d.name in args.skip:
+            logger.info("%s: skipped (--skip)", d.name)
+            continue
         fn = collector_for(d)
         if fn is None:
             logger.warning("%s: no hardware collector for %s %s; skipping", d.name, d.device_type.manufacturer.name, d.device_type.model)

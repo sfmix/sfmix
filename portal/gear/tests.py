@@ -112,6 +112,42 @@ class AnalysisTests(SimpleTestCase):
         self.assertIsNone(analysis.donations_flow([]))
 
 
+class IncomingHardwareTests(SimpleTestCase):
+    """Hand-recorded servers on hand but not installed (status=inventory)."""
+
+    def _dl360(self):
+        hot = {"bus": "SAS/SATA", "form_factor": "2.5in SFF", "hot_swap": True}
+        slots = [
+            _slot("Mainboard", "mainboard", _mod("board", attributes={"max_memory_gb": 768, "dimm_slots": 24})),
+            _slot("PROC 1 DIMM 1", "memory", _mod("RAM32", attributes={"size": 32, "class": "DDR4"}),
+                  {"class": "DDR4", "ecc": True, "registered": True}),
+            _slot("PROC 1 DIMM 2", "memory", None, {"class": "DDR4", "ecc": True, "registered": True}),
+            _slot("Drive Bay 1", "disk", _mod("128GB SATA SSD", flagged_worn=True, attributes={"type": "SSD"}), hot),
+            _slot("Drive Bay 2", "disk", _mod("128GB SATA SSD", status="failed", flagged_worn=True, attributes={"type": "SSD"}), hot),
+            _slot("Drive Bay 3", "disk", None, hot),
+        ]
+        return {"name": "incoming-1", "role": "vm-hypervisor", "status": "inventory", "site": "unassigned",
+                "manufacturer": "HPE", "model": "ProLiant DL360 Gen9", "serial": "", "mfg_date": None,
+                "donor": None, "donated_on": None, "netbox_url": "#", "slots": slots}
+
+    def test_incoming_grouping_states_and_needs(self):
+        fleet = analysis.enrich([self._dl360(), _switch()], TODAY)
+        groups = analysis.by_role(fleet)
+        self.assertEqual(groups[0]["role"], "incoming")
+        self.assertEqual([d["name"] for d in groups[0]["devices"]], ["incoming-1"])
+        self.assertNotIn("incoming-1", [d["name"] for g in groups[1:] for d in g["devices"]])
+        dev = fleet[0]
+        states = {s["bay"]: s["state"] for s in dev["slots"]}
+        self.assertEqual(states["Drive Bay 1"], "worn")  # manual hw-worn tag
+        self.assertEqual(states["Drive Bay 2"], "critical")  # failed beats worn
+        self.assertEqual((dev["built_year"], dev["age_basis"]), (2014, "platform generation"))
+        titles = {(n.category, n.title) for n in analysis.needs(fleet, TODAY) if n.device == "incoming-1"}
+        self.assertIn(("disk", "1 drive near end of life"), titles)
+        self.assertIn(("disk", "1 drive worn / aging"), titles)
+        self.assertIn(("disk", "1 empty drive bay"), titles)  # hot-swap bay without SES
+        self.assertIn(("memory", "1 empty DIMM slot"), titles)
+
+
 class NetBoxMappingTests(SimpleTestCase):
     """data._fetch_from_netbox against NetBox-shaped API payloads."""
 
