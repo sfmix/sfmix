@@ -50,6 +50,13 @@ CHASSIS_SUCCESSORS: Dict[str, Dict[str, str]] = {
     },
 }
 
+# Chassis model (prefix match) -> PSUs it runs on in steady state, for chassis
+# with more PSU slots than power feeds; empty slots beyond this aren't a need.
+# Unlisted chassis want every PSU slot filled.
+PSU_STEADY_STATE: Dict[str, int] = {
+    "7750 SR-1": 2,  # 3 slots, 2 feeds: a third PSU would sit unused
+}
+
 # Drive models known to be desktop/consumer class (poor fit for 24×7 ZFS).
 CONSUMER_DRIVES = [r"^ST\d+DM\d+", r"870 QVO", r"860 QVO", r"WD\d+EZ", r"^WDC WD\d+EZ"]
 
@@ -123,6 +130,14 @@ def chassis_successor(model: str) -> Optional[Dict[str, str]]:
         if (model or "").upper().startswith(prefix.upper()):
             return info
     return None
+
+
+def psu_target(model: str, slots: int) -> int:
+    """How many PSUs this chassis should run on (never more than it has slots)."""
+    for prefix, n in PSU_STEADY_STATE.items():
+        if (model or "").upper().startswith(prefix.upper()):
+            return min(n, slots)
+    return slots
 
 
 def is_consumer_drive(model: str) -> bool:
