@@ -66,6 +66,44 @@ SSD_SUGGESTION = "Enterprise SATA SSD rated ≥1 DWPD (e.g. Samsung PM893 or Mic
 HDD_SUGGESTION = "Enterprise 3.5\" drives (e.g. Seagate Exos / WD Ultrastar), or SSDs to retire spinning disk"
 
 
+# Wishlist entries: what to buy for a group of compatible slots (keyed like
+# analysis.wishlist() keys them). `fits` is the hard compatibility rule,
+# `examples` are known-good part numbers -- anything matching `fits` is welcome.
+WISHLIST = {
+    "ddr4-rdimm": {
+        "title": "DDR4 ECC registered DIMMs (RDIMM)",
+        "fits": "288-pin DDR4 ECC Registered DIMMs, DDR4-2133 or faster (they run at the board's speed). "
+                "Registered only: no LRDIMMs, no unbuffered/desktop sticks. 16 GB or larger per stick.",
+        "examples": "Samsung M393A2K40BB1 (16 GB), Samsung M393A4K40BB1 / Micron MTA36ASF4G72PZ (32 GB), "
+                    "or 64 GB RDIMMs for pve01.scl04",
+    },
+    "ddr4-sodimm": {
+        "title": "DDR4 SO-DIMMs (laptop-size)",
+        "fits": "260-pin DDR4 SO-DIMM, 2666 MT/s, 16 or 32 GB per stick.",
+        "examples": "Samsung M471A2K43CB1 (16 GB, what's in there now), Samsung M471A4G43MB1 (32 GB)",
+    },
+    "ssd-2.5": {
+        "title": "2.5\" SATA SSDs",
+        "fits": "2.5-inch SATA SSDs (SAS also fits the DL360 bays), ideally data-center class with power-loss "
+                "protection and ≥1 DWPD endurance; 1.92 TB or larger.",
+        "examples": "Samsung PM893 / PM883, Micron 5400 PRO / 5300 PRO, Intel/Solidigm D3-S4510/S4520. "
+                    "HPE Gen8/Gen9 SFF drive caddies (651687-001) are welcome too.",
+    },
+    "drive-3.5": {
+        "title": "3.5\" drives (or 2.5\" SSDs on 3.5\" carriers)",
+        "fits": "3.5-inch SATA or SAS hot-swap drives for the 12-bay Supermicro backplane. Enterprise "
+                "HDDs, or SATA SSDs in 2.5→3.5\" adapters to retire spinning disk.",
+        "examples": "Seagate Exos 7E/X-series, WD Ultrastar DC HC5xx (8 TB+), or enterprise SATA SSDs",
+    },
+}
+
+# Who donated what, for the donor wall. Keys are the NetBox `donor` custom
+# field value (or a pledge's credit name); everything here is optional.
+DONORS: Dict[str, Dict[str, str]] = {
+    "Internet Archive": {"url": "https://archive.org/"},
+}
+
+
 def cpu_year(model: str) -> Optional[int]:
     for pat, year in CPU_LAUNCH_YEAR:
         if re.search(pat, model or ""):

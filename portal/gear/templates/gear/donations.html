@@ -1,15 +1,35 @@
 {% extends "gear/base.html" %}
-{% block title %}Donations{% endblock %}
+{% block title %}Donors{% endblock %}
 {% block content %}
 <section class="hero">
-  <p class="eyebrow">Donations</p>
-  <h1>{% if rows %}{{ rows|length }} part{{ rows|length|pluralize }} from {{ donors|length }} donor{{ donors|length|pluralize }}, and where each one went.{% else %}Where donations go.{% endif %}</h1>
-  <p class="lede">Every donated chassis and part is tracked to the exact device and slot it lives in, so donors can see their hardware moving traffic.</p>
+  <p class="eyebrow">Donors</p>
+  <h1>{% if rows %}{{ rows|length }} donated part{{ rows|length|pluralize }} from {{ donors|length }} donor{{ donors|length|pluralize }}, and where each one runs.{% else %}Where donations go.{% endif %}</h1>
+  <p class="lede">Every donated chassis and part is tracked to the exact machine and slot it lives in, so donors can see their hardware moving traffic.</p>
 </section>
+
+{% if wall %}
+<section class="section" id="wall">
+  <h2>Donor wall</h2>
+  <div class="wall">
+    {% for w in wall %}
+    <article class="donor{% if not w.given %} donor-pledged{% endif %}">
+      <h3>{% if w.url %}<a href="{{ w.url }}" rel="noopener">{{ w.name }}</a>{% else %}{{ w.name }}{% endif %}</h3>
+      {% if w.given %}<p class="donor-gave">{{ w.given|join:" · " }}</p>{% endif %}
+      {% if w.devices %}<p class="small">in {% for d in w.devices %}<a class="mono" href="/device/{{ d }}/">{{ d }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% if w.pledged %}<p class="small muted">Pledged: {{ w.pledged|join:", " }}</p>{% endif %}
+    </article>
+    {% endfor %}
+    <a class="donor donor-you" href="/pledge/">
+      <h3>Your name here</h3>
+      <p class="small">Pledge memory, drives or power supplies from the wishlist →</p>
+    </a>
+  </div>
+</section>
+{% endif %}
 
 {% if flow %}
 <section class="section">
-  <h2>Donor → device → part</h2>
+  <h2>Donor → machine → part</h2>
   {% include "gear/_sankey.html" with flow=flow caption="" %}
 </section>
 <section class="section">
@@ -34,19 +54,50 @@
 </section>
 {% endif %}
 
+{% include "gear/_pledge_cta.html" with headline="Want to be on this wall?" %}
+
 {% if could_flow %}
 <section class="section">
   <h2>…and where the next ones could go</h2>
-  {% include "gear/_sankey.html" with flow=could_flow caption="Open needs by category and device. Details on the needs page." %}
+  {% include "gear/_sankey.html" with flow=could_flow caption="Open needs by category and device. Details on the wishlist & needs page." %}
 </section>
 {% endif %}
+
+<section class="section" id="pledges">
+  <div class="section-head"><h2>Pledges</h2><span class="muted small">admins only — contact details are never shown publicly</span></div>
+  {% if pledges %}
+  <table class="table">
+    <thead><tr><th>Received</th><th>What</th><th>From</th><th>Credit</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in pledges %}
+      <tr>
+        <td class="muted small">{{ p.created_at|date:"Y-m-d" }}</td>
+        <td><b>{{ p.quantity }}× {{ p.item_title|default:"Other" }}</b>{% if p.details %}<div class="small muted">{{ p.details|linebreaksbr }}</div>{% endif %}</td>
+        <td>{{ p.name }}{% if p.organization %} · {{ p.organization }}{% endif %}<div class="small"><a href="mailto:{{ p.email }}">{{ p.email }}</a></div></td>
+        <td>{% if p.show_as_donor %}{{ p.display_name }}{% if p.url %} <a class="small" href="{{ p.url }}" rel="noopener nofollow">link</a>{% endif %}{% else %}<span class="muted">no listing</span>{% endif %}</td>
+        <td>
+          <form method="post" action="/pledges/{{ p.pk }}/status/" class="status-form">{% csrf_token %}
+            <select name="status" onchange="this.form.submit()" aria-label="Pledge status">
+              {% for v, l in statuses %}<option value="{{ v }}"{% if v == p.status %} selected{% endif %}>{{ l }}</option>{% endfor %}
+            </select>
+            <noscript><button class="link-btn" type="submit">Save</button></noscript>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No pledges yet.</p>
+  {% endif %}
+</section>
 
 <section class="section howto">
   <h2>Recording a donation (admins)</h2>
   <ol>
-    <li><b>Pledged</b> — in NetBox, install a <b>Planned</b> module of the promised part in the empty bay and set its <code>Donor</code> field. It appears here as pledged and on the needs page as a specific ask.</li>
-    <li><b>Installed</b> — once the part is in, the next <code>hardware_inventory.py</code> run replaces the planned module with the real one and carries <code>Donor</code> / <code>Donated On</code> over.</li>
-    <li><b>Already installed</b> — set <code>Donor</code> and <code>Donated On</code> directly on the module (or on the device, for a whole chassis).</li>
+    <li><b>Pledge comes in</b> — it appears above as <i>New</i>, and counts toward “pledged” on the wishlist. Email the donor; set <i>Confirmed</i> once it's agreed (opted-in donors then show on the wall), <i>Declined</i> if it won't fit.</li>
+    <li><b>Earmarked for a slot</b> (optional) — in NetBox, install a <b>Planned</b> module of the promised part in the empty bay and set its <code>Donor</code> field. It shows on the device page as wanted/pledged.</li>
+    <li><b>Installed</b> — the next <code>hardware_inventory.py</code> run replaces the planned module with the real one and carries <code>Donor</code> / <code>Donated On</code> over; set the pledge to <i>Received</i>. Without a planned module, set <code>Donor</code> / <code>Donated On</code> directly on the module (or on the device, for a whole chassis).</li>
   </ol>
 </section>
 {% endblock %}

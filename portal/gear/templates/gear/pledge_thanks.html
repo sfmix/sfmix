@@ -1,0 +1,11 @@
+{% extends "gear/base.html" %}
+{% block title %}Thank you{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Pledge received</p>
+  <h1>Thank you{% if pledge.name %}, {{ pledge.name }}{% endif %}.</h1>
+  <p class="lede">We've got your pledge of <b>{{ pledge.quantity }}× {{ pledge.item_title|default:"hardware" }}</b>. A volunteer will email <b>{{ pledge.email }}</b> to confirm it fits and sort out drop-off or shipping.
+  {% if pledge.show_as_donor %}Once confirmed, <b>{{ pledge.display_name }}</b> goes on the donor wall.{% endif %}</p>
+  <p><a class="btn" href="/needs/#wishlist">Back to the wishlist</a> <a class="btn btn-ghost" href="/pledge/">Pledge something else</a></p>
+</section>
+{% endblock %}

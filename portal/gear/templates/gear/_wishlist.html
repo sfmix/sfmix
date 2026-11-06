@@ -1,0 +1,38 @@
+{% comment %}Wishlist cards. Context: wishlist, optional `compact` (no device breakdown).{% endcomment %}
+<div class="wish-grid">
+  {% for w in wishlist %}
+  <article class="wish cat-{{ w.kind }}" id="want-{{ w.slug }}">
+    <header class="wish-head">
+      <span class="wish-kind">{% if w.kind == "memory" %}Memory{% elif w.kind == "disk" %}Drives{% else %}Power{% endif %}</span>
+      <span class="sev sev-{{ w.severity }}">{{ w.severity_label }}</span>
+    </header>
+    <h3>{{ w.title }}</h3>
+    <div class="wish-count">
+      <b>{{ w.remaining }}</b><span>wanted{% if w.pledged %} · {{ w.pledged }} pledged{% endif %}</span>
+    </div>
+    <div class="meter wish-meter" title="{{ w.pledged }} of {{ w.units }} pledged"><i style="width: {{ w.pct_pledged }}%"></i></div>
+    {% if not compact %}
+    <dl class="wish-spec">
+      <dt>Fits</dt><dd>{{ w.fits }}</dd>
+      {% if w.examples %}<dt>Good options</dt><dd>{{ w.examples }}</dd>{% endif %}
+    </dl>
+    <details class="wish-where"{% if w.devices|length <= 2 %} open{% endif %}>
+      <summary>Goes into {{ w.devices|length }} machine{{ w.devices|length|pluralize }}</summary>
+      <ul>
+        {% for d in w.devices %}
+        <li>
+          <a class="mono" href="/device/{{ d.device }}/">{{ d.device }}</a>{% if d.incoming %} <span class="pill pill-pledged">incoming</span>{% endif %}
+          <span class="wish-n">× {{ d.units }}</span>
+          <div class="small">{{ d.reason }}</div>
+          {% if d.current %}<div class="small muted">{{ d.current }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% else %}
+    <p class="small muted">{{ w.devices|length }} machine{{ w.devices|length|pluralize }}: {% for d in w.devices %}{{ d.device }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+    <a class="btn btn-sm" href="/pledge/?item={{ w.slug|urlencode }}">Pledge {% if w.kind == "memory" %}DIMMs{% elif w.kind == "disk" %}drives{% else %}PSUs{% endif %}</a>
+  </article>
+  {% endfor %}
+</div>

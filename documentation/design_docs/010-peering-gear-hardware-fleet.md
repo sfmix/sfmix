@@ -98,6 +98,20 @@ slot map, needs ("where donations could go", with spares table), donations
 `gear/analysis.py`; curated upgrade candidates live in `gear/catalog.py`
 (vet before asking anyone).
 
+**Wishlist, pledges, donor wall.** `analysis.wishlist()` rolls empty DIMM
+slots, empty hot-swap drive bays, worn/failed drives and missing PSUs up into
+things to buy, grouped by what fits (DDR4 RDIMM, DDR4 SO-DIMM, 2.5" SATA SSD,
+3.5" drive, exact PSU part), each with per-machine sizing (max GB per slot,
+what's installed). Fit rules and example part numbers live in
+`catalog.WISHLIST`. Each item links to `/pledge/`, a form that stores a
+`gear.Pledge` (the app's only DB model, portal SQLite) with an opt-in to be
+listed. Open pledges (new/confirmed) count as "pledged" on the wishlist;
+admins move them through new → confirmed → received/declined on `/donations/`.
+The donor wall merges NetBox `donor` values (the record of what was actually
+installed) with confirmed opted-in pledges; `catalog.DONORS` adds links.
+Contact details never leave the admin pledge table. Pledges don't notify
+anyone yet; check `/donations/#pledges`.
+
 Pages never wait on NetBox: a cold fetch pages through ~1k bays/modules
 (~12 s), and hardware changes rarely, so each gunicorn worker runs a thread
 that re-fetches a snapshot every 15 min (file-locked so one worker does it,
@@ -145,4 +159,4 @@ First use: 3x HPE DL360 Gen9 (incoming-dl360g9-1..3), 2026-11-05; their
 - Track spares (e.g. a "spares shelf" device per site, modules `offline`).
 - Collectors for edge-gw (Gowin R86S), mgmt switches/gateways, PDUs.
 - Schedule discovery (systemd timer / Django-Q) once trusted.
-- Public mode: drop the admin gate, hide serials, add donor opt-in.
+- Public mode: drop the admin gate, hide serials (donor opt-in + pledge form exist), rate-limit /pledge/, notify on new pledges.

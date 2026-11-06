@@ -32,10 +32,11 @@
       </a>
       <nav class="nav">
         <a href="/" {% if nav == "fleet" %}aria-current="page"{% endif %}>Fleet</a>
-        <a href="/needs/" {% if nav == "needs" %}aria-current="page"{% endif %}>Where donations could go</a>
-        <a href="/donations/" {% if nav == "donations" %}aria-current="page"{% endif %}>Donations</a>
+        <a href="/needs/" {% if nav == "needs" %}aria-current="page"{% endif %}>Wishlist &amp; needs</a>
+        <a href="/donations/" {% if nav == "donations" %}aria-current="page"{% endif %}>Donors</a>
       </nav>
       <div class="topbar-right">
+        <a class="btn btn-sm btn-gift" href="/pledge/" {% if nav == "pledge" %}aria-current="page"{% endif %}>Pledge hardware</a>
         <button class="icon-btn" type="button" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
         {% if user.is_authenticated %}<a class="muted small" href="/logout/?next=/">Sign out</a>{% endif %}
       </div>

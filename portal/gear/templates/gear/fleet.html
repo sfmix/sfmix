@@ -56,6 +56,14 @@
 </section>
 {% endif %}
 
+{% if wishlist %}
+<section class="section">
+  <div class="section-head"><h2>Wishlist</h2><a href="/needs/#wishlist" class="more">Sizes, fit and where each goes →</a></div>
+  {% include "gear/_wishlist.html" with wishlist=wishlist compact=True %}
+</section>
+{% include "gear/_pledge_cta.html" %}
+{% endif %}
+
 {% for group in roles %}
 <section class="section">
   <h2>{{ group.label }}</h2>

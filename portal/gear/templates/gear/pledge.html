@@ -1,0 +1,95 @@
+{% extends "gear/base.html" %}
+{% block title %}Pledge hardware{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Pledge hardware</p>
+  <h1>Put your spare parts to work moving the Bay Area's internet traffic.</h1>
+  <p class="lede">SFMIX is a volunteer-run, non-profit internet exchange. It runs on donated hardware and has no spares. A pledge isn't a commitment to ship anything yet: tell us what you might have, and a volunteer will get back to you to confirm it fits.</p>
+</section>
+
+<div class="pledge-layout">
+  <form method="post" class="pledge-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+    <fieldset>
+      <legend>What</legend>
+      <div class="field">
+        <label for="{{ form.item_slug.id_for_label }}">{{ form.item_slug.label }}</label>
+        {{ form.item_slug }}
+        {{ form.item_slug.errors }}
+      </div>
+      <div class="field field-narrow">
+        <label for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
+        {{ form.quantity }}
+        {{ form.quantity.errors }}
+      </div>
+      <div class="field">
+        <label for="{{ form.details.id_for_label }}">{{ form.details.label }}</label>
+        {{ form.details }}
+        {{ form.details.errors }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Who</legend>
+      <div class="field-row">
+        <div class="field">
+          <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.organization.id_for_label }}">{{ form.organization.label }}</label>
+          {{ form.organization }}
+          {{ form.organization.errors }}
+        </div>
+      </div>
+      <div class="field">
+        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+        {{ form.email }}
+        <p class="hint">Only SFMIX volunteers see this. We use it to follow up about this pledge.</p>
+        {{ form.email.errors }}
+      </div>
+    </fieldset>
+
+    <fieldset class="credit">
+      <legend>Credit</legend>
+      <label class="check">{{ form.show_as_donor }} <span><b>{{ form.show_as_donor.label }}</b><br><span class="muted small">Once we've confirmed your pledge, your name goes on the donor wall. When the hardware is installed it's shown next to the exact machine and slot it went into.</span></span></label>
+      <div class="field-row">
+        <div class="field">
+          <label for="{{ form.credit_as.id_for_label }}">{{ form.credit_as.label }}</label>
+          {{ form.credit_as }}
+          {{ form.credit_as.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.url.id_for_label }}">{{ form.url.label }}</label>
+          {{ form.url }}
+          {{ form.url.errors }}
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="hp" aria-hidden="true"><label>Leave this empty {{ form.website }}</label></div>
+    <button class="btn btn-lg" type="submit">Send pledge</button>
+  </form>
+
+  <aside class="pledge-aside">
+    <h2>What happens next</h2>
+    <ol class="steps">
+      <li><b>We check the fit.</b> A volunteer emails you to confirm the part matches the slot it's meant for (speed, form factor, caddy).</li>
+      <li><b>Drop-off or shipping.</b> We'll work out a hand-off at one of our sites, or shipping.</li>
+      <li><b>It goes into service.</b> We install it and record it against its slot, with your name on it.</li>
+      <li><b>You're on the wall.</b> The donor wall lists you, what you gave and the machines it runs in.</li>
+    </ol>
+    {% if wishlist %}
+    <h2>Most wanted</h2>
+    <ul class="mini-wish">
+      {% for w in wishlist %}
+      <li><a href="/needs/#want-{{ w.slug }}">{{ w.title }}</a> <span class="muted">— {{ w.remaining }} wanted</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% comment %}Call to action. Context: optional `item` (wishlist slug), `headline`.{% endcomment %}
+<aside class="cta">
+  <div class="cta-mark" aria-hidden="true">★</div>
+  <div class="cta-body">
+    <h3>{{ headline|default:"Have hardware like this sitting on a shelf?" }}</h3>
+    <p>Pledge it and we'll take it from there: we'll confirm it fits, sort out drop-off or shipping, and track it to the exact slot it ends up in. Donors are listed on the donor wall, right next to the hardware they gave.</p>
+  </div>
+  <a class="btn" href="/pledge/{% if item %}?item={{ item|urlencode }}{% endif %}">Pledge hardware</a>
+</aside>

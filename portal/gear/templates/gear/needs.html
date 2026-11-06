@@ -4,7 +4,7 @@
 <section class="hero">
   <p class="eyebrow">Where donations could go</p>
   <h1>Every empty slot and tired part, ranked.</h1>
-  <p class="lede">Computed from what the hardware reports about itself: empty DIMM slots and bays, drive wear, missing redundant power, chassis age and empty optic cages. To ask for something specific, add a <b>planned</b> module in the empty bay in NetBox — it shows up here as a specific ask.</p>
+  <p class="lede">SFMIX runs on donated hardware. Below is our wishlist — the RAM, drives and power supplies we'd install tomorrow — followed by everything else the fleet could use. Computed from what the hardware reports about itself: empty DIMM slots and bays, drive wear, missing redundant power, chassis age and empty optic cages. To ask for something specific, add a <b>planned</b> module in the empty bay in NetBox — it shows up here as a specific ask.</p>
   <div class="cat-grid">
     {% for c in need_summary %}
       <a class="cat cat-{{ c.category }}" href="#{{ c.category }}">
@@ -15,6 +15,16 @@
     {% endfor %}
   </div>
 </section>
+
+{% if wishlist %}
+<section class="section" id="wishlist">
+  <div class="section-head"><h2>Wishlist</h2><span class="muted small">memory, drives and power supplies that would go straight into service</span></div>
+  <p class="muted section-lede">Every line below is a real empty slot or a worn-out part, counted from the hardware itself. Sizes and speeds are per machine — open “Goes into” to see what each one has today.</p>
+  {% include "gear/_wishlist.html" with wishlist=wishlist %}
+</section>
+{% endif %}
+
+{% include "gear/_pledge_cta.html" %}
 
 {% if flow %}
 <section class="section">
