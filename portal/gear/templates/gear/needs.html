@@ -5,6 +5,7 @@
   <p class="eyebrow">Where donations could go</p>
   <h1>Every empty slot and tired part, ranked.</h1>
   <p class="lede">SFMIX runs on donated hardware. Below is our wishlist — the RAM, drives and power supplies we'd install tomorrow — followed by everything else the fleet could use. Computed from what the hardware reports about itself: empty DIMM slots and bays, drive wear, missing redundant power, chassis age and empty optic cages. To ask for something specific, add a <b>planned</b> module in the empty bay in NetBox — it shows up here as a specific ask.</p>
+  {% include "gear/_tax_notice.html" with cls="lede" %}
   <div class="cat-grid">
     {% for c in need_summary %}
       <a class="cat cat-{{ c.category }}" href="#{{ c.category }}">

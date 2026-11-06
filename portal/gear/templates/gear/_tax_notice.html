@@ -1,0 +1,13 @@
+{% comment %}
+Required on every hardware ask. SFMIX is a 501(c)(12) with gross receipts well over $100k, so IRC
+section 6113 applies: Notice 88-120 safe harbor = the statement is its own paragraph (or the first
+sentence of one), in at least the same type size as the ask it sits beside. Pass `cls` to match that
+size (e.g. "lede"); never render it as fine print. `compact` drops the longer explanation.
+The members-first line is the cooperative's 85% member-income test (IRC 501(c)(12)(A)).
+{% endcomment %}
+<p class="tax-notice{% if cls %} {{ cls }}{% endif %}"><b>Contributions or gifts to SFMIX are not deductible as charitable contributions for federal income tax purposes.</b></p>
+{% if compact %}
+<p class="members-first{% if cls %} {{ cls }}{% endif %}">Gifts from members (networks connected to the exchange) are especially welcome; we can accept only a limited amount from non-members.</p>
+{% else %}
+<p class="members-first{% if cls %} {{ cls }}{% endif %}">SFMIX is a 501(c)(12) cooperative, not a 501(c)(3) charity, so we don't issue donation receipts or put a value on donated hardware. A cooperative must get most of its income from its members (the networks connected to the exchange), so gifts from members are especially welcome. We can accept only a limited amount from anyone else, and a volunteer will check before saying yes.</p>
+{% endif %}

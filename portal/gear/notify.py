@@ -25,7 +25,8 @@ def _esc(s: str) -> str:
 def pledge_message(p, base_url: str) -> dict:
     who = _esc(p.name) + (f" ({_esc(p.organization)})" if p.organization else "")
     what = f"{p.quantity}× {_esc(p.item_title or 'something else')}"
-    lines = [f":gift: *New hardware pledge:* {what}", f"*From:* {who}"]
+    lines = [f":gift: *New hardware pledge:* {what}", f"*From:* {who}",
+             "*Member:* yes" if p.is_member else "*Member:* no (counts toward the non-member income limit)"]
     if p.show_as_donor:
         credit = _esc(p.display_name) + (f" — {_esc(p.url)}" if p.url else "")
         lines.append(f"*Donor wall:* yes, as {credit} (after confirmation)")

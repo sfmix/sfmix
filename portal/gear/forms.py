@@ -13,13 +13,14 @@ class PledgeForm(forms.ModelForm):
     class Meta:
         model = Pledge
         fields = ["item_slug", "quantity", "details", "name", "organization", "email",
-                  "show_as_donor", "credit_as", "url"]
+                  "is_member", "show_as_donor", "credit_as", "url"]
         labels = {
             "quantity": "How many?",
             "details": "Details",
             "name": "Your name",
             "organization": "Organization (optional)",
             "email": "Email",
+            "is_member": "I'm giving on behalf of a network connected to SFMIX (a member)",
             "show_as_donor": "List me on the donor wall",
             "credit_as": "Credit as (optional)",
             "url": "Link (optional)",

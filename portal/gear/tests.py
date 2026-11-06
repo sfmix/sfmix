@@ -331,6 +331,8 @@ class RoutingAndAuthTests(TestCase):
         for path in ("/", "/needs/", "/donations/", "/device/pve-test/", "/pledge/"):
             r = self.client.get(path, HTTP_HOST="gear.test")
             self.assertEqual(r.status_code, 200, path)
+            # IRC 6113: every hardware ask carries the non-deductibility statement.
+            self.assertContains(r, "not deductible as charitable contributions for federal income tax purposes")
         self.assertContains(self.client.get("/device/pve-test/", HTTP_HOST="gear.test"), "A donation could go here")
         self.assertEqual(self.client.get("/device/nope/", HTTP_HOST="gear.test").status_code, 404)
 
@@ -359,6 +361,9 @@ class RoutingAndAuthTests(TestCase):
         p = Pledge.objects.get()
         self.assertRedirects(r, f"/pledge/{p.pk}/thanks/", fetch_redirect_response=False)
         self.assertEqual((p.item_title, p.display_name, p.status), ("DDR4 ECC registered DIMMs (RDIMM)", "Acme", "new"))
+        self.assertFalse(p.is_member)
+        self.assertContains(self.client.get(f"/pledge/{p.pk}/thanks/", HTTP_HOST="gear.test"), "not deductible")
+        self.assertContains(self.client.get("/donations/", HTTP_HOST="gear.test"), "non-member")
         self.assertContains(self.client.get("/needs/", HTTP_HOST="gear.test"), "1 pledged")
         # Not on the wall until an admin confirms it.
         self.assertNotContains(self.client.get("/donations/", HTTP_HOST="gear.test"), 'rel="noopener">Acme')
@@ -377,7 +382,7 @@ class RoutingAndAuthTests(TestCase):
         with mock.patch("gear.notify.threading.Thread") as thread, mock.patch("gear.notify.httpx.post") as post:
             thread.side_effect = lambda target, args, **kw: mock.Mock(start=lambda: target(*args))
             self.client.post("/pledge/", {"item_slug": "ddr4-rdimm", "quantity": 2, "name": "Pat <!channel>",
-                                          "email": "pat@acme.test", "details": "two 32 GB sticks"},
+                                          "email": "pat@acme.test", "details": "two 32 GB sticks", "is_member": "on"},
                              HTTP_HOST="gear.test")
         url, = post.call_args.args
         text = post.call_args.kwargs["json"]["text"]
@@ -385,6 +390,7 @@ class RoutingAndAuthTests(TestCase):
         self.assertIn("2× DDR4 ECC registered DIMMs (RDIMM)", text)
         self.assertIn("Pat &lt;!channel&gt;", text)  # no mention injection
         self.assertIn("> two 32 GB sticks", text)
+        self.assertIn("*Member:* yes", text)
         self.assertIn("/donations/#pledges|", text)
         self.assertNotIn("pat@acme.test", text)  # contact details stay in the admin table
 
