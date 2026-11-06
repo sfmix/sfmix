@@ -165,7 +165,7 @@ def by_role(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     out = []
     incoming = sorted((d for d in fleet if d.get("status", "active") != "active"), key=lambda d: d["name"])
     if incoming:
-        out.append({"role": "incoming", "label": "Incoming — on hand, not yet installed", "devices": incoming})
+        out.append({"role": "incoming", "label": "On hand — not installed (incoming or spare)", "devices": incoming})
     in_service = [d for d in fleet if d.get("status", "active") == "active"]
     for role in ROLE_ORDER + sorted({d["role"] for d in in_service} - set(ROLE_ORDER)):
         devs = sorted((d for d in in_service if d["role"] == role), key=lambda d: (-(d["age_years"] or 0), d["name"]))
@@ -323,22 +323,32 @@ SPARE_KINDS = ("psu", "fan", "transceiver", "disk", "memory")
 
 
 def spares(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """FRU part numbers in service. Spares on hand are not tracked yet -> 0."""
+    """Part numbers in service vs. spares on hand.
+
+    Chassis: a device on hand but not installed (status != active) of a model
+    that's in service counts as its spare. FRU spares aren't tracked yet -> 0.
+    """
+    rows: List[Dict[str, Any]] = []
+    active = [d for d in fleet if d.get("status", "active") == "active"]
+    on_hand = Counter((d["manufacturer"], d["model"]) for d in fleet if d.get("status", "active") != "active")
+    for (mfr, model), n in Counter((d["manufacturer"], d["model"]) for d in active).items():
+        rows.append({"kind": "Chassis", "manufacturer": mfr, "model": model, "in_service": n,
+                     "devices": n, "spares": on_hand.get((mfr, model), 0)})
     counts: Counter = Counter()
     devices: Dict[Tuple[str, str, str], set] = defaultdict(set)
-    for dev in fleet:
+    for dev in active:
         for s in dev["slots"]:
             m = s.get("module")
             if s["kind"] in SPARE_KINDS and m and s["state"] != "wished":
                 key = (s["kind"], m["manufacturer"], m["model"])
                 counts[key] += 1
                 devices[key].add(dev["name"])
-    rows = [
+    rows += [
         {"kind": KIND_LABELS[k[0]], "manufacturer": k[1], "model": k[2], "in_service": n,
          "devices": len(devices[k]), "spares": 0}
         for k, n in counts.items()
     ]
-    rows.sort(key=lambda r: (-r["devices"], -r["in_service"], r["model"]))
+    rows.sort(key=lambda r: (r["kind"] != "Chassis", -r["devices"], -r["in_service"], r["model"]))
     return rows
 
 
@@ -364,7 +374,7 @@ def stats(fleet: List[Dict[str, Any]], ns: List[Need]) -> Dict[str, Any]:
         "mem_installed_gb": sum(m["installed_gb"] for m in mem),
         "mem_max_gb": sum(m["max_gb"] or 0 for m in mem),
         "urgent_needs": sum(1 for n in ns if n.severity >= 3),
-        "spares": 0,
+        "spares": sum(r["spares"] for r in spares(fleet)),
     }
 
 

@@ -147,6 +147,15 @@ class IncomingHardwareTests(SimpleTestCase):
         self.assertIn(("disk", "1 empty drive bay"), titles)  # hot-swap bay without SES
         self.assertIn(("memory", "1 empty DIMM slot"), titles)
 
+    def test_chassis_on_hand_counts_as_spare(self):
+        spare = {**_switch(), "name": "old-sw", "status": "inventory", "slots": []}
+        fleet = analysis.enrich([_switch(), spare, self._dl360()], TODAY)
+        rows = {(r["kind"], r["model"]): r for r in analysis.spares(fleet)}
+        sw = rows[("Chassis", "DCS-7280SR-48C6-F")]
+        self.assertEqual((sw["in_service"], sw["spares"]), (1, 1))
+        self.assertNotIn(("Chassis", "ProLiant DL360 Gen9"), rows)  # not in service -> no spare row
+        self.assertEqual(analysis.stats(fleet, [])["spares"], 1)
+
 
 class NetBoxMappingTests(SimpleTestCase):
     """data._fetch_from_netbox against NetBox-shaped API payloads."""
