@@ -1,0 +1,63 @@
+<style>
+  .ov { max-width: 70ch; }
+  .ov-list { list-style: none; padding: 0 !important; margin: 1.5rem 0 2.5rem !important; display: grid; gap: 0.75rem; max-width: none; }
+  .ov-list li { margin: 0 !important; }
+  .ov-list a { display: grid; grid-template-columns: 2.5rem 1fr; gap: 0.25rem 1rem; padding: 1rem 1.25rem; border-radius: 12px; border: 1px solid var(--color-border); text-decoration: none; color: var(--color-text); background: var(--color-surface); }
+  .ov-list a:hover { border-color: var(--color-link); }
+  .ov-list .k { grid-row: span 2; font-size: 1.6rem; font-weight: 700; color: var(--ops); line-height: 1.1; }
+  .ov-list .h { font-weight: 600; color: var(--color-heading); }
+  .ov-list .d { font-size: 0.925rem; color: var(--color-text-light); }
+  .content pre { background: var(--color-code-bg); padding: 1rem 1.25rem; border-radius: 10px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem; }
+  .preview { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.25rem 0 1.25rem; }
+</style>
+
+<div class="ov">
+  <p class="lead">Three takes on a /team/ page where more of the team fits on one screen. Operations comes first, since those are the people participants deal with day to day, and the board follows.</p>
+  <p>All three read from the same records. A role is metadata on a person rather than the section they're filed under, so Matt Peterson is one entry that shows up under both operations and the board:</p>
+  <div class="preview" id="matt-preview"></div>
+</div>
+
+<ul class="ov-list">
+  <li><a href="a-faces.html"><span class="k">A</span><span class="h">Everyone at a glance</span><span class="d">Every person appears once, on one screen. Role filters light people up instead of hiding the rest, so picking Board lights Matt up in the operations row too.</span></a></li>
+  <li><a href="b-matrix.html"><span class="k">B</span><span class="h">Who does what</span><span class="d">A people-by-roles grid. A line joins each person's roles, so overlaps like general manager plus director are easy to spot. Click a column to filter by that role.</span></a></li>
+  <li><a href="c-ops-first.html"><span class="k">C</span><span class="h">Operations first</span><span class="d">Matt leads a featured operations section, with a panel for reaching the team. The board follows as one strip of faces. Matt appears in both places, linked to each other.</span></a></li>
+</ul>
+
+<div class="ov">
+  <h2>How this would land in Hugo</h2>
+  <p>The bios in <code>content/team.md</code> move into <code>website/data/team.yaml</code>, and a <code>team</code> layout ranges over it, filtered by role. Translations keep their prose in <code>team.&lt;lang&gt;.md</code> or in per-language data files.</p>
+<pre>- id: matt-peterson
+  name: Matt Peterson
+  photo: img/team/matt-peterson.jpg
+  affiliation: Principal, Two P
+  focus: Joining SFMIX, new sites and partners, and where the exchange goes next
+  roles:
+    - { role: ops, title: General Manager }
+    - { role: board }
+    - { role: founder, since: 2006 }
+  bio: |
+    Matt Peterson is a principal at Two P, …
+
+- id: chris-malayter
+  name: Chris Malayter
+  roles:
+    - { role: board, title: President }</pre>
+
+  <h2>Copy to check before this ships</h2>
+  <p>Bios are taken word for word from the current page. These short lines are mine:</p>
+  <ul>
+    <li>The "Talk to … about" focus lines for Matt and Tim, and Matt's summary paragraph in concept C (jof's line comes from his bio).</li>
+    <li>Justin Seabrook-Rocha has no bio, photo or focus line yet, and "Technical advisor" is a placeholder title.</li>
+    <li>The one-line affiliations for board members, shortened from their bios.</li>
+    <li>Tim Pozar and Justin are tagged as both operations and board alumni, matching the current page. Matt's founding year comes from Tim's bio (2006).</li>
+  </ul>
+</div>
+
+<script>
+(function () {
+  var T = window.Team, m = T.byId("matt-peterson");
+  document.getElementById("matt-preview").innerHTML =
+    '<button type="button" class="reset" data-bio="matt-peterson" style="display:flex;align-items:center;gap:0.75rem;cursor:pointer">' +
+    T.avatar(m) + '<strong style="color:var(--color-heading)">' + T.esc(m.name) + "</strong></button>" + T.chips(m, { titles: true, since: true });
+})();
+</script>

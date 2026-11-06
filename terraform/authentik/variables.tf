@@ -62,5 +62,10 @@ variable "proxied_apps" {
       name          = "sFlow-RT"
       internal_host = "http://metrics.sfo02.sfmix.org:8008"
     }
+    # Static staging copy of the website (ansible role www_staging).
+    www-staging = {
+      name          = "Website staging"
+      internal_host = "http://portal.sfmix.org:8081"
+    }
   }
 }

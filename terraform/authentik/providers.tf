@@ -189,11 +189,11 @@ resource "authentik_provider_oauth2" "portal" {
 # Proxy Providers (served by the embedded outpost, see outposts.tf)
 # -------------------------------------------------------------------
 
-# Tools in var.proxied_apps (Alertmanager, Prometheus, sFlow-RT) have no
-# authentication of their own, so they are never exposed directly. The
-# embedded outpost on login.sfmix.org owns the session (the admin-group
-# policy is bound to each application in policies.tf) and reverse-proxies
-# authenticated requests to the metrics host.
+# Tools in var.proxied_apps (Alertmanager, Prometheus, sFlow-RT, the
+# website staging copy) have no authentication of their own, so they are
+# never exposed directly. The embedded outpost on login.sfmix.org owns the
+# session (the admin-group policy is bound to each application in
+# policies.tf) and reverse-proxies authenticated requests to the upstream.
 resource "authentik_provider_proxy" "proxied" {
   for_each = var.proxied_apps
 

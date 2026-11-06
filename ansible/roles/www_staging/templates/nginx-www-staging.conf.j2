@@ -1,0 +1,33 @@
+# Managed by Ansible (roles/www_staging). Upstream for {{ www_staging_domain }}.
+#
+# Plain HTTP on a dedicated port, reachable only by authentik's embedded
+# outpost on login.sfmix.org, which terminates TLS and requires an IX
+# Administrators session before proxying here.
+server {
+    listen {{ www_staging_port }} default_server;
+    listen [::]:{{ www_staging_port }} default_server;
+    server_name {{ www_staging_domain }};
+
+{% for src in www_staging_allowed_sources %}
+    allow {{ src }};
+{% endfor %}
+    deny all;
+
+    root {{ www_staging_root }};
+    index index.html;
+
+    # Directory redirects (/team -> /team/) must not leak this port or scheme.
+    absolute_redirect off;
+
+    add_header X-Robots-Tag "noindex, nofollow" always;
+    add_header Cache-Control "no-cache" always;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    error_page 404 /404.html;
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}

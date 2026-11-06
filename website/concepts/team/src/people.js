@@ -1,0 +1,166 @@
+/*
+ * One record per person; roles are metadata on the person, not sections.
+ * Every grouping on the page (Operations, Board, Alumni…) is a query over
+ * these records, so Matt is one record that shows up wherever his roles do.
+ *
+ * In Hugo this becomes website/data/team.yaml and the layout ranges over it.
+ *
+ * role keys:
+ *   ops        day-to-day operations / technical advisory
+ *   board      current board of directors   (title: officer title, optional)
+ *   founder    founded SFMIX
+ *   alumni     former board member
+ *   hackathon  hackathon contributor
+ */
+window.SFMIX_ROLES = [
+  { key: "ops",       label: "Operations",             plural: "Operations" },
+  { key: "board",     label: "Board",                  plural: "Board of directors" },
+  { key: "founder",   label: "Founder",                plural: "Founders" },
+  { key: "alumni",    label: "Board alumni",           plural: "Board alumni" },
+  { key: "hackathon", label: "Hackathon",              plural: "Hackathon contributors" },
+];
+
+window.SFMIX_PEOPLE = [
+  /* ---------- Operations (Matt leads) ---------- */
+  {
+    id: "matt-peterson",
+    name: "Matt Peterson",
+    photo: "site/img/team/matt-peterson.jpg",
+    headline: "General Manager",
+    affiliation: "Principal, Two P",
+    focus: "Joining SFMIX, new sites and partners, and where the exchange goes next",
+    roles: [
+      { role: "ops", title: "General Manager" },
+      { role: "board" },
+      { role: "founder", since: 2006 },
+    ],
+    bio: [
+      "Matt Peterson is a principal at Two P, an infrastructure consultancy based in San Francisco. Matt's experience has run the gamut of building teams &amp; technology to manage and automate networks, data centers, and systems for companies including Tucows/Ting Fiber, Cumulus Networks, Tumblr, and Square. He also founded SFMIX, the first non-profit Internet Exchange within San Francisco. His work has been presented at numerous industry events, including NANOG, RIPE, Velocity, BSDcon, Defcon, and CCC Camp.",
+    ],
+  },
+  {
+    id: "jof",
+    name: "Jonathan “jof” Lassoff",
+    short: "jof",
+    url: "https://thejof.com",
+    photo: "site/img/team/jof.jpg",
+    headline: "Volunteer operator since 2013",
+    affiliation: "Volunteer operator",
+    focus: "Route servers, AS40271 transit, the participant portal, automation and monitoring",
+    roles: [
+      { role: "ops", title: "Network automation", since: 2013 },
+    ],
+    bio: [
+      "jof is a dedicated volunteer operator at SFMIX since 2013, and has been a community participant since 2009. He designed and deployed the architecture for AS40271 and the SFMIX Transit Network, and develops the <a href=\"https://github.com/sfmix/sfmix\">network automation platform</a> — from Netbox-driven Ansible configuration management and BGP Route Server automation with BIRD and OpenBGPD, to the participant portal and monitoring stack.",
+      "Outside of SFMIX, jof has spent nearly twenty years building and securing infrastructure at places like Meta, Booking.com, Planet Labs, and Yahoo. He's passionate about quality infrastructure, building things together as a community, and having fun with telecoms — whether that's ham radio (<a href=\"https://www.qrz.com/db/K6BGP\">K6BGP</a>), hacking on LED art, or tinkering with embedded electronics. More at <a href=\"https://thejof.com\">thejof.com</a>.",
+    ],
+  },
+  {
+    id: "tim-pozar",
+    name: "Tim Pozar",
+    photo: "site/img/team/pozar.jpg",
+    headline: "Co-founder",
+    affiliation: "Principal, Two P",
+    focus: "Facilities, history, and the original 365 Main node",
+    roles: [
+      { role: "ops" },
+      { role: "founder", since: 2006 },
+      { role: "alumni" },
+    ],
+    bio: [
+      "Tim has been pushing IP since the '80s starting with putting KA9Q on PCs for AX.25 on 2 meters amateur radio (KC6GNJ) and then to co-create the first ISP in San Francisco (The Little Garden aka TLGnet).",
+      "In 2006 Tim was the other co-founder of SFMIX with Matt Peterson, establishing our first node at 365 Main in San Francisco.",
+      "Tim is also the other principal at Two P, an infrastructure consultancy based in the San Francisco Bay Area with Matt Peterson.",
+    ],
+  },
+  {
+    id: "justin-seabrook-rocha",
+    name: "Justin Seabrook-Rocha",
+    photo: null,
+    headline: "Technical advisor",
+    affiliation: null,
+    focus: null,
+    roles: [
+      { role: "ops" },
+      { role: "alumni" },
+    ],
+    bio: [],
+  },
+
+  /* ---------- Board (officers first, then alphabetical) ---------- */
+  {
+    id: "chris-malayter",
+    name: "Chris Malayter",
+    photo: "site/img/team/chris-malayter.jpg",
+    affiliation: "VP Network &amp; Interconnection, CoreSite",
+    roles: [{ role: "board", title: "President" }],
+    bio: [
+      "Chris Malayter is the Vice President of Network and Interconnection at CoreSite, a position he has held for over 13 years. With a deep expertise in the network infrastructure and interconnection space, Chris has played a key role in advancing CoreSite's leadership in the data center industry. In addition to his work at CoreSite, Chris has been actively involved in the broader networking community. He served as the Secretary for Open-IX, an organization focused on setting technical standards for data center interconnection, and as the President of the Board of Directors for PeeringDB, a critical resource for the global Internet peering community.",
+    ],
+  },
+  {
+    id: "robert-carstens",
+    name: "Robert Carstens",
+    photo: "site/img/team/robert-carstens.jpg",
+    affiliation: "Network architecture, unWired Broadband",
+    roles: [{ role: "board", title: "Treasurer" }],
+    bio: [
+      "Robert Carstens is a senior technology leader with 20 years of experience in information technology, networking, telecommunications, and infrastructure design. He began his career in desktop support, building a strong foundation in end-user systems and operational troubleshooting, and progressed into senior engineering and leadership roles through hands-on experience and a clear vision for the future.",
+      "He currently leads the architecture, deployment, and operation of service-provider networks at unWired Broadband, where his work spans core IP design, broadband delivery, and operational reliability. Known for combining deep technical expertise with practical, hands-on leadership, Robert specializes in building resilient, scalable systems and guiding teams from concept through execution. His experience includes greenfield network builds, data center design and operations, and large-scale compute and storage deployments.",
+      "Outside of technology, Robert is also an active farmer in California’s Central Valley, applying systems-level thinking and data-driven decisions to agricultural operations to improve environmental health and long term sustainability.",
+    ],
+  },
+  {
+    id: "aj-steller",
+    name: "Anthony “AJ” Steller",
+    photo: "site/img/team/aj-steller.png",
+    affiliation: "Interconnection Strategy, H5 Data Centers",
+    roles: [{ role: "board", title: "Secretary" }],
+    bio: [
+      "AJ (Anthony) Steller is the Director of Interconnection Strategy at H5 Data Centers, where he focuses on everything from network architecture to helping customers find the right connectivity solutions. With 15 years in the networking industry, AJ's career is rooted in a mission to build a better-connected world. He spent 13 years at Charter Communications, rising through the ranks from the NOC to serving as a Transport and Capacity Engineer managing peering and transit strategy. A familiar face at NANOG and GPF, AJ is a dedicated advocate for the peering community. As an SFMIX Board Member, he combines his deep operational background with a “help-first” mentality to ensure the exchange remains a robust resource for all participants.",
+    ],
+  },
+  {
+    id: "lee-hetherington",
+    name: "Lee Hetherington",
+    photo: "site/img/team/lee-hetherington.jpg",
+    affiliation: "Edge infrastructure, Meta",
+    roles: [{ role: "board" }],
+    bio: [
+      "Lee plays the role of Engineer, Entrepreneur and Evangelist across several domains in the Edge space at Meta. Currently focused on building distributed compute infrastructure for current and future experiences at planetary scale. Lee has spent the last 25 years working across Interconnection, Edge Strategy and Network Architecture for a number of different companies in the space. Lee also recently left a 6 year term as Non-Exec Director of the London Internet Exchange.",
+    ],
+  },
+  {
+    id: "brian-meredith",
+    name: "Brian Meredith",
+    photo: "site/img/team/brian.png",
+    affiliation: "CTO, Softcom Internet Communications",
+    roles: [{ role: "board" }],
+    bio: [
+      "Brian Meredith is the Chief Technology Officer and Director of Network Operations at Softcom Internet Communications, Inc., where he started 30 years ago answering phones to provide technical support to end users and through hard work and acumen achieved the position he holds today. Softcom is one of the pioneers of fixed wireless internet access in California, and Brian has helped guide the company to serving over 3,000 customers in the Central Valley. He brings his many years of eyeball network experience, hands-on BGP and peering infrastructure management, and extensive relationships with vendors across the industry to SFMIX.",
+    ],
+  },
+  {
+    id: "walt-wollny",
+    name: "Walt Wollny",
+    photo: "site/img/team/walt.jpg",
+    affiliation: "Interconnection Strategy, Hurricane Electric",
+    roles: [{ role: "board" }],
+    bio: [
+      "Walt Wollny is the Director of Interconnection Strategy at Hurricane Electric, supporting the company’s global network reach across over 56 countries and more than 320 Internet Exchanges. He focuses on global connectivity and expanding into new markets.",
+      "With over 25 years of experience in the Internet industry, Walt previously worked as an IP Business Development Manager at Amazon. During his tenure, he supported the deployment of over 64 new CDN builds, including in markets such as Japan, Singapore, Hong Kong, India, Taiwan, the Philippines, and Australia.",
+    ],
+  },
+
+  /* ---------- Alumni ---------- */
+  { id: "peter-helmenstine", name: "Peter Helmenstine", roles: [{ role: "alumni" }], bio: [] },
+
+  /* ---------- Hackathon contributors ---------- */
+  ...[
+    "Jade Auer", "Brian David", "Leslie Carr", "Navin Francis", "Joe Gross",
+    "Saima Hashimi", "Tristan Horn", "B. Reid Lewis", "Rob Liesenfeld",
+    "Ashwin Jacob Mathew", "James Ouyang", "Codey Oxley", "Kayla Smith",
+  ].map(function (n) {
+    return { id: n.toLowerCase().replace(/[^a-z]+/g, "-"), name: n, roles: [{ role: "hackathon" }], bio: [] };
+  }),
+];
