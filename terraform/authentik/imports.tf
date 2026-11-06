@@ -95,6 +95,11 @@ import {
   id = "7"
 }
 
+import {
+  to = authentik_provider_proxy.proxied["www-staging"]
+  id = "8"
+}
+
 # --- Applications ---
 
 import {
@@ -132,6 +137,11 @@ import {
   id = "sflow-rt"
 }
 
+import {
+  to = authentik_application.proxied["www-staging"]
+  id = "www-staging"
+}
+
 # --- Policies ---
 
 import {
@@ -157,6 +167,11 @@ import {
 import {
   to = authentik_policy_binding.proxied_require_admin_group["sflow-rt"]
   id = "f0c5e5f6-31b0-48c8-bd7c-528d23c5cb4e"
+}
+
+import {
+  to = authentik_policy_binding.proxied_require_admin_group["www-staging"]
+  id = "a878d6f4-500d-4d27-8d3e-b8eaffc6ced2"
 }
 
 # --- Outposts ---
