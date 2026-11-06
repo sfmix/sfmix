@@ -237,6 +237,44 @@ class SnapshotTests(SimpleTestCase):
         self.assertFalse(data._is_stale())
 
 
+class WishlistTests(SimpleTestCase):
+    def setUp(self):
+        self.fleet = analysis.enrich([_server(), _switch()], TODAY)
+
+    def test_groups_by_what_to_buy(self):
+        wl = {w["slug"]: w for w in analysis.wishlist(self.fleet, {"ddr4-rdimm": 5})}
+        rdimm = wl["ddr4-rdimm"]
+        self.assertEqual(rdimm["units"], 1)  # DIMMA2; DIMMB2 has no known spec
+        self.assertEqual(rdimm["pledged"], 1)  # capped at what's wanted
+        self.assertEqual(rdimm["remaining"], 0)
+        self.assertIn("takes up to 32 GB per slot", rdimm["devices"][0]["current"])
+        ssd = wl["ssd-2.5"]
+        self.assertEqual((ssd["units"], ssd["severity"]), (1, 3))  # the 94% QVO
+        self.assertIn("94% endurance", ssd["devices"][0]["current"])
+        self.assertEqual(wl["psu-pws-1"]["severity"], 3)  # one PSU of two
+        self.assertNotIn("psu-pwr-500ac-f", wl)  # switch PSUs are redundant
+
+    def test_empty_hot_swap_bays_and_form_factor(self):
+        dev = _server()
+        dev["slots"] += [
+            _slot("Bay 1", "disk", None, {"bus": "SAS/SATA", "form_factor": "2.5in SFF", "hot_swap": True}),
+            _slot("SATA 5", "disk", None, {"bus": "ATA"}),  # bare port: not wanted
+            _slot("Bay 2", "disk", _mod("ST4000DM000", description="4TB HD 3.5 inches", power_on_hours=80000)),
+        ]
+        wl = {w["slug"]: w for w in analysis.wishlist(analysis.enrich([dev], TODAY))}
+        self.assertEqual(wl["ssd-2.5"]["units"], 2)  # worn QVO + empty SFF bay
+        self.assertEqual(wl["drive-3.5"]["units"], 1)
+
+    def test_donor_wall(self):
+        dev = _server()
+        dev["donor"] = "jof"
+        rows = analysis.donations(analysis.enrich([dev], TODAY))
+        wall = analysis.donor_wall(rows, [{"name": "Acme", "url": "https://acme.test/", "item": "DIMMs"}])
+        self.assertEqual([w["name"] for w in wall], ["Example Donor", "jof", "Acme"])
+        self.assertEqual({w["name"]: w["given"] for w in wall[:2]}, {"jof": ["1 chassis"], "Example Donor": ["1 DIMM"]})
+        self.assertEqual(wall[2]["pledged"], ["DIMMs"])
+
+
 @override_settings(
     GEAR_HOSTS=["gear.test"], ALLOWED_HOSTS=["*"], GEAR_USE_FIXTURES=False,
     STORAGES={
@@ -274,7 +312,7 @@ class RoutingAndAuthTests(TestCase):
 
     def test_admin_pages(self):
         self.login(True)
-        for path in ("/", "/needs/", "/donations/", "/device/pve-test/"):
+        for path in ("/", "/needs/", "/donations/", "/device/pve-test/", "/pledge/"):
             r = self.client.get(path, HTTP_HOST="gear.test")
             self.assertEqual(r.status_code, 200, path)
         self.assertContains(self.client.get("/device/pve-test/", HTTP_HOST="gear.test"), "A donation could go here")
@@ -289,3 +327,30 @@ class RoutingAndAuthTests(TestCase):
         self.login(True)
         r = self.client.post("/refresh/", {"next": "https://evil.example/"}, HTTP_HOST="gear.test")
         self.assertEqual(r["Location"], "/")
+
+    def test_pledge_flow(self):
+        from gear.models import Pledge
+
+        self.login(True)
+        r = self.client.get("/pledge/?item=ddr4-rdimm", HTTP_HOST="gear.test")
+        self.assertContains(r, 'value="ddr4-rdimm" selected')
+        form = {"item_slug": "ddr4-rdimm", "quantity": 4, "name": "Pat", "organization": "Acme",
+                "email": "pat@acme.test", "show_as_donor": "on", "url": "https://acme.test/"}
+        r = self.client.post("/pledge/", {**form, "website": "spam"}, HTTP_HOST="gear.test")
+        self.assertEqual(r.status_code, 200)  # honeypot tripped
+        self.assertFalse(Pledge.objects.exists())
+        r = self.client.post("/pledge/", form, HTTP_HOST="gear.test")
+        p = Pledge.objects.get()
+        self.assertRedirects(r, f"/pledge/{p.pk}/thanks/", fetch_redirect_response=False)
+        self.assertEqual((p.item_title, p.display_name, p.status), ("DDR4 ECC registered DIMMs (RDIMM)", "Acme", "new"))
+        self.assertContains(self.client.get("/needs/", HTTP_HOST="gear.test"), "1 pledged")
+        # Not on the wall until an admin confirms it.
+        self.assertNotContains(self.client.get("/donations/", HTTP_HOST="gear.test"), 'rel="noopener">Acme')
+        self.client.post(f"/pledges/{p.pk}/status/", {"status": "confirmed"}, HTTP_HOST="gear.test")
+        self.assertContains(self.client.get("/donations/", HTTP_HOST="gear.test"), 'rel="noopener">Acme')
+
+    def test_pledge_other_needs_details(self):
+        self.login(True)
+        r = self.client.post("/pledge/", {"item_slug": "", "quantity": 1, "name": "Pat", "email": "p@x.test"},
+                             HTTP_HOST="gear.test")
+        self.assertContains(r, "Tell us what you")

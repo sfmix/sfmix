@@ -12,11 +12,14 @@ from datetime import date, datetime, timezone
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponseForbidden
-from django.shortcuts import redirect, render
+from django.db.models import Sum
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from . import analysis, data
+from .forms import PledgeForm
+from .models import Pledge
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,18 @@ def _load(request, refresh: bool = False):
     return fleet, ns, error
 
 
+def _wishlist(fleet):
+    open_pledges = (Pledge.objects.filter(status__in=[Pledge.Status.NEW, Pledge.Status.CONFIRMED])
+                    .exclude(item_slug="").values("item_slug").annotate(n=Sum("quantity")))
+    return analysis.wishlist(fleet, {r["item_slug"]: r["n"] for r in open_pledges})
+
+
+def _supporters():
+    """Opted-in pledges an admin has confirmed, for the donor wall."""
+    return [{"name": p.display_name, "url": p.url, "item": p.item_title or "hardware"}
+            for p in Pledge.objects.filter(show_as_donor=True, status__in=[Pledge.Status.CONFIRMED, Pledge.Status.RECEIVED])]
+
+
 def _ctx(request, nav, **kw):
     return {"nav": nav, "user_email": getattr(request.user, "email", ""),
             "fetched_at": getattr(request, "gear_fetched_at", None), **kw}
@@ -62,6 +77,7 @@ def fleet(request):
         need_summary=analysis.need_summary(ns),
         flow=analysis.needs_flow(ns),
         top_needs=[n for n in ns if n.severity >= 2][:8],
+        wishlist=_wishlist(fleet),
     ))
 
 
@@ -91,6 +107,7 @@ def needs(request):
     return render(request, "gear/needs.html", _ctx(
         request, "needs",
         error=error,
+        wishlist=_wishlist(fleet),
         stats=analysis.stats(fleet, ns),
         need_summary=analysis.need_summary(ns),
         groups=groups,
@@ -110,7 +127,49 @@ def donations(request):
         donors=sorted({r["donor"] for r in rows}),
         flow=analysis.donations_flow(rows),
         could_flow=analysis.needs_flow(ns),
+        wall=analysis.donor_wall(rows, _supporters()),
+        pledges=Pledge.objects.all()[:200],
+        statuses=Pledge.Status.choices,
     ))
+
+
+@admin_only
+def pledge(request):
+    fleet, ns, error = _load(request)
+    wishlist = _wishlist(fleet)
+    if request.method == "POST":
+        form = PledgeForm(request.POST, wishlist=wishlist)
+        if form.is_valid():
+            p = form.save(commit=False)
+            p.submitted_by = getattr(request.user, "email", "") or ""
+            p.save()
+            logger.info("peering-gear: new pledge #%d (%s × %s)", p.pk, p.quantity, p.item_slug or "other")
+            return redirect("gear_pledge_thanks", pk=p.pk)
+    else:
+        item = request.GET.get("item", "")
+        hit = next((w for w in wishlist if w["slug"] == item), None)
+        form = PledgeForm(wishlist=wishlist, initial={
+            "item_slug": item if hit else (wishlist[0]["slug"] if wishlist else ""),
+            "quantity": 1,
+            "name": request.user.get_full_name() if request.user.is_authenticated else "",
+            "email": getattr(request.user, "email", ""),
+        })
+    return render(request, "gear/pledge.html", _ctx(request, "pledge", error=error, form=form, wishlist=wishlist))
+
+
+@admin_only
+def pledge_thanks(request, pk):
+    return render(request, "gear/pledge_thanks.html", _ctx(request, "pledge", pledge=get_object_or_404(Pledge, pk=pk)))
+
+
+@require_POST
+@admin_only
+def pledge_status(request, pk):
+    p = get_object_or_404(Pledge, pk=pk)
+    if request.POST.get("status") in Pledge.Status.values:
+        p.status = request.POST["status"]
+        p.save(update_fields=["status", "updated_at"])
+    return redirect("/donations/#pledges")
 
 
 @require_POST

@@ -227,6 +227,86 @@ h2 { font-size: 19px; letter-spacing: -.01em; }
 .inline { display: inline; margin-left: auto; }
 .link-btn { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
 
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 9px 16px; font: 600 14px/1.2 var(--sans); cursor: pointer; white-space: nowrap; }
+.btn:hover { text-decoration: none; filter: brightness(1.08); }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-lg { padding: 12px 22px; font-size: 16px; }
+.btn-ghost { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.btn-gift, .topbar-right .btn-gift { background: var(--gift); color: #1d1405; }
+.pill-incoming { color: var(--wish); border-color: color-mix(in srgb, var(--wish) 50%, var(--line)); }
+.section-lede { margin: -4px 0 14px; max-width: 80ch; }
+
+/* wishlist */
+.wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.wish { display: flex; flex-direction: column; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--cat, var(--accent)); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.wish-head { display: flex; align-items: center; gap: 8px; }
+.wish-kind { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--cat, var(--muted)); font-weight: 700; }
+.wish-head .sev { margin-left: auto; }
+.wish h3 { font-size: 17px; letter-spacing: -.01em; }
+.wish-count { display: flex; align-items: baseline; gap: 8px; }
+.wish-count b { font-size: 34px; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+.wish-count span { color: var(--muted); font-size: 14px; }
+.wish-meter i { background: var(--gift); }
+.wish-spec { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 13px; }
+.wish-spec dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+.wish-spec dd { margin: 0; color: var(--ink-soft); }
+.wish-where summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+.wish-where ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; }
+.wish-where li { padding: 6px 0 0; border-top: 1px solid var(--line); }
+.wish-n { float: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wish .btn { align-self: flex-start; margin-top: auto; }
+
+/* call to action */
+.cta { display: flex; align-items: center; gap: 18px; margin: 28px 0; padding: 18px 20px; border-radius: var(--radius); background: color-mix(in srgb, var(--gift) 12%, var(--panel)); border: 1px solid color-mix(in srgb, var(--gift) 45%, var(--line)); box-shadow: var(--shadow); }
+.cta-mark { font-size: 30px; color: var(--gift); flex: none; }
+.cta-body h3 { font-size: 18px; }
+.cta-body p { margin: 4px 0 0; color: var(--ink-soft); max-width: 72ch; }
+.cta .btn { margin-left: auto; background: var(--gift); color: #1d1405; }
+
+/* pledge form */
+.pledge-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 28px; margin: 20px 0 40px; align-items: start; }
+.pledge-form { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 20px 20px; box-shadow: var(--shadow); }
+.pledge-form fieldset { border: 0; padding: 0; margin: 14px 0 6px; }
+.pledge-form legend { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; padding: 0; margin-bottom: 8px; }
+.field { display: grid; gap: 4px; margin-bottom: 12px; flex: 1; min-width: 0; }
+.field label { font-weight: 600; font-size: 14px; }
+.field-narrow { max-width: 140px; }
+.field-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.field-row .field { min-width: 200px; }
+.field input, .field select, .field textarea { width: 100%; font: inherit; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 10px; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; }
+.hint { margin: 0; font-size: 12px; color: var(--muted); }
+.errorlist { list-style: none; padding: 0; margin: 0; color: var(--critical); font-size: 13px; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; cursor: pointer; }
+.check input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--gift); flex: none; }
+.pledge-form fieldset.credit { padding: 14px; border-radius: 8px; background: color-mix(in srgb, var(--gift) 8%, var(--panel)); }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.pledge-aside h2 { font-size: 16px; margin: 4px 0 10px; }
+.steps { padding-left: 20px; margin: 0 0 24px; color: var(--ink-soft); }
+.steps li { margin: 0 0 10px; }
+.mini-wish { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+.mini-wish li { padding: 6px 0; border-top: 1px solid var(--line); }
+
+/* donor wall */
+.wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.donor { display: block; background: var(--panel); border: 1px solid color-mix(in srgb, var(--gift) 45%, var(--line)); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); color: var(--ink); position: relative; }
+.donor::before { content: "★"; position: absolute; top: 12px; right: 14px; color: var(--gift); }
+.donor h3 { font-size: 18px; padding-right: 20px; }
+.donor-gave { margin: 6px 0 4px; font-weight: 600; color: var(--ink-soft); }
+.donor p { margin: 4px 0 0; }
+.donor-pledged { border-style: dashed; }
+.donor-you { border: 1.5px dashed var(--line-strong); background: transparent; box-shadow: none; color: var(--muted); }
+.donor-you::before { color: var(--line-strong); }
+.donor-you:hover { text-decoration: none; border-color: var(--gift); color: var(--ink); }
+.status-form select { font: inherit; font-size: 13px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--ink); }
+
+@media (max-width: 820px) {
+  .pledge-layout { grid-template-columns: 1fr; }
+  .cta { flex-wrap: wrap; }
+  .cta .btn { margin-left: 0; }
+}
+
 @media (max-width: 640px) {
   .topbar-in { gap: 8px; padding: 8px 0; }
   .table { display: block; overflow-x: auto; }

@@ -31,6 +31,7 @@
   </ul>
   {% if dev.successor %}<p class="small muted">Refresh candidate (admin-curated, verify before asking): {{ dev.successor.suggest }}</p>{% endif %}
 </section>
+{% include "gear/_pledge_cta.html" with headline="Could you fill one of these slots?" %}
 {% endif %}
 
 {% for g in dev.groups %}

@@ -15,6 +15,9 @@ urlpatterns = [
     path("device/<str:name>/", views.device, name="gear_device"),
     path("needs/", views.needs, name="gear_needs"),
     path("donations/", views.donations, name="gear_donations"),
+    path("pledge/", views.pledge, name="gear_pledge"),
+    path("pledge/<int:pk>/thanks/", views.pledge_thanks, name="gear_pledge_thanks"),
+    path("pledges/<int:pk>/status/", views.pledge_status, name="gear_pledge_status"),
     path("refresh/", views.refresh, name="gear_refresh"),
 ]
 

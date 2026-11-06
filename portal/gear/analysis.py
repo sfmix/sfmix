@@ -317,6 +317,161 @@ def need_summary(ns: List[Need]) -> List[Dict[str, Any]]:
     return out
 
 
+# ── wishlist: needs rolled up into things to buy ───────────────────────
+
+
+def _drive_form_factor(slot: Dict[str, Any], dev: Dict[str, Any]) -> Optional[str]:
+    """'2.5' / '3.5' from the bay, the drive's own description, or its siblings."""
+    import re
+
+    def ff(s: Dict[str, Any]) -> Optional[str]:
+        text = " ".join([str((s.get("accepts") or {}).get("form_factor") or ""),
+                         str((s.get("module") or {}).get("description") or "")])
+        m = re.search(r"([23]\.5)\s*(?:in|\"|inch)", text)
+        return m.group(1) if m else None
+
+    own = ff(slot)
+    if own:
+        return own
+    sibling = Counter(f for f in (ff(s) for s in dev["slots"] if s["kind"] == "disk") if f)
+    return sibling.most_common(1)[0][0] if sibling else None
+
+
+def _memory_key(accepts: Dict[str, Any]) -> Optional[str]:
+    if (accepts.get("class") or "DDR4") != "DDR4":
+        return None
+    if accepts.get("form_factor") == "SODIMM":
+        return "ddr4-sodimm"
+    if accepts.get("ecc") and accepts.get("registered"):
+        return "ddr4-rdimm"
+    return None
+
+
+def wishlist(fleet: List[Dict[str, Any]], pledged: Optional[Dict[str, int]] = None) -> List[Dict[str, Any]]:
+    """Memory, drives and power supplies to ask for, grouped by what fits.
+
+    Each entry: {slug, kind, title, fits, examples, units, severity, severity_label,
+    pledged, devices: [{device, incoming, units, reason, current}]}. ``pledged``
+    maps slug -> units promised via the pledge form; planned NetBox modules with
+    a donor count as pledged too.
+    """
+    pledged = dict(pledged or {})
+    items: Dict[str, Dict[str, Any]] = {}
+
+    def add(slug: str, kind: str, dev: Dict[str, Any], units: int, sev: int, reason: str, current: str = "",
+            info: Optional[Dict[str, str]] = None):
+        info = info or catalog.WISHLIST[slug]
+        it = items.setdefault(slug, {"slug": slug, "kind": kind, "title": info["title"], "fits": info["fits"],
+                                     "examples": info.get("examples", ""), "units": 0, "severity": 0,
+                                     "pledged": 0, "devices": []})
+        it["units"] += units
+        it["severity"] = max(it["severity"], sev)
+        it["devices"].append({"device": dev["name"], "incoming": dev.get("status", "active") != "active",
+                              "units": units, "reason": reason, "current": current, "severity": sev})
+
+    for dev in fleet:
+        slots = dev["slots"]
+        wished_pledged = Counter()
+
+        # Memory: empty (or wished-for) DIMM slots, sized to what the board takes.
+        mem = dev.get("memory") or {}
+        by_key: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for s in slots:
+            if s["kind"] == "memory" and s["state"] in ("empty", "wished"):
+                key = _memory_key(s.get("accepts") or {})
+                if key:
+                    by_key[key].append(s)
+                    if s["state"] == "wished" and s["module"].get("donor"):
+                        wished_pledged[key] += 1
+        for key, ss in by_key.items():
+            installed = Counter(
+                (int((s["module"].get("attributes") or {}).get("size") or 0),
+                 (s["module"].get("attributes") or {}).get("data_rate"))
+                for s in slots if s["kind"] == "memory" and s["state"] not in ("empty", "wished"))
+            per = (mem["max_gb"] // mem["slots"]) if mem.get("max_gb") and mem.get("slots") else None
+            now = ", ".join(f"{n}× {gb} GB" + (f" {rate}" if rate else "") for (gb, rate), n in installed.most_common() if gb)
+            current = (f"{mem.get('installed_gb', 0)} GB in {mem.get('filled', 0)} of {mem.get('slots', 0)} slots"
+                       + (f" ({now})" if now else "") + (f"; takes up to {per} GB per slot" if per else ""))
+            sev = 2 if mem.get("installed_gb", 0) < 128 else 1
+            add(key, "memory", dev, len(ss), sev, f"{len(ss)} empty DIMM slot{'s' if len(ss) != 1 else ''}", current)
+
+        # Drives: empty hot-swap bays, plus replacements for failed / worn drives.
+        reasons: Dict[str, Dict[str, List[Dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+        for s in slots:
+            if s["kind"] != "disk":
+                continue
+            acc = s.get("accepts") or {}
+            hot = acc.get("bus") in ("SES", "NVMe") or acc.get("hot_swap")
+            if s["state"] == "empty" and not hot:
+                continue  # bare motherboard SATA ports aren't bays
+            if s["state"] not in ("empty", "wished", "critical", "worn", "aging"):
+                continue
+            ff = _drive_form_factor(s, dev)
+            key = "drive-3.5" if ff == "3.5" else "ssd-2.5"
+            why = {"empty": "empty", "wished": "empty", "critical": "replace", "worn": "replace", "aging": "replace"}[s["state"]]
+            if s["state"] == "critical" and (s.get("module") or {}).get("status") == "failed":
+                why = "failed"
+            reasons[key][why].append(s)
+            if s["state"] == "wished" and s["module"].get("donor"):
+                wished_pledged[key] += 1
+        for key, by_why in reasons.items():
+            parts, sev, n = [], 0, 0
+            for why, label, wsev in (("failed", "replace {n} failed", 3), ("replace", "replace {n} worn", 2),
+                                     ("empty", "fill {n} empty bay{s}", 1)):
+                ss = by_why.get(why) or []
+                if not ss:
+                    continue
+                if why == "replace" and any(x["state"] == "critical" for x in ss):
+                    wsev = 3
+                parts.append(label.format(n=len(ss), s="s" if len(ss) != 1 else ""))
+                sev, n = max(sev, wsev), n + len(ss)
+            worn = [x["module"] for x in by_why.get("replace", [])]
+            facts = []
+            if worn:
+                models = Counter(f"{m['manufacturer']} {m['model']}" for m in worn)
+                facts.append(", ".join(f"{c}× {mdl}" for mdl, c in models.most_common()))
+                endurance = [m.get("endurance_used_pct") for m in worn if m.get("endurance_used_pct") is not None]
+                if endurance:
+                    facts.append(f"up to {max(endurance)}% endurance used")
+                poh = [m.get("power_on_hours") for m in worn if m.get("power_on_hours")]
+                if poh:
+                    facts.append(f"up to {max(poh) / HOURS_PER_YEAR:.1f} years powered on")
+            add(key, "disk", dev, n, sev, "; ".join(parts).capitalize(), " · ".join(facts))
+
+        # Power: the exact PSU part for empty or failed PSU slots.
+        psus = [s for s in slots if s["kind"] == "psu"]
+        live = [s for s in psus if s.get("module") and s["state"] not in ("wished", "critical")]
+        need = [s for s in psus if s["state"] in ("empty", "wished", "critical")]
+        if need:
+            ref = (live[0]["module"] if live else None) or (need[0].get("module") or {})
+            part = (need[0].get("accepts") or {}).get("part_number") or ref.get("model")
+            if part:
+                mfr = ref.get("manufacturer") or dev["manufacturer"]
+                failed = [s for s in need if s["state"] == "critical"]
+                sev = 3 if len(live) <= 1 or failed else 1
+                reason = (f"Running on {len(live)} of {len(psus)} power supplies"
+                          + (f" ({len(failed)} failed)" if failed else ""))
+                info = {"title": f"{mfr} {part} power supplies",
+                        "fits": f"{mfr} {part}" + (f" — {ref['description']}" if ref.get("description") else "")
+                                + ". Same part as the PSUs already in the chassis.",
+                        "examples": ""}
+                add(f"psu-{part.lower()}", "psu", dev, len(need), sev, reason, "", info)
+                wished_pledged[f"psu-{part.lower()}"] += sum(1 for s in need if s["state"] == "wished" and s["module"].get("donor"))
+
+        for k, v in wished_pledged.items():
+            pledged[k] = pledged.get(k, 0) + v
+
+    order = {"memory": 0, "disk": 1, "psu": 2}
+    out = sorted(items.values(), key=lambda i: (order[i["kind"]], -i["severity"], -i["units"]))
+    for it in out:
+        it["severity_label"] = SEVERITY_LABELS.get(it["severity"], "")
+        it["pledged"] = min(pledged.get(it["slug"], 0), it["units"])
+        it["remaining"] = it["units"] - it["pledged"]
+        it["pct_pledged"] = round(100 * it["pledged"] / it["units"]) if it["units"] else 0
+        it["devices"].sort(key=lambda d: (-d["severity"], d["incoming"], d["device"]))
+    return out
+
+
 # ── spares ─────────────────────────────────────────────────────────────
 
 SPARE_KINDS = ("psu", "fan", "transceiver", "disk", "memory")
@@ -387,7 +542,8 @@ def donations(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if dev.get("donor"):
             rows.append({"donor": dev["donor"], "donated_on": dev.get("donated_on"), "device": dev["name"],
                          "bay": "", "kind": "chassis", "kind_label": "Chassis",
-                         "part": f"{dev['manufacturer']} {dev['model']}", "status": "active"})
+                         "part": f"{dev['manufacturer']} {dev['model']}",
+                         "status": "installed" if dev.get("status", "active") == "active" else "incoming"})
         for s in dev["slots"]:
             m = s.get("module") or {}
             if m.get("donor"):
@@ -398,6 +554,43 @@ def donations(fleet: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     rows.sort(key=lambda r: (str(r["donated_on"] or ""), r["donor"]), reverse=True)
     return rows
 
+
+def donor_wall(rows: List[Dict[str, Any]], supporters: Iterable[Dict[str, Any]] = ()) -> List[Dict[str, Any]]:
+    """One card per donor: what they gave and where it runs.
+
+    ``supporters`` are opted-in, admin-confirmed pledges ({name, url, items})
+    whose hardware hasn't landed in NetBox yet.
+    """
+    wall: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        w = wall.setdefault(r["donor"], {"name": r["donor"], "kinds": Counter(), "devices": [], "pledged": [],
+                                         **catalog.DONORS.get(r["donor"], {})})
+        w["kinds"][r["kind"]] += 1
+        if r["device"] not in w["devices"]:
+            w["devices"].append(r["device"])
+    for p in supporters:
+        w = wall.setdefault(p["name"], {"name": p["name"], "kinds": Counter(), "devices": [], "pledged": [],
+                                        **catalog.DONORS.get(p["name"], {})})
+        if p.get("url") and not w.get("url"):
+            w["url"] = p["url"]
+        w["pledged"].append(p["item"])
+    out = []
+    for w in wall.values():
+        w["given"] = [_count(n, k) for k, n in w.pop("kinds").most_common()]
+        out.append(w)
+    out.sort(key=lambda w: (not w["given"], -len(w["devices"]), w["name"].lower()))
+    return out
+
+
+KIND_NOUNS = {"chassis": ("chassis", "chassis"), "disk": ("drive", "drives"), "memory": ("DIMM", "DIMMs"),
+              "psu": ("power supply", "power supplies"), "fan": ("fan tray", "fan trays"), "cpu": ("CPU", "CPUs"),
+              "transceiver": ("optic", "optics"), "linecard": ("line card", "line cards"),
+              "mainboard": ("mainboard", "mainboards"), "expansion": ("card", "cards")}
+
+
+def _count(n: int, kind: str) -> str:
+    one, many = KIND_NOUNS.get(kind, (kind, kind))
+    return f"{n} {one if n == 1 else many}"
 
 # ── sankey layout ──────────────────────────────────────────────────────
 
