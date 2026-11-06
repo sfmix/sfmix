@@ -21,7 +21,7 @@ USER = "hardware-inventory"
 
 
 def main() -> None:
-    out = sys.argv[1]
+    out = sys.argv[1] if len(sys.argv) > 1 else None  # omit to only (re)apply permissions
     nb = pynetbox.api(os.environ["NETBOX_API_ENDPOINT"], token=os.environ["NETBOX_API_TOKEN"])
 
     u = nb.users.users.get(username=USER)
@@ -42,16 +42,31 @@ def main() -> None:
          "scripts/hardware_inventory.py: slots (module bays) and FRUs (modules)"),
         ("hardware-inventory-device", ["change"], ["dcim.device"],
          "scripts/hardware_inventory.py: chassis serial + hw custom fields"),
+        # view_all predates module-type profiles (NetBox 4.3+).
+        ("hardware-inventory-view", ["view"], ["dcim.moduletypeprofile"],
+         "scripts/hardware_inventory.py: module-type profiles"),
     ):
         if nb.users.permissions.get(name=name) is None:
             nb.users.permissions.create(name=name, actions=actions, object_types=types,
                                         users=[u.id], enabled=True, description=desc)
             print("created permission", name)
 
-    # This NetBox doesn't return a generated key, so POST an explicit one.
-    key = secrets.token_hex(20)
-    nb.users.tokens.create(user=u.id, key=key, write_enabled=True,
-                           description="nightly hardware_inventory job (netbox.sfo02)")
+    if out is None:
+        return
+
+    # NetBox 4.7 defaults to v2 tokens (Bearer nbt_<key>.<secret>); pynetbox and
+    # our other service tokens use v1 ("Token <40 chars>"). 4.7 generates the
+    # secret itself (a supplied value is ignored) and returns it only in the
+    # create response, so capture it there. Never-used leftovers whose secret
+    # we don't hold are removed first.
+    for old in nb.users.tokens.filter(user=USER):
+        if not old.last_used:
+            old.delete()
+    created = nb.users.tokens.create(user=u.id, version=1, write_enabled=True,
+                                     description="nightly hardware_inventory job (netbox.sfo02)")
+    key = dict(created).get("token")
+    if not key:
+        sys.exit("NetBox did not return the new token's secret; create one in the UI instead.")
     fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.write(fd, key.encode())
     os.close(fd)

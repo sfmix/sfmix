@@ -196,6 +196,10 @@
         slug: hwinv
         color: "795548"
         description: "Module bay / module maintained by scripts/hardware_inventory.py"
+      - name: "Hardware: Worn (manual)"
+        slug: hw-worn
+        color: "ff9800"
+        description: "Part known to be worn where no SMART data exists yet (peering-gear treats it as worn)"
 
     # Module-type profiles beyond NetBox's built-ins (CPU, Fan, Hard disk,
     # Memory, Power supply, Expansion card, GPU). No collection module exists

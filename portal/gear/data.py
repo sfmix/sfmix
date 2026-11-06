@@ -49,6 +49,9 @@ ROLE_LABELS = {
     "vm-hypervisor": "Hypervisors",
 }
 ROLE_ORDER = list(ROLE_LABELS)
+# In service, plus hardware on hand but not yet installed (shown as "Incoming").
+DEVICE_STATUSES = ("active", "inventory", "staged", "planned")
+WORN_TAG = "hw-worn"  # manual "worn" flag on a module when there's no SMART data
 
 
 def roles() -> List[str]:
@@ -156,7 +159,7 @@ def _cf(obj: Dict[str, Any], key: str) -> Any:
 
 
 def _fetch_from_netbox() -> List[Dict[str, Any]]:
-    devices = _get_all("dcim/devices", [("role", r) for r in roles()] + [("status", "active")])
+    devices = _get_all("dcim/devices", [("role", r) for r in roles()] + [("status", s) for s in DEVICE_STATUSES])
     if not devices:
         return []
     ids = [("device_id", str(d["id"])) for d in devices]
@@ -192,6 +195,7 @@ def _fetch_from_netbox() -> List[Dict[str, Any]]:
                 "endurance_used_pct": _cf(m, "endurance_used_pct"),
                 "donor": _cf(m, "donor"),
                 "donated_on": _cf(m, "donated_on"),
+                "flagged_worn": any(t.get("slug") == WORN_TAG for t in (m.get("tags") or [])),
                 "netbox_url": f"{base}/dcim/modules/{m['id']}/",
             }
         by_dev.setdefault(b["device"]["id"], []).append(
@@ -212,6 +216,7 @@ def _fetch_from_netbox() -> List[Dict[str, Any]]:
             {
                 "name": d["name"],
                 "role": role,
+                "status": (d.get("status") or {}).get("value", "active"),
                 "site": (d.get("site") or {}).get("name", ""),
                 "manufacturer": d["device_type"]["manufacturer"]["name"],
                 "model": d["device_type"]["model"],

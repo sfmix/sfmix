@@ -19,6 +19,13 @@ CPU_LAUNCH_YEAR = [
     (r"Xeon D-21\d\d", 2018),
 ]
 
+# Chassis model (prefix match) -> platform launch year, for hardware that can't
+# report a build date (e.g. incoming servers recorded by hand).
+PLATFORM_LAUNCH_YEAR = [
+    ("ProLiant DL360 Gen9", 2014),
+    ("ProLiant DL360 Gen10", 2017),
+]
+
 # Chassis model (prefix match) -> refresh candidates.
 CHASSIS_SUCCESSORS: Dict[str, Dict[str, str]] = {
     "DCS-7280SR-48C6": {
@@ -62,6 +69,13 @@ HDD_SUGGESTION = "Enterprise 3.5\" drives (e.g. Seagate Exos / WD Ultrastar), or
 def cpu_year(model: str) -> Optional[int]:
     for pat, year in CPU_LAUNCH_YEAR:
         if re.search(pat, model or ""):
+            return year
+    return None
+
+
+def platform_year(model: str) -> Optional[int]:
+    for prefix, year in PLATFORM_LAUNCH_YEAR:
+        if (model or "").startswith(prefix):
             return year
     return None
 

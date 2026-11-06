@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import os
 import re
 from datetime import date
 from typing import Any, Dict, List, Optional
@@ -110,13 +111,21 @@ def _fetch_state(host: str) -> Dict[str, etree._Element]:
     from discovery import NOKIA_SROS_STATE_NS, _get_netconf_ssh_credentials
 
     logging.getLogger("ncclient").setLevel(logging.WARNING)  # it logs every RPC body at INFO
-    creds = _get_netconf_ssh_credentials()
+    # The nightly job uses the dedicated read-only NETCONF user `hwinv` (ECDSA
+    # key; SR-OS takes no ed25519 user keys). The shared `oxidized` login has
+    # no NETCONF access on SR-OS, so by hand it's your own netrc login.
+    key_user = os.environ.get("HWINV_SROS_USER")
+    if key_user:
+        auth = {"username": key_user, "key_filename": os.path.expanduser(
+            os.environ.get("HWINV_SROS_KEY", "~/.ssh/id_ecdsa"))}
+    else:
+        creds = _get_netconf_ssh_credentials()
+        auth = {"username": creds["username"], "password": creds["password"]}
     out: Dict[str, etree._Element] = {}
     with manager.connect(
         host=host,
         port=830,
-        username=creds["username"],
-        password=creds["password"],
+        **auth,
         hostkey_verify=False,
         allow_agent=False,
         look_for_keys=False,
