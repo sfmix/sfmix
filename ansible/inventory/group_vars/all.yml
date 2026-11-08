@@ -24,9 +24,12 @@ ixp_admin_source_subnets:
   - 100.64.0.0/10
   - 10.0.0.0/8
   - 2620:11a:b00f::/48
-  # SFMIX Transit -- Snappy
+  # NOTE: AS40271 transit space (149.112.115.0/24, 149.112.188.0/23,
+  # 2620:11a:b002::/48) is customer space -- never an admin source. The one
+  # exception is our own host snappy, which lives there and is trusted.
+  # snappy.sfmix.org (SFMIX host in transit space)
   - 149.112.188.29/32
-  - 2620:11A:B002::26/128
+  - 2620:11a:b002::26/128
   # SFMIX Public Infrastructure
   - 192.33.255.0/28
   - 192.33.255.16/29
@@ -40,9 +43,6 @@ ixp_admin_source_subnets:
   - 2620:11a:b000:100::/64
   - 2620:11a:b000:110::/64
   - 2620:11a:b000:201::/64
-  # SFMIX Transit
-  - 149.112.115.0/24
-  - 2620:11a:b002::/48
   # Matt Peterson -- Home (Wave, AS11404)
   - !vault |
     $ANSIBLE_VAULT;1.1;AES256
@@ -69,7 +69,6 @@ ixp_admin_source_subnets:
     33626162613034346266383836363163643762323138346361363465396635343164636364613138
     3664636236313935310a656263333437343537363566623138396263376535656164383635373531
     6463
-  - 104.244.27.18/32
   - 107.161.208.1/32
   - 2602:ffd3:0:2::8/127
   # mgmt-gw.sfo01 -- WAN
