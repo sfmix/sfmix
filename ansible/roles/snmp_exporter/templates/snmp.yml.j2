@@ -3061,3 +3061,11 @@ modules:
         labelname: ifName
         oid: 1.3.6.1.2.1.31.1.1.1.1
         type: DisplayString
+  clock:
+    get:
+    - 1.3.6.1.2.1.25.1.2.0
+    metrics:
+    - name: hrSystemDate
+      oid: 1.3.6.1.2.1.25.1.2
+      type: DateAndTime
+      help: The host's notion of the local date and time. - 1.3.6.1.2.1.25.1.2
