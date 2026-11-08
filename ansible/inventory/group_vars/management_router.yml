@@ -2,3 +2,26 @@
 ansible_connection: ansible.netcommon.network_cli
 ansible_network_os: vyos.vyos.vyos
 ansible_python_interpreter: auto_silent # don't issue warning about auto-detected ansible_python_interpreter under VyOS
+
+# Uplink (internet / OOB transit) interface per mgmt-gw: the only untrusted
+# interface. vyos/firewall.j2 puts it in the WAN interface-group; everything
+# else (mgmt LAN, WireGuard, transport VLAN) stays trusted. See doc 010.
+mgmt_gw_wan_interface:
+  mgmt-gw.sfo01: eth0.50
+  mgmt-gw.sfo02: eth2.31
+  mgmt-gw.fmt01: eth1
+  mgmt-gw.sjc01: eth1
+  mgmt-gw.scl01: eth1
+  mgmt-gw.scl02: eth1
+  mgmt-gw.scl04: eth1
+  mgmt-gw.scl05: eth0
+  mgmt-gw.sjc02: eth1
+
+# ixp_admin_source_subnets entries that are internal-only. They are never a
+# legitimate source on the WAN (anything claiming them there is spoofed), so
+# firewall.j2 leaves them out of ADMIN4/ADMIN6 and the bogon rule drops them.
+mgmt_gw_wan_never_trusted:
+  - 127.0.0.0/8
+  - 10.0.0.0/8
+  - 100.64.0.0/10
+  - 2620:11a:b00f::/48
