@@ -29,6 +29,7 @@
     - lan-hygiene.rules.yml    # peering-LAN hygiene: RAs/DHCP/IGP hellos heard from members (008)
     - logging.rules.yml        # log pipeline internals: Alloy agents (remote_write) + Loki
     - node.rules.yml           # host health from node_exporter (job="node")
+    - clock.rules.yml          # network-device clock drift via SNMP hrSystemDate (job="snmp-clock")
 
 - name: "Prometheus: Template config"
   become: true

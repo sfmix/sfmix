@@ -63,6 +63,29 @@ scrape_configs:
             target_label: instance
           - target_label: __address__
             replacement: 127.0.0.1:9116
+    # Device wall clock (HOST-RESOURCES-MIB hrSystemDate), compared against
+    # the scrape timestamp by clock.rules.yml to catch NTP drift. One GET in
+    # its own job, kept off the slow health walk so the reading is taken
+    # within a second of the scrape start.
+    - job_name: snmp-clock
+      scrape_interval: 60s
+      scrape_timeout: 20s
+      metrics_path: /snmp
+      params:
+          module: [clock]
+          auth: [sfmix_v2c]
+      file_sd_configs:
+          - files:
+              - /opt/prometheus/file_sd/snmp_targets.json
+      relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: host
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: 127.0.0.1:9116
     # SNMP polling of the PDUs (mixed vendors) via snmp_exporter. Targets come
     # from the netbox-prometheus-sd-pdu timer, which stamps each with the right
     # snmp_exporter `module` (ServerTech Sentry3 vs Raritan PDU2) from the

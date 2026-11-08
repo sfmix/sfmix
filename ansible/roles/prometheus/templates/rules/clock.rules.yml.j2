@@ -1,0 +1,60 @@
+# Managed by Ansible (prometheus role).
+#
+# Network-device clock drift. The peering switches have no NTP MIB (EOS lacks
+# NTPv4-MIB), so instead of asking "is NTP synchronised?" we measure what we
+# care about: the device's wall clock (HOST-RESOURCES-MIB hrSystemDate, job
+# snmp-clock) against the scrape timestamp. Prometheus' own host is held to
+# <100 ms by NodeClockOffset, so it's a good reference.
+#
+# Each switch syncs to its site mgmt-gw (10.<site_id>.1.1), so a mgmt-gw that
+# loses its upstream shows up here too, as every switch at that site drifts.
+# Nokia SR-OS (cr1.*) doesn't answer hrSystemDate and is not covered.
+{% raw %}
+groups:
+  - name: sfmix-device-clock
+    rules:
+      # Seconds the device clock is AHEAD of Prometheus (negative = behind).
+      # EOS reports whole seconds, so ±1 s is quantisation, not drift.
+      - record: sfmix:device_clock_offset_seconds
+        expr: hrSystemDate{job="snmp-clock"} - timestamp(hrSystemDate{job="snmp-clock"})
+
+  - name: sfmix-device-clock-alerts
+    rules:
+      - alert: NetworkDeviceClockDrift
+        expr: abs(sfmix:device_clock_offset_seconds) > 3
+        for: 15m
+        labels: {severity: warning, component: network}
+        annotations:
+          summary: >-
+            {{ $labels.host }} clock is {{ humanizeDuration $value }} off
+          description: >-
+            The device's wall clock (SNMP hrSystemDate) has disagreed with
+            Prometheus by more than 3 s for 15 minutes, so it isn't being
+            disciplined by NTP. Log timestamps, Loki correlation and
+            certificate checks on this device are now skewed. On EOS:
+            `show ntp status` / `show ntp associations` /
+            `show running-config | include ntp` — it should have
+            `ntp server 10.<site_id>.1.1` and be synchronised to it. If every
+            switch at a site drifts together, check chrony on that site's
+            mgmt-gw (`show ntp`).
+
+      # Catches the clock module breaking (OID filtered, SNMP view change,
+      # exporter regression) on a device that used to report a clock — the
+      # drift alert above would otherwise go silent rather than fire. Gated on
+      # the scrape itself succeeding so a plain SNMP outage doesn't double up.
+      - alert: NetworkDeviceClockUnreadable
+        expr: >-
+          (last_over_time(hrSystemDate{job="snmp-clock"}[1d])
+            unless hrSystemDate{job="snmp-clock"})
+          and on (instance) up{job="snmp-clock"} == 1
+        for: 30m
+        labels: {severity: info, component: network}
+        annotations:
+          summary: >-
+            {{ $labels.host }} stopped reporting its clock over SNMP
+          description: >-
+            SNMP to this device works, but hrSystemDate has vanished, so
+            NetworkDeviceClockDrift can no longer see it. Check
+            `curl 'http://127.0.0.1:9116/snmp?module=clock&auth=sfmix_v2c&target={{ $labels.instance }}'`
+            on the metrics host.
+{% endraw %}

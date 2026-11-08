@@ -17,6 +17,17 @@ auths:
     version: 2
     community: SNMP_COMMUNITY_PLACEHOLDER
 modules:
+  # Device wall clock, for NTP drift alerts (clock.rules.yml). A single GET,
+  # scraped by its own fast job so the reading lands close to the scrape
+  # timestamp it is compared against. EOS has no NTPv4-MIB; SR-OS (cr1)
+  # answers noSuchObject and simply yields no series.
+  clock:
+    get:
+      - hrSystemDate.0
+    overrides:
+      hrSystemDate:
+        type: DateAndTime
+
   # Interface counters/status for all ports (Ethernet, Port-Channel, ...)
   if_mib:
     walk:
