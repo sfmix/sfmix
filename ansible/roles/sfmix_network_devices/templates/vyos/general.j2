@@ -1,8 +1,16 @@
+{# NTP is served only to the site's own mgmt LAN, numbered from the NetBox
+   site custom field site_id: 10.<id>.1.0/24 and 2620:11a:b00f:<id>01::/64.
+   Switches point at 10.<id>.1.1; nothing else should use these.
+   sfo02 and fmt01 still carry their pre-renumbering 100.64.x.0/24 LAN, where
+   Proxmox hosts live until they are renumbered; serve those too. #}
+{% set site_id = sites[0].custom_fields.site_id %}
+{% set legacy_mgmt_lan = {'sfo02': '100.64.0.0/24', 'fmt01': '100.64.1.0/24'}.get(sites[0].slug) %}
 delete service ntp
-set service ntp allow-client address '192.33.255.0/24'
-set service ntp allow-client address '10.0.0.0/8'
-set service ntp allow-client address '100.64.0.0/10'
-set service ntp allow-client address '2620:11a:b000::/44'
+set service ntp allow-client address '10.{{ site_id }}.1.0/24'
+set service ntp allow-client address '2620:11a:b00f:{{ '%x' | format(site_id * 256 + 1) }}::/64'
+{% if legacy_mgmt_lan %}
+set service ntp allow-client address '{{ legacy_mgmt_lan }}'
+{% endif %}
 set service ntp server 0.pool.ntp.org
 set service ntp server 1.pool.ntp.org
 set service ntp server 2.pool.ntp.org
