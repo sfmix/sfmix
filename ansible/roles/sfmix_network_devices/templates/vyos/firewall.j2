@@ -1,0 +1,123 @@
+{#
+  Uniform mgmt-gw firewall (design doc 010). Desired state, applied by hand
+  one gateway at a time with commit-confirm — not yet wired into the push.
+
+  Model: only the uplink (WAN interface-group) is untrusted. The base
+  input/forward chains stay default-accept and contain a single jump for
+  traffic arriving on WAN, so the mgmt LAN, WireGuard and the transport VLAN
+  are untouched and cannot be locked out by these rules.
+
+    WAN -> router  : est/related; drop invalid + bogons/internal sources;
+                     admin sources (ixp_admin_source_subnets, public part,
+                     incl. the other mgmt-gw WAN IPs = WireGuard peers)
+                     unrestricted; rate-limited ping; v6 on-link ND.
+    WAN -> inside  : est/related only. We only ever initiate outbound.
+#}
+{% set wan_if = mgmt_gw_wan_interface[fw_host | default(inventory_hostname)] %}
+{% set never = mgmt_gw_wan_never_trusted | map('lower') | list %}
+{% set admin = ixp_admin_source_subnets | map('string') | map('trim') | map('lower') | reject('in', never) | unique | list %}
+{% set admin6 = admin | select('search', ':') | list %}
+{% set admin4 = admin | reject('search', ':') | list %}
+delete firewall group interface-group WAN
+set firewall group interface-group WAN interface '{{ wan_if }}'
+
+delete firewall group network-group ADMIN4
+set firewall group network-group ADMIN4 description 'ixp_admin_source_subnets (public): unrestricted from WAN'
+{% for p in admin4 %}
+set firewall group network-group ADMIN4 network '{{ p if '/' in p else p ~ '/32' }}'
+{% endfor %}
+delete firewall group ipv6-network-group ADMIN6
+set firewall group ipv6-network-group ADMIN6 description 'ixp_admin_source_subnets (public): unrestricted from WAN'
+{% for p in admin6 %}
+set firewall group ipv6-network-group ADMIN6 network '{{ p if '/' in p else p ~ '/128' }}'
+{% endfor %}
+
+delete firewall group network-group V4_BOGONS
+{% for p in ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12',
+             '192.0.0.0/24', '192.0.2.0/24', '192.168.0.0/16', '198.18.0.0/15', '198.51.100.0/24',
+             '203.0.113.0/24', '224.0.0.0/3'] %}
+set firewall group network-group V4_BOGONS network '{{ p }}'
+{% endfor %}
+delete firewall group ipv6-network-group V6_BOGONS
+{# fe80::/10 is deliberately absent: ND and RAs on the uplink use link-local sources. #}
+{% for p in ['::/8', '100::/64', '2001:db8::/32', '3ffe::/16', 'fc00::/7', 'fec0::/10', 'ff00::/8', '2620:11a:b00f::/48'] %}
+set firewall group ipv6-network-group V6_BOGONS network '{{ p }}'
+{% endfor %}
+
+delete firewall ipv4 name WAN4_LOCAL
+set firewall ipv4 name WAN4_LOCAL default-action 'drop'
+set firewall ipv4 name WAN4_LOCAL rule 10 action 'accept'
+set firewall ipv4 name WAN4_LOCAL rule 10 state 'established'
+set firewall ipv4 name WAN4_LOCAL rule 10 state 'related'
+set firewall ipv4 name WAN4_LOCAL rule 20 action 'drop'
+set firewall ipv4 name WAN4_LOCAL rule 20 state 'invalid'
+set firewall ipv4 name WAN4_LOCAL rule 30 action 'drop'
+set firewall ipv4 name WAN4_LOCAL rule 30 source group network-group 'V4_BOGONS'
+set firewall ipv4 name WAN4_LOCAL rule 40 action 'accept'
+set firewall ipv4 name WAN4_LOCAL rule 40 description 'admin sources + mgmt-gw peers (WireGuard): unrestricted'
+set firewall ipv4 name WAN4_LOCAL rule 40 source group network-group 'ADMIN4'
+set firewall ipv4 name WAN4_LOCAL rule 50 action 'accept'
+set firewall ipv4 name WAN4_LOCAL rule 50 protocol 'icmp'
+set firewall ipv4 name WAN4_LOCAL rule 50 icmp type-name 'echo-request'
+set firewall ipv4 name WAN4_LOCAL rule 50 limit rate '10/second'
+set firewall ipv4 name WAN4_LOCAL rule 50 limit burst '20'
+
+delete firewall ipv4 name WAN4_FWD
+set firewall ipv4 name WAN4_FWD default-action 'drop'
+set firewall ipv4 name WAN4_FWD rule 10 action 'accept'
+set firewall ipv4 name WAN4_FWD rule 10 state 'established'
+set firewall ipv4 name WAN4_FWD rule 10 state 'related'
+set firewall ipv4 name WAN4_FWD rule 20 action 'drop'
+set firewall ipv4 name WAN4_FWD rule 20 state 'invalid'
+
+delete firewall ipv6 name WAN6_LOCAL
+set firewall ipv6 name WAN6_LOCAL default-action 'drop'
+set firewall ipv6 name WAN6_LOCAL rule 10 action 'accept'
+set firewall ipv6 name WAN6_LOCAL rule 10 state 'established'
+set firewall ipv6 name WAN6_LOCAL rule 10 state 'related'
+set firewall ipv6 name WAN6_LOCAL rule 20 action 'drop'
+set firewall ipv6 name WAN6_LOCAL rule 20 state 'invalid'
+set firewall ipv6 name WAN6_LOCAL rule 30 action 'accept'
+set firewall ipv6 name WAN6_LOCAL rule 30 description 'ND/RA: hop-limit 255 means on-link only'
+set firewall ipv6 name WAN6_LOCAL rule 30 protocol 'ipv6-icmp'
+set firewall ipv6 name WAN6_LOCAL rule 30 hop-limit eq '255'
+set firewall ipv6 name WAN6_LOCAL rule 40 action 'drop'
+set firewall ipv6 name WAN6_LOCAL rule 40 source group network-group 'V6_BOGONS'
+set firewall ipv6 name WAN6_LOCAL rule 50 action 'accept'
+set firewall ipv6 name WAN6_LOCAL rule 50 description 'admin sources: unrestricted'
+set firewall ipv6 name WAN6_LOCAL rule 50 source group network-group 'ADMIN6'
+set firewall ipv6 name WAN6_LOCAL rule 60 action 'accept'
+set firewall ipv6 name WAN6_LOCAL rule 60 protocol 'ipv6-icmp'
+set firewall ipv6 name WAN6_LOCAL rule 60 icmpv6 type-name 'echo-request'
+set firewall ipv6 name WAN6_LOCAL rule 60 limit rate '10/second'
+set firewall ipv6 name WAN6_LOCAL rule 60 limit burst '20'
+
+delete firewall ipv6 name WAN6_FWD
+set firewall ipv6 name WAN6_FWD default-action 'drop'
+set firewall ipv6 name WAN6_FWD rule 10 action 'accept'
+set firewall ipv6 name WAN6_FWD rule 10 state 'established'
+set firewall ipv6 name WAN6_FWD rule 10 state 'related'
+set firewall ipv6 name WAN6_FWD rule 20 action 'drop'
+set firewall ipv6 name WAN6_FWD rule 20 state 'invalid'
+
+{# Bindings: exactly one jump per base chain, for WAN only. #}
+delete firewall ipv4 input filter
+set firewall ipv4 input filter default-action 'accept'
+set firewall ipv4 input filter rule 5 action 'jump'
+set firewall ipv4 input filter rule 5 inbound-interface group 'WAN'
+set firewall ipv4 input filter rule 5 jump-target 'WAN4_LOCAL'
+delete firewall ipv4 forward filter
+set firewall ipv4 forward filter default-action 'accept'
+set firewall ipv4 forward filter rule 5 action 'jump'
+set firewall ipv4 forward filter rule 5 inbound-interface group 'WAN'
+set firewall ipv4 forward filter rule 5 jump-target 'WAN4_FWD'
+delete firewall ipv6 input filter
+set firewall ipv6 input filter default-action 'accept'
+set firewall ipv6 input filter rule 5 action 'jump'
+set firewall ipv6 input filter rule 5 inbound-interface group 'WAN'
+set firewall ipv6 input filter rule 5 jump-target 'WAN6_LOCAL'
+delete firewall ipv6 forward filter
+set firewall ipv6 forward filter default-action 'accept'
+set firewall ipv6 forward filter rule 5 action 'jump'
+set firewall ipv6 forward filter rule 5 inbound-interface group 'WAN'
+set firewall ipv6 forward filter rule 5 jump-target 'WAN6_FWD'
