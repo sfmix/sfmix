@@ -17,6 +17,14 @@ mgmt_gw_wan_interface:
   mgmt-gw.scl05: eth0
   mgmt-gw.sjc02: eth1
 
+# Sources allowed to query SNMP on the mgmt-gws (vyos/general.j2). Internal
+# only: the pollers are metrics (10.1.1.14) and LibreNMS (10.2.1.9). The legacy
+# 100.64.0.0/10 space is deliberately excluded -- nothing there polls.
+mgmt_gw_snmp_networks:
+  - 10.0.0.0/8
+  - 127.0.0.0/8
+  - 2620:11a:b00f::/48
+
 # ixp_admin_source_subnets entries that are internal-only. They are never a
 # legitimate source on the WAN (anything claiming them there is spoofed), so
 # firewall.j2 leaves them out of ADMIN4/ADMIN6 and the bogon rule drops them.
