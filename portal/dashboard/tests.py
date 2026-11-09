@@ -860,3 +860,129 @@ class NetworkMacTableAccessTests(SimpleTestCase):
     def test_other_network_forbidden_for_non_admin(self):
         resp = views.network_mac_table(self._request(20940, admin=False, asns=[64496]), 20940)
         self.assertEqual(resp.status_code, 403)
+
+
+class OpticLaneQueryTests(SimpleTestCase):
+    """Lane ownership: a port owns its exact sensor; an X/1 port also owns
+    X/2..X/9 unless those are interfaces themselves (breakout neighbours that
+    may belong to another participant)."""
+
+    from dashboard import prom_client as pc
+
+    def test_single_lane_exact_name(self):
+        q = self.pc.optic_lane_query("sw1.sfmix.org", "Ethernet22", "RX", 300)
+        self.assertIn('entPhysicalName=~"DOM RX Power Sensor for (Ethernet22)"', q)
+        self.assertIn('host="sw1.sfmix.org"', q)
+        self.assertIn("[300s]", q)
+
+    def test_slash_one_includes_siblings_gated_on_ifoperstatus(self):
+        q = self.pc.optic_lane_query("sw1.sfmix.org", "Ethernet50/1", "TX", 30)
+        self.assertIn("DOM TX Power Sensor for (Ethernet50/1|Ethernet50/[2-9])", q)
+        self.assertIn('unless on (lane) label_replace(ifOperStatus{host="sw1.sfmix.org",ifname!="Ethernet50/1"}', q)
+
+    def test_breakout_port_has_no_sibling_pattern(self):
+        q = self.pc.optic_lane_query("sw1.sfmix.org", "Ethernet18/3", "RX", 30)
+        self.assertIn("for (Ethernet18/3)", q)
+        self.assertNotIn("[2-9]", q)
+
+    def test_regex_metacharacters_escaped(self):
+        q = self.pc.optic_lane_query("sw1.sfmix.org", "Eth.1+", "RX", 30)
+        # RE2 escape (\.) then PromQL string escape (\\.)
+        self.assertIn(r"for (Eth\\.1\\+)", q)
+
+    def test_lanes_merge_sort_and_align(self):
+        xs = [100, 200, 300]
+        rx = [
+            {"metric": {"lane": "Ethernet50/2"}, "values": [[100, "-2.0"]]},
+            {"metric": {"lane": "Ethernet50/1"}, "values": [[200, "-1.5"]]},
+        ]
+        tx = [{"metric": {"lane": "Ethernet50/1"}, "values": [[300, "1.0"]]}]
+        lanes = self.pc.optic_lanes(rx, tx, xs, 100, 100)
+        self.assertEqual([l["name"] for l in lanes], ["Ethernet50/1", "Ethernet50/2"])
+        self.assertEqual([l["label"] for l in lanes], ["Lane 1", "Lane 2"])
+        self.assertEqual(lanes[0]["rx"], [None, -1.5, None])
+        self.assertEqual(lanes[0]["tx"], [None, None, 1.0])
+        self.assertEqual(lanes[1]["tx"], [None, None, None])
+
+    def test_single_lane_has_no_label(self):
+        rx = [{"metric": {"lane": "Ethernet22"}, "values": [[100, "-4"]]}]
+        lanes = self.pc.optic_lanes(rx, [], [100], 100, 100)
+        self.assertEqual(lanes[0]["label"], "")
+
+
+class ParticipantOpticPowerMetricsTests(SimpleTestCase):
+    MEMBERS = [("sw1.sfmix.org", "Ethernet1/1"), ("sw2.sfmix.org", "Ethernet7")]
+
+    def _request(self, member="1", asns=(64496,), admin=False):
+        req = _admin_request(
+            f"/participants/64496/metrics/?panel=optic_power&range=1h&port=0&member={member}",
+            admin=admin,
+        )
+        req.session["oidc_asns"] = list(asns)
+        return req
+
+    def _run(self, req):
+        prom = mock.MagicMock()
+
+        def fake_query_range(query, start, end, step):
+            d = "RX" if "DOM RX" in query else "TX"
+            return [{"metric": {"lane": "Ethernet7"}, "values": [[start, "-3.0" if d == "RX" else "-1.0"]]}]
+
+        prom.query_range.side_effect = fake_query_range
+        with mock.patch.object(views, "_metric_port_members", return_value=self.MEMBERS), \
+                mock.patch.object(views.prom_client, "PrometheusClient", return_value=prom):
+            resp = views.participant_metrics(req, 64496)
+        return resp, prom
+
+    def test_non_owner_forbidden(self):
+        resp, _ = self._run(self._request(asns=[64511]))
+        self.assertEqual(resp.status_code, 403)
+
+    def test_bad_member_rejected(self):
+        for member in ("2", "-1", "x", ""):
+            resp, prom = self._run(self._request(member=member))
+            self.assertEqual(resp.status_code, 400, member)
+            prom.query_range.assert_not_called()
+
+    def test_member_resolves_server_side_and_merges_lanes(self):
+        import json
+        resp, prom = self._run(self._request(member="1"))
+        self.assertEqual(resp.status_code, 200)
+        queries = [c.args[0] for c in prom.query_range.call_args_list]
+        self.assertTrue(all('host="sw2.sfmix.org"' in q and "(Ethernet7)" in q for q in queries))
+        body = json.loads(resp.content)
+        self.assertEqual(body["unit"], "dbm")
+        lane = body["series"][0]
+        self.assertEqual(lane["name"], "Ethernet7")
+        self.assertEqual(lane["rx"][0], -3.0)
+        self.assertEqual(lane["tx"][0], -1.0)
+
+
+class PhysicalPortOpticBandsTests(SimpleTestCase):
+    """The history charts render for every member, so band thresholds must be
+    present even when the port is down or the LG returned no DOM."""
+
+    DEV, IF = "sw1.sfmix.org", "Ethernet22"
+
+    def _phy(self, link_status, optic):
+        return _build_physical_port(
+            self.DEV, self.IF, {(self.DEV, self.IF): {"link_status": link_status}},
+            {(self.DEV, self.IF): optic} if optic is not None else {}, {},
+            can_see_admin=True,
+        )
+
+    def test_down_port_without_dom_gets_type_bands(self):
+        phy = self._phy("notconnect", {"media_type": "10GBASE-LR", "dom_supported": False})
+        self.assertEqual(phy["rx_bands"], "-14.4,-12.9,-1,0.5")
+        self.assertFalse(phy["bands_generic"])
+        self.assertEqual(phy["media_type"], "10GBASE-LR")
+        self.assertEqual(phy["lanes"], [])
+
+    def test_no_optic_data_falls_back_to_generic(self):
+        phy = self._phy("down", None)
+        self.assertEqual(phy["rx_bands"], "-14,-12,2,3.5")
+        self.assertTrue(phy["bands_generic"])
+
+    def test_not_admin_has_no_bands(self):
+        phy = _build_physical_port(self.DEV, self.IF, {}, {}, {}, can_see_admin=False)
+        self.assertNotIn("rx_bands", phy)

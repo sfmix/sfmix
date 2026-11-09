@@ -115,6 +115,44 @@ def ifcounters_query(members: list[tuple[str, str]], direction: str, step: int) 
     return f"sum({' or '.join(terms)}) * 8"
 
 
+_RE2_META = set("\\.+*?()|[]{}^$")
+
+
+def _re_escape(value: str) -> str:
+    """Escape RE2 metacharacters so ``value`` matches literally in ``=~``."""
+    return "".join("\\" + c if c in _RE2_META else c for c in str(value))
+
+
+def optic_lane_query(device: str, ifname: str, direction: str, step: int) -> str:
+    """Per-lane DOM power (dBm) for one physical port, ``direction`` "RX" or "TX".
+
+    Reads the raw SNMP ENTITY-SENSOR series rather than the
+    ``sfmix:optic_*_dbm:1h`` recordings: those are gated on link-up, and this
+    chart must keep showing a port while it is down. Readings are 0.1 µW; the
+    ``> 0`` drops EOS's -1e9 "no reading" sentinel.
+
+    Lane ownership mirrors the ``sfmix-optics`` recording rules: a port owns
+    the sensor with its exact name, and an ``X/1`` port also owns ``X/2..X/9``
+    *unless* those are interfaces in their own right (breakout ports, which
+    may belong to another participant). ``device``/``ifname`` come from the
+    validated member list, never from the browser.
+    """
+    d = "TX" if direction == "TX" else "RX"
+    host = _escape(device)
+    name_re = _re_escape(ifname)
+    if ifname.endswith("/1"):
+        name_re = f"{name_re}|{_re_escape(ifname[:-2])}/[2-9]"
+    prefix = f"DOM {d} Power Sensor for "
+    return (
+        "label_replace(10 * log10((max by (entPhysicalName) (avg_over_time("
+        f'entPhySensorValue{{host="{host}",entPhysicalName=~"{_escape(prefix + "(" + name_re + ")")}"}}'
+        f"[{step}s])) > 0) / 10000), "
+        f'"lane", "$1", "entPhysicalName", "{prefix}(.+)") '
+        f'unless on (lane) label_replace(ifOperStatus{{host="{host}",ifname!="{_escape(ifname)}"}}, '
+        '"lane", "$1", "ifname", "(.+)")'
+    )
+
+
 # ── Reshaping query_range results onto a shared time grid ───────────────────
 
 def build_grid(start: int, end: int, step: int) -> list[int]:
@@ -216,3 +254,30 @@ def labeled_series(
     for s in series:
         s.pop("_mean", None)
     return series
+
+
+def _lane_sort_key(name: str) -> tuple:
+    head, _, tail = name.rpartition("/")
+    return (head, int(tail)) if tail.isdigit() else (name, 0)
+
+
+def optic_lanes(
+    rx_result: list[dict], tx_result: list[dict], xs: list[int], start: int, step: int
+) -> list[dict]:
+    """Merge RX/TX :func:`optic_lane_query` results into one entry per lane.
+
+    Returns ``[{"name": "Ethernet50/1", "label": "Lane 1", "rx": [...], "tx": [...]}]``
+    in lane order. A single-lane port gets an empty ``label``.
+    """
+    lanes: dict[str, dict] = {}
+    for key, result in (("rx", rx_result), ("tx", tx_result)):
+        for s in result:
+            name = s.get("metric", {}).get("lane", "")
+            if not name:
+                continue
+            lane = lanes.setdefault(name, {"name": name, "rx": [None] * len(xs), "tx": [None] * len(xs)})
+            lane[key] = _to_grid(s.get("values", []), xs, start, step)
+    out = [lanes[n] for n in sorted(lanes, key=_lane_sort_key)]
+    for i, lane in enumerate(out):
+        lane["label"] = f"Lane {i + 1}" if len(out) > 1 else ""
+    return out

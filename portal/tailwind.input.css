@@ -367,26 +367,9 @@ body {
 .nd-ls-dot-unknown { color: light-dark(#6b7280, #a3adb7); }
 .nd-ls-dot-unknown i { background: #9ca3af; }
 
-/* Optic lanes */
-.nd-lanes { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-.nd-lane { display: grid; grid-template-columns: auto auto auto; grid-template-rows: auto auto auto; gap: .05rem .45rem; align-items: center; border: 1px solid light-dark(#eee, #2a3a41); border-radius: 5px; padding: .35rem .5rem; min-width: 120px; background: light-dark(#fff, #172a31); }
-.nd-lane-good { border-color: light-dark(#a7f3d0, #166534); }
-.nd-lane-warn { border-color: light-dark(#fcd34d, #a16207); background: light-dark(#fffdf5, #2a2410); }
-.nd-lane-bad { border-color: light-dark(#fca5a5, #b91c1c); background: light-dark(#fef5f5, #2a1515); }
-.nd-ln { grid-column: 1; grid-row: 1; font-size: .68rem; color: var(--color-text-light); }
-.nd-rx { grid-column: 2; grid-row: 1; font-family: var(--font-mono); font-size: .9rem; font-weight: 600; }
-.nd-rxu { grid-column: 3; grid-row: 1; font-size: .65rem; color: var(--color-text-light); }
+/* RX meter (optics problems page) */
 .nd-meter { grid-column: 1 / -1; grid-row: 2; height: 4px; background: linear-gradient(90deg, light-dark(#dc2626, #f87171) 0%, #f59e0b 20%, #22c55e 40%, #22c55e 60%, #f59e0b 80%, light-dark(#dc2626, #f87171) 100%); border-radius: 2px; position: relative; margin-top: .15rem; }
 .nd-needle { position: absolute; top: -2px; width: 3px; height: 8px; background: var(--color-text); border-radius: 1px; transform: translateX(-50%); }
-.nd-qual { grid-column: 1 / -1; grid-row: 3; font-size: .65rem; font-weight: 600; text-align: center; margin-top: .1rem; }
-.nd-lane-good .nd-qual { color: light-dark(#15803d, #4ade80); }
-.nd-lane-warn .nd-qual { color: light-dark(#b45309, #fbbf24); }
-.nd-lane-bad .nd-qual { color: light-dark(#dc2626, #f87171); }
-/* Port is down: no light expected, render the lane neutrally. */
-.nd-lane-dark { border-color: light-dark(#e5e7eb, #2f3f47); background: light-dark(#f9fafb, #1a262c); }
-.nd-lane-dark .nd-meter { background: light-dark(#e5e7eb, #2f3f47); }
-.nd-lane-dark .nd-needle { display: none; }
-.nd-lane-dark .nd-qual { color: #9ca3af; }
 
 /* LLDP pills (L2) */
 .nd-lldp-pill { display: flex; width: 100%; align-items: stretch; gap: 0; border: 1px solid light-dark(#ddd, #34454d); border-radius: 6px; font-size: .82rem; margin-bottom: .35rem; background: light-dark(#fff, #172a31); overflow: hidden; }
@@ -635,7 +618,6 @@ body {
 
   .nd-lband { flex-direction: column; }
   .nd-lband-tag { flex: none; flex-direction: row; gap: .5rem; padding: .3rem .65rem; align-items: center; border-bottom: 1px solid light-dark(#f3f4f6, #1d2c33); position: sticky; top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px)); z-index: 10; background: light-dark(#fff, #172a31); }
-  .nd-lanes { flex-direction: column; }
   .nd-lldp-pill { flex-direction: column; }
   .nd-llp-conn { flex-direction: row; padding: .1rem .5rem; }
   .nd-rs-table { display: none; }
