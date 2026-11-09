@@ -72,6 +72,39 @@
   font-size: .8rem; color: var(--color-text-light); background: var(--color-bg-alt);
 }
 
+/* ── Optical power (L1) — one small chart per lane ───────────────────────
+   RX over the media type's threshold bands (painted by traffic-charts.js),
+   TX dashed. Colour vocabulary matches the old lane tiles: green nominal,
+   amber marginal, red out of range, grey dark (port down). */
+.nd-optic-band { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
+.nd-optic-cap { font-size: .72rem; margin-top: .5rem; }
+sfmix-optic-lanes { display: block; min-width: 0; margin-top: .35rem; }
+.nd-optic-skel { height: 90px; }
+/* Multi-lane optics (4/8 lanes) pair up two per row so a 4-lane QSFP reads
+   as a 2×2 block; a single-lane optic gets the full width. */
+.nd-optic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; min-width: 0; }
+.nd-optic-grid.nd-optic-single { grid-template-columns: minmax(0, 1fr); }
+.nd-optic-cell {
+  border: 1px solid light-dark(#eee, #2a3a41); border-radius: 6px; padding: .4rem .5rem .3rem;
+  background: light-dark(#fff, #172a31); min-width: 0; overflow: hidden;
+}
+.nd-optic-cell sfmix-chart { display: block; width: 100%; min-width: 0; }
+.nd-optic-cell .uplot { max-width: 100%; }
+.nd-optic-cell .u-legend { font-size: .7rem; }
+.nd-optic-head { display: flex; align-items: baseline; gap: .4rem; margin-bottom: .2rem; }
+.nd-optic-ln { font-size: .68rem; color: var(--color-text-light); }
+.nd-optic-rx { font-family: var(--font-mono, ui-monospace); font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.nd-optic-u { font-size: .65rem; color: var(--color-text-light); }
+.nd-optic-chip { margin-left: auto; font-size: .65rem; font-weight: 600; }
+.nd-optic-good { border-color: light-dark(#a7f3d0, #166534); }
+.nd-optic-good .nd-optic-chip { color: light-dark(#15803d, #4ade80); }
+.nd-optic-warn { border-color: light-dark(#fcd34d, #a16207); }
+.nd-optic-warn .nd-optic-chip { color: light-dark(#b45309, #fbbf24); }
+.nd-optic-bad { border-color: light-dark(#fca5a5, #b91c1c); }
+.nd-optic-bad .nd-optic-chip { color: light-dark(#dc2626, #f87171); }
+.nd-optic-dark { border-color: light-dark(#e5e7eb, #2f3f47); background: light-dark(#f9fafb, #1a262c); }
+.nd-optic-dark .nd-optic-chip, .nd-optic-unknown .nd-optic-chip { color: #9ca3af; }
+
 /* Custom legend for the stacked peer chart. Items are clickable buttons that
    isolate/add their series; the crosshair updates each value + the time line. */
 .nd-tf-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .75rem; }
@@ -151,6 +184,7 @@
   /* Only layer-band bodies that actually wrap a chart get tightened; text
      bands (L1/L3/L4 details) keep their normal inset. */
   .nd-lband-body:has(.nd-tf-band) { padding-left: .3rem; padding-right: .3rem; }
+  .nd-optic-grid { grid-template-columns: 1fr; }
   /* Keep heads/captions off the very edge so labels still read as a card,
      while the canvas itself runs wider beneath them. */
   .nd-tf-section-head,

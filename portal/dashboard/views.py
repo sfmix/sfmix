@@ -755,6 +755,12 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
     # L1: Optics (admin only)
     if can_see_admin:
         optic = optics_by_key.get((device, iface_name), {})
+        # Range bands for the per-lane power history charts. Set whether or
+        # not live DOM came back: the history (Prometheus) outlives link-down,
+        # and an unknown media type falls back to the generic window.
+        band_media = (optic.get("media_type") or "").upper().strip()
+        phy["rx_bands"] = ",".join(f"{v:g}" for v in _optic_spec(band_media))
+        phy["bands_generic"] = band_media not in _OPTIC_RX_SPECS
         if optic.get("dom_supported"):
             lanes_raw = optic.get("lanes", [])
             media_type = optic.get("media_type", "")
@@ -784,7 +790,7 @@ def _build_physical_port(device, iface_name, iface_by_key, optics_by_key, lldp_b
         else:
             phy["lanes"] = []
             phy["temperature_c"] = None
-            phy["media_type"] = ""
+            phy["media_type"] = optic.get("media_type", "") or ""
             phy["serial"] = ""
             phy["tx_bias_ok"] = False
     else:
@@ -1688,6 +1694,7 @@ def participant_metrics(request, asn):
 
     token = request.session.get("oidc_id_token")
     prom = prom_client.PrometheusClient()
+    unit = "bps"
 
     try:
         if panel in ("peers_from", "peers_to"):
@@ -1712,6 +1719,24 @@ def participant_metrics(request, asn):
                 {"name": "in", "values": prom_client.align_single(in_r, xs, start, step)},
             ]
 
+        elif panel == "optic_power":
+            members = _metric_port_members(asn, token, request.GET.get("port", ""))
+            try:
+                member_idx = int(request.GET.get("member", ""))
+            except (TypeError, ValueError):
+                member_idx = -1
+            if members is None or not (0 <= member_idx < len(members)):
+                return JsonResponse({"error": "invalid port"}, status=400)
+            dev, ifn = members[member_idx]
+            rx_r = prom.query_range(
+                prom_client.optic_lane_query(dev, ifn, "RX", step), start, end, step
+            )
+            tx_r = prom.query_range(
+                prom_client.optic_lane_query(dev, ifn, "TX", step), start, end, step
+            )
+            unit = "dbm"
+            series = prom_client.optic_lanes(rx_r, tx_r, xs, start, step)
+
         else:
             return JsonResponse({"error": "unknown panel"}, status=400)
 
@@ -1722,7 +1747,7 @@ def participant_metrics(request, asn):
     return JsonResponse({
         "panel": panel,
         "range": range_key,
-        "unit": "bps",
+        "unit": unit,
         "start": start,
         "end": end,
         "step": step,

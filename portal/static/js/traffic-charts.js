@@ -7,6 +7,11 @@
  *   <sfmix-chart panel="if_counters" kind="mirror" asn="6939" port="0" range="24h">
  *   <sfmix-chart panel="peers_from"  kind="stacked" asn="6939" range="24h">
  *
+ * Optical power uses a wrapper that fetches once per physical port and fans
+ * the lanes out into one preloaded kind="optic" chart each:
+ *
+ *   <sfmix-optic-lanes asn="6939" port="0" member="0" bands="-14.4,-12.9,-1,0.5" link-up="1" range="24h">
+ *
  * The range picker calls setRange() on every chart, which re-queries and
  * redraws. Colours are pulled from the portal's CSS custom properties so the
  * charts look native.
@@ -145,10 +150,15 @@
     if (v == null || isNaN(v)) return "—";
     if (unit === "percent") return (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)) + "%";
     if (unit === "count") return Math.round(v).toLocaleString();
+    if (unit === "dbm") return v.toFixed(2) + " dBm";
     return fmtBps(v);
   }
   function fmtAxisFor(unit) {
-    return function (v) { return unit === "percent" ? v + "%" : fmtAxis(v); };
+    return function (v) {
+      if (unit === "percent") return v + "%";
+      if (unit === "dbm") return v + "";
+      return fmtAxis(v);
+    };
   }
 
   function lastNonNull(values) {
@@ -523,7 +533,93 @@
     return { u: u, render: makeLegendDriver(u).render };
   }
 
-  var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine };
+  // ── Optical power ──────────────────────────────────────────────────────
+  // bands = [badLo, warnLo, warnHi, badHi] dBm (per media type, from views.py
+  // _OPTIC_RX_SPECS). Classification mirrors views._optic_band.
+  function parseBands(attr) {
+    var b = String(attr || "").split(",").map(parseFloat);
+    return b.length === 4 && b.every(function (v) { return !isNaN(v); }) ? b : null;
+  }
+  function opticBand(rx, bands, up) {
+    if (!up) return "dark";
+    if (rx == null || !bands) return "unknown";
+    if (rx < bands[0] || rx > bands[3]) return "bad";
+    if (rx < bands[1] || rx > bands[2]) return "warn";
+    return "good";
+  }
+  var OPTIC_BAND_LABEL = {
+    good: "Nominal", warn: "Marginal", bad: "Out of range",
+    dark: "Port down \u00b7 no light", unknown: "No reading",
+  };
+
+  // Paint the RX threshold zones as horizontal fills behind the series.
+  function drawOpticBands(u, bands) {
+    if (!bands) return;
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    var a = dark ? 0.16 : 0.10;
+    var red = "rgba(220,38,38," + a + ")", amber = "rgba(245,158,11," + a + ")", green = "rgba(34,197,94," + a + ")";
+    var sc = u.scales.y, lo = sc.min, hi = sc.max;
+    var zones = [
+      [lo, bands[0], red], [bands[0], bands[1], amber], [bands[1], bands[2], green],
+      [bands[2], bands[3], amber], [bands[3], hi, red],
+    ];
+    var ctx = u.ctx, bb = u.bbox;
+    ctx.save();
+    zones.forEach(function (z) {
+      var y0 = Math.max(z[0], lo), y1 = Math.min(z[1], hi);
+      if (!(y1 > y0)) return;
+      var top = u.valToPos(y1, "y", true), bot = u.valToPos(y0, "y", true);
+      ctx.fillStyle = z[2];
+      ctx.fillRect(bb.left, top, bb.width, bot - top);
+    });
+    ctx.restore();
+  }
+
+  function drawOptic(host, data) {
+    var xs = data.timestamps;
+    var bands = data.bands;
+    var rx = (data.series[0] || {}).values || [];
+    var tx = (data.series[1] || {}).values || [];
+    var opts = {
+      width: host.clientWidth || 320,
+      height: host._height,
+      tzDate: tzDateFn(),
+      cursor: pickerCursor(host.syncKey ? { sync: { key: host.syncKey } } : null),
+      scales: {
+        x: { time: true },
+        y: {
+          range: function (u, dmin, dmax) {
+            var lo = dmin, hi = dmax;
+            if (bands) {
+              lo = lo == null ? bands[0] : Math.min(lo, bands[0]);
+              hi = hi == null ? bands[3] : Math.max(hi, bands[3]);
+            }
+            if (lo == null) { lo = -20; hi = 5; }
+            return [Math.max(-42, Math.floor(lo - 1)), Math.ceil(hi + 1)];
+          },
+        },
+      },
+      legend: { live: true },
+      axes: [
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER } },
+        { stroke: TEXT_LIGHT, grid: { stroke: BORDER, width: 1 }, ticks: { stroke: BORDER }, size: 40,
+          values: function (u, sp) { return sp.map(fmtAxisFor("dbm")); } },
+      ],
+      series: [
+        { value: function (u, v) { return fmtTime(v); } },
+        { label: "RX", stroke: TEAL, width: 2, value: function (u, v) { return fmtVal(v, "dbm"); } },
+        { label: "TX", stroke: TEXT_LIGHT, width: 1, dash: [4, 4], value: function (u, v) { return fmtVal(v, "dbm"); } },
+      ],
+      hooks: {
+        drawClear: [function (u) { drawOpticBands(u, bands); }],
+        setCursor: [function () { host._refresh(); }],
+      },
+    };
+    var u = new uPlot(opts, [xs, rx, tx], host);
+    return { u: u, render: makeLegendDriver(u).render };
+  }
+
+  var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine, optic: drawOptic };
 
   class SfmixChart extends HTMLElement {
     connectedCallback() {
@@ -535,18 +631,29 @@
       // defaults to the per-participant endpoint built from `asn`.
       this.endpoint = this.getAttribute("endpoint");
       this.range = this.getAttribute("range") || "24h";
+      this._height = parseInt(this.getAttribute("height"), 10) || 240;
+      // Preloaded charts are fed by a parent (sfmix-optic-lanes) via setData()
+      // and never query on their own.
+      this.preloaded = this.hasAttribute("preloaded");
       this._sel = new Set(); // isolated peer indices for the stacked legend
       this._heldIdx = null;  // pinned point-in-time index (null = none)
       this._ro = new ResizeObserver(this._onResize.bind(this));
       this._ro.observe(this);
-      this.load();
+      if (this._pending) { var d = this._pending; this._pending = null; this.setData(d); }
+      else if (!this.preloaded) this.load();
+    }
+    setData(data) {
+      if (this._height == null) { this._pending = data; return; } // not connected yet
+      this._data = data;
+      this._heldIdx = null;
+      this._render();
     }
     disconnectedCallback() {
       if (this._ro) this._ro.disconnect();
       if (this._u) this._u.destroy();
     }
     setRange(r) {
-      if (r === this.range) return;
+      if (this.preloaded || r === this.range) return;
       this.range = r;
       this.load();
     }
@@ -564,7 +671,7 @@
     }
     _onResize() {
       if (this._u && this.clientWidth) {
-        this._u.setSize({ width: this.clientWidth, height: 240 });
+        this._u.setSize({ width: this.clientWidth, height: this._height });
         this._refresh();
       }
     }
@@ -621,6 +728,91 @@
   }
   if (!customElements.get("sfmix-chart")) customElements.define("sfmix-chart", SfmixChart);
 
+  // One physical port's optical power: fetches every lane once, then renders a
+  // grid of per-lane charts (RX over the media type's threshold bands, TX
+  // dashed) with a shared crosshair. Drawn whatever the link state — the
+  // history is most useful precisely when the port is down.
+  var _opticSeq = 0;
+  class SfmixOpticLanes extends HTMLElement {
+    connectedCallback() {
+      this.range = this.getAttribute("range") || "24h";
+      this.bands = parseBands(this.getAttribute("bands"));
+      this.up = this.getAttribute("link-up") === "1";
+      this.syncKey = "optic-" + (++_opticSeq);
+      this.load();
+    }
+    setRange(r) {
+      if (r === this.range) return;
+      this.range = r;
+      this.load();
+    }
+    _skeleton(msg) {
+      this.innerHTML = "";
+      var d = document.createElement("div");
+      d.className = "nd-tf-skel nd-optic-skel";
+      d.textContent = msg;
+      this.appendChild(d);
+    }
+    load() {
+      this._skeleton("querying\u2026");
+      var url = "/participants/" + encodeURIComponent(this.getAttribute("asn")) + "/metrics/" +
+        "?panel=optic_power&range=" + encodeURIComponent(this.range) +
+        "&port=" + encodeURIComponent(this.getAttribute("port")) +
+        "&member=" + encodeURIComponent(this.getAttribute("member"));
+      var token = (this._tok = Symbol());
+      fetch(url, { headers: { Accept: "application/json" } })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (data) {
+          if (this._tok !== token) return;
+          var lanes = (data.series || []).filter(function (l) {
+            return (l.rx || []).some(function (v) { return v != null; }) ||
+                   (l.tx || []).some(function (v) { return v != null; });
+          });
+          if (!lanes.length) { this._skeleton("No optical power history for this port in this window."); return; }
+          this._renderLanes(data, lanes);
+        }.bind(this))
+        .catch(function () {
+          if (this._tok !== token) return;
+          this._skeleton("Unable to load optical power history.");
+        }.bind(this));
+    }
+    _renderLanes(data, lanes) {
+      this.innerHTML = "";
+      var grid = document.createElement("div");
+      grid.className = "nd-optic-grid" + (lanes.length === 1 ? " nd-optic-single" : "");
+      lanes.forEach(function (lane) {
+        var rxNow = lastNonNull(lane.rx || []);
+        var band = opticBand(rxNow, this.bands, this.up);
+        var cell = document.createElement("div");
+        cell.className = "nd-optic-cell nd-optic-" + band;
+        var head = document.createElement("div");
+        head.className = "nd-optic-head";
+        head.innerHTML =
+          (lane.label ? '<span class="nd-optic-ln">' + escapeHtml(lane.label) + "</span>" : "") +
+          '<span class="nd-optic-rx">' + (rxNow == null ? "\u2014" : rxNow.toFixed(1)) + "</span>" +
+          '<span class="nd-optic-u">dBm RX</span>' +
+          '<span class="nd-optic-chip">' + escapeHtml(OPTIC_BAND_LABEL[band]) + "</span>";
+        head.title = lane.name;
+        cell.appendChild(head);
+        var chart = document.createElement("sfmix-chart");
+        chart.setAttribute("kind", "optic");
+        chart.setAttribute("preloaded", "");
+        chart.setAttribute("height", lanes.length === 1 ? "190" : "170");
+        chart.syncKey = this.syncKey;
+        chart.setData({
+          timestamps: data.timestamps,
+          unit: "dbm",
+          bands: this.bands,
+          series: [{ name: "RX", values: lane.rx }, { name: "TX", values: lane.tx }],
+        });
+        cell.appendChild(chart);
+        grid.appendChild(cell);
+      }, this);
+      this.appendChild(grid);
+    }
+  }
+  if (!customElements.get("sfmix-optic-lanes")) customElements.define("sfmix-optic-lanes", SfmixOpticLanes);
+
   // Range picker: each picker is local to its own chart group (the enclosing
   // .nd-tf-band) — the peer-traffic section and every per-port interface band
   // have independent ranges.
@@ -632,7 +824,7 @@
     group.querySelectorAll(".nd-tf-range button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-range") === r);
     });
-    group.querySelectorAll("sfmix-chart").forEach(function (c) { c.setRange(r); });
+    group.querySelectorAll("sfmix-chart:not([preloaded]), sfmix-optic-lanes").forEach(function (c) { c.setRange(r); });
   });
 
   // ── Time-zone toggle ─────────────────────────────────────────────────────

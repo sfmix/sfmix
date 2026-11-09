@@ -273,6 +273,16 @@ its action buttons.
         <span class="nd-lt-scope">{% translate "Admin" %}</span>
       </div>
       <div class="nd-lband-body">
+        <div class="nd-tf-band nd-optic-band">
+        <div class="nd-tf-head">
+          <h4 class="nd-tf-section-title">{% translate "Optical power" %}</h4>
+          <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
+            <button data-range="1h">1h</button>
+            <button data-range="24h" class="on">24h</button>
+            <button data-range="7d">7d</button>
+            <button data-range="30d">30d</button>
+          </div>
+        </div>
         <div class="nd-pmembers">
           {% for phy in lp.physical %}
           <div id="{{ phy.anchor }}" class="nd-pmember{% if phy.link_status == 'unknown' %} nd-pmember-unknown{% elif phy.link_status != 'up' and phy.link_status != 'connected' %} nd-pmember-down{% endif %}">
@@ -297,23 +307,19 @@ its action buttons.
               {% if phy.serial %}<span><b>{% translate "Serial:" %}</b> {{ phy.serial }}</span>{% endif %}
             </div>
             {% endif %}
-            {% if phy.lanes %}
-            <div class="nd-lanes">
-              {% for lane in phy.lanes %}
-              <div class="nd-lane nd-lane-{{ lane.band }}">
-                <div class="nd-ln">{{ lane.label }}</div>
-                <div class="nd-rx">{{ lane.rx_formatted }}</div>
-                <div class="nd-rxu">dBm RX</div>
-                <div class="nd-meter">
-                  <div class="nd-needle" style="left: {{ lane.meter_pos }}%"></div>
-                </div>
-                <div class="nd-qual">{{ lane.band_label }}</div>
-              </div>
-              {% endfor %}
+            {% comment %}
+            Per-lane RX/TX power history from Prometheus (SNMP DOM), drawn for
+            every member whatever its link state: the history outlives a
+            link-down, and that is exactly when it matters.
+            {% endcomment %}
+            <div class="nd-optic-cap color-text-light">
+              {% if phy.bands_generic %}{% translate "RX vs generic thresholds" %}{% else %}{% blocktranslate with media=phy.media_type %}RX vs {{ media }} thresholds{% endblocktranslate %}{% endif %}
+              &middot; {% translate "TX dashed" %}
             </div>
-            {% endif %}
+            <sfmix-optic-lanes asn="{{ asn }}" port="{{ forloop.parentloop.counter0 }}" member="{{ forloop.counter0 }}" bands="{{ phy.rx_bands }}" link-up="{% if phy.link_status == 'up' or phy.link_status == 'connected' %}1{% else %}0{% endif %}" range="24h"></sfmix-optic-lanes>
           </div>
           {% endfor %}
+        </div>
         </div>
       </div>
     </div>
