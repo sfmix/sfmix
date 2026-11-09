@@ -65,16 +65,10 @@ set system domain-name 'sfmix.org'
 
 delete service snmp
 set service snmp community {{ sfmix_snmp_community }} authorization 'ro'
-{% for subnet in ixp_admin_source_subnets %}
-{% if '/' in subnet %}
-set service snmp community {{ sfmix_snmp_community }} network '{{ subnet }}'
-{% else %}
-{%   if ':' in subnet %}
-set service snmp community {{ sfmix_snmp_community }} network '{{ subnet }}/128'
-{%   else %}
-set service snmp community {{ sfmix_snmp_community }} network '{{ subnet }}/32'
-{%   endif %}
-{% endif %}
+{# SNMP answers internal sources only (mgmt_gw_snmp_networks); the pollers
+   are metrics (10.1.1.14) and LibreNMS (10.2.1.9). #}
+{% for net in mgmt_gw_snmp_networks %}
+set service snmp community {{ sfmix_snmp_community }} network '{{ net }}'
 {% endfor %}
 set service snmp contact '{{ ixp_primary_tech_contact_email }}'
 {% if sites | length > 0 %}
