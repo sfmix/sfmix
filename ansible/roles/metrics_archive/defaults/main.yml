@@ -24,9 +24,9 @@ metrics_archive_thanos_enabled: "{{ inventory_hostname == telemetry_archive_host
 
 # Downsampled retention in the bucket. Raw only as long as Prometheus keeps it
 # locally; 5m for a year; 1h forever (0d).
-# BACKFILL IN PROGRESS (2026-11-10): raw kept (0d) until 5m/1h blocks are
-# verified to cover the whole uploaded history; target is 30d.
-metrics_archive_thanos_retention_raw: 0d
+# Raw older than 30d is deleted only after the compactor has downsampled it
+# (downsampling runs before retention in each compactor pass).
+metrics_archive_thanos_retention_raw: 30d
 metrics_archive_thanos_retention_5m: 365d
 metrics_archive_thanos_retention_1h: 0d
 metrics_archive_thanos_compact_http_port: 10912
