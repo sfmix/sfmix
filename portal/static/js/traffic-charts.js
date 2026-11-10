@@ -303,9 +303,10 @@
   // held (or, absent a pin, the live cursor) values into the existing .u-value
   // cells and flags the legend as pinned so CSS can recolour it. Runs from the
   // setCursor hook, so it wins over uPlot's own live update on every move.
-  // `idleLatest`: when idle and unpinned, show each series' most recent
-  // non-null value (and the newest such time) instead of uPlot's "—".
-  function makeLegendDriver(u, idleLatest) {
+  // When idle and unpinned, each series shows its most recent non-null value
+  // (and the newest such time) instead of uPlot's "—" — the same "latest"
+  // readout the stacked chart's custom legend gives.
+  function makeLegendDriver(u) {
     var legendEl = u.root.querySelector(".u-legend");
     function renderLatest() {
       var cells = legendEl.querySelectorAll(".u-value");
@@ -323,10 +324,7 @@
       if (!legendEl) return;
       legendEl.classList.toggle("nd-tf-leg-pinned", heldIdx != null);
       var idx = heldIdx != null ? heldIdx : liveIdx;
-      if (idx == null) { // idle + unpinned
-        if (idleLatest) renderLatest(); // else leave uPlot's default values
-        return;
-      }
+      if (idx == null) { renderLatest(); return; } // idle + unpinned
       var cells = legendEl.querySelectorAll(".u-value");
       for (var i = 0; i < u.series.length; i++) {
         var cell = cells[i];
@@ -652,7 +650,7 @@
       },
     };
     var u = new uPlot(opts, [xs, rx, tx], host);
-    return { u: u, render: makeLegendDriver(u, true).render };
+    return { u: u, render: makeLegendDriver(u).render };
   }
 
   var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine, optic: drawOptic };
