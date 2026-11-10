@@ -1,15 +1,14 @@
 ---
-# Local TSDB on the SSD; history lives in the Thanos bucket on metrics01.scl04
-# (design doc 012). Target steady state: 30d / 60GB.
-#
-# BACKFILL IN PROGRESS (2026-11-10): no time retention and a 95GB ceiling so no
-# block ages out locally before the sidecar has uploaded the pre-Thanos
-# history. Flip to 30d / 60GB / upload_compacted=false only after every local
-# block is verified in the bucket (doc 012, "Rollout").
-prometheus_retention_time: ""
-prometheus_retention_size: 95GB
+# Local TSDB on the SSD keeps the last month; history lives in the Thanos
+# bucket on metrics01.scl04 (design doc 012). Size stays as a ceiling.
+# Backfill of the pre-Thanos history verified complete 2026-11-10 (all 20
+# blocks in the bucket, identical stats), so dropping local history is safe.
+# Changing these restarts Prometheus (short scrape gap) -- bundle with other
+# Prometheus restarts.
+prometheus_retention_time: 30d
+prometheus_retention_size: 60GB
 
 prometheus_thanos_image: thanosio/thanos:v0.42.5
-# Upload blocks Prometheus compacted before the sidecar existed. One-time:
-# false once the backfill is verified.
-thanos_sidecar_upload_compacted: true
+# Only for uploading blocks Prometheus compacted before the sidecar existed
+# (one-time backfill, done). With 2h min/max blocks nothing compacts locally.
+thanos_sidecar_upload_compacted: false
