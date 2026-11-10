@@ -120,6 +120,20 @@
     }
     return _labelFmt[zone];
   }
+  // Compact "14:05 PT" (or "Jun 22 14:05 PT" when older than a day) for the
+  // idle "Latest" legend label, which has to fit beside the values.
+  var _shortFmt = {};
+  function fmtShortTime(unixSec) {
+    var tz = currentTz(), zone = TZ_ZONES[tz];
+    var old = Date.now() / 1000 - unixSec > 86400;
+    var key = zone + (old ? ":d" : ":t");
+    if (!_shortFmt[key]) {
+      var o = { timeZone: zone, hour12: false, hour: "2-digit", minute: "2-digit" };
+      if (old) { o.month = "short"; o.day = "2-digit"; }
+      _shortFmt[key] = new Intl.DateTimeFormat("en-US", o);
+    }
+    return _shortFmt[key].format(new Date(unixSec * 1000)).replace(",", "") + " " + TZ_ABBR[tz];
+  }
   // Human point-in-time string for the legend, e.g. "Jun 22, 14:05:00 PT".
   function fmtTime(unixSec) {
     if (unixSec == null) return "";
@@ -289,13 +303,30 @@
   // held (or, absent a pin, the live cursor) values into the existing .u-value
   // cells and flags the legend as pinned so CSS can recolour it. Runs from the
   // setCursor hook, so it wins over uPlot's own live update on every move.
-  function makeLegendDriver(u) {
+  // `idleLatest`: when idle and unpinned, show each series' most recent
+  // non-null value (and the newest such time) instead of uPlot's "—".
+  function makeLegendDriver(u, idleLatest) {
     var legendEl = u.root.querySelector(".u-legend");
+    function renderLatest() {
+      var cells = legendEl.querySelectorAll(".u-value");
+      var newest = null;
+      for (var i = 1; i < u.series.length; i++) {
+        var vals = u.data[i], v = null, k;
+        for (k = vals.length - 1; k >= 0; k--) { if (vals[k] != null) { v = vals[k]; break; } }
+        if (v != null && (newest == null || k > newest)) newest = k;
+        var s = u.series[i];
+        if (cells[i]) cells[i].textContent = s.value ? s.value(u, v, i, k) : (v == null ? "—" : String(v));
+      }
+      if (cells[0]) cells[0].textContent = newest == null ? "—" : "Latest " + fmtShortTime(u.data[0][newest]);
+    }
     function render(liveIdx, heldIdx) {
       if (!legendEl) return;
       legendEl.classList.toggle("nd-tf-leg-pinned", heldIdx != null);
       var idx = heldIdx != null ? heldIdx : liveIdx;
-      if (idx == null) return; // idle + unpinned: leave uPlot's default values
+      if (idx == null) { // idle + unpinned
+        if (idleLatest) renderLatest(); // else leave uPlot's default values
+        return;
+      }
       var cells = legendEl.querySelectorAll(".u-value");
       for (var i = 0; i < u.series.length; i++) {
         var cell = cells[i];
@@ -621,7 +652,7 @@
       },
     };
     var u = new uPlot(opts, [xs, rx, tx], host);
-    return { u: u, render: makeLegendDriver(u).render };
+    return { u: u, render: makeLegendDriver(u, true).render };
   }
 
   var DRAW = { mirror: drawMirror, stacked: drawStacked, aggregate: drawAggregate, line: drawLine, optic: drawOptic };
