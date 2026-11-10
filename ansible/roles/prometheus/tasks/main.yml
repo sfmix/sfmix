@@ -46,16 +46,21 @@
 - name: "Prometheus: run prom/prometheus container"
   community.docker.docker_container:
     name: prometheus
-    image: prom/prometheus
+    image: "{{ prometheus_image }}"
     restart_policy: unless-stopped
     network_mode: host
     volumes:
       - /opt/prometheus:/opt/prometheus
     user: nobody
+    # Let shutdown finish (and write the chunk snapshot) instead of docker's
+    # 10s SIGKILL.
+    stop_timeout: 120
     # --web.enable-remote-write-receiver: Alloy agents remote_write their own
     # metrics here (roles/grafana_alloy); admin subnets only, like the Loki push.
     # 2h min/max block duration turns off local compaction so the Thanos
     # sidecar can ship every block (design doc 012).
+    # memory-snapshot-on-shutdown: restarts load a head snapshot in seconds
+    # instead of replaying the WAL (~25s), shrinking the scrape gap.
     command: >-
       {{ [
         '--config.file=/opt/prometheus/prometheus.yml',
@@ -63,8 +68,7 @@
         '--storage.tsdb.retention.size=' ~ prometheus_retention_size,
         '--storage.tsdb.min-block-duration=2h',
         '--storage.tsdb.max-block-duration=2h',
-        '--web.console.libraries=/usr/share/prometheus/console_libraries',
-        '--web.console.templates=/usr/share/prometheus/consoles',
+        '--enable-feature=memory-snapshot-on-shutdown',
         '--web.enable-admin-api',
         '--web.enable-remote-write-receiver',
       ] + (['--storage.tsdb.retention.time=' ~ prometheus_retention_time]
