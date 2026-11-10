@@ -37,4 +37,39 @@ groups:
             sfmix-backup-seal.timer on {{ $labels.host }} is not completing, so
             uploads sit in client-writable incoming/ and freshness metrics are
             frozen. `systemctl status sfmix-backup-seal` on {{ $labels.host }}.
+
+      - alert: BackupQuarantined
+        expr: sfmix_backup_quarantined_files > 0
+        for: 5m
+        labels: {severity: warning, component: backups}
+        annotations:
+          summary: "{{ $value }} upload(s) from {{ $labels.client }} failed verification"
+          description: >-
+            An upload from {{ $labels.client }} failed its zstd integrity check
+            and was moved to {{ $labels.client }}/quarantine/ on {{ $labels.host }}
+            instead of the archive. `journalctl -t sfmix-backup-seal -p err` there
+            says which. Inspect it, fix the cause on the client, then delete it from
+            quarantine/ to clear this. It ages out after the retention period otherwise.
+
+      - alert: BackupArchiveCorrupt
+        expr: sfmix_backup_verify_failed_files > 0
+        labels: {severity: critical, component: backups}
+        annotations:
+          summary: "{{ $value }} sealed backup(s) of {{ $labels.client }} are corrupt"
+          description: >-
+            The weekly sfmix-backup-verify run on {{ $labels.host }} found sealed
+            bundles of {{ $labels.client }} failing their zstd checksum, which means
+            corruption at rest. `journalctl -t sfmix-backup-verify -p err` lists
+            them. Check the VM's disks and pve01.scl04's tank pool.
+
+      - alert: BackupVerifyStale
+        expr: >
+          (time() - sfmix_backup_verify_last_run_timestamp_seconds) > 8 * 86400
+        for: 1h
+        labels: {severity: warning, component: backups}
+        annotations:
+          summary: "Backup verify on {{ $labels.host }} has not completed in 8 days"
+          description: >-
+            sfmix-backup-verify.timer (weekly) on {{ $labels.host }} is not
+            completing. `systemctl status sfmix-backup-verify`.
 {% endraw %}

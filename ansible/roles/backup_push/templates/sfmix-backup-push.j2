@@ -18,6 +18,12 @@ cd /    # dump commands may drop privileges (runuser) and can't enter $WORK
 {{ backup_push_dump_script | trim }}
 # ──
 {% endif %}
+{% if backup_push_verify_script | trim %}
+
+# ── verify script (backup_push_verify_script): a failure aborts the push ──
+{{ backup_push_verify_script | trim }}
+# ──
+{% endif %}
 
 BUNDLE=$WORK/$NAME-$STAMP.tar.zst
 # GNU tar exits 1 for "file changed as we read it" (live files); only >1 is fatal.

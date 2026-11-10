@@ -23,6 +23,7 @@
     - { path: "{{ _dir }}/.ssh", owner: root, mode: "u=rwx,go=rx" }
     - { path: "{{ _dir }}/incoming", owner: "{{ _user }}", mode: "u=rwx,go=" }
     - { path: "{{ _dir }}/archive", owner: root, mode: "u=rwx,go=" }
+    - { path: "{{ _dir }}/quarantine", owner: root, mode: "u=rwx,go=" }
   loop_control:
     label: "{{ item.path }}"
 

@@ -9,4 +9,6 @@ backup_target_retention_days: 30
 # pushing keeps its last good copies).
 backup_target_keep_min: 10
 backup_target_seal_interval: 10min
+# Weekly re-check of every sealed bundle's zstd checksum.
+backup_target_verify_on_calendar: "Sun *-*-* 04:00:00"
 backup_target_textfile_dir: /var/lib/node_exporter/textfile
