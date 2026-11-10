@@ -958,6 +958,50 @@ class ParticipantOpticPowerMetricsTests(SimpleTestCase):
         self.assertEqual(lane["tx"][0], -1.0)
 
 
+class ParticipantIfCountersMetricsTests(SimpleTestCase):
+    """Throughput must come from the participant's own port: a VLAN subif is
+    read from its own SNMP counters, never from the parent LAG's members."""
+
+    SUBIF = {"device": "sw1.sfmix.org", "interface": "Port-Channel111.1426",
+             "member_interfaces": [["sw1.sfmix.org", "Ethernet11/1"]]}
+    LAG = {"device": "sw1.sfmix.org", "interface": "Port-Channel101",
+           "member_interfaces": [["sw1.sfmix.org", "Ethernet1/1"], ["sw1.sfmix.org", "Ethernet2/1"]]}
+
+    def _run(self, port):
+        req = _admin_request("/participants/64496/metrics/?panel=if_counters&range=24h&port=0")
+        req.session["oidc_asns"] = [64496]
+        prom = mock.MagicMock()
+        prom.query_range.return_value = [{"metric": {}, "values": []}]
+        with mock.patch.object(views, "_metric_port", return_value=port), \
+                mock.patch.object(views.prom_client, "PrometheusClient", return_value=prom):
+            resp = views.participant_metrics(req, 64496)
+        return resp, [c.args[0] for c in prom.query_range.call_args_list]
+
+    def test_subif_uses_its_own_snmp_counters(self):
+        resp, queries = self._run(self.SUBIF)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(queries), 2)
+        self.assertIn('ifHCOutOctets{job="snmp-eos",host="sw1.sfmix.org",ifname="Port-Channel111.1426"}[300s]',
+                      queries[0])
+        self.assertIn("ifHCInOctets", queries[1])
+        self.assertTrue(all("Ethernet11/1" not in q and "sflow" not in q for q in queries))
+
+    def test_lag_sums_member_sflow_counters(self):
+        resp, queries = self._run(self.LAG)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(all('ifname="Ethernet1/1"' in q and 'ifname="Ethernet2/1"' in q for q in queries))
+        self.assertIn("sflow_ifoutoctets", queries[0])
+
+    def test_unknown_port_rejected(self):
+        resp, queries = self._run(None)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(queries, [])
+
+    def test_short_step_rate_window_spans_two_scrapes(self):
+        q = views.prom_client.subif_counters_query("sw1", "Po1.998", "in", 30)
+        self.assertIn("[120s]", q)
+
+
 class PhysicalPortOpticBandsTests(SimpleTestCase):
     """The history charts render for every member, so band thresholds must be
     present even when the port is down or the LG returned no DOM."""
