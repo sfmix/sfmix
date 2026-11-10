@@ -92,7 +92,10 @@ def _stat(title, expr, grid, unit="short", decimals=None, steps=None,
         d["noValue"] = no_value
     return {
         "type": "stat", "title": title, "description": description,
-        "gridPos": grid, "datasource": DS_PROM, "targets": [_t(expr, legend)],
+        # Instant: a stat shows only "now", and a range query over the
+        # dashboard window can miss a series younger than one step.
+        "gridPos": grid, "datasource": DS_PROM,
+        "targets": [dict(_t(expr, legend), instant=True, range=False)],
         "fieldConfig": {"defaults": d, "overrides": []},
         "options": {"reduceOptions": {"calcs": ["lastNotNull"]},
                     "graphMode": "none", "colorMode": "value",
@@ -230,7 +233,7 @@ def backups_dashboard():
         ("Verify failed", "max by (client) (sfmix_backup_verify_failed_files)", "short", ZERO_GOOD),
     ]
     push_host = _t("max by (client, push_host) (sfmix:backup_max_age_seconds)",
-                   refid="H", instant=True)
+                   refid="Z", instant=True)
     p.append(_merged_table(
         "Apps — now (click the push host for its backup-push journal)", cols, "client",
         {"h": 9, "w": 24, "x": 0, "y": y},
@@ -238,7 +241,7 @@ def backups_dashboard():
                     "(backup_push_max_age_hours). Verified / Verify failed come "
                     "from the last weekly verify run (blank until it has run "
                     "once for that app).",
-        extra_targets=[push_host], exclude=("Value #H",), first=("push_host",),
+        extra_targets=[push_host], exclude=("Value #Z",), first=("push_host",),
         key_links=None))
     # push_host links to the Host Logs dashboard filtered to the push unit.
     p[-1]["fieldConfig"]["overrides"].append(
