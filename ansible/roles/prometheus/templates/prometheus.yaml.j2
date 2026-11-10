@@ -320,10 +320,12 @@ scrape_configs:
       authorization:
         credentials: {{ garage_metrics_token }}
       static_configs:
+{% for h in groups['metrics_archive'] | sort %}
         - targets:
-            - {{ telemetry_archive_host }}:{{ garage_admin_port }}
+            - {{ hostvars[h].ansible_host | default(h) }}:{{ garage_admin_port }}
           labels:
-            host: {{ telemetry_archive_host }}
+            host: {{ h }}
+{% endfor %}
     # node_exporter on every server and hypervisor (roles/sfmix_server,
     # tasks/node_exporter.yml), scraped over the address Ansible manages the
     # host on, behind basic auth. `instance` is rewritten to the inventory

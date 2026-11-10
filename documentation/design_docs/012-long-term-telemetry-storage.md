@@ -1,6 +1,6 @@
 # 012 — Long-term metrics: Thanos with a downsampled bucket on spinning disk
 
-Status: in rollout (2026-11-09).
+Status: deployed 2026-11-10 (see Rollout for the two deferred retention flips).
 
 ## Why
 
@@ -176,6 +176,21 @@ out anywhere until it is verified in the bucket:
    compactor with the default raw retention (30d).
 5. Grafana "Prometheus" datasource → Thanos Query; Loki retention → 2y
    (`-t datasources,loki`).
+
+Done 2026-11-10: the Prometheus restart cost one 94 s scrape gap (06:07:03 →
+06:08:37 UTC, WAL replay 21 s). Backfill 06:08 → 07:22 UTC (~15 MB/s over
+the mgmt path); all 20 local blocks verified in the bucket with identical
+time ranges, sample and series counts (39.4 B samples, 2026-03-01 →
+2026-11-10). Thanos Query returns identical results to Prometheus over the
+overlapping range. The sidecar's upload-compacted flag is off again.
+
+Deferred, deliberately:
+- **Local 30d / 60GB** is the committed default but is only applied by the
+  next Prometheus restart (each restart is a ~90 s scrape gap, so bundle it
+  with the overdue 2.43 → current upgrade). Until then the running flags are
+  no time limit / 95GB; anything that ceiling trims is already in the bucket.
+- **Bucket raw 30d**: stays `0d` until 5m blocks cover everything older than
+  30 days, then `metrics_archive_thanos_retention_raw` goes back to 30d.
 
 ## Alerts
 
