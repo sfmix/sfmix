@@ -256,7 +256,7 @@ async fn main() -> Result<()> {
             match netbox::fetch_port_map(url, &token, domain_suffix.as_deref()).await {
                 Ok(result) => {
                     let pmap = ParticipantMap::build_from_netbox(&result.participants);
-                    let port_map = PortMap::build(&result.participants, &result.core_ports, &result.admin_ports);
+                    let port_map = PortMap::from_netbox(&result);
                     let pc = pmap.all().count();
                     let pmc = port_map.len();
                     let pp_count = result.participants.iter().map(|p| p.ports.len()).sum();
@@ -311,7 +311,7 @@ async fn main() -> Result<()> {
                         match netbox::fetch_port_map(&url, &token, suffix.as_deref()).await {
                             Ok(result) => {
                                 let pmap = ParticipantMap::build_from_netbox(&result.participants);
-                                let port_map = PortMap::build(&result.participants, &result.core_ports, &result.admin_ports);
+                                let port_map = PortMap::from_netbox(&result);
                                 let pc = pmap.all().count();
                                 let pmc = port_map.len();
                                 let pp_count = result.participants.iter().map(|p| p.ports.len()).sum();

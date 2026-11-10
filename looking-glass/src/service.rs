@@ -627,7 +627,7 @@ fn apply_asn_filter(
                 if e.name.starts_with("Port-Channel") && matches_asn(&e.name) {
                     matched_pcs.insert(e.name.clone());
                     // Also insert base name (strip .VLAN suffix)
-                    if let Some(base) = e.name.split('.').next() {
+                    if let Some(base) = pmap.lag_base(device, &e.name) {
                         matched_pcs.insert(base.to_string());
                     }
                 }
@@ -648,7 +648,7 @@ fn apply_asn_filter(
                 if let Some(ref pc) = e.port_channel {
                     if matches_asn(pc) {
                         matched_pcs.insert(pc.clone());
-                        if let Some(base) = pc.split('.').next() {
+                        if let Some(base) = pmap.lag_base(device, pc) {
                             matched_pcs.insert(base.to_string());
                         }
                     }
@@ -660,7 +660,7 @@ fn apply_asn_filter(
                     if let PortClass::Participant { asn: a } = *class {
                         if a == asn && key.1.starts_with("Port-Channel") {
                             matched_pcs.insert(key.1.clone());
-                            if let Some(base) = key.1.split('.').next() {
+                            if let Some(base) = pmap.lag_base(device, &key.1) {
                                 matched_pcs.insert(base.to_string());
                             }
                         }
@@ -682,7 +682,7 @@ fn apply_asn_filter(
                     if let PortClass::Participant { asn: a } = *class {
                         if a == asn && key.1.starts_with("Port-Channel") {
                             matched_pcs.insert(key.1.clone());
-                            if let Some(base) = key.1.split('.').next() {
+                            if let Some(base) = pmap.lag_base(device, &key.1) {
                                 matched_pcs.insert(base.to_string());
                             }
                         }
@@ -881,6 +881,57 @@ mod tests {
             dom_supported: false,
             port_channel: port_channel.map(|s| s.to_string()),
         }
+    }
+
+    /// CCSF-style port: a participant's dot1q subif on another network's LAG.
+    fn encapsulated_port_map() -> PortMap {
+        let sub = (DEVICE.to_string(), "Port-Channel111.1426".to_string());
+        let participants = vec![NetboxParticipant {
+            asn: 39961,
+            name: "CCSF".to_string(),
+            participant_type: Some("Member".to_string()),
+            ports: vec![sub.clone()],
+            enriched_ports: Vec::new(),
+            ip_addresses: Vec::new(),
+        }];
+        PortMap::build(&participants, &[], &[]).with_encapsulated(&[sub])
+    }
+
+    #[test]
+    fn asn_filter_encapsulated_subif_excludes_parent_lag() {
+        let pmap = encapsulated_port_map();
+        let output = CommandOutput::InterfacesStatus(vec![
+            interface_status("Ethernet11/1", "Transit: Monkeybrains", Some("Port-Channel111")),
+            interface_status("Port-Channel111", "Transit: Monkeybrains", None),
+            interface_status("Port-Channel111.1401", "Transit: Monkeybrains", None),
+            interface_status("Port-Channel111.1426", "Peer: CCSF (AS39961)", None),
+        ]);
+        let CommandOutput::InterfacesStatus(v) = apply_asn_filter(output, DEVICE, 39961, &pmap) else {
+            panic!("wrong variant")
+        };
+        let names: Vec<_> = v.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["Port-Channel111.1426"]);
+
+        let optics = CommandOutput::Optics(vec![optic_with_pc("Ethernet11/1", Some("Port-Channel111"))]);
+        let CommandOutput::Optics(v) = apply_asn_filter(optics, DEVICE, 39961, &pmap) else {
+            panic!("wrong variant")
+        };
+        assert!(v.is_empty(), "parent LAG member optics must not leak to the subif owner");
+    }
+
+    #[test]
+    fn asn_filter_dedicated_subif_keeps_parent_members() {
+        let pmap = test_port_map();
+        let output = CommandOutput::InterfacesStatus(vec![
+            interface_status("Ethernet14", "Peer: Two P", Some("Port-Channel114")),
+            interface_status("Port-Channel114.998", "Peer: Two P", None),
+        ]);
+        let CommandOutput::InterfacesStatus(v) =
+            apply_asn_filter(output, "switch01.fmt01.sfmix.org", 6140, &pmap)
+        else {
+            panic!("wrong variant")
+        };
+        assert_eq!(v.len(), 2);
     }
 
     #[test]

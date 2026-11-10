@@ -1,9 +1,9 @@
 use anyhow::Result;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use crate::netbox::NetboxParticipant;
+use crate::netbox::{NetboxFetchResult, NetboxParticipant};
 
 /// A participant's port on a specific device.
 #[derive(Debug, Clone, Deserialize)]
@@ -241,6 +241,9 @@ pub struct PortMap {
     /// "<vprn-or-instance>/<interface>" but the router reports just
     /// "<interface>"; this maps (device, "<interface>") to the same class.
     saps: HashMap<(String, String), PortClass>,
+    /// Encapsulated peering subifs (a participant's dot1q subif on another
+    /// network's port). Ownership of these never widens to the parent LAG.
+    encapsulated: HashSet<(String, String)>,
 }
 
 impl PortMap {
@@ -287,11 +290,33 @@ impl PortMap {
             }
         }
 
-        PortMap { ports, saps }
+        PortMap { ports, saps, encapsulated: HashSet::new() }
+    }
+
+    /// Build from a NetBox fetch, including its encapsulated-subif set.
+    pub fn from_netbox(result: &NetboxFetchResult) -> Self {
+        Self::build(&result.participants, &result.core_ports, &result.admin_ports)
+            .with_encapsulated(&result.encapsulated_ports)
+    }
+
+    /// Mark (device, interface) subifs as encapsulated (see [`Self::lag_base`]).
+    pub fn with_encapsulated(mut self, encapsulated: &[(String, String)]) -> Self {
+        self.encapsulated = encapsulated.iter().cloned().collect();
+        self
     }
 
     pub fn empty() -> Self {
-        PortMap { ports: HashMap::new(), saps: HashMap::new() }
+        PortMap { ports: HashMap::new(), saps: HashMap::new(), encapsulated: HashSet::new() }
+    }
+
+    /// The parent LAG whose members a port's owner may also see: the name
+    /// minus any `.VLAN` suffix (`Port-Channel114.998` -> `Port-Channel114`).
+    /// `None` for encapsulated subifs, whose parent belongs to another network.
+    pub fn lag_base<'a>(&self, device: &str, interface: &'a str) -> Option<&'a str> {
+        if self.encapsulated.contains(&(device.to_string(), interface.to_string())) {
+            return None;
+        }
+        interface.split('.').next()
     }
 
     /// Classify a (device, interface) pair. Returns `None` if not in the map.
