@@ -1,7 +1,7 @@
 ---
-# Cold telemetry tier (design doc 012): Garage S3 holding the Thanos bucket,
-# thanos store + compact, and the archive Loki. All host-networked containers,
-# reached only from metrics.sfo02 over the management network.
+# Long-term metrics tier (design doc 012): Garage S3 holding the Thanos bucket
+# plus thanos store + compact. Host-networked containers, reached only from
+# metrics.sfo02 over the management network.
 
 # ── Data disk ──────────────────────────────────────────────────────────
 - name: "Archive: filesystem on the data disk"
@@ -34,9 +34,7 @@
     - { path: "{{ metrics_archive_data_dir }}/garage/data", owner: 0 }
     - { path: "{{ metrics_archive_data_dir }}/thanos-store", owner: 65534 }
     - { path: "{{ metrics_archive_data_dir }}/thanos-compact", owner: 65534 }
-    - { path: "{{ metrics_archive_data_dir }}/loki", owner: 10001 }
     - { path: /opt/garage, owner: 0 }
-    - { path: /opt/loki-archive, owner: 10001 }
 
 # ── Garage (S3) ────────────────────────────────────────────────────────
 - name: "Garage: config"
@@ -184,26 +182,3 @@
       - --compact.concurrency=1
       - --downsample.concurrency=1
       - --delete-delay=48h
-
-# ── Loki archive ───────────────────────────────────────────────────────
-- name: "Loki archive: config"
-  become: true
-  ansible.builtin.template:
-    src: loki-archive-config.yaml.j2
-    dest: /opt/loki-archive/loki-config.yaml
-    owner: 10001
-    group: 10001
-    mode: u=rw,go=r
-  notify: Restart loki-archive
-
-- name: "Loki archive: container"
-  become: true
-  community.docker.docker_container:
-    name: loki-archive
-    image: "{{ metrics_archive_loki_image }}"
-    restart_policy: unless-stopped
-    network_mode: host
-    volumes:
-      - /opt/loki-archive/loki-config.yaml:/etc/loki/loki-config.yaml:ro
-      - "{{ metrics_archive_data_dir }}/loki:/loki"
-    command: "-config.file=/etc/loki/loki-config.yaml"

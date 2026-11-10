@@ -7,6 +7,3 @@
 
 - name: Restart thanos-compact
   ansible.builtin.command: docker restart thanos-compact
-
-- name: Restart loki-archive
-  ansible.builtin.command: docker restart loki-archive

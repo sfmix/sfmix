@@ -169,38 +169,6 @@ prometheus.remote_write "metrics" {
   }
 }
 
-{% if grafana_alloy_loki_gateway is defined %}
-// ── Loki gateway (metrics host only, design doc 012) ───────────────────
-// Senders push here (:{{ grafana_alloy_loki_gateway.listen_port }}, the old Loki port). Every line goes to each
-// destination through its own WAL, so a slow or down archive never holds up
-// the primary, and replays when it comes back.
-loki.source.api "gateway" {
-  http {
-    listen_address = "::"
-    listen_port    = {{ grafana_alloy_loki_gateway.listen_port }}
-  }
-  grpc {
-    listen_address = "127.0.0.1"
-    listen_port    = 0
-  }
-  // Keep the sender's timestamps; never restamp at receive time.
-  use_incoming_timestamp = true
-  forward_to = [{% for name in grafana_alloy_loki_gateway.destinations %}loki.write.gateway_{{ name }}.receiver{{ ", " if not loop.last }}{% endfor %}]
-}
-{% for name, url in grafana_alloy_loki_gateway.destinations.items() %}
-
-loki.write "gateway_{{ name }}" {
-  endpoint {
-    url = "{{ url }}"
-  }
-  wal {
-    enabled         = true
-    max_segment_age = "{{ grafana_alloy_loki_gateway.wal_max_segment_age }}"
-  }
-}
-{% endfor %}
-
-{% endif %}
 loki.write "default" {
   endpoint {
     url = "http://{{ loki_push_host }}:{{ loki_push_port }}/loki/api/v1/push"

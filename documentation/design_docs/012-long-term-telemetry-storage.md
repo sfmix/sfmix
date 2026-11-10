@@ -1,6 +1,6 @@
-# 012 — Long-term telemetry storage: Thanos + a Loki archive on spinning disk
+# 012 — Long-term metrics: Thanos with a downsampled bucket on spinning disk
 
-Status: proposed (2026-11-09).
+Status: in rollout (2026-11-09).
 
 ## Why
 
@@ -13,17 +13,20 @@ Samsung 870 QVO (QLC SSD) ZFS mirror. Measured 2026-11-09:
 | Loki | 2.7 GB chunks | ~8 MB/day stored (~270 MB/day ingested) | 90d (`job="docker"` 30d) |
 
 Prometheus history is shrinking as series grow (~5 months at today's rate),
-and there is no long-term metrics story at all. Loki is tiny but has no copy
-anywhere else.
+and there is no long-term metrics story at all.
 
 pve01.scl04 has a 29 TB raidz2 of spinning disk (`tank`, ~20 TB free), and
 on these hosts the HDD pool actually beats the QVO SSDs on fsync latency
 (p50 ~10 ms vs 90-150 ms, see the PVE QVO notes).
 
+Logs don't need a tier: at ~3 GB/year, Loki keeps **2 years** on
+metrics.sfo02's SSD as a single instance with one Grafana datasource. (An
+archive Loki on scl04 fed by an ingest tee was considered and dropped: two
+Lokis and two log datasources for data this small isn't worth it.)
+
 ## Shape
 
-Three views of the same system. Solid arrows carry data in (writes);
-dotted arrows are queries.
+Solid arrows carry data in (writes); dotted arrows are queries.
 
 **Hosts and network path.** Only metrics.sfo02 talks to the cold tier, over
 the management network.
@@ -75,8 +78,7 @@ flowchart LR
   PROM -- "alerts" --> AM --> SLACK(["Slack"])
 ```
 
-**Logs.** Senders are unchanged; the Alloy gateway that now owns :3100 writes
-every line to both Lokis, each through its own disk buffer.
+**Logs.** Unchanged path, single Loki, retention raised to 2 years.
 
 ```mermaid
 flowchart LR
@@ -84,39 +86,30 @@ flowchart LR
   APP["Network gear, mgmt-gws,<br/>OpenBSD hosts"]
   subgraph HOT["metrics.sfo02 (SSD)"]
     SNG["syslog-ng :514"] --> PTL["promtail"]
-    GW["Alloy loki gateway :3100<br/>WAL per destination, 72h"]
-    LOKI["Loki :3110<br/>180 days, log alerts"]
+    LOKI["Loki :3100<br/>2 years, log alerts"]
     GRAF["Grafana"]
   end
-  subgraph COLD["metrics01.scl04 (HDD)"]
-    LA["Loki archive :3100<br/>3 years"]
-  end
-  LNX -- "push" --> GW
+  LNX -- "push" --> LOKI
   APP -- "syslog" --> SNG
-  PTL --> GW
-  GW --> LOKI
-  GW -- "copy of every line" --> LA
-  GRAF -. "Loki" .-> LOKI
-  GRAF -. "Loki (archive)" .-> LA
+  PTL --> LOKI
+  GRAF -. "Loki datasource" .-> LOKI
   LOKI -- "log alerts" --> AM(["Alertmanager"])
 ```
 
 | Host | Where | Network | Storage | Runs |
 |---|---|---|---|---|
-| metrics.sfo02 | VM on paulave PVE (sfo02) | public 192.33.255.10 + oob 10.1.1.14 | 160 GB, QVO SSD mirror | syslog-ng, promtail, Alloy gateway, Loki, Prometheus, thanos sidecar + query, Alertmanager, Grafana, exporters, sflow-rt |
-| metrics01.scl04 | VM 110 on pve01.scl04 | SCL04-MGMT 10.6.1.34 only | 32 GB OS + 1 TB data, tank raidz2 HDD | Garage, thanos store + compact, Loki archive |
+| metrics.sfo02 | VM on paulave PVE (sfo02) | public 192.33.255.10 + oob 10.1.1.14 | 160 GB, QVO SSD mirror | Prometheus, thanos sidecar + query, Loki, syslog-ng, promtail, Alertmanager, Grafana, exporters, sflow-rt |
+| metrics01.scl04 | VM 110 on pve01.scl04 | SCL04-MGMT 10.6.1.34 only | 32 GB OS + 1 TB data, tank raidz2 HDD | Garage, thanos store + compact |
 
-### Prometheus → Thanos
+## Prometheus → Thanos
 
 - **Prometheus** keeps scraping and evaluating every alert, with local
-  retention cut to 30 days. Local compaction is turned off
+  retention cut to 30 days (60 GB ceiling). Local compaction is turned off
   (`min/max-block-duration=2h`) so the sidecar can ship each 2h block, and
-  `external_labels: {prometheus: metrics.sfo02}` labels the blocks.
+  `external_labels: {prometheus: metrics.sfo02.sfmix.org}` labels the blocks.
 - **thanos sidecar** (metrics.sfo02) uploads blocks to the bucket. Uploads
-  are pull-free and retried, so a WAN or scl04 outage only delays shipping
-  (blocks stay local for 30 days). The one-time backfill of the existing
-  compacted history runs with `--shipper.upload-compacted`
-  (`thanos_sidecar_upload_compacted: true` for one deploy).
+  retry, so a WAN or scl04 outage only delays shipping (blocks stay local for
+  30 days).
 - **Garage** (metrics01.scl04) is the S3 store: single node,
   `replication_factor = 1`, data on raidz2 (the redundancy is ZFS's). Chosen
   over MinIO because MinIO's community edition stopped shipping binaries and
@@ -132,7 +125,8 @@ flowchart LR
   reads 1h data rather than raw. The existing Grafana "Prometheus"
   datasource (same uid) now points at it, so every dashboard spans both tiers
   without edits. If scl04 is unreachable, queries return partial results
-  from the sidecar with a warning instead of failing.
+  from the sidecar with a warning instead of failing. The portal still
+  queries Prometheus :9090 directly (its charts are short-range).
 
 The compactor and store gateway sit next to the bucket because they move the
 most data; the querier sits next to Grafana. metrics.sfo02 has 2 vCPU / 7 GB
@@ -141,40 +135,19 @@ and only gains the two light components.
 Rejected: VictoriaMetrics (OSS has no downsampling — needed: long-term data
 is low-resolution by design); Mimir (far too big for one Prometheus).
 
-### Loki → archive copy
-
-Loki can't replicate to a second store, so the copy is made at ingest:
-
-- Loki's own HTTP API moves from :3100 to **:3110**.
-- The Alloy agent already on metrics.sfo02 takes over **:3100** with a
-  `loki.source.api` receiver (`use_incoming_timestamp = true`) feeding two
-  `loki.write` components: the local Loki and the archive Loki on
-  metrics01.scl04. Each has its own disk WAL, so an archive outage never
-  stalls the primary and replays when scl04 comes back.
-- Senders (every Alloy agent, promtail's syslog path) are unchanged: they
-  still push to metrics:3100.
-- **Retention:** primary raised 90d → **180d** (~1.5 GB); archive **3 years**
-  (~10 GB at today's rate). Logs aren't downsampled; the archive is a
-  full-fidelity copy.
-- Grafana gets a second datasource, "Loki (archive)", for anything older
-  than 180 days. Log alerts (the ruler) stay on the primary only.
-
-Rejected: rsyncing the primary's chunk directory (the compactor rewrites
-index files; a copy that skips deletions keeps both versions); dual-writing
-from every sender (20+ hosts each needing a path and firewall to scl04, vs
-one hop from metrics).
-
 ## metrics01.scl04
 
-- PVE VM 110 on pve01.scl04, Debian 13 cloud image, 4 vCPU / 8 GB.
+- PVE VM 110 on pve01.scl04 (NetBox VM 21), Debian 13 cloud image,
+  4 vCPU / 8 GB.
 - **Management network only**: SCL04-MGMT (`vmbr0`, VLAN 701)
   10.6.1.34/24, gw 10.6.1.1, IPv4 only (scl04's OOB has no working IPv6).
   It hosts no public frontend and no ingestion endpoint that public hosts
   need — only metrics.sfo02 talks to it, over oob (10.1.1.14 → 10.6.1.0/24
-  via mgmt-gw.sfo02, ~2 ms). Loki, S3 and Thanos gRPC are unauthenticated,
-  so they belong off public addresses anyway. UFW's admin allow (10/8)
-  covers metrics.sfo02.
-- Ansible reaches it via `ProxyJump shell.sfmix.org`.
+  via mgmt-gw.sfo02, ~2 ms). S3 and Thanos gRPC are unauthenticated, so they
+  belong off public addresses anyway. UFW's admin allow (10/8) covers
+  metrics.sfo02.
+- Ansible reaches it via `ProxyJump shell.sfmix.org`; role `metrics_archive`
+  (`push_servers -t metrics_archive`).
 - Disks: 32G OS + **1T thin data disk** (scsi1, ext4 `LABEL=telemetry` on
   `/srv/telemetry`), both on `tank-vms`. Grow with `qm resize 110 scsi1 +NG`
   then `resize2fs`.
@@ -182,25 +155,30 @@ one hop from metrics).
   public-only hosts, and is a backup target, not a query service.
 
 Expected steady state: raw 30d ~15 GB, 5m for a year ~50-100 GB, 1h ~10
-GB/yr, Loki ~3-4 GB/yr. The 1T disk is years of headroom.
+GB/yr. The 1T disk is years of headroom.
 
-## Rollout
+## Rollout (no data loss)
 
-1. Create VM 110, DNS, `push_servers --limit metrics01.scl04 -t sfmix_server`,
-   `deploy_log_agent --limit metrics01.scl04`,
-   `push_servers --limit metrics01.scl04 -t metrics_archive`.
-2. metrics.sfo02 Prometheus: external labels, 2h blocks, 30d, sidecar with
-   `-e thanos_sidecar_upload_compacted=true` (container restart → one TSDB
-   replay). Watch the backfill (~78 GB over the mgmt path), then redeploy
-   without the flag.
-3. thanos query + Grafana datasource switch.
-4. Loki :3110 + Alloy gateway on :3100, in that order (`-t loki`, then
-   `deploy_log_agent --limit metrics.sfo02`). Senders buffer in their WALs
-   for the seconds in between.
+The existing 78 GB of history is uploaded once, and nothing is allowed to age
+out anywhere until it is verified in the bucket:
+
+1. Compactor runs with `-e metrics_archive_thanos_retention_raw=0d` (keep all
+   raw) during the backfill.
+2. Prometheus deploy with `-e prometheus_retention_time=
+   -e prometheus_retention_size=95GB -e thanos_sidecar_upload_compacted=true`:
+   no time retention, a size ceiling above today's 80 GB so the oldest blocks
+   stop being deleted, and the sidecar uploads the already-compacted history.
+   This is the one container restart (TSDB/WAL replay, a short scrape gap).
+3. Verify: every local block ULID is in the bucket (`thanos.shipper.json` vs
+   `thanos tools bucket ls`), then redeploy Prometheus with the defaults
+   (30d / 60GB, no upload-compacted).
+4. Verify 5m and 1h blocks cover the whole history, then redeploy the
+   compactor with the default raw retention (30d).
+5. Grafana "Prometheus" datasource → Thanos Query; Loki retention → 2y
+   (`-t datasources,loki`).
 
 ## Alerts
 
-`thanos.rules.yml`: sidecar upload failures, compactor halted or not
-running, bucket not updated in 6h, store gateway down, and Garage down.
-The archive copy failing shows up in the existing `AlloyWriteFailing`
-(metrics.sfo02 drops) and the new `LokiArchiveDown`.
+`thanos.rules.yml`: any Thanos component or Garage down, sidecar upload
+failures, no block shipped in 6h, compactor halted, compactor not completing
+runs.
