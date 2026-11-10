@@ -109,7 +109,8 @@ all:
     ixp_portal:
       hosts:
         portal.sfmix.org:
-    # Fleet backup target (VM 109 on pve01.scl04); backup data on /dev/sdb.
+    # Fleet backup target (VM 109 on pve01.scl04); backup data disk is
+    # ext4 LABEL=backup on /srv/backup (thin zvol; grow with qm resize + resize2fs).
     backup:
       hosts:
         backup01.scl04.sfmix.org:
