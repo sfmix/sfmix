@@ -1,0 +1,12 @@
+---
+# Local TSDB on the SSD keeps the last month; history lives in the Thanos
+# bucket on metrics01.scl04 (design doc 012). Size stays as a ceiling.
+# Set prometheus_retention_time to "" for the one-time backfill so nothing
+# ages out locally before the sidecar has uploaded it.
+prometheus_retention_time: 30d
+prometheus_retention_size: 60GB
+
+prometheus_thanos_image: thanosio/thanos:v0.42.5
+# One deploy only: upload the blocks Prometheus compacted before the sidecar
+# existed (-e thanos_sidecar_upload_compacted=true), then deploy without it.
+thanos_sidecar_upload_compacted: false

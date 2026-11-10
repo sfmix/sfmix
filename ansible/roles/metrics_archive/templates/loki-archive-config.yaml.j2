@@ -1,0 +1,62 @@
+# Managed by Ansible (roles/metrics_archive). Archive copy of every log line,
+# written by the Alloy loki gateway on metrics.sfo02 (design doc 012). Same
+# schema as the primary; no ruler (log alerts run on the primary only).
+auth_enabled: false
+
+server:
+  http_listen_port: {{ loki_archive_port }}
+  grpc_listen_port: 9096
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+ingester:
+  chunk_encoding: zstd
+
+analytics:
+  reporting_enabled: false
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 1h
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+  delete_request_store: filesystem
+
+limits_config:
+  retention_period: {{ metrics_archive_loki_retention }}
+  # After an archive or WAN outage the gateway replays its WAL as fast as it
+  # can; give that backlog room instead of 429ing it.
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32
+  reject_old_samples: true
+  reject_old_samples_max_age: 7d
+  # Long-range queries are the point of this instance.
+  max_query_length: 0

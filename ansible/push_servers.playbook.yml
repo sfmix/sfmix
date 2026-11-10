@@ -72,6 +72,13 @@
     - prometheus
     - alertmanager
 
+- name: Metrics archive (cold telemetry tier, design doc 012)
+  hosts: metrics_archive
+  tags:
+    - metrics_archive
+  roles:
+    - metrics_archive
+
 - name: Metrics Server
   hosts: metrics
   tags:

@@ -1,7 +1,9 @@
 auth_enabled: false
 
 server:
-  http_listen_port: 3100
+  # :3100 belongs to the Alloy loki gateway on this host, which tees every
+  # pushed line to this Loki and the archive on metrics01.scl04 (doc 012).
+  http_listen_port: {{ loki_http_port }}
   grpc_listen_port: 9096
 
 common:
@@ -74,7 +76,7 @@ limits_config:
   # is time-based only (no size cap), so re-measure growth/day after syslog
   # fan-in and tune. Per-stream overrides (limits_config.retention_stream) can
   # keep noisy syslog shorter and curated streams longer if needed.
-  retention_period: 90d
+  retention_period: 180d
   # Per-stream overrides take priority over the global period above (highest
   # priority wins). Container stdout is the bulkiest, least curated source and
   # its local json-file ring buffer already covers the "what did it just

@@ -1,0 +1,209 @@
+---
+# Cold telemetry tier (design doc 012): Garage S3 holding the Thanos bucket,
+# thanos store + compact, and the archive Loki. All host-networked containers,
+# reached only from metrics.sfo02 over the management network.
+
+# ── Data disk ──────────────────────────────────────────────────────────
+- name: "Archive: filesystem on the data disk"
+  become: true
+  community.general.filesystem:
+    dev: "{{ metrics_archive_data_device }}"
+    fstype: ext4
+    opts: -L telemetry
+
+- name: "Archive: mount the data disk"
+  become: true
+  ansible.posix.mount:
+    path: "{{ metrics_archive_data_dir }}"
+    src: LABEL=telemetry
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+
+- name: "Archive: data directories"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: u=rwx,g=rx,o=
+  loop:
+    - { path: "{{ metrics_archive_data_dir }}/garage", owner: 0 }
+    - { path: "{{ metrics_archive_data_dir }}/garage/meta", owner: 0 }
+    - { path: "{{ metrics_archive_data_dir }}/garage/data", owner: 0 }
+    - { path: "{{ metrics_archive_data_dir }}/thanos-store", owner: 65534 }
+    - { path: "{{ metrics_archive_data_dir }}/thanos-compact", owner: 65534 }
+    - { path: "{{ metrics_archive_data_dir }}/loki", owner: 10001 }
+    - { path: /opt/garage, owner: 0 }
+    - { path: /opt/loki-archive, owner: 10001 }
+
+# ── Garage (S3) ────────────────────────────────────────────────────────
+- name: "Garage: config"
+  become: true
+  ansible.builtin.template:
+    src: garage.toml.j2
+    dest: /opt/garage/garage.toml
+    owner: root
+    group: root
+    mode: u=rw,go=
+  notify: Restart garage
+
+- name: "Garage: container"
+  become: true
+  community.docker.docker_container:
+    name: garage
+    image: "{{ metrics_archive_garage_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/garage/garage.toml:/etc/garage.toml:ro
+      - "{{ metrics_archive_data_dir }}/garage/meta:/var/lib/garage/meta"
+      - "{{ metrics_archive_data_dir }}/garage/data:/var/lib/garage/data"
+
+- name: "Garage: apply pending restarts before bootstrap"
+  ansible.builtin.meta: flush_handlers
+
+- name: "Garage: wait for RPC"
+  ansible.builtin.wait_for:
+    port: 3901
+    timeout: 60
+
+# One-time single-node bootstrap: layout, the Thanos key (imported so its
+# secret can live in the vault), and the bucket. Each step checks first.
+- name: "Garage: layout"
+  become: true
+  ansible.builtin.command: docker exec garage /garage layout show
+  register: garage_layout
+  changed_when: false
+
+- name: "Garage: assign this node a role"
+  become: true
+  when: "'No nodes currently have a role' in garage_layout.stdout or 'Current cluster layout version: 0' in garage_layout.stdout"
+  block:
+    - name: "Garage: node id"
+      ansible.builtin.command: docker exec garage /garage node id -q
+      register: garage_node_id
+      changed_when: false
+
+    - name: "Garage: assign zone/capacity"
+      ansible.builtin.command: >-
+        docker exec garage /garage layout assign
+        -z {{ metrics_archive_garage_zone }}
+        -c {{ metrics_archive_garage_capacity }}
+        {{ garage_node_id.stdout.split('@')[0] }}
+
+    - name: "Garage: apply layout v1"
+      ansible.builtin.command: docker exec garage /garage layout apply --version 1
+
+- name: "Garage: is the Thanos key present"
+  become: true
+  ansible.builtin.command: docker exec garage /garage key info {{ thanos_s3_access_key }}
+  register: garage_key
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: "Garage: import the Thanos key"
+  become: true
+  ansible.builtin.command: >-
+    docker exec garage /garage key import --yes -n thanos
+    {{ thanos_s3_access_key }} {{ thanos_s3_secret_key }}
+  when: garage_key.rc != 0
+  no_log: true
+
+- name: "Garage: is the bucket present"
+  become: true
+  ansible.builtin.command: docker exec garage /garage bucket info {{ thanos_s3_bucket }}
+  register: garage_bucket
+  changed_when: false
+  failed_when: false
+
+- name: "Garage: create the bucket"
+  become: true
+  ansible.builtin.command: docker exec garage /garage bucket create {{ thanos_s3_bucket }}
+  when: garage_bucket.rc != 0
+
+- name: "Garage: grant the Thanos key on the bucket"
+  become: true
+  ansible.builtin.command: >-
+    docker exec garage /garage bucket allow --read --write --owner
+    {{ thanos_s3_bucket }} --key {{ thanos_s3_access_key }}
+  when: garage_bucket.rc != 0 or garage_key.rc != 0
+  no_log: true
+
+# ── Thanos store + compact ─────────────────────────────────────────────
+- name: "Thanos: bucket config"
+  ansible.builtin.include_role:
+    name: thanos_objstore
+
+- name: "Thanos: store gateway"
+  become: true
+  community.docker.docker_container:
+    name: thanos-store
+    image: "{{ metrics_archive_thanos_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    user: "65534:65534"
+    restart: "{{ thanos_objstore_config.changed }}"
+    volumes:
+      - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
+      - "{{ metrics_archive_data_dir }}/thanos-store:/data"
+    command:
+      - store
+      - --data-dir=/data
+      - --objstore.config-file=/etc/thanos/objstore.yml
+      - --grpc-address=0.0.0.0:{{ thanos_store_grpc_port }}
+      - --http-address=0.0.0.0:{{ metrics_archive_thanos_store_http_port }}
+
+# Compacts the sidecar's 2h blocks, downsamples to 5m (blocks > 40h) and 1h
+# (blocks > 10d), and applies per-resolution retention. Must be the only
+# compactor on the bucket.
+- name: "Thanos: compactor"
+  become: true
+  community.docker.docker_container:
+    name: thanos-compact
+    image: "{{ metrics_archive_thanos_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    user: "65534:65534"
+    restart: "{{ thanos_objstore_config.changed }}"
+    volumes:
+      - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
+      - "{{ metrics_archive_data_dir }}/thanos-compact:/data"
+    command:
+      - compact
+      - --wait
+      - --wait-interval=5m
+      - --data-dir=/data
+      - --objstore.config-file=/etc/thanos/objstore.yml
+      - --http-address=0.0.0.0:{{ metrics_archive_thanos_compact_http_port }}
+      - --retention.resolution-raw={{ metrics_archive_thanos_retention_raw }}
+      - --retention.resolution-5m={{ metrics_archive_thanos_retention_5m }}
+      - --retention.resolution-1h={{ metrics_archive_thanos_retention_1h }}
+      - --compact.concurrency=1
+      - --downsample.concurrency=1
+      - --delete-delay=48h
+
+# ── Loki archive ───────────────────────────────────────────────────────
+- name: "Loki archive: config"
+  become: true
+  ansible.builtin.template:
+    src: loki-archive-config.yaml.j2
+    dest: /opt/loki-archive/loki-config.yaml
+    owner: 10001
+    group: 10001
+    mode: u=rw,go=r
+  notify: Restart loki-archive
+
+- name: "Loki archive: container"
+  become: true
+  community.docker.docker_container:
+    name: loki-archive
+    image: "{{ metrics_archive_loki_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/loki-archive/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - "{{ metrics_archive_data_dir }}/loki:/loki"
+    command: "-config.file=/etc/loki/loki-config.yaml"

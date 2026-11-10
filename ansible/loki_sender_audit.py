@@ -11,12 +11,12 @@ defined in the Ansible inventory, and reports three groups:
 
 Loki is reached at its oob address by default. From a host without a route to
 the oob network, run an ssh tunnel first, e.g.:
-  ssh -N -L 3100:localhost:3100 metrics.sfo02.sfmix.org
-and pass --loki-url http://localhost:3100
+  ssh -N -L 3110:localhost:3110 metrics.sfo02.sfmix.org
+and pass --loki-url http://localhost:3110
 
 Usage:
   ./loki_sender_audit.py
-  ./loki_sender_audit.py --loki-url http://localhost:3100 --lookback-hours 6
+  ./loki_sender_audit.py --loki-url http://localhost:3110 --lookback-hours 6
 """
 import argparse
 import json
@@ -50,7 +50,7 @@ def inventory_hosts(inventory):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--loki-url", default="http://metrics.oob.sfo02.sfmix.org:3100")
+    ap.add_argument("--loki-url", default="http://metrics.oob.sfo02.sfmix.org:3110")
     ap.add_argument("--inventory", default="inventory/servers.yml")
     ap.add_argument("--lookback-hours", type=float, default=24.0)
     args = ap.parse_args()

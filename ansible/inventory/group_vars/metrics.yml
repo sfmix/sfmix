@@ -54,3 +54,24 @@ sfmix_node_exporter_basic_auth_password: !vault |
           3739343737383163620a376366376434633436636639383965663835313233303238356231356231
           63323939393430363764336666646564383035323432623037666661373735616332613262653862
           3832303636366465656636373735363331396164646531313835
+
+# ── Long-term telemetry (design doc 012) ──────────────────────────────
+# Loki's own API moved off :3100, which is now the Alloy loki gateway that
+# senders push to; the gateway tees every line to this Loki and to the
+# archive Loki on metrics01.scl04.
+loki_http_port: 3110
+grafana_alloy_loki_gateway:
+  listen_port: 3100
+  # How long each destination's WAL may hold undelivered lines (an archive or
+  # WAN outage longer than this loses archive lines, never primary ones).
+  wal_max_segment_age: 72h
+  destinations:
+    primary: "http://127.0.0.1:{{ loki_http_port }}/loki/api/v1/push"
+    archive: "http://{{ telemetry_archive_host }}:{{ loki_archive_port }}/loki/api/v1/push"
+
+# Thanos sidecar (ships Prometheus blocks to the bucket) and query (what
+# Grafana's "Prometheus" datasource now points at). Loopback only.
+thanos_sidecar_grpc_port: 10901
+thanos_sidecar_http_port: 10902
+thanos_query_grpc_port: 10903
+thanos_query_http_port: 10904
