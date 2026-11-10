@@ -227,8 +227,14 @@ Deferred, deliberately:
   next Prometheus restart (each restart is a ~90 s scrape gap, so bundle it
   with the overdue 2.43 → current upgrade). Until then the running flags are
   no time limit / 95GB; anything that ceiling trims is already in the bucket.
-- **Bucket raw 30d**: stays `0d` until 5m blocks cover everything older than
-  30 days, then `metrics_archive_thanos_retention_raw` goes back to 30d.
+- ~~Bucket raw 30d~~ done 2026-11-10: 5m coverage passed the 30-day line
+  (08:22Z) and the second copy was verified, then raw retention went to 30d.
+
+Second copy, 2026-11-10: sfo02 pulled every block 08:48 → 10:35Z (~66 GB on
+disk after Garage compression, 0 errored blocks). Verified: both nodes hold
+98,436 block files totalling 70,175,989,361 bytes against 98,435 block
+references, and a full `garage repair --all-nodes blocks` afterwards found
+nothing missing on either node.
 
 ## Alerts
 
