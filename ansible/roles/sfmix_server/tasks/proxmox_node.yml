@@ -1,27 +1,29 @@
 ---
+# One apt transaction with one cache refresh: looping per package re-ran
+# `apt update` 16 times, which on a slow mgmt-gw egress timed out.
 - name: Install common packages for Proxmox Hypervisors
   become: true
   ansible.builtin.apt:
-    name: "{{ item }}"
+    name:
+      - build-essential
+      - cpanminus
+      - ethtool
+      - freeipmi-tools
+      - ifupdown2
+      - ipmitool
+      - libpve-apiclient-perl
+      - lldpd
+      - locate
+      - net-tools
+      - smartmontools
+      - sudo
+      - sysstat
+      - traceroute
+      - vim
+      - zlib1g-dev
     update_cache: true
+    cache_valid_time: 3600
     state: present
-  loop:
-    - build-essential
-    - cpanminus
-    - ethtool
-    - freeipmi-tools
-    - ifupdown2
-    - ipmitool
-    - libpve-apiclient-perl
-    - lldpd
-    - locate
-    - net-tools
-    - smartmontools
-    - sudo
-    - sysstat
-    - traceroute
-    - vim
-    - zlib1g-dev
 
 - name: Install NTP daemon
   become: true

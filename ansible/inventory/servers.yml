@@ -92,6 +92,7 @@ all:
         pve02-warmspringsblvd48233-fmt.sfmix.org:
         pve01.scl04.sfmix.org:
           ansible_user: root
+        pve01.sfo02.sfmix.org:
     obscreen:
       hosts:
         obscreen.sfmix.org:
