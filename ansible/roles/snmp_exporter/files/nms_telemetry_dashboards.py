@@ -120,28 +120,28 @@ def longterm_metrics_dashboard():
     p.append(_row("Health", 6))
     y = 7
     p += [
-        _stat("Prometheus ↔ sidecar", "min(thanos_sidecar_prometheus_up)", _g(0, y, 3, 4),
+        _stat("Sidecar", "min(thanos_sidecar_prometheus_up)", _g(0, y, 3, 4),
               mappings=_ok_map(1, "OK", "DOWN"),
               description="The sidecar can reach Prometheus (needed to ship blocks)."),
-        _stat("Last block shipped", 'time() - max(thanos_objstore_bucket_last_successful_upload_time{thanos_component="sidecar"})',
+        _stat("Last upload", 'time() - (max(thanos_objstore_bucket_last_successful_upload_time{thanos_component="sidecar"}) > 0)',
               _g(3, y, 3, 4), unit="s",
               steps=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 3 * 3600},
                      {"color": RED, "value": 6 * 3600}],
               description="A 2h block is cut every 2h, so this should stay under ~2.5h."),
-        _stat("Upload failures (24h)", "sum(increase(thanos_shipper_upload_failures_total[24h]))",
+        _stat("Upload fails 24h", "sum(increase(thanos_shipper_upload_failures_total[24h]))",
               _g(6, y, 3, 4), steps=[{"color": GREEN, "value": None}, {"color": RED, "value": 1}]),
         _stat("Compactor", "max(thanos_compact_halted)", _g(9, y, 3, 4),
               mappings=_ok_map(0, "running", "HALTED"),
               description="Halts on a bad block; nothing compacts, downsamples or ages out until fixed."),
-        _stat("Downsample backlog", "sum(thanos_compact_todo_downsample_blocks)", _g(12, y, 3, 4),
+        _stat("To downsample", "sum(thanos_compact_todo_downsample_blocks)", _g(12, y, 3, 4),
               description="Blocks waiting to be downsampled (0 = caught up)."),
-        _stat("Garage storage nodes OK", "min(cluster_storage_nodes_ok)", _g(15, y, 3, 4),
+        _stat("Garage nodes", "min(cluster_storage_nodes_ok)", _g(15, y, 3, 4),
               steps=[{"color": RED, "value": None}, {"color": AMBER, "value": 1},
                      {"color": GREEN, "value": 2}],
               description="Both copies need both nodes. One down = bucket read-only (uploads wait)."),
-        _stat("Garage resync backlog", "sum(block_resync_queue_length)", _g(18, y, 3, 4),
+        _stat("Resync queue", "sum(block_resync_queue_length)", _g(18, y, 3, 4),
               description="Blocks a node still has to fetch or check to hold its copy."),
-        _stat("Resync errored blocks", "sum(block_resync_errored_blocks)", _g(21, y, 3, 4),
+        _stat("Resync errors", "sum(block_resync_errored_blocks)", _g(21, y, 3, 4),
               steps=[{"color": GREEN, "value": None}, {"color": RED, "value": 1}]),
     ]
     y += 4
@@ -154,15 +154,15 @@ def longterm_metrics_dashboard():
               unit="bytes", decimals=1, description="All resolutions; Garage stores this twice."),
         _stat("Bucket span", "time() - min(thanos_bucket_min_time_seconds)", _g(9, y, 3, 4),
               unit="s", description="Oldest data at any resolution."),
-        _stat("Store gateway blocks", "sum(thanos_bucket_store_blocks_loaded)", _g(12, y, 3, 4)),
-        _stat("Query → stores", "sum(thanos_store_nodes_grpc_connections)", _g(15, y, 3, 4),
+        _stat("Store blocks", "sum(thanos_bucket_store_blocks_loaded)", _g(12, y, 3, 4)),
+        _stat("Query stores", "sum(thanos_store_nodes_grpc_connections)", _g(15, y, 3, 4),
               steps=[{"color": RED, "value": None}, {"color": AMBER, "value": 1},
                      {"color": GREEN, "value": 2}],
               description="thanos query should see 2 StoreAPIs: the sidecar and the store gateway."),
-        _stat("Partitions fully replicated", "min(cluster_partitions_all_ok) / max(cluster_partitions)",
+        _stat("Replicated", "min(cluster_partitions_all_ok) / max(cluster_partitions)",
               _g(18, y, 3, 4), unit="percentunit", decimals=1,
               steps=[{"color": RED, "value": None}, {"color": GREEN, "value": 1}]),
-        _stat("Coverage exporter", "min(thanos_bucket_coverage_success)", _g(21, y, 3, 4),
+        _stat("Coverage", "min(thanos_bucket_coverage_success)", _g(21, y, 3, 4),
               mappings=_ok_map(1, "OK", "FAILING"),
               description="thanos-bucket-coverage.timer on metrics01.scl04 (every 15 min)."),
     ]
@@ -180,11 +180,11 @@ def longterm_metrics_dashboard():
 
     table = {
         "type": "table", "title": "Tiers: what is kept where",
-        "gridPos": _g(0, y, 14, 7), "datasource": DS_PROM,
+        "gridPos": _g(0, y, 14, 9), "datasource": DS_PROM,
         "description": "Bucket figures from the coverage exporter (15 min); local from Prometheus itself.",
         "targets": [
-            tier_q("thanos_bucket_min_time_seconds", "min(prometheus_tsdb_lowest_timestamp_seconds)", "A"),
-            tier_q("thanos_bucket_max_time_seconds", "max(prometheus_tsdb_head_max_time_seconds)", "B"),
+            tier_q("thanos_bucket_min_time_seconds * 1000", "min(prometheus_tsdb_lowest_timestamp_seconds) * 1000", "A"),
+            tier_q("thanos_bucket_max_time_seconds * 1000", "max(prometheus_tsdb_head_max_time_seconds) * 1000", "B"),
             tier_q("thanos_bucket_size_bytes", "max(prometheus_tsdb_storage_blocks_bytes)", "C"),
             tier_q("thanos_bucket_blocks", "max(prometheus_tsdb_blocks_loaded)", "D"),
         ],
@@ -219,8 +219,8 @@ def longterm_metrics_dashboard():
 
 Bucket = Garage, two copies (scl04 HDD + sfo02 SSD).
 Raw older than 30 days is deleted only after its 5m/1h blocks exist.
-""", _g(14, y, 10, 7)))
-    y += 7
+""", _g(14, y, 10, 9)))
+    y += 9
     p += [
         _ts("Bucket size by resolution", [
             _t('sum by (resolution) (thanos_bucket_size_bytes)', "bucket {{resolution}}"),
@@ -247,7 +247,7 @@ Raw older than 30 days is deleted only after its 5m/1h blocks exist.
                "{{thanos_component}}")], _g(8, y, 8, 8), unit="Bps",
             description="Sidecar shipping plus the compactor writing compacted/downsampled blocks."),
         _ts("Time since last shipped block", [
-            _t('time() - max(thanos_objstore_bucket_last_successful_upload_time{thanos_component="sidecar"})',
+            _t('time() - (max(thanos_objstore_bucket_last_successful_upload_time{thanos_component="sidecar"}) > 0)',
                "since last upload")], _g(16, y, 8, 8), unit="s"),
     ]
 
@@ -286,11 +286,12 @@ Raw older than 30 days is deleted only after its 5m/1h blocks exist.
             _t('histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{thanos_component="query",handler="query_range"}[15m])))', "p50"),
             _t('histogram_quantile(0.9, sum by (le) (rate(http_request_duration_seconds_bucket{thanos_component="query",handler="query_range"}[15m])))', "p90", "B")],
             _g(6, y, 6, 8), unit="s"),
-        _ts("How far back queries reach", [
-            _t('histogram_quantile(0.5, sum by (le) (rate(thanos_query_range_requested_timespan_duration_seconds_bucket[1h])))', "p50"),
-            _t('histogram_quantile(0.99, sum by (le) (rate(thanos_query_range_requested_timespan_duration_seconds_bucket[1h])))', "p99", "B")],
-            _g(12, y, 6, 8), unit="s",
-            description="Requested time span of range queries: beyond 30 days is served from the bucket."),
+        _ts("History reads (store gateway)", [
+            _t("sum(rate(thanos_bucket_store_series_blocks_queried_count[5m]))", "series requests/s"),
+            _t("histogram_quantile(0.9, sum by (le) (rate(thanos_bucket_store_series_blocks_queried_bucket[30m])))",
+               "blocks touched p90", "B")],
+            _g(12, y, 6, 8),
+            description="How often queries reach past the sidecar into the bucket, and how many blocks each touches."),
         _ts("Store gateway reads from bucket", [
             _t('sum by (operation) (rate(thanos_objstore_bucket_operation_transferred_bytes_sum{thanos_component="store"}[5m]))',
                "{{operation}}")], _g(18, y, 6, 8), unit="Bps"),
