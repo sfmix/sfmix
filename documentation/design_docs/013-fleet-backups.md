@@ -1,6 +1,6 @@
 # 013 — Fleet backups (push to backup01.scl04)
 
-Status: live for NetBox and Teleport, 2026-11-10.
+Status: live for NetBox, Teleport and LibreNMS, 2026-11-10.
 
 ## Problem
 
@@ -75,7 +75,18 @@ Put the host in `backup_push`, then set `backup_push_paths` /
 `backup_push_excludes` / `backup_push_dump_script` /
 `backup_push_verify_script` in its group_vars, then run
 `deploy_backups.playbook.yml`. If the host is outside the UFW admin allow-list,
-add its addresses to `backup_push_source_addrs`.
+add its addresses to `backup_push_source_addrs`. A big backup set can push
+less often: set `backup_push_on_calendar` and `backup_push_max_age_hours`
+together (LibreNMS: daily, 30h), then also rerun
+`push_servers.playbook.yml --tags prometheus` so `BackupStale` picks it up.
+
+## Clients
+
+| Client | Schedule | Bundle | Contents |
+|---|---|---|---|
+| netbox.sfo02 | 6-hourly | ~22M | `pg_dump`, `/srv/netbox/shared` |
+| teleport | 6-hourly | — | SQLite snapshots + `tctl get all`, `/etc/teleport.yaml`, `/var/lib/teleport` |
+| librenms | daily 11:20 UTC | ~1G | `mariadb-dump`, RRDs (flushed from rrdcached first), `.env`, `config.php` |
 
 ## Restore (NetBox)
 
@@ -112,6 +123,22 @@ If the SQLite snapshots won't load (for example, a much newer Teleport), bootstr
 `data_dir` from the export instead. This keeps the CAs, users, roles and tokens but loses the audit
 history: `teleport start --config /etc/teleport.yaml --bootstrap dump/resources.yaml`
 (once), then start the service normally.
+
+## Restore (LibreNMS)
+
+Same retrieval, from `/srv/backup/librenms/archive/`. On the restore host,
+with polling stopped (comment out `/etc/cron.d/librenms`, stop
+`librenms-scheduler.timer` and `rrdcached`), as root:
+
+    tar --zstd -xf librenms-<stamp>.tar.zst      # as root: keeps owners/modes
+    # .env carries APP_KEY: without it, encrypted settings in the DB are lost.
+    cp -a opt/librenms/.env opt/librenms/config.php /opt/librenms/
+    rsync -a opt/librenms/rrd/ /opt/librenms/rrd/
+    mariadb librenms <dump/librenms.sql
+    sudo -u librenms /opt/librenms/lnms migrate --force
+
+RRDs are raw x86_64 files, so restore onto x86_64. The dump has no
+`CREATE DATABASE`, so it can be loaded into a scratch database to inspect it.
 
 ## Limits
 
