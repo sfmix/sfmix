@@ -25,6 +25,7 @@ all:
         login:
         snappy:
         ixp_portal:
+        backup:
     netbox:
       hosts:
         netbox.sfo02.sfmix.org:
@@ -108,6 +109,10 @@ all:
     ixp_portal:
       hosts:
         portal.sfmix.org:
+    # Fleet backup target (VM 109 on pve01.scl04); backup data on /dev/sdb.
+    backup:
+      hosts:
+        backup01.scl04.sfmix.org:
     # Hosts running the Grafana Alloy log-shipping agent (journald -> Loki).
     # Start with low-stakes pilots; expand as the rollout proves out.
     log_agent:
@@ -126,6 +131,7 @@ all:
         teleport.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
         login.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
         portal.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
+        backup01.scl04.sfmix.org: { loki_push_host: metrics.sfo02.sfmix.org }
         pve01-paulave200-sfo.sfmix.org:
         pve02-paulave200-sfo.sfmix.org:
         pve01-warmspringsblvd48233-fmt.sfmix.org:
