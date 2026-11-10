@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nms_alert_dashboards import alert_dashboards  # noqa: E402
 from nms_node_dashboards import node_dashboards  # noqa: E402
 from nms_telemetry_dashboards import telemetry_dashboards  # noqa: E402
+from nms_backup_dashboards import backup_dashboards  # noqa: E402
 
 log = logging.getLogger("nms-dashboards")
 logging.basicConfig(level=logging.INFO, stream=sys.stderr,
@@ -1450,6 +1451,8 @@ def main():
     dashboards += node_dashboards()
     # Long-term metrics (Thanos + Garage, doc 012) — see nms_telemetry_dashboards.py.
     dashboards += telemetry_dashboards()
+    # Fleet backups (doc 013) + the storage under them — see nms_backup_dashboards.py.
+    dashboards += backup_dashboards()
     for d in dashboards:
         push(gurl, hdrs, folder, d, ds_uid, loki_uid)
     cleanup_stale(gurl, hdrs, {d["uid"] for d in dashboards})
