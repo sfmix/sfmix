@@ -1,0 +1,37 @@
+---
+# LibreNMS itself is hand-managed (PHP via sury, /opt/librenms); only its
+# backups are Ansible-managed.
+
+# Fleet backups (design doc 013, deploy_backups.playbook.yml). The RRDs are
+# the multi-year traffic history (~10G raw, ~1G zstd per bundle), so push
+# daily rather than 6-hourly. Restore: see doc 013.
+backup_push_on_calendar: "*-*-* 11:20:00"   # UTC; 03:20/04:20 Pacific
+backup_push_max_age_hours: 30
+backup_push_dump_script: |
+  # rrdcached holds updates for up to WRITE_TIMEOUT + WRITE_JITTER (~1h).
+  # FLUSHALL queues every cached file before it replies, and the write threads
+  # drain that queue, so wait for QueueLength 0 before tar reads the RRDs.
+  # QUIT makes rrdcached close the connection, so socat returns at once.
+  rrdc() { printf '%s\nQUIT\n' "$1" | socat -t 30 - UNIX-CONNECT:/run/rrdcached.sock; }
+  [[ $(rrdc FLUSHALL) == "0 "* ]] || { echo "rrdcached FLUSHALL failed" >&2; exit 1; }
+  drained=
+  for _ in $(seq 180); do
+    if [[ $'\n'$(rrdc STATS)$'\n' == *$'\nQueueLength: 0\n'* ]]; then drained=1; break; fi
+    sleep 5
+  done
+  [[ -n $drained ]] || { echo "rrdcached flush queue did not drain in 15m" >&2; exit 1; }
+  sleep 5   # writes already dequeued may still be in flight
+  # InnoDB only, so --single-transaction is a consistent snapshot without locks.
+  mariadb-dump --single-transaction --quick --hex-blob --routines --triggers --events \
+    librenms >"$DUMP/librenms.sql"
+# mariadb-dump writes this trailer only after the last object, so a dump that
+# died part-way fails here. The RRD check catches an empty or moved rrd_dir.
+backup_push_verify_script: |
+  [[ $(tail -n 1 "$DUMP/librenms.sql") == "-- Dump completed"* ]] \
+    || { echo "librenms.sql is truncated" >&2; exit 1; }
+  [[ -n $(find /opt/librenms/rrd -name '*.rrd' -print -quit) ]] \
+    || { echo "no RRDs under /opt/librenms/rrd" >&2; exit 1; }
+backup_push_paths:
+  - /opt/librenms/rrd
+  - /opt/librenms/.env          # APP_KEY decrypts encrypted DB settings
+  - /opt/librenms/config.php
