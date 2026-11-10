@@ -54,6 +54,12 @@
     image: "{{ metrics_archive_garage_image }}"
     restart_policy: unless-stopped
     network_mode: host
+    # Thanos probes every block for optional marker files (deletion-mark.json,
+    # no-compact-mark.json, no-downsample-mark.json) on every sync; absent is
+    # normal, and Garage logs each 404 at info (~2k lines/h into Loki). The
+    # API request logger at warn still logs 5xx.
+    env:
+      RUST_LOG: "netapp=info,garage=info,garage_api_common::generic_server=warn"
     volumes:
       - /opt/garage/garage.toml:/etc/garage.toml:ro
       - "{{ metrics_archive_data_dir }}/garage/meta:/var/lib/garage/meta"
@@ -72,6 +78,12 @@
   ansible.builtin.command: docker exec garage /garage node id -q
   register: garage_node_id
   changed_when: false
+
+# Role defaults aren't visible through hostvars[other]; facts are.
+- name: "Garage: publish this node's zone/capacity for the run-once steps"
+  ansible.builtin.set_fact:
+    garage_zone: "{{ metrics_archive_garage_zone }}"
+    garage_capacity: "{{ metrics_archive_garage_capacity }}"
 
 # Cluster-wide steps run once, from the first archive host, over every
 # archive host in the play -- run this role for the whole metrics_archive
@@ -95,8 +107,8 @@
   become: true
   ansible.builtin.command: >-
     docker exec garage /garage layout assign
-    -z {{ hostvars[item].metrics_archive_garage_zone }}
-    -c {{ hostvars[item].metrics_archive_garage_capacity }}
+    -z {{ hostvars[item].garage_zone }}
+    -c {{ hostvars[item].garage_capacity }}
     {{ hostvars[item].garage_node_id.stdout.split('@')[0] }}
   loop: "{{ ansible_play_hosts }}"
   when: hostvars[item].garage_node_id.stdout.split('@')[0][:16] not in garage_layout.stdout
