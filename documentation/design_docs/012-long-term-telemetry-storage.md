@@ -223,10 +223,18 @@ time ranges, sample and series counts (39.4 B samples, 2026-03-01 →
 overlapping range. The sidecar's upload-compacted flag is off again.
 
 Deferred, deliberately:
-- **Local 30d / 60GB** is the committed default but is only applied by the
-  next Prometheus restart (each restart is a ~90 s scrape gap, so bundle it
-  with the overdue 2.43 → current upgrade). Until then the running flags are
-  no time limit / 95GB; anything that ceiling trims is already in the bucket.
+- ~~Local 30d / 60GB~~ done 2026-11-10 17:07Z together with the Prometheus
+  2.43 → **3.13.5** upgrade (pinned; 3.13 is the LTS line). One restart,
+  timed 4 min after the odd-hour head compaction so the WAL replay was 15 s;
+  measured gap ~70 s on 30 s jobs, one or two missed scrapes on 60 s jobs.
+  Retention deleted ~60 GB of local blocks (all verified in the bucket); disk
+  free on metrics.sfo02 went 48 → 106 GB, Prometheus RSS 1.2 → 0.4 GB.
+  Pre-checks: promtool (config + 9 rule files), every non-Go target's
+  Content-Type scraped by a throwaway v3.13.5 (all up), no `le=`/`holt_winters`
+  usage. `memory-snapshot-on-shutdown` + `stop_timeout: 120` make later
+  restarts load a head snapshot instead of replaying the WAL.
+  **Rollback:** `prometheus_image: prom/prometheus:v2.55.1` (the only 2.x that
+  reads 3.x TSDB; pre-pulled on metrics.sfo02).
 - ~~Bucket raw 30d~~ done 2026-11-10: 5m coverage passed the 30-day line
   (08:22Z) and the second copy was verified, then raw retention went to 30d.
 
