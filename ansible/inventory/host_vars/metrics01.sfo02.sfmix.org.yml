@@ -1,0 +1,5 @@
+---
+# Second Garage node (VM 100 on pve01.sfo02). SFO02-MGMT only (10.1.1.25) --
+# no public leg, so Ansible hops via shell.
+ansible_ssh_common_args: '-o ProxyJump=shell.sfmix.org'
+ansible_host: 10.1.1.25

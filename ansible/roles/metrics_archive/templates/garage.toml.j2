@@ -1,13 +1,15 @@
-# Managed by Ansible (roles/metrics_archive). Single-node Garage holding the
-# Thanos bucket. Redundancy is the raidz2 underneath, hence replication 1.
+# Managed by Ansible (roles/metrics_archive). Garage cluster holding the
+# Thanos bucket: one node per site (zone), every object on every node.
+# replication_factor and rpc_secret MUST match on all nodes.
 metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
 # sqlite survives unclean shutdowns better than the lmdb default.
 db_engine = "sqlite"
-replication_factor = 1
+replication_factor = {{ metrics_archive_garage_replication_factor }}
 
 rpc_bind_addr = "[::]:3901"
-rpc_public_addr = "127.0.0.1:3901"
+# Address the other nodes dial (management network).
+rpc_public_addr = "{{ ansible_host }}:3901"
 rpc_secret = "{{ garage_rpc_secret }}"
 
 [s3_api]

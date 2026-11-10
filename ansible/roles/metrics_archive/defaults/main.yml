@@ -9,10 +9,18 @@ metrics_archive_data_dir: /srv/telemetry
 metrics_archive_garage_image: dxflrs/garage:v2.5.0
 metrics_archive_thanos_image: thanosio/thanos:v0.42.5
 
-# Garage layout: one node, one zone. Capacity is a placement weight, not a
-# quota; keep it near the data disk size.
-metrics_archive_garage_zone: scl04
+# Garage cluster: one node per site, zone = site, every object on both nodes
+# (pve01.scl04's old disks are not trusted alone). Changing the replication
+# factor of a cluster that holds data is a manual, documented-dangerous
+# procedure (doc 012) -- never just edit this. Capacity is a placement weight,
+# not a quota; keep it near the data disk size.
+metrics_archive_garage_replication_factor: 2
+metrics_archive_garage_zone: "{{ inventory_hostname.split('.')[1] }}"
 metrics_archive_garage_capacity: 1T
+
+# Thanos store + compact run next to the bucket on ONE host only (a bucket
+# must have exactly one compactor); other archive hosts are Garage-only.
+metrics_archive_thanos_enabled: "{{ inventory_hostname == telemetry_archive_host }}"
 
 # Downsampled retention in the bucket. Raw only as long as Prometheus keeps it
 # locally; 5m for a year; 1h forever (0d).

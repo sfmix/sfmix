@@ -67,37 +67,59 @@
     port: 3901
     timeout: 60
 
-# One-time single-node bootstrap: layout, the Thanos key (imported so its
-# secret can live in the vault), and the bucket. Each step checks first.
+- name: "Garage: node id"
+  become: true
+  ansible.builtin.command: docker exec garage /garage node id -q
+  register: garage_node_id
+  changed_when: false
+
+# Cluster-wide steps run once, from the first archive host, over every
+# archive host in the play -- run this role for the whole metrics_archive
+# group, not one host, or new nodes never join the layout.
+- name: "Garage: connect peers"
+  become: true
+  ansible.builtin.command: docker exec garage /garage node connect {{ hostvars[item].garage_node_id.stdout }}
+  loop: "{{ ansible_play_hosts | difference([inventory_hostname]) }}"
+  run_once: true
+  changed_when: false
+
 - name: "Garage: layout"
   become: true
   ansible.builtin.command: docker exec garage /garage layout show
   register: garage_layout
+  run_once: true
   changed_when: false
 
-- name: "Garage: assign this node a role"
+# Layout tables show the first 16 hex digits of a node id.
+- name: "Garage: give nodes without a role their zone/capacity"
   become: true
-  when: "'No nodes currently have a role' in garage_layout.stdout or 'Current cluster layout version: 0' in garage_layout.stdout"
-  block:
-    - name: "Garage: node id"
-      ansible.builtin.command: docker exec garage /garage node id -q
-      register: garage_node_id
-      changed_when: false
+  ansible.builtin.command: >-
+    docker exec garage /garage layout assign
+    -z {{ hostvars[item].metrics_archive_garage_zone }}
+    -c {{ hostvars[item].metrics_archive_garage_capacity }}
+    {{ hostvars[item].garage_node_id.stdout.split('@')[0] }}
+  loop: "{{ ansible_play_hosts }}"
+  when: hostvars[item].garage_node_id.stdout.split('@')[0][:16] not in garage_layout.stdout
+  run_once: true
+  register: garage_assigned
 
-    - name: "Garage: assign zone/capacity"
-      ansible.builtin.command: >-
-        docker exec garage /garage layout assign
-        -z {{ metrics_archive_garage_zone }}
-        -c {{ metrics_archive_garage_capacity }}
-        {{ garage_node_id.stdout.split('@')[0] }}
+- name: "Garage: apply the staged layout"
+  become: true
+  ansible.builtin.shell: |
+    set -euo pipefail
+    v=$(docker exec garage /garage layout show | sed -n 's/.*Current cluster layout version: \([0-9]*\).*/\1/p')
+    docker exec garage /garage layout apply --version $((v + 1))
+  args:
+    executable: /bin/bash
+  when: garage_assigned is changed
+  run_once: true
 
-    - name: "Garage: apply layout v1"
-      ansible.builtin.command: docker exec garage /garage layout apply --version 1
-
+# The Thanos key is imported (not generated) so its secret lives in the vault.
 - name: "Garage: is the Thanos key present"
   become: true
   ansible.builtin.command: docker exec garage /garage key info {{ thanos_s3_access_key }}
   register: garage_key
+  run_once: true
   changed_when: false
   failed_when: false
   no_log: true
@@ -108,12 +130,14 @@
     docker exec garage /garage key import --yes -n thanos
     {{ thanos_s3_access_key }} {{ thanos_s3_secret_key }}
   when: garage_key.rc != 0
+  run_once: true
   no_log: true
 
 - name: "Garage: is the bucket present"
   become: true
   ansible.builtin.command: docker exec garage /garage bucket info {{ thanos_s3_bucket }}
   register: garage_bucket
+  run_once: true
   changed_when: false
   failed_when: false
 
@@ -121,6 +145,7 @@
   become: true
   ansible.builtin.command: docker exec garage /garage bucket create {{ thanos_s3_bucket }}
   when: garage_bucket.rc != 0
+  run_once: true
 
 - name: "Garage: grant the Thanos key on the bucket"
   become: true
@@ -128,57 +153,62 @@
     docker exec garage /garage bucket allow --read --write --owner
     {{ thanos_s3_bucket }} --key {{ thanos_s3_access_key }}
   when: garage_bucket.rc != 0 or garage_key.rc != 0
+  run_once: true
   no_log: true
 
 # ── Thanos store + compact ─────────────────────────────────────────────
-- name: "Thanos: bucket config"
-  ansible.builtin.include_role:
-    name: thanos_objstore
+# Only on telemetry_archive_host: a bucket must have exactly one compactor.
+- name: "Thanos: store + compact"
+  when: metrics_archive_thanos_enabled | bool
+  block:
+    - name: "Thanos: bucket config"
+      ansible.builtin.include_role:
+        name: thanos_objstore
 
-- name: "Thanos: store gateway"
-  become: true
-  community.docker.docker_container:
-    name: thanos-store
-    image: "{{ metrics_archive_thanos_image }}"
-    restart_policy: unless-stopped
-    network_mode: host
-    user: "65534:65534"
-    restart: "{{ thanos_objstore_config.changed }}"
-    volumes:
-      - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
-      - "{{ metrics_archive_data_dir }}/thanos-store:/data"
-    command:
-      - store
-      - --data-dir=/data
-      - --objstore.config-file=/etc/thanos/objstore.yml
-      - --grpc-address=0.0.0.0:{{ thanos_store_grpc_port }}
-      - --http-address=0.0.0.0:{{ metrics_archive_thanos_store_http_port }}
+    - name: "Thanos: store gateway"
+      become: true
+      community.docker.docker_container:
+        name: thanos-store
+        image: "{{ metrics_archive_thanos_image }}"
+        restart_policy: unless-stopped
+        network_mode: host
+        user: "65534:65534"
+        restart: "{{ thanos_objstore_config.changed }}"
+        volumes:
+          - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
+          - "{{ metrics_archive_data_dir }}/thanos-store:/data"
+        command:
+          - store
+          - --data-dir=/data
+          - --objstore.config-file=/etc/thanos/objstore.yml
+          - --grpc-address=0.0.0.0:{{ thanos_store_grpc_port }}
+          - --http-address=0.0.0.0:{{ metrics_archive_thanos_store_http_port }}
 
-# Compacts the sidecar's 2h blocks, downsamples to 5m (blocks > 40h) and 1h
-# (blocks > 10d), and applies per-resolution retention. Must be the only
-# compactor on the bucket.
-- name: "Thanos: compactor"
-  become: true
-  community.docker.docker_container:
-    name: thanos-compact
-    image: "{{ metrics_archive_thanos_image }}"
-    restart_policy: unless-stopped
-    network_mode: host
-    user: "65534:65534"
-    restart: "{{ thanos_objstore_config.changed }}"
-    volumes:
-      - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
-      - "{{ metrics_archive_data_dir }}/thanos-compact:/data"
-    command:
-      - compact
-      - --wait
-      - --wait-interval=5m
-      - --data-dir=/data
-      - --objstore.config-file=/etc/thanos/objstore.yml
-      - --http-address=0.0.0.0:{{ metrics_archive_thanos_compact_http_port }}
-      - --retention.resolution-raw={{ metrics_archive_thanos_retention_raw }}
-      - --retention.resolution-5m={{ metrics_archive_thanos_retention_5m }}
-      - --retention.resolution-1h={{ metrics_archive_thanos_retention_1h }}
-      - --compact.concurrency=1
-      - --downsample.concurrency=1
-      - --delete-delay=48h
+    # Compacts the sidecar's 2h blocks, downsamples to 5m (blocks > 40h) and 1h
+    # (blocks > 10d), and applies per-resolution retention. Must be the only
+    # compactor on the bucket.
+    - name: "Thanos: compactor"
+      become: true
+      community.docker.docker_container:
+        name: thanos-compact
+        image: "{{ metrics_archive_thanos_image }}"
+        restart_policy: unless-stopped
+        network_mode: host
+        user: "65534:65534"
+        restart: "{{ thanos_objstore_config.changed }}"
+        volumes:
+          - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
+          - "{{ metrics_archive_data_dir }}/thanos-compact:/data"
+        command:
+          - compact
+          - --wait
+          - --wait-interval=5m
+          - --data-dir=/data
+          - --objstore.config-file=/etc/thanos/objstore.yml
+          - --http-address=0.0.0.0:{{ metrics_archive_thanos_compact_http_port }}
+          - --retention.resolution-raw={{ metrics_archive_thanos_retention_raw }}
+          - --retention.resolution-5m={{ metrics_archive_thanos_retention_5m }}
+          - --retention.resolution-1h={{ metrics_archive_thanos_retention_1h }}
+          - --compact.concurrency=1
+          - --downsample.concurrency=1
+          - --delete-delay=48h
