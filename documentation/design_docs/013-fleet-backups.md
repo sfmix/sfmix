@@ -1,6 +1,6 @@
 # 013 — Fleet backups (push to backup01.scl04)
 
-Status: live for NetBox, Teleport and LibreNMS, 2026-11-10.
+Status: live for NetBox, Teleport, LibreNMS and authentik (login.sfmix.org), 2026-11-10.
 
 ## Problem
 
@@ -87,6 +87,7 @@ together (LibreNMS: daily, 30h), then also rerun
 | netbox.sfo02 | 6-hourly | ~22M | `pg_dump`, `/srv/netbox/shared` |
 | teleport | 6-hourly | — | SQLite snapshots + `tctl get all`, `/etc/teleport.yaml`, `/var/lib/teleport` |
 | librenms | daily 11:20 UTC | ~1G | `mariadb-dump`, RRDs (flushed from rrdcached first), `.env`, `config.php` |
+| login (authentik) | 6-hourly | ~69M | `pg_dump` in the compose `postgresql` container, `/opt/authentik/{.env,docker-compose.yml,media,certs,custom-templates}` |
 
 ## Restore (NetBox)
 
@@ -140,10 +141,26 @@ with polling stopped (comment out `/etc/cron.d/librenms`, stop
 RRDs are raw x86_64 files, so restore onto x86_64. The dump has no
 `CREATE DATABASE`, so it can be loaded into a scratch database to inspect it.
 
+## Restore (authentik)
+
+Bundles are in `/srv/backup/login/archive/`. Postgres runs inside the compose
+project, so the dump is restored into a fresh `postgresql` container. Keep
+`AUTHENTIK_TAG` at the version in `dump/images.txt`: the schema must match it,
+and migrations only run forward.
+
+    tar --zstd -xf login-<stamp>.tar.zst
+    # opt/authentik/: .env (AUTHENTIK_SECRET_KEY decrypts stored secrets; PG_PASS),
+    #   docker-compose.yml, media/, certs/, custom-templates/
+    cp -a opt/authentik/. /opt/authentik/      # database/ empty or absent
+    cd /opt/authentik && docker compose up -d postgresql
+    docker compose exec -T postgresql sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --clean --if-exists' <"$OLDPWD/dump/authentik.pgdump"
+    docker compose up -d
+
 ## Limits
 
 - `backup01` shares the `tank` pool with pve01.scl04's own guests. It is
   off-site for sfo/fmt sources, but only protects scl04 sources against
   mistakes, not against losing the host. A second copy elsewhere is future work.
+  authentik (login.sfmix.org, VM 105) is one of those scl04 sources.
 - `tank` is 8 aged ST4000DM000 drives in raidz2, and nothing alerts on pool
   or SMART state yet.
