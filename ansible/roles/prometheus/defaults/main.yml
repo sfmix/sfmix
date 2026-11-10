@@ -8,6 +8,10 @@
 prometheus_retention_time: 30d
 prometheus_retention_size: 60GB
 
+# Pinned (was an unpinned prom/prometheus = 2.43). 3.13 is the LTS line.
+# Rollback: 3.x TSDB is readable by v2.55.1, NOT by older 2.x.
+prometheus_image: prom/prometheus:v3.13.5
+
 prometheus_thanos_image: thanosio/thanos:v0.42.5
 # Only for uploading blocks Prometheus compacted before the sidecar existed
 # (one-time backfill, done). With 2h min/max blocks nothing compacts locally.
