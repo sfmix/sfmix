@@ -29,13 +29,15 @@ Lokis and two log datasources for data this small isn't worth it.)
 Solid arrows carry data in (writes); dotted arrows are queries.
 
 **Hosts and network path.** Only metrics.sfo02 talks to the cold tier, over
-the management network.
+the management network. The bucket lives on two Garage nodes in two sites;
+every object is on both.
 
 ```mermaid
 flowchart LR
   subgraph SFO["sfo02"]
     M1["metrics.sfo02<br/>VM on paulave PVE<br/>160 GB QVO SSD<br/>public 192.33.255.10<br/>oob 10.1.1.14"]
     GWS["mgmt-gw.sfo02"]
+    M3["metrics01.sfo02<br/>VM 100 on pve01.sfo02<br/>1 TB tank SSD<br/>SFO02-MGMT 10.1.1.25 only"]
   end
   subgraph SCL["scl04"]
     GWC["mgmt-gw.scl04"]
@@ -43,6 +45,7 @@ flowchart LR
   end
   USERS(["Operators, portal"]) -- "HTTPS (public)" --> M1
   M1 -- "oob" --> GWS -- "VLAN 200 mgmt fabric, ~2 ms" --> GWC --> M2
+  M3 <-- "Garage replication (RPC :3901)" --> M2
 ```
 
 **Metrics.** Prometheus keeps 30 days on SSD; the sidecar ships every 2h
@@ -65,6 +68,10 @@ flowchart LR
     TC["thanos compact<br/>raw 30d, 5m 1y, 1h forever"]
     TS["thanos store"]
   end
+  subgraph REP["metrics01.sfo02 (SSD)"]
+    GAR2[("Garage<br/>second copy")]
+  end
+  GAR <-- "every object on both" --> GAR2
   TGT -- "scraped (pull)" --> PROM
   AGENTS -- "remote_write" --> PROM
   PROM --> SC
@@ -100,6 +107,7 @@ flowchart LR
 |---|---|---|---|---|
 | metrics.sfo02 | VM on paulave PVE (sfo02) | public 192.33.255.10 + oob 10.1.1.14 | 160 GB, QVO SSD mirror | Prometheus, thanos sidecar + query, Loki, syslog-ng, promtail, Alertmanager, Grafana, exporters, sflow-rt |
 | metrics01.scl04 | VM 110 on pve01.scl04 | SCL04-MGMT 10.6.1.34 only | 32 GB OS + 1 TB data, tank raidz2 HDD | Garage, thanos store + compact |
+| metrics01.sfo02 | VM 100 on pve01.sfo02 (DL360) | SFO02-MGMT 10.1.1.25 only | 32 GB OS + 1 TB data, tank SSD | Garage (second copy) |
 
 ## Prometheus → Thanos
 
@@ -134,6 +142,36 @@ and only gains the two light components.
 
 Rejected: VictoriaMetrics (OSS has no downsampling — needed: long-term data
 is low-resolution by design); Mimir (far too big for one Prometheus).
+
+## Two copies: second Garage node at sfo02
+
+pve01.scl04's `tank` is eight 8.5-year-old ST4000DM000s, one with a latched
+SMART error, and the host has no backup job. raidz2 is not enough on its own
+for the only copy of the long-term history, so the bucket is a two-node
+Garage cluster, **replication_factor 2**, one node per site (zone = site):
+metrics01.scl04 and metrics01.sfo02 (VM 100 on the DL360 pve01.sfo02, its
+1.8 TB SSD `tank`). Every object, raw and downsampled, is on both.
+
+- Thanos store + compact stay on scl04 only (one compactor per bucket); the
+  sfo02 node is Garage-only. Thanos talks to scl04's S3 endpoint.
+- With two nodes and the default `consistent` mode, either node down makes
+  the bucket read-only: sidecar uploads and compaction retry and catch up
+  (blocks wait on metrics.sfo02 for 30 days); reads keep working.
+- Changing the replication factor of a cluster that holds data is officially
+  unsupported. Done once, 2026-11-10, with every raw block still on
+  metrics.sfo02 as the fallback: stop thanos-compact/store and garage on
+  scl04, back up `meta/` (kept as `/srv/telemetry/garage-meta-backup-rf1-*`),
+  move `meta/cluster_layout` aside, deploy RF 2 to both nodes, assign both,
+  apply layout v1. Keys, bucket and all 296 objects (102.2 GB) came through;
+  sfo02 pulled every block in the background. A node learns of blocks via
+  metadata sync and schedules each fetch 2x rpc_timeout later (restarting
+  Garage pushes that out again); `garage repair blocks` cannot pull queued
+  entries earlier. Speed it with `garage worker set -a resync-worker-count 4`
+  and `resync-tranquility 0`.
+- Garage's API logger is at warn: Thanos probes every block for optional
+  marker files (`deletion-mark.json`, `no-compact-mark.json`,
+  `no-downsample-mark.json`) on every sync, and each absent one is a 404 that
+  Garage logs at info (~2k lines/h, all benign).
 
 ## metrics01.scl04
 
