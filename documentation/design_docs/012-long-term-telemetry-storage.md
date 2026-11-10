@@ -22,17 +22,89 @@ on these hosts the HDD pool actually beats the QVO SSDs on fsync latency
 
 ## Shape
 
+Three views of the same system. Solid arrows carry data in (writes);
+dotted arrows are queries.
+
+**Hosts and network path.** Only metrics.sfo02 talks to the cold tier, over
+the management network.
+
+```mermaid
+flowchart LR
+  subgraph SFO["sfo02"]
+    M1["metrics.sfo02<br/>VM on paulave PVE<br/>160 GB QVO SSD<br/>public 192.33.255.10<br/>oob 10.1.1.14"]
+    GWS["mgmt-gw.sfo02"]
+  end
+  subgraph SCL["scl04"]
+    GWC["mgmt-gw.scl04"]
+    M2["metrics01.scl04<br/>VM 110 on pve01.scl04<br/>1 TB tank raidz2 HDD<br/>SCL04-MGMT 10.6.1.34 only"]
+  end
+  USERS(["Operators, portal"]) -- "HTTPS (public)" --> M1
+  M1 -- "oob" --> GWS -- "VLAN 200 mgmt fabric, ~2 ms" --> GWC --> M2
 ```
-              metrics.sfo02 (hot, SSD)                       metrics01.scl04 (cold, HDD, mgmt-only)
- senders ──▶ :3100 Alloy loki gateway ──┬──▶ Loki :3110 (180d) ┐
- (unchanged)                            └──────────────────────┼──▶ Loki archive :3100 (3y)
-                                                               │
- scrape ──▶ Prometheus :9090 (30d, 2h blocks)                  │
-              └─ thanos sidecar ── uploads 2h blocks ──────────┼──▶ Garage S3 :3900 (bucket "thanos")
- Grafana ──▶ thanos query :10904 ─┬─▶ sidecar :10901 (recent)  │       ▲            ▲
-                                  └────────────────────────────┼──▶ thanos store :10901
-                                                               │   thanos compact (downsample + retention)
+
+**Metrics.** Prometheus keeps 30 days on SSD; the sidecar ships every 2h
+block to the bucket; the compactor downsamples; Grafana reads both tiers
+through Thanos Query.
+
+```mermaid
+flowchart LR
+  TGT["Scrape targets<br/>SNMP, node_exporter, blackbox,<br/>sflow-rt, bird, LG, portal"]
+  AGENTS["Alloy agents<br/>(self-metrics)"]
+  subgraph HOT["metrics.sfo02 (SSD)"]
+    PROM["Prometheus :9090<br/>30 days, alert rules"]
+    SC["thanos sidecar"]
+    TQ["thanos query :10904"]
+    GRAF["Grafana"]
+    AM["Alertmanager"]
+  end
+  subgraph COLD["metrics01.scl04 (HDD)"]
+    GAR[("Garage S3<br/>bucket thanos")]
+    TC["thanos compact<br/>raw 30d, 5m 1y, 1h forever"]
+    TS["thanos store"]
+  end
+  TGT -- "scraped (pull)" --> PROM
+  AGENTS -- "remote_write" --> PROM
+  PROM --> SC
+  SC -- "2h blocks" --> GAR
+  TC <-- "downsample" --> GAR
+  TS -. "reads" .-> GAR
+  GRAF -. "Prometheus datasource" .-> TQ
+  TQ -. "last 30d, raw" .-> SC
+  TQ -. "history, downsampled" .-> TS
+  PORTAL(["Portal charts"]) -. "PromQL" .-> PROM
+  PROM -- "alerts" --> AM --> SLACK(["Slack"])
 ```
+
+**Logs.** Senders are unchanged; the Alloy gateway that now owns :3100 writes
+every line to both Lokis, each through its own disk buffer.
+
+```mermaid
+flowchart LR
+  LNX["Linux servers + PVE nodes<br/>Alloy: journald, docker"]
+  APP["Network gear, mgmt-gws,<br/>OpenBSD hosts"]
+  subgraph HOT["metrics.sfo02 (SSD)"]
+    SNG["syslog-ng :514"] --> PTL["promtail"]
+    GW["Alloy loki gateway :3100<br/>WAL per destination, 72h"]
+    LOKI["Loki :3110<br/>180 days, log alerts"]
+    GRAF["Grafana"]
+  end
+  subgraph COLD["metrics01.scl04 (HDD)"]
+    LA["Loki archive :3100<br/>3 years"]
+  end
+  LNX -- "push" --> GW
+  APP -- "syslog" --> SNG
+  PTL --> GW
+  GW --> LOKI
+  GW -- "copy of every line" --> LA
+  GRAF -. "Loki" .-> LOKI
+  GRAF -. "Loki (archive)" .-> LA
+  LOKI -- "log alerts" --> AM(["Alertmanager"])
+```
+
+| Host | Where | Network | Storage | Runs |
+|---|---|---|---|---|
+| metrics.sfo02 | VM on paulave PVE (sfo02) | public 192.33.255.10 + oob 10.1.1.14 | 160 GB, QVO SSD mirror | syslog-ng, promtail, Alloy gateway, Loki, Prometheus, thanos sidecar + query, Alertmanager, Grafana, exporters, sflow-rt |
+| metrics01.scl04 | VM 110 on pve01.scl04 | SCL04-MGMT 10.6.1.34 only | 32 GB OS + 1 TB data, tank raidz2 HDD | Garage, thanos store + compact, Loki archive |
 
 ### Prometheus → Thanos
 
