@@ -313,8 +313,10 @@ its action buttons.
             link-down, and that is exactly when it matters.
             {% endcomment %}
             <div class="nd-optic-cap color-text-light">
-              {% if phy.bands_generic %}{% translate "RX vs generic thresholds" %}{% else %}{% blocktranslate with media=phy.media_type %}RX vs {{ media }} thresholds{% endblocktranslate %}{% endif %}
-              &middot; {% translate "TX dashed" %}
+              <svg class="nd-optic-key nd-optic-key-rx" viewBox="0 0 28 6" aria-hidden="true"><line x1="0" y1="3" x2="28" y2="3" stroke-dasharray="10 5" stroke-width="2.5"/></svg>
+              {% if phy.bands_generic %}{% translate "RX (received) vs generic thresholds" %}{% else %}{% blocktranslate with media=phy.media_type %}RX (received) vs {{ media }} thresholds{% endblocktranslate %}{% endif %}
+              <svg class="nd-optic-key nd-optic-key-tx" viewBox="0 0 28 6" aria-hidden="true"><line x1="0" y1="3" x2="28" y2="3" stroke-dasharray="2 4" stroke-width="1.5"/></svg>
+              {% translate "TX (our transmit)" %}
             </div>
             <sfmix-optic-lanes asn="{{ asn }}" port="{{ forloop.parentloop.counter0 }}" member="{{ forloop.counter0 }}" bands="{{ phy.rx_bands }}" link-up="{% if phy.link_status == 'up' or phy.link_status == 'connected' %}1{% else %}0{% endif %}" range="24h"></sfmix-optic-lanes>
           </div>

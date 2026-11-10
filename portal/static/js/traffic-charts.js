@@ -40,13 +40,14 @@
     var v = getComputedStyle(document.documentElement).getPropertyValue(name);
     return (v && v.trim()) || fallback;
   }
-  var TEAL, AMBER, BORDER, TEXT_LIGHT, PALETTE;
+  var TEAL, AMBER, BORDER, TEXT, TEXT_LIGHT, PALETTE;
   // Re-read on load and whenever the light/dark scheme flips (base.html fires
   // "sfmix:theme"); the draw functions read these at draw time.
   function refreshPalette() {
     TEAL = cssVar("--color-primary-light", "#1a6070");
     AMBER = cssVar("--color-accent", "#e8913a");
     BORDER = cssVar("--color-border", "#dee2e6");
+    TEXT = cssVar("--color-text", "#1f2937");
     TEXT_LIGHT = cssVar("--color-text-light", "#666666");
     var dark = document.documentElement.getAttribute("data-theme") === "dark";
     // Distinct bands for the stacked peer chart (teal/amber-leaning, colour-blind-ish safe).
@@ -607,8 +608,12 @@
       ],
       series: [
         { value: function (u, v) { return fmtTime(v); } },
-        { label: "RX", stroke: TEAL, width: 2, value: function (u, v) { return fmtVal(v, "dbm"); } },
-        { label: "TX", stroke: TEXT_LIGHT, width: 1, dash: [4, 4], value: function (u, v) { return fmtVal(v, "dbm"); } },
+        // RX is the line judged against the bands, so it gets the page's
+        // highest-contrast colour (reads over every band tint, both themes)
+        // and long dashes; TX is a lighter dotted line. The caption above the
+        // charts draws the same two patterns as its key.
+        { label: "RX", stroke: TEXT, width: 2.5, dash: [10, 5], value: function (u, v) { return fmtVal(v, "dbm"); } },
+        { label: "TX", stroke: TEXT_LIGHT, width: 1.5, dash: [2, 4], value: function (u, v) { return fmtVal(v, "dbm"); } },
       ],
       hooks: {
         drawClear: [function (u) { drawOpticBands(u, bands); }],
