@@ -69,6 +69,10 @@ netbox_uwsgi_options:
 # pepper), media/reports/scripts, then pg_restore dump/netbox.pgdump.
 backup_push_dump_script: |
   runuser -u postgres -- pg_dump --format=custom netbox >"$DUMP/netbox.pgdump"
+# --list only reads the TOC; a full restore to /dev/null decompresses every
+# data block, so a truncated or corrupt dump fails here, before it is pushed.
+backup_push_verify_script: |
+  pg_restore --file=/dev/null "$DUMP/netbox.pgdump"
 backup_push_paths:
   - /srv/netbox/shared        # lae.netbox netbox_shared_path
 backup_push_excludes:

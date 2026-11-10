@@ -1,0 +1,7 @@
+# Managed by Ansible (roles/backup_target).
+[Unit]
+Description=Re-verify sealed backup bundles (zstd frame checksums)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sfmix-backup-verify

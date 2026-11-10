@@ -1,0 +1,43 @@
+#!/bin/bash
+# Managed by Ansible (roles/backup_target). Design doc 013.
+# Re-check the zstd frame checksum of every sealed bundle in every archive/.
+# Catches corruption at rest inside the VM (the zvol underneath is also
+# covered by ZFS scrubs). Bad files are reported, not moved: keep the evidence.
+set -euo pipefail
+shopt -s nullglob
+
+ROOT={{ backup_target_root | quote }}
+PROM={{ (backup_target_textfile_dir ~ '/sfmix_backup_verify.prom') | quote }}
+
+metrics=$(mktemp "${PROM}.XXXXXX")
+trap 'rm -f "$metrics"' EXIT
+cat >"$metrics" <<'EOF'
+# HELP sfmix_backup_verify_checked_files Sealed bundles checked by the last verify run.
+# TYPE sfmix_backup_verify_checked_files gauge
+# HELP sfmix_backup_verify_failed_files Sealed bundles that failed the last verify run.
+# TYPE sfmix_backup_verify_failed_files gauge
+EOF
+
+for ar in "$ROOT"/*/archive; do
+  client=${ar%/archive}; client=${client##*/}
+  checked=0 failed=0
+  while IFS= read -r -d '' f; do
+    checked=$((checked + 1))
+    if ! nice -n 19 ionice -c 3 zstd -q -t -- "$f" 2>/dev/null; then
+      failed=$((failed + 1))
+      logger -t sfmix-backup-verify -p user.err "CORRUPT $client/archive/${f##*/}: failed zstd integrity check"
+    fi
+  done < <(find "$ar" -maxdepth 1 -type f -print0)
+  logger -t sfmix-backup-verify "$client: $checked checked, $failed failed"
+  printf 'sfmix_backup_verify_checked_files{client="%s"} %s\n' "$client" "$checked" >>"$metrics"
+  printf 'sfmix_backup_verify_failed_files{client="%s"} %s\n' "$client" "$failed" >>"$metrics"
+done
+
+cat >>"$metrics" <<EOF
+# HELP sfmix_backup_verify_last_run_timestamp_seconds Last completed verify run.
+# TYPE sfmix_backup_verify_last_run_timestamp_seconds gauge
+sfmix_backup_verify_last_run_timestamp_seconds $(date +%s)
+EOF
+chmod 0644 "$metrics"
+mv -f "$metrics" "$PROM"
+trap - EXIT

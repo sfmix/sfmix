@@ -25,14 +25,45 @@ with fleet-wide credentials.
   `rrsync -wo -no-del -no-overwrite -munge <root>/<name>/incoming`. The client
   can't read, list, delete or overwrite anything, so a compromised app can't
   destroy its own history.
-- **Seal** (`roles/backup_target`, every 10 min, as root): moves finished
-  uploads into root-only `archive/` (rsync's in-flight temp files are
-  dot-files, so they are skipped). It prunes bundles past 30 days but always
-  keeps the newest 10, and writes `sfmix_backup_*` textfile metrics.
-- **Alerts** (`rules/backup.rules.yml`): one `BackupStale` rule per client,
-  firing when the bundle is older than `backup_push_max_age_hours` (default 14h,
-  with a 6-hourly schedule) or when it is missing. `BackupSealerStale` fires
-  if the seal job stops running.
+- **Seal** (`roles/backup_target`, every 10 min, as root): verifies finished
+  uploads and moves them into root-only `archive/`, or into `quarantine/` if
+  they fail (see Integrity). It prunes bundles past 30 days but always keeps
+  the newest 10, and writes `sfmix_backup_*` textfile metrics.
+- **Verify** (weekly, as root): re-checks every sealed bundle's zstd checksum.
+- **Alerts** (`rules/backup.rules.yml`):
+  - `BackupStale`: one rule per client. Fires when the newest bundle is older
+    than `backup_push_max_age_hours` (default 14h, with a 6-hourly schedule),
+    or when there is none.
+  - `BackupSealerStale` / `BackupVerifyStale`: a timer has stopped completing.
+  - `BackupQuarantined`: an upload failed verification.
+  - `BackupArchiveCorrupt`: a sealed bundle fails its checksum.
+
+## Integrity
+
+How each stage knows its copy is complete and correct:
+
+1. **Dump** (client): the script runs with `set -e`, so a failed `pg_dump` or
+   `tar` aborts the push. `backup_push_verify_script` then checks the dump
+   itself before bundling. For NetBox that is a full `pg_restore` to
+   `/dev/null`: `--list` only reads the table of contents, while a full restore
+   decompresses every data block.
+2. **Transfer** (rsync): the receiver writes to a dot-prefixed temp file. It
+   compares a whole-file checksum with the sender's, re-sending once on a
+   mismatch, and only then renames the file into place atomically. If the
+   connection drops, the receiver deletes the temp file. Tested 2026-11-10:
+   SIGTERM and SIGKILL of the client mid-transfer left nothing in `incoming/`.
+   The push script never passes `--partial` or `--inplace`, which would let a
+   partial file appear under its real name.
+3. **Seal** (target): a non-dot file in `incoming/` is a complete upload. The
+   seal job first makes it root-owned and read-only, then runs `zstd -t`. The
+   zstd frame checksum (XXH64) was computed over the content when the bundle
+   was made on the client, so this check is end to end. It also catches a
+   client that sent garbage or a partial file on purpose: rrsync can't forbid
+   `--partial`. Failures go to `quarantine/` and are never archived.
+   Temp files idle for more than a day are dead (only a crashed receiver
+   leaves them) and are deleted.
+4. **At rest**: the weekly verify re-runs `zstd -t` over the archive. The zvol
+   underneath is also covered by ZFS checksums and the monthly scrub.
 
 The client pins the target's host key (`/etc/ssh/sfmix_backup_known_hosts`),
 and the target learns the client's key in the same playbook run
@@ -41,7 +72,8 @@ and the target learns the client's key in the same playbook run
 ## Adding an app
 
 Put the host in `backup_push`, then set `backup_push_paths` /
-`backup_push_excludes` / `backup_push_dump_script` in its group_vars, then run
+`backup_push_excludes` / `backup_push_dump_script` /
+`backup_push_verify_script` in its group_vars, then run
 `deploy_backups.playbook.yml`. If the host is outside the UFW admin allow-list,
 add its addresses to `backup_push_source_addrs`.
 

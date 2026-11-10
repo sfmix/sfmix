@@ -9,6 +9,9 @@ backup_push_excludes: []
 # Bash run before bundling with $DUMP set to an empty, root-only directory;
 # whatever it writes there lands in the bundle under dump/ (database dumps).
 backup_push_dump_script: ""
+# Bash run after the dump script, before bundling; must fail (set -e) if a
+# dump in $DUMP is unusable, e.g. a full pg_restore to /dev/null.
+backup_push_verify_script: ""
 
 backup_push_key: /root/.ssh/sfmix_backup_ed25519
 backup_push_known_hosts: /etc/ssh/sfmix_backup_known_hosts

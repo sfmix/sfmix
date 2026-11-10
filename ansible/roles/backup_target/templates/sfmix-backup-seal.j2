@@ -1,8 +1,9 @@
 #!/bin/bash
 # Managed by Ansible (roles/backup_target). Design doc 013.
-# For every <root>/<client>/: move finished uploads from incoming/ (client-
-# writable) into archive/ (root-only), prune archive/ past retention while
-# always keeping the newest N, and publish freshness metrics for node_exporter.
+# For every <root>/<client>/: verify finished uploads in incoming/ (client-
+# writable) and move them into archive/ (root-only), or into quarantine/ if
+# they fail; drop dead rsync temp files; prune archive/ past retention while
+# always keeping the newest N; publish metrics for node_exporter.
 set -euo pipefail
 shopt -s nullglob
 
@@ -24,25 +25,56 @@ cat >"$metrics" <<'EOF'
 # TYPE sfmix_backup_archive_files gauge
 # HELP sfmix_backup_archive_bytes Bytes of sealed bundles held per client.
 # TYPE sfmix_backup_archive_bytes gauge
+# HELP sfmix_backup_quarantined_files Uploads that failed verification, held in quarantine/.
+# TYPE sfmix_backup_quarantined_files gauge
 EOF
+
+log() { logger -t sfmix-backup-seal "$@"; }
 
 for dir in "$ROOT"/*/; do
   dir=${dir%/}
   client=${dir##*/}
   in=$dir/incoming
   ar=$dir/archive
+  qu=$dir/quarantine
   [[ -d $in && -d $ar ]] || continue
+  install -d -o root -g root -m 0700 "$qu"
 
-  # Seal. rsync uploads to a dot-prefixed temp name and renames on success,
-  # so any plain non-dot file here is complete. Never overwrite a sealed file.
+  # rsync writes to a dot-prefixed temp file and renames it into place only
+  # after a whole-file checksum match; on a dropped connection it deletes it.
+  # A temp file survives only if the receiver itself died. An active upload
+  # keeps touching its temp file, so one idle for a day is dead.
   while IFS= read -r -d '' f; do
-    dest=$ar/${f##*/}
-    [[ -e $dest ]] && dest=$dest.dup-$now
+    rm -f -- "$f"
+    log -p user.warning "removed dead rsync temp file $client/incoming/${f##*/}"
+  done < <(find "$in" -maxdepth 1 -type f -name '.*' -mmin +1440 -print0)
+
+  # Seal: any plain non-dot file is a complete upload. Take it from the client
+  # (root-owned, read-only) first, then check the zstd frame checksum, which
+  # was computed over the content when the bundle was made on the client, so
+  # this verifies end to end. Failures go to quarantine/, never the archive.
+  # Never overwrite an existing file.
+  while IFS= read -r -d '' f; do
+    base=${f##*/}
     chown root:root -- "$f"
     chmod 0400 -- "$f"
-    mv -n -- "$f" "$dest"
-    logger -t sfmix-backup-seal "sealed $client/${dest##*/} ($(stat -c %s -- "$dest") bytes)"
+    if zstd -q -t -- "$f" 2>/dev/null; then
+      dest=$ar/$base
+      [[ -e $dest ]] && dest=$dest.dup-$now
+      mv -n -- "$f" "$dest"
+      log "sealed $client/${dest##*/} ($(stat -c %s -- "$dest") bytes, zstd checksum ok)"
+    else
+      dest=$qu/$base.$now
+      mv -n -- "$f" "$dest"
+      log -p user.err "QUARANTINED $client/$base: failed zstd integrity check"
+    fi
   done < <(find "$in" -maxdepth 1 -type f ! -name '.*' -print0)
+
+  # Quarantine is evidence, not backup: age it out on the same retention.
+  while IFS= read -r -d '' f; do
+    rm -f -- "$f"
+    log "pruned quarantined $client/${f##*/}"
+  done < <(find "$qu" -maxdepth 1 -type f -mtime +"$RETENTION_DAYS" -print0)
 
   # Prune: newest first; keep the first KEEP_MIN regardless of age.
   n=0
@@ -50,7 +82,7 @@ for dir in "$ROOT"/*/; do
     n=$((n + 1))
     if (( n > KEEP_MIN )) && (( now - ${mtime%.*} > RETENTION_DAYS * 86400 )); then
       rm -f -- "$path"
-      logger -t sfmix-backup-seal "pruned $client/${path##*/}"
+      log "pruned $client/${path##*/}"
     fi
   done < <(find "$ar" -maxdepth 1 -type f -printf '%T@ %p\0' | sort -z -rn)
 
@@ -64,6 +96,8 @@ for dir in "$ROOT"/*/; do
   fi
   printf 'sfmix_backup_archive_files{client="%s"} %s\n' "$client" "$count" >>"$metrics"
   printf 'sfmix_backup_archive_bytes{client="%s"} %s\n' "$client" "$bytes" >>"$metrics"
+  printf 'sfmix_backup_quarantined_files{client="%s"} %s\n' "$client" \
+    "$(find "$qu" -maxdepth 1 -type f | wc -l)" >>"$metrics"
 done
 
 cat >>"$metrics" <<EOF

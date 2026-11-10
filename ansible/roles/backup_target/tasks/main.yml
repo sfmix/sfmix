@@ -1,7 +1,7 @@
 ---
 - name: "Backup target: packages"
   ansible.builtin.apt:
-    name: rsync
+    name: [rsync, zstd]
     state: present
 
 - name: "Backup target: root and textfile directories"
@@ -35,15 +35,21 @@
     _user: "{{ hostvars[_client].backup_push_user }}"
     _dir: "{{ backup_target_root }}/{{ hostvars[_client].backup_push_name }}"
 
-- name: "Backup target: seal script"
+# seal: every few minutes, verify + seal uploads, prune, publish freshness.
+# verify: weekly re-check of every sealed bundle.
+- name: "Backup target: seal + verify scripts"
   ansible.builtin.template:
-    src: sfmix-backup-seal.j2
-    dest: /usr/local/sbin/sfmix-backup-seal
+    src: "{{ item }}.j2"
+    dest: "/usr/local/sbin/{{ item }}"
     owner: root
     group: root
     mode: u=rwx,go=rx
+    validate: bash -n %s
+  loop:
+    - sfmix-backup-seal
+    - sfmix-backup-verify
 
-- name: "Backup target: seal service + timer"
+- name: "Backup target: seal + verify services and timers"
   ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "/etc/systemd/system/{{ item }}"
@@ -53,10 +59,15 @@
   loop:
     - sfmix-backup-seal.service
     - sfmix-backup-seal.timer
+    - sfmix-backup-verify.service
+    - sfmix-backup-verify.timer
 
-- name: "Backup target: enable seal timer"
+- name: "Backup target: enable timers"
   ansible.builtin.systemd_service:
-    name: sfmix-backup-seal.timer
+    name: "{{ item }}"
     enabled: true
     state: started
     daemon_reload: true
+  loop:
+    - sfmix-backup-seal.timer
+    - sfmix-backup-verify.timer
