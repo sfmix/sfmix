@@ -1,0 +1,26 @@
+---
+# Fleet backups (design doc 013): hosts in `backup_push` bundle + rsync their
+# backup set, add-only, to the `backup` target, which seals and prunes.
+#   ansible-playbook deploy_backups.playbook.yml --vault-password-file ~/.sfmix_ansible_vault
+# Three phases so keys flow both ways in one run: client keys -> target
+# accounts (+ target host key) -> client known_hosts, script and timer.
+- name: "Backups: client keys"
+  hosts: backup_push
+  become: true
+  tasks:
+    - name: Client key
+      ansible.builtin.include_role:
+        name: backup_push
+        tasks_from: keys.yml
+
+- name: "Backups: target"
+  hosts: backup
+  become: true
+  roles:
+    - backup_target
+
+- name: "Backups: client push"
+  hosts: backup_push
+  become: true
+  roles:
+    - backup_push

@@ -1,0 +1,7 @@
+# Managed by Ansible (roles/backup_target).
+[Unit]
+Description=Seal uploaded backups into the archive, prune, publish metrics
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sfmix-backup-seal

@@ -1,0 +1,14 @@
+---
+# Push this host's backups to the fleet backup target (design doc 013).
+# Identity/schedule vars that other hosts read through hostvars (target
+# accounts, Prometheus staleness rules) live in inventory/group_vars/backup_push.yml.
+
+# Files/directories (absolute) bundled as-is, and tar --exclude patterns.
+backup_push_paths: []
+backup_push_excludes: []
+# Bash run before bundling with $DUMP set to an empty, root-only directory;
+# whatever it writes there lands in the bundle under dump/ (database dumps).
+backup_push_dump_script: ""
+
+backup_push_key: /root/.ssh/sfmix_backup_ed25519
+backup_push_known_hosts: /etc/ssh/sfmix_backup_known_hosts

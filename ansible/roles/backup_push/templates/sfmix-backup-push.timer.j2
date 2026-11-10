@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/backup_push).
+[Unit]
+Description=Push backups to {{ backup_push_target }} ({{ backup_push_on_calendar }})
+
+[Timer]
+OnCalendar={{ backup_push_on_calendar }}
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

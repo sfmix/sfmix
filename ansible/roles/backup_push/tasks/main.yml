@@ -1,0 +1,37 @@
+---
+# Phase 3 of deploy_backups.playbook.yml (after the target knows our key).
+- name: "Backup push: pin the target's host key"
+  ansible.builtin.copy:
+    dest: "{{ backup_push_known_hosts }}"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+    content: |
+      {{ backup_push_target }} {{ hostvars[backup_push_target].backup_target_host_key }}
+
+- name: "Backup push: script"
+  ansible.builtin.template:
+    src: sfmix-backup-push.j2
+    dest: /usr/local/sbin/sfmix-backup-push
+    owner: root
+    group: root
+    mode: u=rwx,go=
+    validate: bash -n %s
+
+- name: "Backup push: service + timer"
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - sfmix-backup-push.service
+    - sfmix-backup-push.timer
+
+- name: "Backup push: enable timer"
+  ansible.builtin.systemd_service:
+    name: sfmix-backup-push.timer
+    enabled: true
+    state: started
+    daemon_reload: true

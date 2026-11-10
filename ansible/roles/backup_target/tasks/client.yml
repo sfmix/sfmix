@@ -1,0 +1,48 @@
+---
+# One backup_push client: _client (inventory name), _name, _user, _dir.
+- name: "Backup target: {{ _name }}: account"
+  ansible.builtin.user:
+    name: "{{ _user }}"
+    system: true
+    home: "{{ _dir }}"
+    create_home: false
+    shell: /bin/sh            # sshd runs the forced command through it
+    password: "!"
+
+# Root-owned all the way down: the client can't touch its own key or the
+# archive, only add files to incoming/.
+- name: "Backup target: {{ _name }}: directories"
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ _dir }}", owner: root, mode: "u=rwx,go=rx" }
+    - { path: "{{ _dir }}/.ssh", owner: root, mode: "u=rwx,go=rx" }
+    - { path: "{{ _dir }}/incoming", owner: "{{ _user }}", mode: "u=rwx,go=" }
+    - { path: "{{ _dir }}/archive", owner: root, mode: "u=rwx,go=" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: "Backup target: {{ _name }}: authorized key (rrsync, add-only)"
+  ansible.builtin.copy:
+    dest: "{{ _dir }}/.ssh/authorized_keys"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+    content: |
+      # Managed by Ansible (roles/backup_target). Add-only rsync into incoming/.
+      restrict,command="/usr/bin/rrsync -wo -no-del -no-overwrite -munge {{ _dir }}/incoming" {{ hostvars[_client].backup_push_pubkey }}
+
+# Most fleet sources already sit inside the UFW admin allow-list; this covers
+# public-only hosts.
+- name: "Backup target: {{ _name }}: allow SSH from the client"
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: "{{ item }}"
+    comment: "sfmix-backup-push {{ _name }}"
+  loop: "{{ hostvars[_client].backup_push_source_addrs | default([]) }}"

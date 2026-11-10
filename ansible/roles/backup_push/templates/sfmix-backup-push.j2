@@ -1,0 +1,39 @@
+#!/bin/bash
+# Managed by Ansible (roles/backup_push). Design doc 013.
+# Bundle this host's backup set into one timestamped .tar.zst and push it,
+# add-only, to {{ backup_push_target }}.
+set -euo pipefail
+umask 077
+
+NAME={{ backup_push_name | quote }}
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+WORK=$(mktemp -d /var/tmp/sfmix-backup.XXXXXX)
+trap 'rm -rf "$WORK"' EXIT
+DUMP=$WORK/dump
+mkdir "$DUMP"
+
+{% if backup_push_dump_script | trim %}
+# ── dump script (backup_push_dump_script) ──
+{{ backup_push_dump_script | trim }}
+# ──
+{% endif %}
+
+BUNDLE=$WORK/$NAME-$STAMP.tar.zst
+# GNU tar exits 1 for "file changed as we read it" (live files); only >1 is fatal.
+rc=0
+tar --zstd -cf "$BUNDLE" --warning=no-file-changed \
+{% for pat in backup_push_excludes %}
+  --exclude={{ pat | quote }} \
+{% endfor %}
+  -C "$WORK" dump \
+{% for p in backup_push_paths %}
+  -C / {{ p | regex_replace('^/+', '') | quote }} \
+{% endfor %}
+  || rc=$?
+(( rc <= 1 )) || { echo "tar failed (rc=$rc)" >&2; exit "$rc"; }
+
+rsync -t \
+  -e "ssh -i {{ backup_push_key }} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile={{ backup_push_known_hosts }}" \
+  "$BUNDLE" {{ (backup_push_user ~ '@' ~ backup_push_target ~ ':') | quote }}
+
+echo "pushed ${BUNDLE##*/} ($(stat -c %s "$BUNDLE") bytes) to {{ backup_push_target }}"

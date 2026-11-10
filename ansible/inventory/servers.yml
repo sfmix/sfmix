@@ -120,6 +120,10 @@ all:
     backup:
       hosts:
         backup01.scl04.sfmix.org:
+    # Hosts pushing backups to `backup` (deploy_backups.playbook.yml, doc 013).
+    backup_push:
+      hosts:
+        netbox.sfo02.sfmix.org:
     # Hosts running the Grafana Alloy log-shipping agent (journald -> Loki).
     # Start with low-stakes pilots; expand as the rollout proves out.
     log_agent:

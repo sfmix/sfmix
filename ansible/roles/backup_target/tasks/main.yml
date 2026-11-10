@@ -1,0 +1,62 @@
+---
+- name: "Backup target: packages"
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
+- name: "Backup target: root and textfile directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+  loop:
+    - "{{ backup_target_root }}"
+    - "{{ backup_target_textfile_dir }}"
+
+- name: "Backup target: read SSH host key"
+  ansible.builtin.slurp:
+    src: /etc/ssh/ssh_host_ed25519_key.pub
+  register: _backup_target_hostkey
+
+# Clients pin this in their known_hosts (roles/backup_push).
+- name: "Backup target: publish SSH host key"
+  ansible.builtin.set_fact:
+    backup_target_host_key: "{{ (_backup_target_hostkey.content | b64decode).split()[:2] | join(' ') }}"
+
+- name: "Backup target: per-client account, directories and key"
+  ansible.builtin.include_tasks: client.yml
+  loop: "{{ backup_target_clients }}"
+  loop_control:
+    loop_var: _client
+  vars:
+    _name: "{{ hostvars[_client].backup_push_name }}"
+    _user: "{{ hostvars[_client].backup_push_user }}"
+    _dir: "{{ backup_target_root }}/{{ hostvars[_client].backup_push_name }}"
+
+- name: "Backup target: seal script"
+  ansible.builtin.template:
+    src: sfmix-backup-seal.j2
+    dest: /usr/local/sbin/sfmix-backup-seal
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+
+- name: "Backup target: seal service + timer"
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - sfmix-backup-seal.service
+    - sfmix-backup-seal.timer
+
+- name: "Backup target: enable seal timer"
+  ansible.builtin.systemd_service:
+    name: sfmix-backup-seal.timer
+    enabled: true
+    state: started
+    daemon_reload: true
