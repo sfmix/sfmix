@@ -144,6 +144,10 @@ pub struct NetboxFetchResult {
     pub core_ports: Vec<(String, String)>,
     /// Admin-only ports visible only to IX Administrators: (device_fqdn, interface_name)
     pub admin_ports: Vec<(String, String)>,
+    /// Encapsulated peering subinterfaces (a participant's dot1q subif on
+    /// another network's port): (device_fqdn, interface_name). These own only
+    /// the subif — never the parent or its physical members.
+    pub encapsulated_ports: Vec<(String, String)>,
     /// IXP infrastructure data for IX-F export.
     pub ixp_data: NetboxIxpData,
 }
@@ -171,6 +175,7 @@ pub async fn fetch_port_map(
             enabled
             device { id name }
             custom_fields
+            tags { slug }
             member_interfaces { id name device { id name } }
             parent { id name member_interfaces { id name device { id name } } }
         }
@@ -268,6 +273,7 @@ pub async fn fetch_port_map(
     // Group peering interfaces by ASN → (simple ports + enriched ports)
     let mut ports_by_asn: HashMap<u32, Vec<(String, String)>> = HashMap::new();
     let mut enriched_by_asn: HashMap<u32, Vec<EnrichedPort>> = HashMap::new();
+    let mut encapsulated_ports: Vec<(String, String)> = Vec::new();
 
     // Process transit peer SAPs (participant custom field, no peering_port tag).
     // These go into ports_by_asn for PortMap classification but NOT enriched ports.
@@ -298,7 +304,16 @@ pub async fn fetch_port_map(
                 // (1) own member_interfaces — for Port-Channels tagged directly as peering_port
                 // (2) parent.member_interfaces — for subinterfaces (e.g. Port-Channel114.998)
                 //     once discovery.py --sync-subinterface-parents has set the parent field
-                let members: Vec<(String, String)> = if !iface.member_interfaces.is_empty() {
+                // An encapsulated subif rides another network's port (e.g. CCSF on
+                // MonkeyBrains' Po111.1426): the parent and its members are not the
+                // participant's, so it owns the subif alone.
+                let encapsulated = iface.has_tag("encapsulated_peering_port");
+                if encapsulated {
+                    encapsulated_ports.push((device_name.clone(), iface.name.clone()));
+                }
+                let members: Vec<(String, String)> = if encapsulated {
+                    Vec::new()
+                } else if !iface.member_interfaces.is_empty() {
                     iface.member_interfaces.iter()
                         .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
                         .collect()
@@ -451,7 +466,7 @@ pub async fn fetch_port_map(
         ixp_data.vlans.len(),
         participants.iter().map(|p| p.ip_addresses.len()).sum::<usize>(),
     );
-    Ok(NetboxFetchResult { participants, core_ports, admin_ports, ixp_data })
+    Ok(NetboxFetchResult { participants, core_ports, admin_ports, encapsulated_ports, ixp_data })
 }
 
 /// Parse a CIDR prefix string into (network_address, mask_length).
@@ -562,6 +577,14 @@ struct InterfaceEntry {
     member_interfaces: Vec<MemberInterfaceEntry>,
     #[serde(default)]
     parent: Option<ParentInterfaceEntry>,
+    #[serde(default)]
+    tags: Vec<TagEntry>,
+}
+
+impl InterfaceEntry {
+    fn has_tag(&self, slug: &str) -> bool {
+        self.tags.iter().any(|t| t.slug == slug)
+    }
 }
 
 #[derive(Deserialize)]

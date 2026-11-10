@@ -401,7 +401,7 @@ fn visible_port_channels(
             }
         {
             visible.insert(key.1.clone());
-            if let Some(base) = key.1.split('.').next() {
+            if let Some(base) = pmap.lag_base(device, &key.1) {
                 visible.insert(base.to_string());
             }
         }
