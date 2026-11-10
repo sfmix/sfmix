@@ -11,6 +11,7 @@ WORK=$(mktemp -d /var/tmp/sfmix-backup.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 DUMP=$WORK/dump
 mkdir "$DUMP"
+cd /    # dump commands may drop privileges (runuser) and can't enter $WORK
 
 {% if backup_push_dump_script | trim %}
 # ── dump script (backup_push_dump_script) ──
