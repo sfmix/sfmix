@@ -1,2 +1,50 @@
 ---
 sfmix_server_ufw_enabled: false
+
+# Fleet backups (design doc 013, deploy_backups.playbook.yml). Teleport itself
+# is hand-installed (SQLite backend in /var/lib/teleport/backend); the backend
+# holds the cluster CAs, so losing it means re-enrolling every node and user.
+# Two copies of the same state, restore steps in doc 013:
+#  - dump/backend.sqlite, dump/proc.sqlite: online-backup snapshots. The DBs use
+#    a rollback journal, so a plain file copy can catch a half-written page.
+#  - dump/resources.yaml: `tctl get all --with-secrets` (CAs incl. private
+#    keys, users, roles, tokens); version-portable, for `teleport start --bootstrap`.
+# python3's sqlite3 module stands in for the sqlite3 CLI, which isn't installed.
+backup_push_dump_script: |
+  python3 - "$DUMP" <<'PY'
+  import sqlite3, sys
+  for name in ("backend", "proc"):
+      src = sqlite3.connect(f"file:/var/lib/teleport/{name}/sqlite.db?mode=ro", uri=True, timeout=60)
+      dst = sqlite3.connect(f"{sys.argv[1]}/{name}.sqlite")
+      src.backup(dst)
+      dst.close()
+      src.close()
+  PY
+  tctl get all --with-secrets >"$DUMP/resources.yaml"
+# Snapshots must pass integrity_check and be non-empty; the export must carry
+# the host and user CAs' private keys, or it can't rebuild the cluster.
+backup_push_verify_script: |
+  python3 - "$DUMP" <<'PY'
+  import sqlite3, sys, yaml
+  d = sys.argv[1]
+  for name in ("backend", "proc"):
+      db = sqlite3.connect(f"file:{d}/{name}.sqlite?mode=ro", uri=True)
+      ok = db.execute("PRAGMA integrity_check").fetchall()
+      assert ok == [("ok",)], f"{name}: {ok}"
+      assert db.execute("SELECT count(*) FROM kv").fetchone()[0] > 0, f"{name}: empty kv"
+  with open(f"{d}/resources.yaml") as f:
+      docs = [x for x in yaml.safe_load_all(f) if x]
+  cas = {x["spec"]["type"]: x["spec"]["active_keys"] for x in docs if x.get("kind") == "cert_authority"}
+  for t in ("host", "user"):
+      assert all(k.get("private_key") for k in cas[t]["ssh"]), f"{t} CA: no SSH private key"
+      assert all(k.get("key") for k in cas[t]["tls"]), f"{t} CA: no TLS private key"
+  assert any(x.get("kind") == "user" for x in docs), "no users"
+  PY
+backup_push_paths:
+  - /etc/teleport.yaml
+  - /var/lib/teleport          # incl. log/: audit events, session recordings
+backup_push_excludes:
+  - var/lib/teleport/backend   # live DBs, snapshotted into dump/ instead
+  - var/lib/teleport/proc
+  - var/lib/teleport/debug.sock
+  - var/lib/teleport/handover

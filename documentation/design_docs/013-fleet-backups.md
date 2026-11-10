@@ -1,6 +1,6 @@
 # 013 — Fleet backups (push to backup01.scl04)
 
-Status: live for NetBox, 2026-11-10.
+Status: live for NetBox and Teleport, 2026-11-10.
 
 ## Problem
 
@@ -87,6 +87,31 @@ and copy it to the restore host. Then:
     #   generated_secret_pepper (API tokens are useless without it), media/, scripts/
     sudo -u postgres createdb -O netbox netbox_restore
     sudo -u postgres pg_restore -d netbox_restore --no-owner --role=netbox dump/netbox.pgdump
+
+## Restore (Teleport)
+
+The backend holds the cluster CAs, so a restore keeps every enrolled node and
+user cert valid. A bundle from `/srv/backup/teleport/archive/` has
+`etc/teleport.yaml` and `var/lib/teleport/` (host_uuid, audit log, session
+recordings; without the live DBs) plus, in `dump/`, `backend.sqlite` and
+`proc.sqlite` (online-backup snapshots that pass `integrity_check`) and
+`resources.yaml` (`tctl get all --with-secrets`).
+
+Same Teleport version (or one major newer), as root:
+
+    systemctl stop teleport
+    tar --zstd -xf teleport-<stamp>.tar.zst -C /restore
+    cp /restore/etc/teleport.yaml /etc/
+    rsync -a /restore/var/lib/teleport/ /var/lib/teleport/
+    install -m600 /restore/dump/backend.sqlite /var/lib/teleport/backend/sqlite.db
+    install -m600 /restore/dump/proc.sqlite /var/lib/teleport/proc/sqlite.db
+    rm -f /var/lib/teleport/{backend,proc}/sqlite.db-journal
+    systemctl start teleport
+
+If the SQLite snapshots won't load (for example, a much newer Teleport), bootstrap an empty
+`data_dir` from the export instead. This keeps the CAs, users, roles and tokens but loses the audit
+history: `teleport start --config /etc/teleport.yaml --bootstrap dump/resources.yaml`
+(once), then start the service normally.
 
 ## Limits
 
