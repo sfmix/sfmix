@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/metrics_archive). Design doc 012.
+[Unit]
+Description=Publish Thanos bucket coverage per resolution (node_exporter textfile)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/sfmix/thanos_bucket_coverage.py {{ metrics_archive_thanos_image }} /opt/thanos/objstore.yml {{ metrics_archive_textfile_dir }}/thanos_bucket.prom
+Nice=10

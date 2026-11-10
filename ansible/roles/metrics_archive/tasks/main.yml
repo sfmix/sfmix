@@ -224,3 +224,55 @@
           - --compact.concurrency=1
           - --downsample.concurrency=1
           - --delete-delay=48h
+
+    # Bucket coverage per resolution -> node_exporter textfile (dashboard
+    # "Long-term Metrics", where-the-data-is table).
+    - name: "Thanos: script directory"
+      become: true
+      ansible.builtin.file:
+        path: /usr/local/lib/sfmix
+        state: directory
+        owner: root
+        group: root
+        mode: u=rwx,go=rx
+
+    - name: "Thanos: coverage exporter script"
+      become: true
+      ansible.builtin.copy:
+        src: thanos_bucket_coverage.py
+        dest: /usr/local/lib/sfmix/thanos_bucket_coverage.py
+        owner: root
+        group: root
+        mode: u=rwx,go=rx
+
+    - name: "Thanos: textfile directory"
+      become: true
+      ansible.builtin.file:
+        path: "{{ metrics_archive_textfile_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: u=rwx,go=rx
+
+    - name: "Thanos: coverage exporter units"
+      become: true
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: u=rw,go=r
+      loop:
+        - thanos-bucket-coverage.service
+        - thanos-bucket-coverage.timer
+      notify: Reload systemd
+
+    - name: "Thanos: apply systemd unit changes"
+      ansible.builtin.meta: flush_handlers
+
+    - name: "Thanos: enable coverage timer"
+      become: true
+      ansible.builtin.systemd_service:
+        name: thanos-bucket-coverage.timer
+        enabled: true
+        state: started

@@ -31,3 +31,5 @@ metrics_archive_thanos_retention_5m: 365d
 metrics_archive_thanos_retention_1h: 0d
 metrics_archive_thanos_compact_http_port: 10912
 metrics_archive_thanos_store_http_port: 10902
+# node_exporter textfile collector dir (group_vars/metrics_archive.yml flag).
+metrics_archive_textfile_dir: /var/lib/node_exporter/textfile
