@@ -1,0 +1,12 @@
+---
+# Fleet backup target (design doc 013). Each host in the `backup_push` group
+# gets a locked-down account that can only add new files to its own
+# <root>/<name>/incoming; a root timer seals them into <name>/archive.
+backup_target_root: /srv/backup
+backup_target_clients: "{{ groups['backup_push'] | default([]) }}"
+backup_target_retention_days: 30
+# Never prune below this many bundles, however old (a client that stopped
+# pushing keeps its last good copies).
+backup_target_keep_min: 10
+backup_target_seal_interval: 10min
+backup_target_textfile_dir: /var/lib/node_exporter/textfile

@@ -1,0 +1,14 @@
+---
+# Hosts that push backups to the `backup` target (design doc 013,
+# deploy_backups.playbook.yml). Read via hostvars by roles/backup_target and
+# the Prometheus backup rules, so they live here rather than in role defaults.
+backup_push_name: "{{ inventory_hostname | regex_replace('\\.sfmix\\.org$', '') }}"
+backup_push_user: "bk-{{ backup_push_name | replace('.', '-') }}"
+backup_push_target: "{{ groups['backup'][0] }}"
+backup_push_on_calendar: "*-*-* 00/6:00:00"
+# BackupStale fires when the newest sealed bundle is older than this:
+# two missed 6-hourly runs plus slack.
+backup_push_max_age_hours: 14
+# Extra source addresses to open SSH for on the target, for clients outside
+# the UFW admin allow-list.
+backup_push_source_addrs: []

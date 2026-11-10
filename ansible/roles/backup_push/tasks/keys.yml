@@ -1,0 +1,31 @@
+---
+# Phase 1 of deploy_backups.playbook.yml: make sure the push key exists and
+# expose its public half as backup_push_pubkey for the target play.
+- name: "Backup push: packages"
+  ansible.builtin.apt:
+    name: [rsync, zstd]
+    state: present
+
+- name: "Backup push: key directory"
+  ansible.builtin.file:
+    path: "{{ backup_push_key | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: u=rwx,go=
+
+- name: "Backup push: SSH key"
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keygen -q -t ed25519 -N '' -C 'sfmix-backup-push@{{ inventory_hostname }}'
+      -f {{ backup_push_key | quote }}
+    creates: "{{ backup_push_key }}"
+
+- name: "Backup push: read public key"
+  ansible.builtin.slurp:
+    src: "{{ backup_push_key }}.pub"
+  register: _backup_push_pub
+
+- name: "Backup push: publish public key"
+  ansible.builtin.set_fact:
+    backup_push_pubkey: "{{ _backup_push_pub.content | b64decode | trim }}"

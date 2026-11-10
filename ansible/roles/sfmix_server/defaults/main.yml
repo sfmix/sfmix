@@ -62,6 +62,8 @@ sfmix_node_exporter_flags:
   - "--web.config.file=/etc/node_exporter/web.yml"
   - "--collector.netdev.device-exclude={{ sfmix_node_exporter_netdev_exclude }}"
   - "--collector.netclass.ignored-devices={{ sfmix_node_exporter_netdev_exclude }}"
+# Per-group additions (e.g. the textfile collector on the backup target).
+sfmix_node_exporter_extra_flags: []
 # OpenBSD has no netclass collector (Linux sysfs) and none of the virtual NICs.
 sfmix_node_exporter_flags_openbsd:
   - "--web.listen-address={{ sfmix_node_exporter_listen_host }}:{{ sfmix_node_exporter_port }}"

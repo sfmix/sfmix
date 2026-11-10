@@ -1,0 +1,5 @@
+---
+# Fleet backup target (roles/backup_target, design doc 013). The seal job
+# publishes per-client freshness via node_exporter's textfile collector.
+sfmix_node_exporter_extra_flags:
+  - "--collector.textfile.directory=/var/lib/node_exporter/textfile"

@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/backup_target).
+[Unit]
+Description=Seal uploaded backups every {{ backup_target_seal_interval }}
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ backup_target_seal_interval }}
+
+[Install]
+WantedBy=timers.target

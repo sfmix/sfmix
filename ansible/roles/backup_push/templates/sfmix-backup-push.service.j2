@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/backup_push).
+[Unit]
+Description=Push backups to {{ backup_push_target }}
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sfmix-backup-push
+Nice=10
+IOSchedulingClass=idle

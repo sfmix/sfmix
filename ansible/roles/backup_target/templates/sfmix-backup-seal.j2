@@ -1,0 +1,76 @@
+#!/bin/bash
+# Managed by Ansible (roles/backup_target). Design doc 013.
+# For every <root>/<client>/: move finished uploads from incoming/ (client-
+# writable) into archive/ (root-only), prune archive/ past retention while
+# always keeping the newest N, and publish freshness metrics for node_exporter.
+set -euo pipefail
+shopt -s nullglob
+
+ROOT={{ backup_target_root | quote }}
+RETENTION_DAYS={{ backup_target_retention_days | int }}
+KEEP_MIN={{ backup_target_keep_min | int }}
+PROM={{ (backup_target_textfile_dir ~ '/sfmix_backup.prom') | quote }}
+
+now=$(date +%s)
+metrics=$(mktemp "${PROM}.XXXXXX")
+trap 'rm -f "$metrics"' EXIT
+
+cat >"$metrics" <<'EOF'
+# HELP sfmix_backup_last_timestamp_seconds mtime of the newest sealed bundle per client.
+# TYPE sfmix_backup_last_timestamp_seconds gauge
+# HELP sfmix_backup_last_size_bytes Size of the newest sealed bundle per client.
+# TYPE sfmix_backup_last_size_bytes gauge
+# HELP sfmix_backup_archive_files Sealed bundles held per client.
+# TYPE sfmix_backup_archive_files gauge
+# HELP sfmix_backup_archive_bytes Bytes of sealed bundles held per client.
+# TYPE sfmix_backup_archive_bytes gauge
+EOF
+
+for dir in "$ROOT"/*/; do
+  dir=${dir%/}
+  client=${dir##*/}
+  in=$dir/incoming
+  ar=$dir/archive
+  [[ -d $in && -d $ar ]] || continue
+
+  # Seal. rsync uploads to a dot-prefixed temp name and renames on success,
+  # so any plain non-dot file here is complete. Never overwrite a sealed file.
+  while IFS= read -r -d '' f; do
+    dest=$ar/${f##*/}
+    [[ -e $dest ]] && dest=$dest.dup-$now
+    chown root:root -- "$f"
+    chmod 0400 -- "$f"
+    mv -n -- "$f" "$dest"
+    logger -t sfmix-backup-seal "sealed $client/${dest##*/} ($(stat -c %s -- "$dest") bytes)"
+  done < <(find "$in" -maxdepth 1 -type f ! -name '.*' -print0)
+
+  # Prune: newest first; keep the first KEEP_MIN regardless of age.
+  n=0
+  while IFS=' ' read -r -d '' mtime path; do
+    n=$((n + 1))
+    if (( n > KEEP_MIN )) && (( now - ${mtime%.*} > RETENTION_DAYS * 86400 )); then
+      rm -f -- "$path"
+      logger -t sfmix-backup-seal "pruned $client/${path##*/}"
+    fi
+  done < <(find "$ar" -maxdepth 1 -type f -printf '%T@ %p\0' | sort -z -rn)
+
+  newest=$(find "$ar" -maxdepth 1 -type f -printf '%T@ %s\n' | sort -rn | head -1)
+  count=$(find "$ar" -maxdepth 1 -type f | wc -l)
+  bytes=$(find "$ar" -maxdepth 1 -type f -printf '%s\n' | awk '{s+=$1} END {print s+0}')
+  if [[ -n $newest ]]; then
+    read -r ts size <<<"$newest"
+    printf 'sfmix_backup_last_timestamp_seconds{client="%s"} %s\n' "$client" "${ts%.*}" >>"$metrics"
+    printf 'sfmix_backup_last_size_bytes{client="%s"} %s\n' "$client" "$size" >>"$metrics"
+  fi
+  printf 'sfmix_backup_archive_files{client="%s"} %s\n' "$client" "$count" >>"$metrics"
+  printf 'sfmix_backup_archive_bytes{client="%s"} %s\n' "$client" "$bytes" >>"$metrics"
+done
+
+cat >>"$metrics" <<EOF
+# HELP sfmix_backup_seal_last_run_timestamp_seconds Last successful seal run.
+# TYPE sfmix_backup_seal_last_run_timestamp_seconds gauge
+sfmix_backup_seal_last_run_timestamp_seconds $now
+EOF
+chmod 0644 "$metrics"
+mv -f "$metrics" "$PROM"
+trap - EXIT

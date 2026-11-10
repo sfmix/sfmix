@@ -63,3 +63,13 @@ netbox_uwsgi_options:
   buffer-size: 65535
   enable-threads: true
   max-requests: 5000
+
+# Fleet backups (design doc 013, deploy_backups.playbook.yml). Restore:
+# configuration.py + generated_secret_{key,pepper} (API tokens need the
+# pepper), media/reports/scripts, then pg_restore dump/netbox.pgdump.
+backup_push_dump_script: |
+  runuser -u postgres -- pg_dump --format=custom netbox >"$DUMP/netbox.pgdump"
+backup_push_paths:
+  - /srv/netbox/shared        # lae.netbox netbox_shared_path
+backup_push_excludes:
+  - "*.log"

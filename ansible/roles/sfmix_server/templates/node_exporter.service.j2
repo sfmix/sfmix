@@ -13,7 +13,7 @@ Wants=network-online.target
 User=node_exporter
 Group=node_exporter
 ExecStart=/usr/local/bin/node_exporter \
-{% for flag in sfmix_node_exporter_flags %}
+{% for flag in sfmix_node_exporter_flags + sfmix_node_exporter_extra_flags %}
   {{ flag }}{{ ' \\' if not loop.last else '' }}
 {% endfor %}
 Restart=on-failure
