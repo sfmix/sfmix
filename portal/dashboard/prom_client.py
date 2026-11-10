@@ -115,6 +115,28 @@ def ifcounters_query(members: list[tuple[str, str]], direction: str, step: int) 
     return f"sum({' or '.join(terms)}) * 8"
 
 
+# SNMP interface counters are scraped every 60s; a rate() window must span at
+# least two samples.
+_SNMP_MIN_RATE_WINDOW = 120
+
+
+def subif_counters_query(device: str, ifname: str, direction: str, step: int) -> str:
+    """Throughput (bps) of one VLAN subinterface from its own SNMP counters.
+
+    sFlow-RT exports counters only for physical ports and LAGs, so a
+    subinterface's traffic cannot be read from the ``sflow_if*`` gauges —
+    summing the parent's members would count every VLAN on the parent (for an
+    encapsulated port, another network's whole port). EOS keeps per-subif
+    ifHC* octet counters, which these are.
+    """
+    metric = "ifHCOutOctets" if direction == "out" else "ifHCInOctets"
+    window = max(step, _SNMP_MIN_RATE_WINDOW)
+    return (
+        f'sum(rate({metric}{{job="snmp-eos",host="{_escape(device)}",'
+        f'ifname="{_escape(ifname)}"}}[{window}s])) * 8'
+    )
+
+
 _RE2_META = set("\\.+*?()|[]{}^$")
 
 

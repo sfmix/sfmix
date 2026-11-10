@@ -1636,13 +1636,13 @@ def participant_detail(request, asn):
     })
 
 
-def _metric_port_members(asn, token, port_index):
-    """Resolve a logical-port index to its validated (device, ifname) members.
+def _metric_port(asn, token, port_index):
+    """Resolve a logical-port index to the member's own enriched NetBox port.
 
     The traffic charts must never let the browser name an arbitrary interface,
-    so the member set is recomputed server-side from the member's own NetBox
-    ports. ``logical_ports`` is built 1:1 (and in order) from ``enriched_ports``
-    in :func:`_build_logical_ports`, so the template's loop index addresses the
+    so the port is recomputed server-side from the member's own NetBox ports.
+    ``logical_ports`` is built 1:1 (and in order) from ``enriched_ports`` in
+    :func:`_build_logical_ports`, so the template's loop index addresses the
     same port here. Returns ``None`` for an out-of-range / malformed index.
     """
     try:
@@ -1653,12 +1653,14 @@ def _metric_port_members(asn, token, port_index):
     lg = LookingGlassClient()
     if not lg.base_url:
         return None
-    detail = lg.get_participant_detail(asn, token=token)
-    ports = detail.get("enriched_ports", [])
+    ports = lg.get_participant_detail(asn, token=token).get("enriched_ports", [])
     if not (0 <= idx < len(ports)):
         return None
+    return ports[idx]
 
-    port = ports[idx]
+
+def _port_members(port):
+    """A port's validated (device, ifname) physical members, or ``None``."""
     members = port.get("member_interfaces") or []
     pairs = [(d, i) for d, i in members if d and i]
     if not pairs:  # single (non-LAG) port: the interface is its own member
@@ -1666,6 +1668,29 @@ def _metric_port_members(asn, token, port_index):
         if dev and ifn:
             pairs = [(dev, ifn)]
     return pairs or None
+
+
+def _metric_port_members(asn, token, port_index):
+    """Resolve a logical-port index to its validated (device, ifname) members."""
+    port = _metric_port(asn, token, port_index)
+    return _port_members(port) if port is not None else None
+
+
+def _if_counters_queries(port, step):
+    """(out, in) PromQL for a logical port's throughput, or ``None``.
+
+    A VLAN subinterface (``Port-Channel111.1426``) is the participant's port:
+    its traffic is read from the subif's own counters, never the parent's
+    members, which carry every VLAN on the parent (for an encapsulated port,
+    another network's entire port).
+    """
+    dev, ifn = port.get("device"), port.get("interface")
+    if dev and ifn and "." in ifn:
+        return tuple(prom_client.subif_counters_query(dev, ifn, d, step) for d in ("out", "in"))
+    members = _port_members(port)
+    if not members:
+        return None
+    return tuple(prom_client.ifcounters_query(members, d, step) for d in ("out", "in"))
 
 
 def participant_metrics(request, asn):
@@ -1705,15 +1730,12 @@ def participant_metrics(request, asn):
             series = prom_client.top_peers(result, xs, start, step, direction)
 
         elif panel == "if_counters":
-            members = _metric_port_members(asn, token, request.GET.get("port", ""))
-            if members is None:
+            port = _metric_port(asn, token, request.GET.get("port", ""))
+            queries = _if_counters_queries(port, step) if port is not None else None
+            if queries is None:
                 return JsonResponse({"error": "invalid port"}, status=400)
-            out_r = prom.query_range(
-                prom_client.ifcounters_query(members, "out", step), start, end, step
-            )
-            in_r = prom.query_range(
-                prom_client.ifcounters_query(members, "in", step), start, end, step
-            )
+            out_r = prom.query_range(queries[0], start, end, step)
+            in_r = prom.query_range(queries[1], start, end, step)
             series = [
                 {"name": "out", "values": prom_client.align_single(out_r, xs, start, step)},
                 {"name": "in", "values": prom_client.align_single(in_r, xs, start, step)},
