@@ -32,3 +32,21 @@ authentik_authentik:
       6439316136376266383464636165313037383234333531303132
     from: noreply@sfmix.org
   tag: "2026.8.3"
+
+# Fleet backups (design doc 013, deploy_backups.playbook.yml). Postgres lives
+# in the compose project, so dump and verify run inside its container; the raw
+# data dir (database/) and redis (cache/sessions) are not bundled. .env holds
+# AUTHENTIK_SECRET_KEY, without which stored secrets can't be decrypted.
+backup_push_dump_script: |
+  ak="docker compose -f /opt/authentik/docker-compose.yml"
+  $ak exec -T postgresql sh -c 'pg_dump --format=custom -U "$POSTGRES_USER" "$POSTGRES_DB"' >"$DUMP/authentik.pgdump"
+  $ak images >"$DUMP/images.txt"
+# Full restore to /dev/null decompresses every data block (see netbox.yml).
+backup_push_verify_script: |
+  docker compose -f /opt/authentik/docker-compose.yml exec -T postgresql pg_restore --file=/dev/null <"$DUMP/authentik.pgdump"
+backup_push_paths:
+  - /opt/authentik/.env
+  - /opt/authentik/docker-compose.yml
+  - /opt/authentik/media
+  - /opt/authentik/certs
+  - /opt/authentik/custom-templates
