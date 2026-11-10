@@ -1,0 +1,6 @@
+---
+# Long-term metrics tier (design doc 012). The Thanos host publishes bucket
+# coverage (oldest/newest sample per resolution) via node_exporter's textfile
+# collector (roles/metrics_archive, thanos-bucket-coverage.timer).
+sfmix_node_exporter_extra_flags:
+  - "--collector.textfile.directory=/var/lib/node_exporter/textfile"
