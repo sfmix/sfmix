@@ -77,7 +77,12 @@
    TX dashed. Colour vocabulary matches the old lane tiles: green nominal,
    amber marginal, red out of range, grey dark (port down). */
 .nd-optic-band { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
-.nd-optic-cap { font-size: .72rem; margin-top: .5rem; }
+.nd-optic-cap { font-size: .72rem; margin-top: .5rem; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+/* Line-style key, matching the chart's RX/TX stroke patterns. */
+.nd-optic-key { width: 28px; height: 6px; flex: none; }
+.nd-optic-key line { stroke: currentColor; }
+.nd-optic-key-rx { color: var(--color-text); }
+.nd-optic-key-tx { color: var(--color-text-light); margin-left: .5rem; }
 sfmix-optic-lanes { display: block; min-width: 0; margin-top: .35rem; }
 .nd-optic-skel { height: 90px; }
 /* Multi-lane optics (4/8 lanes) pair up two per row so a 4-lane QSFP reads
