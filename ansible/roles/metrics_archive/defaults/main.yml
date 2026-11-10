@@ -1,0 +1,28 @@
+---
+# Cold telemetry tier on metrics01.scl04 (design doc 012).
+
+# Thin 1T zvol (scsi1) on pve01.scl04 tank-vms. by-id is stable across boots;
+# the filesystem is mounted by label.
+metrics_archive_data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
+metrics_archive_data_dir: /srv/telemetry
+
+metrics_archive_garage_image: dxflrs/garage:v2.5.0
+metrics_archive_thanos_image: thanosio/thanos:v0.42.5
+# Same Loki as the primary on metrics.sfo02 (roles/grafana grafana_loki_image).
+metrics_archive_loki_image: grafana/loki:3.0.0
+
+# Garage layout: one node, one zone. Capacity is a placement weight, not a
+# quota; keep it near the data disk size.
+metrics_archive_garage_zone: scl04
+metrics_archive_garage_capacity: 1T
+
+# Downsampled retention in the bucket. Raw only as long as Prometheus keeps it
+# locally; 5m for a year; 1h forever (0d).
+metrics_archive_thanos_retention_raw: 30d
+metrics_archive_thanos_retention_5m: 365d
+metrics_archive_thanos_retention_1h: 0d
+metrics_archive_thanos_compact_http_port: 10912
+metrics_archive_thanos_store_http_port: 10902
+
+# Archive copy of every log line (fed by the Alloy gateway on metrics.sfo02).
+metrics_archive_loki_retention: 1095d

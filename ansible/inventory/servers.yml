@@ -7,6 +7,7 @@ all:
       children:
         netbox:
         metrics:
+        metrics_archive:
         teleport:
         sentry:
         shell:
@@ -32,6 +33,11 @@ all:
     metrics:
       hosts:
         metrics.sfo02.sfmix.org:
+    # Cold telemetry tier (design doc 012): Thanos bucket + store/compact and
+    # the Loki archive. VM 110 on pve01.scl04, SCL04-MGMT only (10.6.1.34).
+    metrics_archive:
+      hosts:
+        metrics01.scl04.sfmix.org:
     teleport:
       hosts:
         teleport.sfmix.org:
@@ -123,6 +129,7 @@ all:
         rs-linux.sfmix.org:
         netbox.sfo02.sfmix.org:
         metrics.sfo02.sfmix.org:
+        metrics01.scl04.sfmix.org:
         alice.sfmix.org:
         lg-web.sfmix.org:
         librenms.sfmix.org:

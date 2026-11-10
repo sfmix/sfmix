@@ -1,0 +1,12 @@
+---
+- name: Restart garage
+  ansible.builtin.command: docker restart garage
+
+- name: Restart thanos-store
+  ansible.builtin.command: docker restart thanos-store
+
+- name: Restart thanos-compact
+  ansible.builtin.command: docker restart thanos-compact
+
+- name: Restart loki-archive
+  ansible.builtin.command: docker restart loki-archive

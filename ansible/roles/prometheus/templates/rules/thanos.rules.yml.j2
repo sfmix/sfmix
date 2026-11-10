@@ -1,0 +1,78 @@
+{#
+  Long-term telemetry tier (design doc 012): Thanos sidecar + query on
+  metrics.sfo02, store + compact + Garage on metrics01.scl04. Scrape label
+  thanos_component says which piece; `component` stays the routing label.
+#}
+---
+groups:
+  - name: sfmix-thanos-alerts
+    rules:
+{% raw %}
+      - alert: ThanosComponentDown
+        expr: up{job=~"thanos|garage"} == 0
+        for: 10m
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: "{{ $labels.job }} {{ $labels.thanos_component }} on {{ $labels.host }} is not answering"
+          description: >-
+            Prometheus cannot scrape {{ $labels.job }}
+            {{ $labels.thanos_component }} on {{ $labels.host }}. Sidecar/query
+            down = dashboards fail (Grafana's Prometheus datasource is Thanos
+            Query); store/Garage down = history older than 30d missing from
+            graphs and uploads queue up. `docker ps -a` / `docker logs` on the
+            host.
+
+      # The sidecar retries forever; a failure counter that keeps climbing
+      # means blocks are piling up locally and will eventually age out of the
+      # 30d local retention unshipped.
+      - alert: ThanosSidecarUploadFailing
+        expr: increase(thanos_shipper_upload_failures_total[1h]) > 0
+        for: 1h
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: Thanos sidecar on {{ $labels.host }} failing to upload blocks
+          description: >-
+            Uploads to the bucket on metrics01.scl04 have been failing for an
+            hour. Check Garage on metrics01.scl04 and the oob path from
+            metrics.sfo02 (`docker logs --since 1h thanos-sidecar`).
+
+      # A 2h block is cut every 2h, so >6h without an upload means shipping
+      # has stopped even if nothing is counting failures.
+      - alert: ThanosSidecarNotUploading
+        expr: >
+          time() - max by (host) (thanos_objstore_bucket_last_successful_upload_time{thanos_component="sidecar"}) > 6 * 3600
+          and max by (host) (thanos_objstore_bucket_last_successful_upload_time{thanos_component="sidecar"}) > 0
+        for: 30m
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: No Thanos block shipped from {{ $labels.host }} in {{ $value | humanizeDuration }}
+          description: >-
+            The sidecar has not uploaded a block for over 6 hours.
+            `docker logs --since 6h thanos-sidecar` on metrics.sfo02.
+
+      # Halts on overlapping or corrupt blocks and stays halted until someone
+      # looks: no compaction, no downsampling, no retention.
+      - alert: ThanosCompactHalted
+        expr: thanos_compact_halted == 1
+        for: 5m
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: Thanos compactor on {{ $labels.host }} has halted
+          description: >-
+            The compactor hit a block it refuses to process and stopped.
+            Downsampling and bucket retention are paused until fixed.
+            `docker logs thanos-compact` on metrics01.scl04 names the block
+            (`thanos tools bucket mark --marker=no-compact-mark.json` to skip).
+
+      # Iterations run every 5m; the first backfill can take hours, hence 6h.
+      - alert: ThanosCompactNotRunning
+        expr: increase(thanos_compact_iterations_total[6h]) == 0
+        for: 30m
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: Thanos compactor on {{ $labels.host }} has not completed a run in 6h
+          description: >-
+            No compaction iteration has finished in 6 hours. Downsampling and
+            retention are falling behind. `docker logs --since 6h
+            thanos-compact` on metrics01.scl04.
+{% endraw %}

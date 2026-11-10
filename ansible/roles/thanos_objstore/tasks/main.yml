@@ -1,0 +1,21 @@
+---
+# Thanos bucket client config (Garage S3 on the archive host, design doc 012).
+# Shared by the sidecar on metrics.sfo02 and store/compact on metrics01.scl04.
+- name: "Thanos: config directory"
+  become: true
+  ansible.builtin.file:
+    path: /opt/thanos
+    state: directory
+    owner: root
+    group: root
+    mode: u=rwx,go=rx
+
+- name: "Thanos: bucket config"
+  become: true
+  ansible.builtin.template:
+    src: objstore.yml.j2
+    dest: /opt/thanos/objstore.yml
+    owner: 65534        # thanos containers run as nobody
+    group: 65534
+    mode: u=r,go=
+  register: thanos_objstore_config

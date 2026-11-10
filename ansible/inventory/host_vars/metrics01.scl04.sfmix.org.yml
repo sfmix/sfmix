@@ -1,0 +1,4 @@
+---
+# SCL04-MGMT only (10.6.1.34) -- no public leg, so Ansible hops via shell.
+ansible_ssh_common_args: '-o ProxyJump=shell.sfmix.org'
+ansible_host: 10.6.1.34

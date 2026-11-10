@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/thanos_objstore).
+type: S3
+config:
+  bucket: {{ thanos_s3_bucket }}
+  endpoint: {{ thanos_s3_endpoint }}
+  region: garage
+  access_key: {{ thanos_s3_access_key }}
+  secret_key: {{ thanos_s3_secret_key }}
+  # Plain HTTP over the management network; Garage has no virtual-host DNS.
+  insecure: true
+  bucket_lookup_type: path

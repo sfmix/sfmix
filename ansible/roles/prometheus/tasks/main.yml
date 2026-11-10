@@ -30,6 +30,7 @@
     - logging.rules.yml        # log pipeline internals: Alloy agents (remote_write) + Loki
     - node.rules.yml           # host health from node_exporter (job="node")
     - clock.rules.yml          # network-device clock drift via SNMP hrSystemDate (job="snmp-clock")
+    - thanos.rules.yml         # long-term tier: sidecar shipping, compactor, store, Garage (doc 012)
 
 - name: "Prometheus: Template config"
   become: true
@@ -50,13 +51,68 @@
     volumes:
       - /opt/prometheus:/opt/prometheus
     user: nobody
+    # --web.enable-remote-write-receiver: Alloy agents remote_write their own
+    # metrics here (roles/grafana_alloy); admin subnets only, like the Loki push.
+    # 2h min/max block duration turns off local compaction so the Thanos
+    # sidecar can ship every block (design doc 012).
+    command: >-
+      {{ [
+        '--config.file=/opt/prometheus/prometheus.yml',
+        '--storage.tsdb.path=/opt/prometheus/var/',
+        '--storage.tsdb.retention.size=' ~ prometheus_retention_size,
+        '--storage.tsdb.min-block-duration=2h',
+        '--storage.tsdb.max-block-duration=2h',
+        '--web.console.libraries=/usr/share/prometheus/console_libraries',
+        '--web.console.templates=/usr/share/prometheus/consoles',
+        '--web.enable-admin-api',
+        '--web.enable-remote-write-receiver',
+      ] + (['--storage.tsdb.retention.time=' ~ prometheus_retention_time]
+           if prometheus_retention_time else []) }}
+
+# ── Thanos (design doc 012) ────────────────────────────────────────────
+- name: "Thanos: bucket config"
+  ansible.builtin.include_role:
+    name: thanos_objstore
+
+# Ships every completed 2h block to the bucket on metrics01.scl04. Uploads
+# retry, so an outage there only delays shipping; blocks stay local for
+# prometheus_retention_time.
+- name: "Thanos: sidecar"
+  community.docker.docker_container:
+    name: thanos-sidecar
+    image: "{{ prometheus_thanos_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    user: nobody
+    restart: "{{ thanos_objstore_config.changed }}"
+    volumes:
+      # rw: the shipper records what it uploaded in thanos.shipper.json here.
+      - /opt/prometheus/var:/prometheus
+      - /opt/thanos/objstore.yml:/etc/thanos/objstore.yml:ro
+    command: >-
+      {{ [
+        'sidecar',
+        '--tsdb.path=/prometheus',
+        '--prometheus.url=http://127.0.0.1:9090',
+        '--objstore.config-file=/etc/thanos/objstore.yml',
+        '--grpc-address=127.0.0.1:' ~ thanos_sidecar_grpc_port,
+        '--http-address=127.0.0.1:' ~ thanos_sidecar_http_port,
+      ] + (['--shipper.upload-compacted'] if thanos_sidecar_upload_compacted | bool else []) }}
+
+# What Grafana's "Prometheus" datasource points at: recent raw data from the
+# sidecar, history (downsampled) from the store gateway on metrics01.scl04.
+# If scl04 is unreachable, queries return the sidecar's part with a warning.
+- name: "Thanos: query"
+  community.docker.docker_container:
+    name: thanos-query
+    image: "{{ prometheus_thanos_image }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    user: nobody
     command:
-      - --config.file=/opt/prometheus/prometheus.yml
-      - --storage.tsdb.path=/opt/prometheus/var/
-      - --storage.tsdb.retention.size=80GB
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
-      - --web.enable-admin-api
-      # Alloy agents remote_write their own metrics here (roles/grafana_alloy);
-      # reachable only from the admin subnets, same trust as the Loki push.
-      - --web.enable-remote-write-receiver
+      - query
+      - --http-address=127.0.0.1:{{ thanos_query_http_port }}
+      - --grpc-address=127.0.0.1:{{ thanos_query_grpc_port }}
+      - --endpoint=127.0.0.1:{{ thanos_sidecar_grpc_port }}
+      - --endpoint={{ telemetry_archive_host }}:{{ thanos_store_grpc_port }}
+      - --query.auto-downsampling
