@@ -332,14 +332,13 @@ loki_push_port: 3100
 # syslog-ng receiver port for appliances that forward native syslog (e.g. OpenBSD).
 loki_syslog_port: 514
 
-# Long-term telemetry tier (design doc 012). metrics01.scl04 (mgmt-only) holds
-# the Thanos bucket (Garage S3), thanos store/compact and the Loki archive;
-# metrics.sfo02's thanos sidecar/query and Alloy loki gateway reach it over oob.
+# Long-term metrics tier (design doc 012). metrics01.scl04 (mgmt-only) holds
+# the Thanos bucket (Garage S3) and thanos store/compact; metrics.sfo02's
+# thanos sidecar and query reach it over oob.
 telemetry_archive_host: metrics01.scl04.sfmix.org
 thanos_s3_endpoint: "{{ telemetry_archive_host }}:3900"
 thanos_s3_bucket: thanos
 thanos_store_grpc_port: 10901
-loki_archive_port: 3100
 garage_admin_port: 3903
 thanos_s3_access_key: !vault |
           $ANSIBLE_VAULT;1.1;AES256

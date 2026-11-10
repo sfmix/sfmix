@@ -290,15 +290,9 @@ scrape_configs:
       scrape_timeout: 10s
       static_configs:
         - targets:
-            - 127.0.0.1:{{ loki_http_port }}
+            - 127.0.0.1:3100
           labels:
-            host: {{ inventory_hostname }}
-            role: primary
-        - targets:
-            - {{ telemetry_archive_host }}:{{ loki_archive_port }}
-          labels:
-            host: {{ telemetry_archive_host }}
-            role: archive
+            host: metrics.sfo02.sfmix.org
     # Thanos (design doc 012): sidecar + query here, store gateway + compactor
     # next to the bucket on the archive host.
     - job_name: thanos

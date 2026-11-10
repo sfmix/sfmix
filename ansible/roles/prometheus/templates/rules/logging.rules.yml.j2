@@ -27,30 +27,17 @@ groups:
 {% endfor %}
 {% raw %}
       - alert: LokiDown
-        expr: up{job="loki", role="primary"} == 0
+        expr: up{job="loki"} == 0
         for: 3m
         labels: {severity: critical, component: logging}
         annotations:
           summary: Loki on metrics.sfo02 is not answering
           description: >-
-            Prometheus cannot scrape Loki at 127.0.0.1:3110. The Alloy gateway
-            on :3100 is buffering into its WAL and every log-based alert is
-            blind. `docker logs --since 10m loki` on metrics.sfo02.
+            Prometheus cannot scrape Loki at 127.0.0.1:3100. Every agent is
+            buffering into its WAL (an hour or so of headroom) and every
+            log-based alert is blind. `docker logs --since 10m loki` on
+            metrics.sfo02.
           dashboard: https://grafana.sfmix.org/d/sfmix-log-pipeline/log-pipeline?from=now-3h&to=now
-
-      # The archive copy (design doc 012). The gateway on metrics.sfo02 keeps
-      # 72h of undelivered lines in its WAL; past that, archive lines are lost
-      # (the primary is unaffected).
-      - alert: LokiArchiveDown
-        expr: up{job="loki", role="archive"} == 0
-        for: 15m
-        labels: {severity: warning, component: logging}
-        annotations:
-          summary: Loki archive on {{ $labels.host }} is not answering
-          description: >-
-            The archive Loki is unreachable. The Alloy gateway on metrics.sfo02
-            buffers up to 72h for it. `docker logs --since 1h loki-archive`
-            on metrics01.scl04.
 
       # A container that trips the sender-side rate limit for an hour is
       # either a bug (crash loop, retry storm) or a candidate for a
