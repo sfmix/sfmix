@@ -3,9 +3,20 @@
   (roles/backup_target) writes sfmix_backup_* via node_exporter's textfile
   collector. One BackupStale rule per `backup_push` host, so a client whose
   series never appeared (absent) alerts the same as a stale one.
+  sfmix:backup_max_age_seconds publishes each client's window so the Backups
+  dashboard (gen_nms_dashboards.py / nms_backup_dashboards.py) can show
+  "% of window used" and list clients that have never reported.
 #}
 ---
 groups:
+  - name: sfmix-backup-windows
+    rules:
+{% for c in groups['backup_push'] | default([]) | sort %}
+      - record: sfmix:backup_max_age_seconds
+        expr: vector({{ (hostvars[c].backup_push_max_age_hours | int) * 3600 }})
+        labels: {client: "{{ hostvars[c].backup_push_name }}", push_host: "{{ c }}"}
+{% endfor %}
+
   - name: sfmix-backup-alerts
     rules:
 {% for c in groups['backup_push'] | default([]) | sort %}
@@ -18,6 +29,7 @@ groups:
         for: 30m
         labels: {severity: warning, component: backups, client: "{{ name }}"}
         annotations:
+          dashboard: https://grafana.sfmix.org/d/sfmix-backups/backups?from=now-2d&to=now
           summary: "No fresh backup from {{ name }} in {{ max_h }}h"
           description: >-
             The newest sealed bundle from {{ c }} on {{ hostvars[c].backup_push_target }}
@@ -32,6 +44,7 @@ groups:
         for: 15m
         labels: {severity: warning, component: backups}
         annotations:
+          dashboard: https://grafana.sfmix.org/d/sfmix-backups/backups?from=now-2d&to=now
           summary: "Backup seal job on {{ $labels.host }} has not run for an hour"
           description: >-
             sfmix-backup-seal.timer on {{ $labels.host }} is not completing, so
@@ -43,6 +56,7 @@ groups:
         for: 5m
         labels: {severity: warning, component: backups}
         annotations:
+          dashboard: https://grafana.sfmix.org/d/sfmix-backups/backups?from=now-2d&to=now
           summary: "{{ $value }} upload(s) from {{ $labels.client }} failed verification"
           description: >-
             An upload from {{ $labels.client }} failed its zstd integrity check
@@ -55,6 +69,7 @@ groups:
         expr: sfmix_backup_verify_failed_files > 0
         labels: {severity: critical, component: backups}
         annotations:
+          dashboard: https://grafana.sfmix.org/d/sfmix-backups/backups?from=now-2d&to=now
           summary: "{{ $value }} sealed backup(s) of {{ $labels.client }} are corrupt"
           description: >-
             The weekly sfmix-backup-verify run on {{ $labels.host }} found sealed
@@ -68,6 +83,7 @@ groups:
         for: 1h
         labels: {severity: warning, component: backups}
         annotations:
+          dashboard: https://grafana.sfmix.org/d/sfmix-backups/backups?from=now-2d&to=now
           summary: "Backup verify on {{ $labels.host }} has not completed in 8 days"
           description: >-
             sfmix-backup-verify.timer (weekly) on {{ $labels.host }} is not
