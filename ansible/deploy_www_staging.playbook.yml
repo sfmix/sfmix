@@ -1,5 +1,5 @@
 ---
-# Build website/ (plus concepts) locally and publish it to the admin-only
+# Build website/ locally and publish it to the admin-only
 # https://www-staging.sfmix.org (static files on portal.sfmix.org, behind
 # authentik's embedded outpost on login.sfmix.org).
 - name: "Deploy www-staging"
