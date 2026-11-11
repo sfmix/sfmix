@@ -121,6 +121,7 @@
     - nms_node_dashboards.py     # host metrics (node_exporter, scraped natively)
     - nms_telemetry_dashboards.py  # long-term metrics: Thanos + Garage (doc 012)
     - nms_backup_dashboards.py   # fleet backups (doc 013) + storage health
+    - nms_peering_dashboards.py  # peering traffic from sflow-rt ixp-metrics
 
 - name: "SNMP exporter: Template dashboard generator env"
   become: true
