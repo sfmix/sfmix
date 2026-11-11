@@ -267,4 +267,34 @@ nothing missing on either node.
 
 `thanos.rules.yml`: any Thanos component or Garage down, sidecar upload
 failures, no block shipped in 6h, compactor halted, compactor not completing
-runs.
+runs, and bucket capacity (below).
+
+## Bucket capacity
+
+Measured 2026-11-10: 1h 2.35 GB for Mar → Nov, 5m 22.7 GB, raw 78.9 GB
+(backfill, trimming to ~15 GB); ~954 GB free per node. Only the 1h tier grows
+without bound (~5-15 GB/yr at ~133k series), so 1 TB lasts decades unless
+cardinality explodes. A full node is not self-healing, though: with
+replication 2 writes stall, the sidecar stops shipping (and Prometheus's 30d
+local retention eventually drops unshipped blocks), and the compactor (scratch
+on the same `/srv/telemetry` on scl04) can't compact, so retention stops too.
+
+Alerts (`component: telemetry`): `GarageDiskLow` (<25% free),
+`GarageDiskCritical` (<10%), `GarageDiskFillingUp` (30d trend → full within
+90d, only once >50% used so a backfill or resync doesn't trip it),
+`ThanosForeverTierGrowingFast` (1h tier +5 GB in 30d: a cardinality blow-up
+being written in permanently).
+
+Making room, in order:
+1. Grow the disk: thin zvols, `qm resize <vmid> scsi1 +NG`, `resize2fs`, raise
+   `metrics_archive_garage_capacity`. sfo02's 1.8 TB SSD pool is shared and
+   is the tighter of the two.
+2. Shorten `metrics_archive_thanos_retention_5m`: per day it costs ~10× the 1h
+   tier, which already covers the same span.
+3. Drop the oldest 1h blocks (~2-week blocks):
+   `thanos tools bucket mark --marker=deletion-mark.json --id=<ULID>
+   --details=capacity`; the compactor deletes after `--delete-delay=48h`.
+
+Never delete objects in Garage directly or with S3 lifecycle rules: they act
+on upload time (compaction re-uploads old data) and remove a block's files
+piecemeal, which halts the compactor.
