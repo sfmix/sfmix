@@ -4,20 +4,14 @@
   run_once: true
   tags:
     - publish_as_set
+  # Always run; in --check mode the script only prints the diff.
+  check_mode: false
   ansible.builtin.command:
-    argv:
-      - "{{ playbook_dir }}/roles/sfmix_arouteserver/files/publish_as_set.py"
-      - "{{ arouteserver_var }}/{{ inventory_hostname }}.d/{{ inventory_hostname }}-irr-as-set.rpsl.txt"
+    argv: "{{ ['python3', playbook_dir ~ '/roles/sfmix_arouteserver/files/publish_as_set.py',
+              arouteserver_var ~ '/' ~ inventory_hostname ~ '.d/' ~ inventory_hostname ~ '-irr-as-set.rpsl.txt']
+             + (['--check'] if ansible_check_mode else []) }}"
   register: publish_as_set_result
-  changed_when: publish_as_set_result.rc == 0
+  changed_when: publish_as_set_result.stdout_lines[-1] | default('') == 'CHANGED'
   environment:
-    # This API key is linked to MPE54-ARIN, the POC object for matt@sfmix.org
-    ARIN_API_KEY: !vault |
-      $ANSIBLE_VAULT;1.1;AES256
-      63396664666138623231643762636461316664393566373665306536353466623265396136336433
-      3862353538383662643631636563363661306163386438620a356139366139373462386432326634
-      32363337303536303963386232303036303435346534363361323061363738323631333962396137
-      3762383536643531390a386132646330636663383830346631343566633534343361353836373035
-      64383361346136353632356565613338396366633538343463363738376665303938383364616530
-      3330613130393563636130633839363261333865316161663332
-    ARIN_ORG_HANDLE: SFMIES
+    ARIN_API_KEY: "{{ arin_api_key }}"
+    ARIN_ORG_HANDLE: "{{ arin_org_handle }}"

@@ -1,0 +1,36 @@
+---
+# AS-SFMIX-TRANSIT = what AS40271 (ip.sfmix.org transit) announces upstream.
+# HE.net (AS6939) builds its prefix filter for us from this as-set, so a
+# customer whose ASN/as-set is missing here gets dropped at HE.
+# Members live in group_vars/all.yml: as40271_as_set_members.
+- name: Ensure render directory exists
+  delegate_to: localhost
+  check_mode: false
+  ansible.builtin.file:
+    path: "{{ as40271_irr_rpsl_path | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Render AS-SFMIX-TRANSIT RPSL
+  delegate_to: localhost
+  check_mode: false
+  ansible.builtin.template:
+    src: as-set_sfmix-transit.rpsl.j2
+    dest: "{{ as40271_irr_rpsl_path }}"
+    mode: "0644"
+
+- name: Publish AS-SFMIX-TRANSIT to ARIN
+  delegate_to: localhost
+  check_mode: false
+  ansible.builtin.command:
+    argv: "{{ ['python3', playbook_dir ~ '/roles/sfmix_arouteserver/files/publish_as_set.py', as40271_irr_rpsl_path]
+             + (['--check'] if ansible_check_mode else []) }}"
+  register: as40271_irr_publish
+  changed_when: as40271_irr_publish.stdout_lines[-1] | default('') == 'CHANGED'
+  environment:
+    ARIN_API_KEY: "{{ arin_api_key }}"
+    ARIN_ORG_HANDLE: "{{ arin_org_handle }}"
+
+- name: Show AS-SFMIX-TRANSIT diff
+  ansible.builtin.debug:
+    var: as40271_irr_publish.stdout_lines

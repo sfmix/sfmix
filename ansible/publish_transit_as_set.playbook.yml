@@ -1,0 +1,11 @@
+---
+# Publish AS-SFMIX-TRANSIT (AS40271 customer cone) to the ARIN IRR.
+#   ansible-playbook publish_transit_as_set.playbook.yml --vault-password-file ~/.sfmix_ansible_vault --check   # diff only
+#   ansible-playbook publish_transit_as_set.playbook.yml --vault-password-file ~/.sfmix_ansible_vault           # publish
+- name: "AS40271: Publish AS-SFMIX-TRANSIT to ARIN"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    as40271_irr_rpsl_path: "{{ playbook_dir }}/.cache/as-sfmix-transit.rpsl.txt"
+  roles:
+    - as40271_irr

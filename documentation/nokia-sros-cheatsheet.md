@@ -232,6 +232,32 @@ bgpq4 -J -6 -l IRR-AS<ASXXXXX>-V6 <AS-SET>
 } | ssh -tt management.<ROUTER>.sfmix.org
 ```
 
+## Opt-in Default Route (SEND-DEFAULT)
+
+Customers get a full table by default. To also send `0.0.0.0/0` + `::/0`, the VPRN
+carries BGP aggregates (`aggregates aggregate 0.0.0.0/0 { blackhole }`, same for
+`::/0`; **never `summary-only`**, which would suppress the full table) and the customer
+opts in by **prepending** `SEND-DEFAULT` to their export chain:
+
+```
+export policy ["SEND-DEFAULT" "NOPROP-PEER-AS<N>" "PAID-USER-OUT" "REJECT-ALL"]
+```
+
+`SEND-DEFAULT` accepts only `protocol aggregate` + `DEFAULT-V4`/`DEFAULT-V6` (exact),
+else `next-policy`. Nobody else sees the aggregate: `*-VPRN-EXPORT` (MP-BGP) doesn't
+match `aggregate`, and every customer/upstream export policy is community- or
+prefix-list-based with default reject. Replace an export leaf-list via its parent
+(`delete ... group "AS<N>" export`, then set) or the new entry is appended at the end.
+
+## AS-SFMIX-TRANSIT (upstream as-set)
+
+HE.net builds its filter for AS40271 from `AS-SFMIX-TRANSIT` (ARIN IRR). Every new
+customer must be added or their prefixes are dropped at HE. Members live in
+`ansible/inventory/group_vars/all.yml` (`as40271_as_set_members`); publish with
+`ansible-playbook ansible/publish_transit_as_set.playbook.yml --vault-password-file ~/.sfmix_ansible_vault [--check]`
+(diff-only with `--check`, idempotent otherwise). The ARIN API is authoritative;
+`whois -h rr.arin.net` lags.
+
 ## Routing Table & Reachability
 
 ```bash
@@ -262,9 +288,13 @@ traceroute router-instance "FREE" <PEER-IP>
 
 6. **`enforce-first-as`:** Cannot be set at the BGP group level on some SR-OS versions. Set it globally or omit it.
 
-7. **Rejected ≠ filtered:** The `rejected` counter in BGP neighbor output includes routes that passed policy but lost best-path selection. Don't assume a high rejected count means your import policy is wrong — check `active` count and route detail.
+7. **`soft-inbound` doesn't send ROUTE-REFRESH** (RIB-In is kept): it only re-runs import policy over stored routes. Check `Output RtRefresh` stays 0. Routes rejected by import policy *are* kept and counted in `received`, so `received 0` means nothing arrived.
 
-8. **Service-id vs. name:** Show commands use the numeric service-id (`show router 200 ...`). Config and some operational commands use the name (`router-instance "FREE"`).
+8. **BGP debug is classic-CLI only:** `//` then `debug router <svc> bgp update` (per-instance, not per-neighbor). Needs a log with `source debug true`; add a log filter dropping `.*Send BGP UPDATE.*` to keep only inbound. Remove both afterwards.
+
+9. **Rejected ≠ filtered:** The `rejected` counter in BGP neighbor output includes routes that passed policy but lost best-path selection. Don't assume a high rejected count means your import policy is wrong — check `active` count and route detail.
+
+10. **Service-id vs. name:** Show commands use the numeric service-id (`show router 200 ...`). Config and some operational commands use the name (`router-instance "FREE"`).
 
 ## Quick Debugging Workflow
 
