@@ -16,3 +16,20 @@ prometheus_thanos_image: thanosio/thanos:v0.42.5
 # Only for uploading blocks Prometheus compacted before the sidecar existed
 # (one-time backfill, done). With 2h min/max blocks nothing compacts locally.
 thanos_sidecar_upload_compacted: false
+
+# Guard rails so one heavy Grafana query can't take the host down. 2026-11-11:
+# a 30d panel over the 5s sflow-rt series (~500M raw samples) grew the sidecar
+# to 3.2 GB and query to 2 GB; with no caps the VM swap-thrashed for 25 min
+# until the kernel OOM-killed the sidecar. Container caps have swap disabled, so
+# the worst case is now that container restarting, not the whole VM stalling.
+# GOMEMLIMIT makes Go GC hard before the cap. Sample/series limits are per
+# selector (query: summed over sidecar + store) and fail the query cleanly.
+thanos_query_memory: 3g
+thanos_query_gomemlimit: 2400MiB
+thanos_sidecar_memory: 2g
+thanos_sidecar_gomemlimit: 1600MiB
+# Matches Grafana's 30s datasource timeout: no point computing past it.
+thanos_query_timeout: 30s
+thanos_query_max_concurrent: 4
+thanos_limits_request_samples: 150000000
+thanos_limits_request_series: 200000

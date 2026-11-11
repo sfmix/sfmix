@@ -298,3 +298,22 @@ Making room, in order:
 Never delete objects in Garage directly or with S3 lifecycle rules: they act
 on upload time (compaction re-uploads old data) and remove a block's files
 piecemeal, which halts the compactor.
+
+## Query guard rails
+
+Prometheus caps a query at 50M loaded samples by default; Thanos Query has no
+cap at all. 2026-11-11 a 30d "Overall Traffic Breakdown" panel over the 5s
+`sflow_ixp_peering_bps` series (~1000 live series, ~500M raw samples per 30d)
+grew the sidecar to 3.2 GB and query to 2 GB on the then-8 GB metrics.sfo02.
+The VM swap-thrashed for 25 min (load ~150, sshd unresponsive, looked like a
+reboot) until the kernel OOM-killed the sidecar.
+
+Now (`roles/prometheus/defaults`): sidecar and query run with docker memory caps
+and swap disabled plus `GOMEMLIMIT`, so a runaway query kills one container
+rather than freezing the VM; `--query.timeout=30s` (Grafana's datasource
+timeout) cancels work nobody is waiting for; per-selector
+`--store.limits.request-{samples,series}` fail oversized selects. The VM went
+8 → 12 GiB (pve02-paulave200-sfo had ~11 GB free).
+
+High-churn 5s sflow-rt series still can't be graphed raw past ~2 days within
+30s; long ranges over them need recording rules at a coarser interval.
