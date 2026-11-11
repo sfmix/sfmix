@@ -283,6 +283,37 @@ transit_free_asns:
   - 6830
   - 7018
   - 12956
+# AS-SFMIX-TRANSIT (ARIN IRR): AS40271's customer cone, used by HE.net to filter
+# what we announce. Publish: ansible/publish_transit_as_set.playbook.yml.
+# Prefer the customer's own as-set over a bare ASN when they have downstreams.
+as40271_as_set_members:
+  - {member: AS40271, descr: "SFMIX transit itself"}
+  - {member: AS-SFMIX-MGMT, descr: "SFMIX management/infra"}
+  - {member: AS-TWOP, descr: "Two P"}
+  - {member: AS32329, descr: "MonkeyBrains"}
+  - {member: AS54549, descr: "VIP Fiber"}
+  - {member: AS-SOFTCOM, descr: "Softcom"}
+  - {member: AS-NETSKRT, descr: "Netskrt"}
+  - {member: AS-GIGABITNOW, descr: "GigabitNow"}
+  - {member: AS-RYAMER, descr: "Ryamer"}
+  - {member: "AS36210:AS-ALL", descr: "Moscone"}
+  - {member: "AS33548:AS-UNWIRED", descr: "Unwired"}
+  - {member: AS396097, descr: "Sail Internet"}
+  - {member: "AS137182:AS-CONE", descr: "Blue Wireless"}
+  - {member: "AS35008:AS-KERFUFFLE", descr: "Kerfuffle"}
+  - {member: AS-AUKCOREUS, descr: "AirRabbit AS63129 (trial)"}
+  - {member: AS56554, descr: "IETF-MEETING, PAID, cr1.scl02 (2026-11-11)"}
+# ARIN Reg-RWS API key (linked to MPE54-ARIN, the POC object for matt@sfmix.org);
+# used to publish IRR as-sets (AS-SFMIX-RS, AS-SFMIX-TRANSIT) via publish_as_set.py.
+arin_api_key: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  63396664666138623231643762636461316664393566373665306536353466623265396136336433
+  3862353538383662643631636563363661306163386438620a356139366139373462386432326634
+  32363337303536303963386232303036303435346534363361323061363738323631333962396137
+  3762383536643531390a386132646330636663383830346631343566633534343361353836373035
+  64383361346136353632356565613338396366633538343463363738376665303938383364616530
+  3330613130393563636130633839363261333865316161663332
+arin_org_handle: SFMIES
 sfmix_ansible_vault_secret: !vault |
       $ANSIBLE_VAULT;1.1;AES256
       32653837633839616630323133393736393561643364393534376365393634306661333663633933

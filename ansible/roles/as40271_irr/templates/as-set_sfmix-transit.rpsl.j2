@@ -1,0 +1,11 @@
+as-set:   AS-SFMIX-TRANSIT
+descr:    SFMIX
+{% for m in as40271_as_set_members %}
+members:  {{ m.member }}
+{% endfor %}
+admin-c:  MPE54-ARIN
+tech-c:   LASSO11-ARIN
+tech-c:   STRA-ARIN
+tech-c:   TP47-ARIN
+mnt-by:   MNT-SFMIES
+source:   ARIN
