@@ -14,15 +14,20 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 
-Q = "http://127.0.0.1:10904/api/v1/query_range"
+# Raw (res 0s) comes straight from local Prometheus (SSD, last 30d); going
+# through Thanos Query would also wait on the store gateway's raw blocks on
+# spinning disk and trip its 30s timeout. Downsampled history needs Thanos.
+PROM_Q = "http://127.0.0.1:9090/api/v1/query_range"
+THANOS_Q = "http://127.0.0.1:10904/api/v1/query_range"
 RULES = {
     "sflow:ixp_peering_bps:sum_by_src": "sum by (src_asn, src_name) (sflow_ixp_peering_bps)",
     "sflow:ixp_peering_bps:sum_by_dst": "sum by (dst_asn, dst_name) (sflow_ixp_peering_bps)",
 }
-MAX_POINTS = 10000
+MAX_POINTS = 4320  # 6h at 5s: stays well inside --query.timeout=30s
 
 
 def query(expr, start, end, step, res):
@@ -30,15 +35,18 @@ def query(expr, start, end, step, res):
         "query": expr, "start": start, "end": end, "step": step,
         "max_source_resolution": res, "partial_response": "false", "dedup": "true",
     }).encode()
-    for attempt in range(3):
+    for attempt in range(5):
         try:
-            with urllib.request.urlopen(Q, body, timeout=60) as r:
+            url = PROM_Q if res == "0s" else THANOS_Q
+            with urllib.request.urlopen(url, body, timeout=120) as r:
                 d = json.load(r)
             break
         except Exception as e:  # noqa: BLE001
-            if attempt == 2:
+            if attempt == 4:
                 raise
-            print(f"  retry {start}: {e}", flush=True)
+            detail = e.read().decode()[:200] if hasattr(e, "read") else ""
+            print(f"  retry {start}: {e} {detail}", flush=True)
+            time.sleep(10 * (attempt + 1))
     if d.get("status") != "success":
         raise RuntimeError(d)
     if d.get("warnings"):

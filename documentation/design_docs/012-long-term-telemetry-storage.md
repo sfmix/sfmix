@@ -317,3 +317,13 @@ timeout) cancels work nobody is waiting for; per-selector
 
 High-churn 5s sflow-rt series still can't be graphed raw past ~2 days within
 30s; long ranges over them need recording rules at a coarser interval.
+
+Per-member sflow views use recording rules (`rules/sflow.rules.yml`:
+`sflow:ixp_peering_bps:sum_by_{src,dst}`, 5s, ~154 series) instead of summing
+the pair matrix at query time. History before 2026-11-11 05:35Z was backfilled
+with `scripts/thanos_sflow_backfill.py` (raw 5s from local Prometheus for the
+last 30d, 5m downsampled from Thanos before that) and uploaded with the extra
+external label `backfill="sflow-members"`: a separate compaction stream, since
+same-label blocks overlapping the live stream would halt the compactor. Queries
+must `sum by (src_name)` / `(dst_name)` to join the two streams. The backfill
+ends 5 min before the first live sample so lookback never double-counts.
