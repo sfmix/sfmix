@@ -546,7 +546,7 @@ def dashboard(uid, title, panels, templating=None, description=""):
     return {
         "uid": uid, "title": title, "tags": DASH_TAGS, "timezone": "browser",
         "description": description,
-        "schemaVersion": 39, "refresh": "1m", "editable": True,
+        "schemaVersion": 39, "refresh": "", "editable": True,
         "time": {"from": "now-6h", "to": "now"},
         "templating": {"list": templating or []},
         "panels": panels,

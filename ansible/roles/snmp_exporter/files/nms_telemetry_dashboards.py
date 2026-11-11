@@ -489,7 +489,7 @@ Raw older than 30 days is deleted only after its 5m/1h blocks exist.
         "tags": ["sfmix-nms", "generated", "thanos"], "timezone": "browser",
         "description": "Thanos + Garage long-term metrics: shipping, downsampling, "
                        "coverage and the two-copy bucket (design doc 012).",
-        "schemaVersion": 39, "refresh": "1m", "editable": True,
+        "schemaVersion": 39, "refresh": "", "editable": True,
         "time": {"from": "now-24h", "to": "now"},
         "templating": {"list": []},
         "links": [
