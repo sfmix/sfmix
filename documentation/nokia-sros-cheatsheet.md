@@ -188,6 +188,10 @@ Base instance has **no route** to it, so sessions sit in `connect` with 0 VRPs a
 (tagged `rpki-unknown`). `origin-validation` cannot be configured inside a VPRN on 25.10, so the fix is giving
 Base a path to the validator (and allowing the source in rpki-linux UFW `ixp_admin_source_subnets`). Check:
 `show router origin-validation rpki-session` / `... database summary`.
+VPRN `grt-leaking` (export-grt + `grt` static + allow-local-management) does NOT work for RTR: replies re-enter Base
+in the VPRN's context and never reach the Base client socket (stays `SYN_SENT` in `show system connections`).
+The validator must be reachable natively from Base (e.g. on transit-peering-lan). VRPs alone also do nothing until
+BGP groups set `origin-validation { ipv4 true ipv6 true }` - that is when RPKI-invalid rejects take effect.
 
 **INTERNET-IN must run before any policy that accepts.** A customer `-IN` policy that `accept`s ends the
 chain, so a later `INTERNET-IN` never runs. Use `["INTERNET-IN" "AS<N>-IN" "REJECT-ALL"]` for accept-style
