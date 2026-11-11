@@ -1,0 +1,12 @@
+{{- /* Role chips in a fixed order. dict "p" person "except" (slice of role keys to omit) */ -}}
+{{- $p := .p -}}
+{{- $except := .except | default slice -}}
+{{- $labels := dict "ops" "Operations" "board" "Board" "founder" "Founder" "alumni" "Board alumni" "hackathon" "Hackathon" -}}
+<span class="team-chips">
+{{- range slice "ops" "board" "founder" "alumni" "hackathon" -}}
+{{- if and (isset $p.roles .) (not (in $except .)) -}}
+{{- $r := index $p.roles . -}}
+<span class="team-chip team-chip--{{ . }}">{{ partial "T.html" (index $labels .) }}{{ with $r.since }} <span class="team-chip__x">{{ printf (partial "T.html" "since %d") . }}</span>{{ end }}</span>
+{{- end -}}
+{{- end -}}
+</span>
