@@ -2,8 +2,12 @@
 # OAuth Sources — federated login via GitHub and PeeringDB
 # -------------------------------------------------------------------
 
+# The source name IS the login button label, so it states who each source is
+# for. Sources are listed promoted-first, then by name. PeeringDB is promoted
+# (full-width primary "Continue with <name>") because most people signing in
+# are IX participants; GitHub stays a secondary icon button for staff.
 resource "authentik_source_oauth" "github" {
-  name                = "GitHub"
+  name                = "GitHub — IX admins & SFMIX volunteers"
   slug                = "github"
   enabled             = true
   provider_type       = "github"
@@ -28,9 +32,10 @@ resource "authentik_source_oauth" "github" {
 }
 
 resource "authentik_source_oauth" "peeringdb" {
-  name                = "PeeringDB"
+  name                = "PeeringDB — all IX participants"
   slug                = "peeringdb"
   enabled             = true
+  promoted            = true
   provider_type       = "openidconnect"
   consumer_key        = "1yl8JKUEMKL6JQ8sYRwiVUzi4CsjoBUUCzXei84K"
   consumer_secret     = var.peeringdb_consumer_secret

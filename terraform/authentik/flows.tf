@@ -1,8 +1,9 @@
 # -------------------------------------------------------------------
 # Custom authentication flow — OAuth sources only (no username/password)
 #
-# Shows only "Sign in with GitHub" and "Sign in with PeeringDB"
-# buttons. No username or password fields are presented.
+# Shows only the PeeringDB (all IX participants, promoted) and GitHub
+# (IX admins & SFMIX volunteers) buttons — labels live in sources.tf.
+# No username or password fields are presented.
 # -------------------------------------------------------------------
 
 resource "authentik_flow" "sfmix_authentication" {
