@@ -350,6 +350,21 @@ body {
      port is findable on participants with many of them. */
   scroll-margin-top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px) + 3.5rem); }
 .nd-pmember:target { border-color: light-dark(#93c5fd, #3b82f6); box-shadow: 0 0 0 3px light-dark(#dbeafe, #12294a); }
+/* Section deep-links (#peer-traffic, #lport-…, #l1-physical, #throughput, …):
+   land clear of the sticky identity bar (+ the logical-port header inside a
+   port), flash briefly to show where you landed, and offer a GitHub-style "#"
+   link that appears on hover (always faintly visible on touch devices). */
+.nd-tf-section, .nd-lport { scroll-margin-top: calc(var(--nd-id-h, 0px) + 1rem); }
+.nd-lband, .nd-ops-panel { scroll-margin-top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px) + 1.25rem); }
+@keyframes nd-target-flash {
+  from { box-shadow: 0 0 0 3px light-dark(#93c5fd, #3b82f6); }
+  to   { box-shadow: 0 0 0 3px transparent; }
+}
+.nd-tf-section:target, .nd-lport:target, .nd-lband:target, .nd-ops-panel:target { animation: nd-target-flash 2.5s ease-out 1; }
+.nd-anchor { color: var(--color-text-light); font-weight: 400; font-family: var(--font-mono); font-size: .85rem; text-decoration: none; opacity: 0; transition: opacity .15s; }
+.nd-anchor:hover { color: var(--color-primary-light-text); text-decoration: none; }
+.nd-tf-section-title:hover .nd-anchor, .nd-lport-head:hover .nd-anchor, .nd-lband:hover > .nd-lband-tag .nd-anchor, .nd-anchor:focus-visible { opacity: 1; }
+@media (hover: none) { .nd-anchor { opacity: .5; } }
 .nd-pmember-down { opacity: .6; }
 .nd-pmember-unknown { opacity: .8; }
 .nd-pm-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }

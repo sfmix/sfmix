@@ -198,11 +198,12 @@ its action buttons.
 
 {# ── Peer-to-peer traffic (admin only, network-wide) ─────────── #}
 {% if can_see_admin %}
-<div class="nd-tf-section nd-tf-band">
+<div id="peer-traffic" class="nd-tf-section nd-tf-band">
   <div class="nd-tf-section-head">
     <h2 class="nd-tf-section-title">
       {% translate "Peer-to-peer traffic" %}
       <span class="nd-tf-scope-tag">{% translate "Admin" %}</span>
+      <a class="nd-anchor" href="#peer-traffic" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
     </h2>
     <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
       <button data-range="1h">1h</button>
@@ -233,13 +234,14 @@ its action buttons.
 
 {# ── Logical Ports ───────────────────────────────────────────── #}
 {% for lp in logical_ports %}
-<div class="nd-lport{% if lp.link_state == 'down' %} nd-lport-down{% elif lp.link_state == 'unknown' %} nd-lport-unknown{% endif %}">
+<div id="{{ lp.anchor }}" class="nd-lport{% if lp.link_state == 'down' %} nd-lport-down{% elif lp.link_state == 'unknown' %} nd-lport-unknown{% endif %}">
 
   {# ─ Logical port header ─ #}
   <div class="nd-lport-head">
     <span class="nd-lp-title">
       <span class="nd-dq-d">{{ lp.device|cut:".sfmix.org" }}</span>{{ lp.name }}
     </span>
+    <a class="nd-anchor" href="#{{ lp.anchor }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
     {% if lp.kind == "lag" %}
     <span class="nd-lp-kind">LAG</span>
     <span class="nd-lp-speed">{{ lp.members_total }}&times;{{ lp.physical.0.speed_gbps|floatformat:0 }}G</span>
@@ -266,11 +268,12 @@ its action buttons.
 
     {# ── L1: Physical & Optics (admin only) ──────────────── #}
     {% if can_see_admin %}
-    <div class="nd-lband nd-l1 nd-admin-band">
+    <div id="l1-physical{{ lp.anchor_suffix }}" class="nd-lband nd-l1 nd-admin-band">
       <div class="nd-lband-tag">
         <span class="nd-lt-l">L1</span>
         <span class="nd-lt-name">{% translate "Physical" %}</span>
         <span class="nd-lt-scope">{% translate "Admin" %}</span>
+        <a class="nd-anchor" href="#l1-physical{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
       </div>
       <div class="nd-lband-body">
         <div class="nd-tf-band nd-optic-band">
@@ -337,11 +340,12 @@ its action buttons.
     there is nothing to draw.
     {% endcomment %}
     {% if can_see_admin or lp.macs %}
-    <div class="nd-lband nd-l2">
+    <div id="l2-link{{ lp.anchor_suffix }}" class="nd-lband nd-l2">
       <div class="nd-lband-tag">
         <span class="nd-lt-l">L2</span>
         <span class="nd-lt-name">{% translate "Link" %}{% if can_see_admin %} &middot; LLDP{% endif %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
+        <a class="nd-anchor" href="#l2-link{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
       </div>
       <div class="nd-lband-body">
         {% if can_see_admin %}
@@ -436,13 +440,13 @@ its action buttons.
 
         {% comment %}
         Interface throughput — admin-only, nested inside L2 (the link layer)
-        rather than carrying its own layer header. nd-tf-band keeps the range
-        picker scoped to this panel (see traffic-charts.js).
+        rather than carrying its own layer header. Range pickers are page-global
+        and mirrored in ?timeRange= (see traffic-charts.js).
         {% endcomment %}
         {% if can_see_admin %}
-        <div class="nd-ops-panel nd-tf-band">
+        <div id="throughput{{ lp.anchor_suffix }}" class="nd-ops-panel nd-tf-band">
           <div class="nd-tf-head">
-            <h4 class="nd-tf-section-title">{% translate "Throughput" %} <span class="nd-tf-scope-tag">{% translate "Admin" %}</span></h4>
+            <h4 class="nd-tf-section-title">{% translate "Throughput" %} <span class="nd-tf-scope-tag">{% translate "Admin" %}</span> <a class="nd-anchor" href="#throughput{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a></h4>
             <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
               <button data-range="1h">1h</button>
               <button data-range="24h" class="on">24h</button>
@@ -463,11 +467,12 @@ its action buttons.
     {% endif %}
 
     {# ── L3: Network · ARP/NDP ──────────────────────────── #}
-    <div class="nd-lband nd-l3">
+    <div id="l3-network{{ lp.anchor_suffix }}" class="nd-lband nd-l3">
       <div class="nd-lband-tag">
         <span class="nd-lt-l">L3</span>
         <span class="nd-lt-name">{% translate "Network" %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
+        <a class="nd-anchor" href="#l3-network{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
       </div>
       <div class="nd-lband-body">
         {% if lp.discovered or lp.invalid_ip_bindings %}
@@ -563,11 +568,12 @@ its action buttons.
 
     {# ── L4+: Route Servers ─────────────────────────────── #}
     {% if lp.route_servers %}
-    <div class="nd-lband nd-l4">
+    <div id="l4-route-servers{{ lp.anchor_suffix }}" class="nd-lband nd-l4">
       <div class="nd-lband-tag">
         <span class="nd-lt-l">L4+</span>
         <span class="nd-lt-name">{% translate "Route Servers" %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
+        <a class="nd-anchor" href="#l4-route-servers{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
       </div>
       <div class="nd-lband-body">
         {# Desktop: table view #}
