@@ -145,6 +145,13 @@ def _re_escape(value: str) -> str:
     return "".join("\\" + c if c in _RE2_META else c for c in str(value))
 
 
+def _sibling_lane_re(ifname: str) -> str | None:
+    """RE2 for the extra lane sensors an ``X/1`` port may own (``X/2..X/9``)."""
+    if not ifname.endswith("/1"):
+        return None
+    return f"{_re_escape(ifname[:-2])}/[2-9]"
+
+
 def optic_lane_query(device: str, ifname: str, direction: str, step: int) -> str:
     """Per-lane DOM power (dBm) for one physical port, ``direction`` "RX" or "TX".
 
@@ -156,23 +163,39 @@ def optic_lane_query(device: str, ifname: str, direction: str, step: int) -> str
     Lane ownership mirrors the ``sfmix-optics`` recording rules: a port owns
     the sensor with its exact name, and an ``X/1`` port also owns ``X/2..X/9``
     *unless* those are interfaces in their own right (breakout ports, which
-    may belong to another participant). ``device``/``ifname`` come from the
-    validated member list, never from the browser.
+    may belong to another participant). That exclusion is decided once for the
+    whole window (:func:`optic_sibling_iface_query` -> ``optic_lanes(exclude=)``),
+    not per step: a per-step ``unless ifOperStatus`` leaks the neighbours'
+    sensors into this port at any step where ifOperStatus has a scrape gap.
+    ``device``/``ifname`` come from the validated member list, never from the
+    browser.
     """
     d = "TX" if direction == "TX" else "RX"
     host = _escape(device)
     name_re = _re_escape(ifname)
-    if ifname.endswith("/1"):
-        name_re = f"{name_re}|{_re_escape(ifname[:-2])}/[2-9]"
+    sib = _sibling_lane_re(ifname)
+    if sib:
+        name_re = f"{name_re}|{sib}"
     prefix = f"DOM {d} Power Sensor for "
     return (
         "label_replace(10 * log10((max by (entPhysicalName) (avg_over_time("
         f'entPhySensorValue{{host="{host}",entPhysicalName=~"{_escape(prefix + "(" + name_re + ")")}"}}'
         f"[{step}s])) > 0) / 10000), "
-        f'"lane", "$1", "entPhysicalName", "{prefix}(.+)") '
-        f'unless on (lane) label_replace(ifOperStatus{{host="{host}",ifname!="{_escape(ifname)}"}}, '
-        '"lane", "$1", "ifname", "(.+)")'
+        f'"lane", "$1", "entPhysicalName", "{prefix}(.+)")'
     )
+
+
+def optic_sibling_iface_query(device: str, ifname: str) -> str | None:
+    """The ``X/2..X/9`` siblings of an ``X/1`` port that exist as interfaces.
+
+    Run over the chart's window: a sibling seen at any step is a breakout port
+    of its own, and its lane is excluded for the whole window. ``None`` for a
+    port that owns no sibling lanes.
+    """
+    sib = _sibling_lane_re(ifname)
+    if not sib:
+        return None
+    return f'group by (ifname) (ifOperStatus{{host="{_escape(device)}",ifname=~"{_escape(sib)}"}})'
 
 
 # ── Reshaping query_range results onto a shared time grid ───────────────────
@@ -284,9 +307,17 @@ def _lane_sort_key(name: str) -> tuple:
 
 
 def optic_lanes(
-    rx_result: list[dict], tx_result: list[dict], xs: list[int], start: int, step: int
+    rx_result: list[dict],
+    tx_result: list[dict],
+    xs: list[int],
+    start: int,
+    step: int,
+    exclude: set[str] | frozenset[str] = frozenset(),
 ) -> list[dict]:
     """Merge RX/TX :func:`optic_lane_query` results into one entry per lane.
+
+    ``exclude`` names lanes that are interfaces of their own (breakout
+    siblings, from :func:`optic_sibling_iface_query`); they are dropped.
 
     Returns ``[{"name": "Ethernet50/1", "label": "Lane 1", "rx": [...], "tx": [...]}]``
     in lane order. A single-lane port gets an empty ``label``.
@@ -295,7 +326,7 @@ def optic_lanes(
     for key, result in (("rx", rx_result), ("tx", tx_result)):
         for s in result:
             name = s.get("metric", {}).get("lane", "")
-            if not name:
+            if not name or name in exclude:
                 continue
             lane = lanes.setdefault(name, {"name": name, "rx": [None] * len(xs), "tx": [None] * len(xs)})
             lane[key] = _to_grid(s.get("values", []), xs, start, step)

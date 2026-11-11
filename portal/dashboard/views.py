@@ -1762,8 +1762,13 @@ def participant_metrics(request, asn):
             tx_r = prom.query_range(
                 prom_client.optic_lane_query(dev, ifn, "TX", step), start, end, step
             )
+            sib_q = prom_client.optic_sibling_iface_query(dev, ifn)
+            exclude = {
+                s.get("metric", {}).get("ifname", "")
+                for s in (prom.query_range(sib_q, start, end, step) if sib_q else [])
+            }
             unit = "dbm"
-            series = prom_client.optic_lanes(rx_r, tx_r, xs, start, step)
+            series = prom_client.optic_lanes(rx_r, tx_r, xs, start, step, exclude=exclude)
 
         else:
             return JsonResponse({"error": "unknown panel"}, status=400)

@@ -875,10 +875,30 @@ class OpticLaneQueryTests(SimpleTestCase):
         self.assertIn('host="sw1.sfmix.org"', q)
         self.assertIn("[300s]", q)
 
-    def test_slash_one_includes_siblings_gated_on_ifoperstatus(self):
+    def test_slash_one_includes_siblings(self):
         q = self.pc.optic_lane_query("sw1.sfmix.org", "Ethernet50/1", "TX", 30)
         self.assertIn("DOM TX Power Sensor for (Ethernet50/1|Ethernet50/[2-9])", q)
-        self.assertIn('unless on (lane) label_replace(ifOperStatus{host="sw1.sfmix.org",ifname!="Ethernet50/1"}', q)
+        # Breakout exclusion is window-wide (sibling query), never per step.
+        self.assertNotIn("ifOperStatus", q)
+
+    def test_sibling_iface_query(self):
+        q = self.pc.optic_sibling_iface_query("sw1.sfmix.org", "Ethernet50/1")
+        self.assertEqual(
+            q, 'group by (ifname) (ifOperStatus{host="sw1.sfmix.org",ifname=~"Ethernet50/[2-9]"})'
+        )
+        self.assertIsNone(self.pc.optic_sibling_iface_query("sw1.sfmix.org", "Ethernet18/3"))
+        self.assertIsNone(self.pc.optic_sibling_iface_query("sw1.sfmix.org", "Ethernet22"))
+
+    def test_lanes_exclude_breakout_siblings(self):
+        # Neighbour sensors that slipped in (e.g. at an ifOperStatus scrape
+        # gap) are dropped for the whole window, leaving a single lane.
+        rx = [
+            {"metric": {"lane": "Ethernet13/1"}, "values": [[100, "-1.5"], [200, "-1.4"]]},
+            {"metric": {"lane": "Ethernet13/2"}, "values": [[200, "-1.6"]]},
+        ]
+        lanes = self.pc.optic_lanes(rx, [], [100, 200], 100, 100, exclude={"Ethernet13/2"})
+        self.assertEqual([l["name"] for l in lanes], ["Ethernet13/1"])
+        self.assertEqual(lanes[0]["label"], "")
 
     def test_breakout_port_has_no_sibling_pattern(self):
         q = self.pc.optic_lane_query("sw1.sfmix.org", "Ethernet18/3", "RX", 30)
@@ -956,6 +976,29 @@ class ParticipantOpticPowerMetricsTests(SimpleTestCase):
         self.assertEqual(lane["name"], "Ethernet7")
         self.assertEqual(lane["rx"][0], -3.0)
         self.assertEqual(lane["tx"][0], -1.0)
+        # Not an X/1 port: no sibling-interface query.
+        self.assertFalse(any("ifOperStatus" in q for q in queries))
+
+    def test_slash_one_drops_breakout_sibling_lanes(self):
+        import json
+        prom = mock.MagicMock()
+
+        def fake_query_range(query, start, end, step):
+            if "ifOperStatus" in query:
+                return [{"metric": {"ifname": "Ethernet1/2"}, "values": [[start, "1"]]}]
+            return [
+                {"metric": {"lane": "Ethernet1/1"}, "values": [[start, "-2.0"]]},
+                {"metric": {"lane": "Ethernet1/2"}, "values": [[start, "-9.0"]]},
+                {"metric": {"lane": "Ethernet1/3"}, "values": [[start, "-2.5"]]},
+            ]
+
+        prom.query_range.side_effect = fake_query_range
+        with mock.patch.object(views, "_metric_port_members", return_value=self.MEMBERS), \
+                mock.patch.object(views.prom_client, "PrometheusClient", return_value=prom):
+            resp = views.participant_metrics(self._request(member="0"), 64496)
+        self.assertEqual(resp.status_code, 200)
+        body = json.loads(resp.content)
+        self.assertEqual([l["name"] for l in body["series"]], ["Ethernet1/1", "Ethernet1/3"])
 
 
 class ParticipantIfCountersMetricsTests(SimpleTestCase):
