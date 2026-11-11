@@ -43,9 +43,15 @@ TOTAL = 'sflow_ixp_bps_total{direction="in"}'
 
 
 def side(rule, by, window="$__interval", sel="", at_end=False):
-    """Per-member mean over `window`; sums the live and backfilled streams."""
+    """Per-member mean over `window`.
+
+    The live and backfilled streams differ only by the backfill label and never
+    overlap in time, but a window spanning the handover holds samples of both:
+    collapse them with max (not sum) first, or that window double-counts.
+    """
     at = " @ end()" if at_end else ""
-    return f"sum by ({by}) (avg_over_time({rule}{sel}[{window}]{at}))"
+    return (f"sum by ({by}) (max without (backfill) "
+            f"(avg_over_time({rule}{sel}[{window}]{at})))")
 
 
 def top_and_others(rule, by, n=TOP_N, sel=""):
@@ -233,10 +239,10 @@ def peering_dashboard():
     cols = [
         ("Sent", member(side(SRC_RULE, "src_name, src_asn", "$__range"), "src_name", "src_asn")),
         ("Received", member(side(DST_RULE, "dst_name, dst_asn", "$__range"), "dst_name", "dst_asn")),
-        ("Peak sent", member("sum by (src_name, src_asn) (max_over_time("
-                             f"{SRC_RULE}[$__range]))", "src_name", "src_asn")),
-        ("Peak received", member("sum by (dst_name, dst_asn) (max_over_time("
-                                 f"{DST_RULE}[$__range]))", "dst_name", "dst_asn")),
+        ("Peak sent", member("sum by (src_name, src_asn) (max without (backfill) (max_over_time("
+                             f"{SRC_RULE}[$__range])))", "src_name", "src_asn")),
+        ("Peak received", member("sum by (dst_name, dst_asn) (max without (backfill) (max_over_time("
+                                 f"{DST_RULE}[$__range])))", "dst_name", "dst_asn")),
     ]
     targets = [_t(e, refid=chr(ord("A") + i), instant=True) for i, (_, e) in enumerate(cols)]
     rename = {f"Value #{chr(ord('A') + i)}": c for i, (c, _) in enumerate(cols)}
@@ -337,8 +343,8 @@ def peering_dashboard():
                          "each panel on its own scale)", y)); y += 1
     p.append(_ts(
         nid(), "$top",
-        [_t(f'sum(avg_over_time({SRC_RULE}{{src_name="$top"}}[$__interval]))', "sent", "A"),
-         _t(f'sum(avg_over_time({DST_RULE}{{dst_name="$top"}}[$__interval]))', "received", "B")],
+        [_t(side(SRC_RULE, "src_name", sel='{src_name="$top"}'), "sent", "A"),
+         _t(side(DST_RULE, "dst_name", sel='{dst_name="$top"}'), "received", "B")],
         {"h": 5, "w": 4, "x": 0, "y": y}, fill=35,
         description="Shape over scale: each panel has its own y axis, so daily rhythm, "
                     "outages and shifts stand out even for small members.",
