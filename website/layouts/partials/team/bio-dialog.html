@@ -1,0 +1,20 @@
+{{- /* One bio per person, opened as a modal by the [data-bio] links in team.html.
+       Without JS a link to #bio-<id> still shows it in place (see .team:not(.js)). */ -}}
+{{- $p := . -}}
+{{- $titles := slice -}}
+{{- range slice "ops" "board" -}}
+{{- with index $p.roles . }}{{ with .title }}{{ $titles = $titles | append (partial "T.html" .) }}{{ end }}{{ end -}}
+{{- end -}}
+<dialog class="team-bio" id="bio-{{ $p.id }}" aria-labelledby="bio-{{ $p.id }}-name">
+  <form method="dialog"><button class="team-bio__close" aria-label="{{ partial "T.html" "Close" }}">&times;</button></form>
+  <div class="team-bio__head">
+    {{ partial "team/avatar.html" (dict "p" $p "class" "team-av--xl") }}
+    <div>
+      <h2 id="bio-{{ $p.id }}-name">{{ with $p.url }}<a href="{{ . }}">{{ $p.name }}</a>{{ else }}{{ $p.name }}{{ end }}</h2>
+      {{ with $titles }}<p class="team-bio__title">{{ delimit . ", " }}</p>{{ end }}
+      {{ with $p.affiliation }}<p class="team-bio__aff">{{ . }}</p>{{ end }}
+      {{ partial "team/chips.html" (dict "p" $p) }}
+    </div>
+  </div>
+  <div class="team-bio__body">{{ $p.bio | markdownify }}</div>
+</dialog>

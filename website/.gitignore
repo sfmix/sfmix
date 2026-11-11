@@ -3,8 +3,9 @@ public/
 resources/_gen/
 .hugo_build.lock
 
-# Fetched at build time
-data/
+# Fetched at build time (team.yaml is source, not fetched)
+data/*
+!data/team.yaml
 
 # OS
 .DS_Store

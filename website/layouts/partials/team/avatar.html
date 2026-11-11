@@ -1,0 +1,9 @@
+{{- /* Portrait, or initials when a person has no photo. dict "p" person "class" extra-classes */ -}}
+{{- $p := .p -}}
+{{- $cls := .class | default "" -}}
+{{- with $p.photo -}}
+<img class="team-av {{ $cls }}" src="{{ . | relURL }}" alt="" loading="lazy" decoding="async">
+{{- else -}}
+{{- $parts := split $p.name " " -}}
+<span class="team-av team-av--initials {{ $cls }}" aria-hidden="true">{{ upper (substr (index $parts 0) 0 1) }}{{ upper (substr (index $parts (sub (len $parts) 1)) 0 1) }}</span>
+{{- end -}}

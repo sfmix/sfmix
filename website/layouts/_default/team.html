@@ -1,0 +1,154 @@
+{{ define "main" }}
+{{- /*
+  /team/: operations first, then the board, then alumni and contributors.
+  Every section is a query over data/team.yaml, where roles are metadata on
+  a person, so one record (e.g. Matt: ops + board) appears in each section
+  its roles put it in, cross-linked.
+*/ -}}
+{{- $people := site.Data.team.people -}}
+{{- $ops := slice -}}{{- $board := slice -}}{{- $alumni := slice -}}{{- $hack := slice -}}
+{{- range $people -}}
+  {{- if isset .roles "ops" }}{{ $ops = $ops | append . }}{{ end -}}
+  {{- if isset .roles "board" }}{{ $board = $board | append . }}{{ end -}}
+  {{- if isset .roles "alumni" }}{{ $alumni = $alumni | append . }}{{ end -}}
+  {{- if isset .roles "hackathon" }}{{ $hack = $hack | append . }}{{ end -}}
+{{- end -}}
+{{- $board = sort $board "roles.board.order" -}}
+{{- $email := site.Params.email -}}
+{{- $phone := site.Params.phone -}}
+
+<div class="page-header page-header-video"{{ with .Params.mobile_image }} style="--mobile-bg: url('/{{ . }}')"{{ end }}>
+  <video class="page-header-bg" autoplay muted loop playsinline aria-hidden="true">
+    <source src="{{ .Params.video | relURL }}" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="container" style="position: relative; z-index: 2;">
+    <h1>{{ .Title }}</h1>
+  </div>
+</div>
+
+<div class="content team" id="team">
+  <div class="container">
+    {{ .Content }}
+
+    <section aria-labelledby="team-ops-h">
+      <div class="team-ops-head">
+        <h2 id="team-ops-h">{{ partial "T.html" "The people you'll work with" }}</h2>
+        <p>{{ partial "T.html" "Operations and technical advisory: who you'll hear from when you connect, change a port, or need a hand." }}</p>
+      </div>
+      <div class="team-ops">
+        {{- range $i, $p := $ops }}
+        {{- $first := $p.short | default (index (split $p.name " ") 0) }}
+        {{- $ask := "" }}
+        {{- with $p.focus }}{{ $ask = printf "<p class=\"team-ask\"><b>%s</b>%s</p>" (printf (partial "T.html" "Talk to %s about") $first | htmlEscape) (. | htmlEscape) }}{{ end }}
+        {{- if eq $i 0 }}
+        <article class="team-op team-op--lead" id="ops-{{ $p.id }}">
+          <div class="team-op__band">
+            {{ partial "team/avatar.html" (dict "p" $p) }}
+            <div>
+              <h3>{{ $p.name }}</h3>
+              <div class="team-op__title">{{ partial "T.html" $p.roles.ops.title }}</div>
+            </div>
+          </div>
+          <div class="team-op__body">
+            {{ with $p.summary }}<p>{{ . }}</p>{{ end }}
+            {{ $ask | safeHTML }}
+            <div class="team-op__foot">
+              {{ partial "team/chips.html" (dict "p" $p "except" (slice "ops")) }}
+              {{ with $p.bio }}<a class="team-more" href="#bio-{{ $p.id }}" data-bio="{{ $p.id }}">{{ partial "T.html" "Read bio" }}</a>{{ end }}
+            </div>
+            {{ if isset $p.roles "board" }}<p class="team-xref">{{ printf (partial "T.html" "Also listed with the <a href=\"%s\">board of directors</a>.") (printf "#board-%s" $p.id) | safeHTML }}</p>{{ end }}
+          </div>
+        </article>
+        {{- else }}
+        <article class="team-op" id="ops-{{ $p.id }}">
+          {{ partial "team/avatar.html" (dict "p" $p) }}
+          <h3>{{ with $p.url }}<a href="{{ . }}">{{ $p.name }}</a>{{ else }}{{ $p.name }}{{ end }}</h3>
+          {{ with $p.roles.ops.title }}<div class="team-op__title">{{ partial "T.html" . }}</div>{{ end }}
+          {{ with $ask }}{{ . | safeHTML }}{{ else }}<p class="team-ask team-muted">{{ partial "T.html" "Bio coming soon." }}</p>{{ end }}
+          <div class="team-op__foot">
+            {{ partial "team/chips.html" (dict "p" $p "except" (slice "ops")) }}
+            {{ with $p.bio }}<a class="team-more" href="#bio-{{ $p.id }}" data-bio="{{ $p.id }}">{{ partial "T.html" "Read bio" }}</a>{{ end }}
+          </div>
+        </article>
+        {{- end }}
+        {{- end }}
+        <aside class="team-reach">
+          <h3>{{ partial "T.html" "Reach operations" }}</h3>
+          <p class="team-reach__big"><a href="mailto:{{ $email }}">{{ $email }}</a></p>
+          <p><a href="tel:{{ replaceRE `[^+0-9]` "" $phone }}">{{ $phone }}</a></p>
+          <p>{{ printf (partial "T.html" "New to SFMIX? Start with the <a href=\"%s\">connection guide</a>. Participants can manage ports in the <a href=\"%s\">portal</a>.") ("/connection-guide/" | relLangURL) "https://portal.sfmix.org/" | safeHTML }}</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="team-board" id="board" aria-labelledby="team-board-h">
+      <h2 id="team-board-h">{{ partial "T.html" "Board of directors" }}</h2>
+      <p>{{ partial "T.html" "SFMIX is a member-governed cooperative. The board sets its direction." }}</p>
+      <ul class="team-strip">
+        {{- range $board }}
+        {{- $title := .roles.board.title | default (cond (isset .roles "ops") (.roles.ops.title | default "") "") }}
+        <li id="board-{{ .id }}">
+          <a class="team-strip__person" href="#bio-{{ .id }}" data-bio="{{ .id }}">
+            {{ partial "team/avatar.html" (dict "p" .) }}
+            <span class="team-strip__name">{{ .name }}</span>
+            <span class="team-strip__title">{{ with $title }}{{ partial "T.html" . }}{{ end }}</span>
+            <span class="team-strip__aff">{{ .affiliation }}</span>
+          </a>
+          {{ if isset .roles "ops" }}<a class="team-also" href="#ops-{{ .id }}">{{ partial "T.html" "Also in operations" }}</a>{{ end }}
+        </li>
+        {{- end }}
+      </ul>
+    </section>
+
+    <section class="team-thanks">
+      <div>
+        <h3>{{ partial "T.html" "Board alumni" }}</h3>
+        <ul class="team-names">
+          {{- range $alumni }}
+          <li>{{ if .bio }}<a href="#bio-{{ .id }}" data-bio="{{ .id }}">{{ .name }}</a>{{ else }}{{ .name }}{{ end }}{{ if isset .roles "ops" }} <small>{{ partial "T.html" "now in operations" }}</small>{{ end }}</li>
+          {{- end }}
+        </ul>
+      </div>
+      <div>
+        <h3>{{ partial "T.html" "Hackathon contributors" }}</h3>
+        <ul class="team-names">
+          {{- range $hack }}<li>{{ .name }}</li>{{ end }}
+        </ul>
+      </div>
+    </section>
+
+    {{ range $people }}{{ if .bio }}{{ partial "team/bio-dialog.html" . }}{{ end }}{{ end }}
+  </div>
+</div>
+
+<script>
+/* Bio links open their <dialog> as a modal; #bio-<id> in the URL opens it on
+   load. Without JS the links fall back to :target (see .team:not(.js)). */
+(function () {
+  var root = document.getElementById("team");
+  if (!root || typeof HTMLDialogElement !== "function") return;
+  root.classList.add("js");
+  function open(id, opener) {
+    var d = document.getElementById("bio-" + id);
+    if (!d) return false;
+    d._opener = opener || null;
+    d.showModal();
+    return true;
+  }
+  root.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-bio]");
+    if (a && open(a.getAttribute("data-bio"), a)) { e.preventDefault(); return; }
+    if (e.target.matches("dialog.team-bio")) e.target.close(); // backdrop
+  });
+  root.querySelectorAll("dialog.team-bio").forEach(function (d) {
+    d.addEventListener("close", function () {
+      if (location.hash === "#" + d.id) history.replaceState(null, "", location.pathname + location.search);
+      if (d._opener) d._opener.focus();
+    });
+  });
+  var m = location.hash.match(/^#bio-([\w-]+)$/);
+  if (m) open(m[1]);
+})();
+</script>
+{{ end }}
