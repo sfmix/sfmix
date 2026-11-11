@@ -1817,3 +1817,11 @@ msgstr "no successful builds yet"
 #: templates/mapbuild/status.html:80
 msgid "Recent failures"
 msgstr "recent Ls"
+
+#: templates/dashboard/_section_link.html:5
+msgid "Link copied!"
+msgstr "link copied fr ✨"
+
+#: templates/dashboard/_section_link.html:5
+msgid "Copy link to this section"
+msgstr "yoink the link to this section"

@@ -1826,3 +1826,11 @@ msgstr "Noch keine erfolgreichen Builds aufgezeichnet."
 #: templates/mapbuild/status.html:80
 msgid "Recent failures"
 msgstr "Letzte Fehlschläge"
+
+#: templates/dashboard/_section_link.html:5
+msgid "Link copied!"
+msgstr "Link kopiert!"
+
+#: templates/dashboard/_section_link.html:5
+msgid "Copy link to this section"
+msgstr "Link zu diesem Abschnitt kopieren"
