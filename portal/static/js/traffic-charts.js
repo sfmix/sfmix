@@ -12,9 +12,11 @@
  *
  *   <sfmix-optic-lanes asn="6939" port="0" member="0" bands="-14.4,-12.9,-1,0.5" link-up="1" range="24h">
  *
- * The range picker calls setRange() on every chart, which re-queries and
- * redraws. Colours are pulled from the portal's CSS custom properties so the
- * charts look native.
+ * The range picker is page-global: choosing a range calls setRange() on every
+ * chart (re-query + redraw), syncs every picker, and mirrors the choice into
+ * the URL as ?timeRange=<key> (omitted for the 24h default) so a link such as
+ * /participants/65535?timeRange=30d#l1-physical opens with that range. Colours
+ * are pulled from the portal's CSS custom properties so the charts look native.
  *
  * Interaction features:
  *   - Time zone toggle ("SF Time" = US/Pacific, "UTC"): one page-global choice,
@@ -34,6 +36,23 @@
  */
 (function () {
   "use strict";
+
+  // ── Page-global time range, mirrored in ?timeRange= ──────────────────────
+  // Keys must match prom_client.RANGES (the server rejects anything else).
+  var RANGE_KEYS = ["1h", "24h", "7d", "30d"];
+  var DEFAULT_RANGE = "24h";
+  var RANGE_PARAM = "timeRange";
+  // Read once at load, before any chart connects, so deep-linked charts make
+  // their first query with the requested range (no 24h fetch-then-refetch).
+  var pageRange = (function () {
+    try {
+      var r = new URLSearchParams(window.location.search).get(RANGE_PARAM);
+      return RANGE_KEYS.indexOf(r) >= 0 ? r : null;
+    } catch (e) { return null; }
+  })();
+  function initialRange(el) {
+    return pageRange || el.getAttribute("range") || DEFAULT_RANGE;
+  }
 
   // Resolve the portal palette from CSS custom properties (set by tailwind @theme).
   function cssVar(name, fallback) {
@@ -664,7 +683,7 @@
       // Optional explicit metrics endpoint (e.g. the exchange-wide stats page);
       // defaults to the per-participant endpoint built from `asn`.
       this.endpoint = this.getAttribute("endpoint");
-      this.range = this.getAttribute("range") || "24h";
+      this.range = initialRange(this);
       this._height = parseInt(this.getAttribute("height"), 10) || 240;
       // Preloaded charts are fed by a parent (sfmix-optic-lanes) via setData()
       // and never query on their own.
@@ -769,7 +788,7 @@
   var _opticSeq = 0;
   class SfmixOpticLanes extends HTMLElement {
     connectedCallback() {
-      this.range = this.getAttribute("range") || "24h";
+      this.range = initialRange(this);
       this.bands = parseBands(this.getAttribute("bands"));
       this.up = this.getAttribute("link-up") === "1";
       this.syncKey = "optic-" + (++_opticSeq);
@@ -847,18 +866,31 @@
   }
   if (!customElements.get("sfmix-optic-lanes")) customElements.define("sfmix-optic-lanes", SfmixOpticLanes);
 
-  // Range picker: each picker is local to its own chart group (the enclosing
-  // .nd-tf-band) — the peer-traffic section and every per-port interface band
-  // have independent ranges.
+  // Range picker: page-global. Any picker moves every picker and every chart
+  // on the page to the chosen range, and records it in ?timeRange= (replacing
+  // the history entry, keeping the #anchor) so the URL is always shareable.
+  function markPickers(r) {
+    document.querySelectorAll(".nd-tf-range button").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-range") === r);
+    });
+  }
+  function writeRangeToUrl(r) {
+    try {
+      var url = new URL(window.location.href);
+      if (r === DEFAULT_RANGE) url.searchParams.delete(RANGE_PARAM);
+      else url.searchParams.set(RANGE_PARAM, r);
+      window.history.replaceState(window.history.state, "", url.toString());
+    } catch (e) {}
+  }
   document.addEventListener("click", function (e) {
     var btn = e.target.closest(".nd-tf-range button");
     if (!btn) return;
-    var group = btn.closest(".nd-tf-band") || document;
     var r = btn.getAttribute("data-range");
-    group.querySelectorAll(".nd-tf-range button").forEach(function (b) {
-      b.classList.toggle("on", b.getAttribute("data-range") === r);
-    });
-    group.querySelectorAll("sfmix-chart:not([preloaded]), sfmix-optic-lanes").forEach(function (c) { c.setRange(r); });
+    if (RANGE_KEYS.indexOf(r) < 0) return;
+    pageRange = r;
+    markPickers(r);
+    writeRangeToUrl(r);
+    document.querySelectorAll("sfmix-chart:not([preloaded]), sfmix-optic-lanes").forEach(function (c) { c.setRange(r); });
   });
 
   // ── Time-zone toggle ─────────────────────────────────────────────────────
@@ -899,9 +931,13 @@
     document.querySelectorAll("sfmix-chart").forEach(function (c) { if (c.applyTz) c.applyTz(); });
   });
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", injectTzToggles);
-  } else {
+  function initPickers() {
     injectTzToggles();
+    if (pageRange) markPickers(pageRange);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initPickers);
+  } else {
+    initPickers();
   }
 })();

@@ -723,7 +723,13 @@ def _build_logical_ports(enriched_ports, iface_by_key, optics_by_key, lldp_by_ke
             "bound_mac_v6": bound_mac_v6 or "—",
             "discovered": discovered_v4 + discovered_v6,
             "route_servers": port_rs,
+            "anchor": "l" + _port_anchor(dev, iface_name),
         })
+
+    # Section anchors inside each port (#l1-physical, #l3-network, ...): the
+    # first port gets the bare id, later ones a -2, -3 suffix (GitHub-style).
+    for i, lp in enumerate(logical_ports):
+        lp["anchor_suffix"] = f"-{i + 1}" if i else ""
 
     return logical_ports
 
