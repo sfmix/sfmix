@@ -1814,3 +1814,11 @@ msgstr "Nary a chart drawn true yet."
 #: templates/mapbuild/status.html:80
 msgid "Recent failures"
 msgstr "Recent wrecks"
+
+#: templates/dashboard/_section_link.html:5
+msgid "Link copied!"
+msgstr "Map copied, arr!"
+
+#: templates/dashboard/_section_link.html:5
+msgid "Copy link to this section"
+msgstr "Copy a map to this here section"

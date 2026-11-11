@@ -203,7 +203,7 @@ its action buttons.
     <h2 class="nd-tf-section-title">
       {% translate "Peer-to-peer traffic" %}
       <span class="nd-tf-scope-tag">{% translate "Admin" %}</span>
-      <a class="nd-anchor" href="#peer-traffic" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
+      {% include "dashboard/_section_link.html" with id="peer-traffic" %}
     </h2>
     <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
       <button data-range="1h">1h</button>
@@ -241,7 +241,7 @@ its action buttons.
     <span class="nd-lp-title">
       <span class="nd-dq-d">{{ lp.device|cut:".sfmix.org" }}</span>{{ lp.name }}
     </span>
-    <a class="nd-anchor" href="#{{ lp.anchor }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
+    {% include "dashboard/_section_link.html" with id=lp.anchor %}
     {% if lp.kind == "lag" %}
     <span class="nd-lp-kind">LAG</span>
     <span class="nd-lp-speed">{{ lp.members_total }}&times;{{ lp.physical.0.speed_gbps|floatformat:0 }}G</span>
@@ -273,7 +273,7 @@ its action buttons.
         <span class="nd-lt-l">L1</span>
         <span class="nd-lt-name">{% translate "Physical" %}</span>
         <span class="nd-lt-scope">{% translate "Admin" %}</span>
-        <a class="nd-anchor" href="#l1-physical{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
+        {% include "dashboard/_section_link.html" with id="l1-physical"|add:lp.anchor_suffix %}
       </div>
       <div class="nd-lband-body">
         <div class="nd-tf-band nd-optic-band">
@@ -345,7 +345,7 @@ its action buttons.
         <span class="nd-lt-l">L2</span>
         <span class="nd-lt-name">{% translate "Link" %}{% if can_see_admin %} &middot; LLDP{% endif %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
-        <a class="nd-anchor" href="#l2-link{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
+        {% include "dashboard/_section_link.html" with id="l2-link"|add:lp.anchor_suffix %}
       </div>
       <div class="nd-lband-body">
         {% if can_see_admin %}
@@ -446,7 +446,7 @@ its action buttons.
         {% if can_see_admin %}
         <div id="throughput{{ lp.anchor_suffix }}" class="nd-ops-panel nd-tf-band">
           <div class="nd-tf-head">
-            <h4 class="nd-tf-section-title">{% translate "Throughput" %} <span class="nd-tf-scope-tag">{% translate "Admin" %}</span> <a class="nd-anchor" href="#throughput{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a></h4>
+            <h4 class="nd-tf-section-title">{% translate "Throughput" %} <span class="nd-tf-scope-tag">{% translate "Admin" %}</span> {% include "dashboard/_section_link.html" with id="throughput"|add:lp.anchor_suffix %}</h4>
             <div class="nd-tf-range" role="tablist" aria-label="{% translate 'Time range' %}">
               <button data-range="1h">1h</button>
               <button data-range="24h" class="on">24h</button>
@@ -472,7 +472,7 @@ its action buttons.
         <span class="nd-lt-l">L3</span>
         <span class="nd-lt-name">{% translate "Network" %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
-        <a class="nd-anchor" href="#l3-network{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
+        {% include "dashboard/_section_link.html" with id="l3-network"|add:lp.anchor_suffix %}
       </div>
       <div class="nd-lband-body">
         {% if lp.discovered or lp.invalid_ip_bindings %}
@@ -573,7 +573,7 @@ its action buttons.
         <span class="nd-lt-l">L4+</span>
         <span class="nd-lt-name">{% translate "Route Servers" %}</span>
         <span class="nd-lt-scope">{% translate "Public" %}</span>
-        <a class="nd-anchor" href="#l4-route-servers{{ lp.anchor_suffix }}" title="{% translate 'Link to this section' %}" aria-label="{% translate 'Link to this section' %}">#</a>
+        {% include "dashboard/_section_link.html" with id="l4-route-servers"|add:lp.anchor_suffix %}
       </div>
       <div class="nd-lband-body">
         {# Desktop: table view #}
@@ -721,6 +721,25 @@ measurement-based responsive approach used by the nav.
     });
   }
   measureStickyOffsets();
+
+  // Section link buttons: let the browser follow the #anchor as usual, and also
+  // copy the full URL (current ?timeRange= included) with a brief "copied" pop.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('.nd-anchor');
+    if (!a || !navigator.clipboard) return;
+    var url = new URL(a.getAttribute('href'), window.location.href).href;
+    navigator.clipboard.writeText(url).then(function () {
+      var old = a.querySelector('.nd-copied');
+      if (old) old.remove();
+      var tip = document.createElement('span');
+      tip.className = 'nd-copied';
+      tip.setAttribute('role', 'status');
+      tip.textContent = a.getAttribute('data-copied');
+      a.appendChild(tip);
+      setTimeout(function () { tip.remove(); }, 1600);
+    }, function () {});
+  });
+
   if (window.ResizeObserver) {
     new ResizeObserver(measureStickyOffsets).observe(document.body);
   } else {

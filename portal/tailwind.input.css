@@ -352,8 +352,8 @@ body {
 .nd-pmember:target { border-color: light-dark(#93c5fd, #3b82f6); box-shadow: 0 0 0 3px light-dark(#dbeafe, #12294a); }
 /* Section deep-links (#peer-traffic, #lport-…, #l1-physical, #throughput, …):
    land clear of the sticky identity bar (+ the logical-port header inside a
-   port), flash briefly to show where you landed, and offer a GitHub-style "#"
-   link that appears on hover (always faintly visible on touch devices). */
+   port), flash briefly to show where you landed, and offer a chain-link button
+   that follows the anchor and copies the URL (see _section_link.html). */
 .nd-tf-section, .nd-lport { scroll-margin-top: calc(var(--nd-id-h, 0px) + 1rem); }
 .nd-lband, .nd-ops-panel { scroll-margin-top: calc(var(--nd-id-h, 0px) + var(--nd-lph, 0px) + 1.25rem); }
 @keyframes nd-target-flash {
@@ -361,10 +361,29 @@ body {
   to   { box-shadow: 0 0 0 3px transparent; }
 }
 .nd-tf-section:target, .nd-lport:target, .nd-lband:target, .nd-ops-panel:target { animation: nd-target-flash 2.5s ease-out 1; }
-.nd-anchor { color: var(--color-text-light); font-weight: 400; font-family: var(--font-mono); font-size: .85rem; text-decoration: none; opacity: 0; transition: opacity .15s; }
-.nd-anchor:hover { color: var(--color-primary-light-text); text-decoration: none; }
-.nd-tf-section-title:hover .nd-anchor, .nd-lport-head:hover .nd-anchor, .nd-lband:hover > .nd-lband-tag .nd-anchor, .nd-anchor:focus-visible { opacity: 1; }
-@media (hover: none) { .nd-anchor { opacity: .5; } }
+/* Trailing sections can't scroll to the top of a short page. While a section is
+   targeted, append a viewport-tall spacer *after* the footer: the footer still
+   sits right under the content, but there's room to scroll the target up. */
+body:has(.nd-tf-section:target, .nd-lport:target, .nd-lband:target, .nd-ops-panel:target, .nd-pmember:target)::after {
+  content: ""; display: block; flex: none; height: 100vh;
+}
+.nd-anchor { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center;
+  width: 1.75rem; height: 1.75rem; border-radius: 6px; color: var(--color-primary-light-text);
+  border: 1px solid var(--color-border); background: var(--color-surface); text-decoration: none;
+  transition: background-color .15s, border-color .15s, color .15s; }
+.nd-anchor svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2.75; stroke-linecap: round; stroke-linejoin: round; }
+.nd-anchor:hover, .nd-anchor:focus-visible { color: var(--color-primary-text); border-color: var(--color-primary-light-text); background: light-dark(#e6eef2, #16323b); text-decoration: none; }
+.nd-copied { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 40;
+  white-space: nowrap; pointer-events: none; padding: .2rem .5rem; border-radius: 4px;
+  font-family: var(--font-sans); font-size: .75rem; font-weight: 600; letter-spacing: normal; text-transform: none;
+  color: #fff; background: light-dark(#1d7a3e, #15803d); box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+  animation: nd-copied-pop 1.6s ease-out forwards; }
+@keyframes nd-copied-pop {
+  0%   { opacity: 0; transform: translate(-50%, 4px); }
+  12%  { opacity: 1; transform: translate(-50%, 0); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}
 .nd-pmember-down { opacity: .6; }
 .nd-pmember-unknown { opacity: .8; }
 .nd-pm-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
