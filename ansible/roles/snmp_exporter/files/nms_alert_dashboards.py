@@ -170,7 +170,7 @@ def _dash(uid, title, panels, templating, description, links=(), time_from="now-
     return {
         "uid": uid, "title": title, "tags": ["sfmix-nms", "generated", "alerts"],
         "timezone": "browser", "description": description,
-        "schemaVersion": 39, "refresh": "1m", "editable": True,
+        "schemaVersion": 39, "refresh": "", "editable": True,
         "time": {"from": time_from, "to": "now"},
         "templating": {"list": templating},
         "links": [{"title": t, "type": "link", "icon": "dashboard", "url": u,
