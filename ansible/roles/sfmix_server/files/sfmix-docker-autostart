@@ -13,8 +13,16 @@
 # (unless-stopped), all were host-network, and the one container that *did* log a
 # restore error (alertmanager) came back fine, so there is no error to key off.
 #
-# This unit therefore reconciles observable state once per boot: anything that
-# should be running and is not, gets started.
+# Root cause (found 2026-11-11): the missed containers were exactly the ones we
+# reload with `docker kill --signal=HUP` (prometheus, alertmanager,
+# blackbox_exporter, syslog-ng). dockerd's killWithSignal sets
+# HasBeenManuallyStopped=true for ANY signal sent outside daemon shutdown, HUP
+# included, so restore treats the unless-stopped container as deliberately
+# stopped. The flag is cleared by the next start, which is why inspecting it
+# after the fact looked random. Reloads now use `docker exec <c> kill -HUP 1`.
+#
+# This unit stays as the safety net and reconciles observable state once per
+# boot: anything that should be running and is not, gets started.
 #
 # It deliberately does NOT resurrect a container an operator stopped on purpose.
 # Only containers whose exit was recorded as part of this boot are candidates --
