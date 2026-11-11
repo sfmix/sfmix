@@ -182,6 +182,19 @@ NOPROP-PEER-AS<ASXXXXX> → FREE-USER-OUT → REJECT-ALL
 | 110 | IXP IPv4 prefixes |
 | 120 | IXP IPv6 prefixes |
 
+**RPKI status (2026-11-11): NOT enforced anywhere.** Both cr1 have `router "Base" origin-validation
+rpki-session 192.33.255.13` (Routinator on rpki-linux, RTR :3323; cr1.scl02 was also on default :323), but the
+Base instance has **no route** to it, so sessions sit in `connect` with 0 VRPs and every route is `not-found`
+(tagged `rpki-unknown`). `origin-validation` cannot be configured inside a VPRN on 25.10, so the fix is giving
+Base a path to the validator (and allowing the source in rpki-linux UFW `ixp_admin_source_subnets`). Check:
+`show router origin-validation rpki-session` / `... database summary`.
+
+**INTERNET-IN must run before any policy that accepts.** A customer `-IN` policy that `accept`s ends the
+chain, so a later `INTERNET-IN` never runs. Use `["INTERNET-IN" "AS<N>-IN" "REJECT-ALL"]` for accept-style
+`-IN` policies (INTERNET-IN strips `40271:*:*`, so it must precede our tagging), or make `-IN` use
+`next-policy` like the IRR-filtered customers. Hosted caches announcing *our* sub-allocations (e.g. Apple
+`149.112.115.160/27`, `2620:11a:b002:3000::/56`) must NOT get INTERNET-IN: TOO-SMALL would drop them.
+
 ## IRR Prefix-List Management
 
 Prefix-lists are generated from IRR using `bgpq4`. Use the **AS-SET** (e.g., `AS-EXAMPLE`), not the bare ASN (e.g., `AS<ASXXXXX>`), to include downstream customer prefixes.
