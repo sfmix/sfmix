@@ -1,0 +1,17 @@
+# Managed by Ansible (prometheus role).
+groups:
+  # Per-member peering traffic from sflow-rt's ixp-metrics src x dst matrix
+  # (sflow_ixp_peering_bps, top-1000 pairs; the tail is < ~40 bps per pair).
+  # Recorded at the 5s scrape interval so zooming in keeps full resolution,
+  # while ~80 series per direction keep long ranges cheap: a 30d raw view of
+  # the matrix is ~500M samples, over Thanos Query's limits (doc 012
+  # "Query guard rails"). History before the rule existed was backfilled into
+  # the bucket with external label backfill="sflow-members"; aggregate with
+  # sum by (src_name) / (dst_name) to join it with the live series.
+  - name: sflow-ixp-members
+    interval: 5s
+    rules:
+      - record: sflow:ixp_peering_bps:sum_by_src
+        expr: sum by (src_asn, src_name) (sflow_ixp_peering_bps)
+      - record: sflow:ixp_peering_bps:sum_by_dst
+        expr: sum by (dst_asn, dst_name) (sflow_ixp_peering_bps)

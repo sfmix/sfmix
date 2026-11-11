@@ -32,6 +32,7 @@
     - clock.rules.yml          # network-device clock drift via SNMP hrSystemDate (job="snmp-clock")
     - thanos.rules.yml         # long-term tier: sidecar shipping, compactor, store, Garage (doc 012)
     - backup.rules.yml         # fleet backup freshness from the backup target's textfile metrics (013)
+    - sflow.rules.yml          # per-member sflow-rt peering totals at 5s (cheap long ranges, doc 012)
 
 - name: "Prometheus: Template config"
   become: true
