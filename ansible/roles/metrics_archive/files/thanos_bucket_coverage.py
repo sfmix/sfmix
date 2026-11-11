@@ -3,58 +3,130 @@
 node_exporter textfile metrics (design doc 012).
 
 Thanos exposes block counts but not coverage, so this lists the bucket with
-`thanos tools bucket ls -o json` and writes, per resolution (raw/5m/1h):
+`thanos tools bucket ls -o json` and writes, per resolution (raw/5m/1h), over
+live blocks (not marked for deletion):
 
   thanos_bucket_blocks              blocks
   thanos_bucket_min_time_seconds    oldest sample
   thanos_bucket_max_time_seconds    newest sample
   thanos_bucket_samples             samples
   thanos_bucket_size_bytes          block files (index + chunks + meta)
+  thanos_bucket_growth_bytes_per_second
+                                    block bytes per second of data over the
+                                    newest 30 days of this resolution: what
+                                    the tier grows by at today's ingestion
+  thanos_bucket_growth_window_seconds
+                                    data span that rate was measured over
 
-plus thanos_bucket_coverage_success / _last_run_timestamp_seconds.
+plus thanos_bucket_pending_delete_bytes (blocks marked for deletion, still
+stored until --delete-delay passes), thanos_compact_retention_seconds (from
+the role's retention settings; 0 = forever) and
+thanos_bucket_coverage_success / _last_run_timestamp_seconds.
+
 Usage: thanos_bucket_coverage.py <thanos-image> <objstore.yml> <out.prom>
+                                 [raw=30d 5m=365d 1h=0d]
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 
 RES = {0: "raw", 300000: "5m", 3600000: "1h"}
+GROWTH_WINDOW_MS = 30 * 86400 * 1000
+UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400, "y": 365 * 86400}
 
 
-def blocks(image, objstore):
-    out = subprocess.run(
-        ["docker", "run", "--rm", "--network", "host", "--user", "65534:65534",
-         "-v", f"{objstore}:/objstore.yml:ro", image,
-         "tools", "bucket", "ls", "--objstore.config-file=/objstore.yml", "-o", "json"],
-        capture_output=True, text=True, timeout=600, check=True).stdout
-    dec, i = json.JSONDecoder(), 0
+def blocks(image, objstore, exclude_delete):
+    cmd = ["docker", "run", "--rm", "--network", "host", "--user", "65534:65534",
+           "-v", f"{objstore}:/objstore.yml:ro", image,
+           "tools", "bucket", "ls", "--objstore.config-file=/objstore.yml", "-o", "json"]
+    if exclude_delete:
+        cmd.append("--exclude-delete")
+    out = subprocess.run(cmd, capture_output=True, text=True, timeout=600,
+                         check=True).stdout
+    dec, i, found = json.JSONDecoder(), 0, []
     while True:
         j = out.find("{", i)
         if j < 0:
-            return
+            return found
         try:
             obj, i = dec.raw_decode(out, j)
         except json.JSONDecodeError:
             i = j + 1
             continue
         if isinstance(obj, dict) and "ulid" in obj:
-            yield obj
+            found.append(obj)
 
 
-def main(image, objstore, dest):
-    agg = {name: {"blocks": 0, "min": None, "max": None, "samples": 0, "bytes": 0}
+def res_of(b):
+    return RES.get(b["thanos"]["downsample"]["resolution"], "raw")
+
+
+def size_of(b):
+    return sum(f.get("size_bytes", 0) for f in b["thanos"].get("files") or [])
+
+
+def growth(blks):
+    """(bytes per second of data, seconds covered) over the newest 30 days.
+
+    Blocks straddling the window edge count pro rata; gaps are not counted
+    as covered time."""
+    if not blks:
+        return None, None
+    end = max(b["maxTime"] for b in blks)
+    start = end - GROWTH_WINDOW_MS
+    nbytes, spans = 0.0, []
+    for b in blks:
+        lo, hi = max(b["minTime"], start), min(b["maxTime"], end)
+        if hi <= lo:
+            continue
+        nbytes += size_of(b) * (hi - lo) / (b["maxTime"] - b["minTime"])
+        spans.append((lo, hi))
+    covered, cur = 0, None
+    for lo, hi in sorted(spans):
+        if cur and lo <= cur[1]:
+            cur[1] = max(cur[1], hi)
+            continue
+        if cur:
+            covered += cur[1] - cur[0]
+        cur = [lo, hi]
+    if cur:
+        covered += cur[1] - cur[0]
+    if covered <= 0:
+        return None, None
+    return nbytes / (covered / 1000), covered / 1000
+
+
+def parse_retention(args):
+    out = {}
+    for a in args:
+        name, _, dur = a.partition("=")
+        m = re.fullmatch(r"(\d+)([smhdwy])", dur)
+        if name in RES.values() and m:
+            out[name] = int(m.group(1)) * UNITS[m.group(2)]
+    return out
+
+
+def main(image, objstore, dest, *retention_args):
+    agg = {name: {"blocks": 0, "min": None, "max": None, "samples": 0, "bytes": 0,
+                  "list": []}
            for name in RES.values()}
-    ok = 1
+    ok, pending = 1, 0
     try:
-        for b in blocks(image, objstore):
-            a = agg[RES.get(b["thanos"]["downsample"]["resolution"], "raw")]
+        live = blocks(image, objstore, exclude_delete=True)
+        for b in live:
+            a = agg[res_of(b)]
             a["blocks"] += 1
             a["min"] = b["minTime"] if a["min"] is None else min(a["min"], b["minTime"])
             a["max"] = b["maxTime"] if a["max"] is None else max(a["max"], b["maxTime"])
             a["samples"] += b["stats"].get("numSamples", 0)
-            a["bytes"] += sum(f.get("size_bytes", 0) for f in b["thanos"].get("files") or [])
+            a["bytes"] += size_of(b)
+            a["list"].append(b)
+        live_ids = {b["ulid"] for b in live}
+        pending = sum(size_of(b) for b in blocks(image, objstore, exclude_delete=False)
+                      if b["ulid"] not in live_ids)
     except Exception as e:  # keep last good values out; report failure
         print(f"bucket ls failed: {e}", file=sys.stderr)
         ok = 0
@@ -67,16 +139,31 @@ def main(image, objstore, dest):
         lines.extend(rows)
 
     if ok:
+        for a in agg.values():
+            a["growth"], a["window"] = growth(a["list"])
         for key, name, help_, scale in [
-            ("blocks", "thanos_bucket_blocks", "Blocks in the Thanos bucket.", 1),
+            ("blocks", "thanos_bucket_blocks", "Live blocks in the Thanos bucket.", 1),
             ("min", "thanos_bucket_min_time_seconds", "Oldest sample in the bucket.", 1000),
             ("max", "thanos_bucket_max_time_seconds", "Newest sample in the bucket.", 1000),
             ("samples", "thanos_bucket_samples", "Samples in the bucket.", 1),
-            ("bytes", "thanos_bucket_size_bytes", "Size of block files in the bucket.", 1),
+            ("bytes", "thanos_bucket_size_bytes", "Size of live block files in the bucket.", 1),
+            ("growth", "thanos_bucket_growth_bytes_per_second",
+             "Block bytes per second of data over the newest 30 days of this resolution.", 1),
+            ("window", "thanos_bucket_growth_window_seconds",
+             "Data span the growth rate was measured over.", 1),
         ]:
             rows = [f'{name}{{resolution="{r}"}} {a[key] / scale:.3f}'
                     for r, a in agg.items() if a[key] is not None and a["blocks"]]
             metric(name, help_, rows)
+        metric("thanos_bucket_pending_delete_bytes",
+               "Block bytes marked for deletion but still stored (delete-delay).",
+               [f"thanos_bucket_pending_delete_bytes {pending}"])
+    retention = parse_retention(retention_args)
+    if retention:
+        metric("thanos_compact_retention_seconds",
+               "Configured bucket retention per resolution (0 = forever).",
+               [f'thanos_compact_retention_seconds{{resolution="{r}"}} {s}'
+                for r, s in retention.items()])
     metric("thanos_bucket_coverage_success", "1 if the last bucket listing worked.",
            [f"thanos_bucket_coverage_success {ok}"])
     metric("thanos_bucket_coverage_last_run_timestamp_seconds", "Last coverage run.",
@@ -91,4 +178,4 @@ def main(image, objstore, dest):
 
 
 if __name__ == "__main__":
-    sys.exit(main(*sys.argv[1:4]))
+    sys.exit(main(*sys.argv[1:]))

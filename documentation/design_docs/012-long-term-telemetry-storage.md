@@ -195,6 +195,25 @@ metrics01.scl04 and metrics01.sfo02 (VM 100 on the DL360 pve01.sfo02, its
 Expected steady state: raw 30d ~15 GB, 5m for a year ~50-100 GB, 1h ~10
 GB/yr. The 1T disk is years of headroom.
 
+### Retention runway (how long "forever" lasts)
+
+The Garage volumes are fixed 1 TiB disks, so "1h forever" really means "until
+the disk is full". The Long-term Metrics dashboard projects that per copy
+(RF 2 on 2 nodes = each node holds everything, so the smaller one limits):
+
+- ceiling = (size − ext4 root reserve) × 90%, from node_exporter on
+  `/srv/telemetry`;
+- compression = disk used ÷ block bytes (live + pending delete), ~0.70;
+- growth per resolution = block bytes per day of data in the newest 30 days
+  (thanos-bucket-coverage), not the lifetime average: series grew from ~15k
+  to ~145k during 2026, and 1h blocks went from ~3 to ~22 MB/day;
+- raw and 5m settle at growth × retention; 1h gets the rest:
+  runway = (ceiling ÷ compression − raw − 5m − 1h so far) ÷ 1h growth/yr.
+
+2026-11-10: ceiling 924 GB, raw+5m settle at ~61 GB on disk, 1h adds
+~5.5 GB/yr on disk → ~155 years; 72 at 2× ingestion, 22 at 5×, 6 at 10×.
+Ingestion growth, not disk, is what to watch.
+
 ## Rollout (no data loss)
 
 The existing 78 GB of history is uploaded once, and nothing is allowed to age

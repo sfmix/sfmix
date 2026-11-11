@@ -113,6 +113,155 @@ HOW = f"""
 """
 
 
+# ── retention runway (forever tier vs fixed disks) ─────────────────────
+#
+# Everything is per copy: Garage replication 2 on 2 nodes = every node holds
+# the whole bucket, so the smaller node's volume is the limit. Bucket figures
+# are block bytes before Garage compression ("logical"); disk figures are
+# physical. K converts between them.
+
+FILL = 0.90                 # planning ceiling: keep 10% of the usable volume free
+YEAR = 31557600             # seconds
+MULTIPLIERS = [1, 2, 3, 5, 10]
+_MP = 'mountpoint="/srv/telemetry", job="node"'
+
+# Usable = size minus ext4's root reserve (free - avail), times the fill target.
+CEILING = (f"min({FILL} * (node_filesystem_size_bytes{{{_MP}}}"
+           f" - node_filesystem_free_bytes{{{_MP}}} + node_filesystem_avail_bytes{{{_MP}}}))")
+USED = f"max(node_filesystem_size_bytes{{{_MP}}} - node_filesystem_free_bytes{{{_MP}}})"
+# Physical bytes stored per logical block byte (zstd + Garage metadata).
+K = (f"({USED} / (sum(thanos_bucket_size_bytes)"
+     " + sum(thanos_bucket_pending_delete_bytes)))")
+
+
+def _rate(res):
+    return f'sum(thanos_bucket_growth_bytes_per_second{{resolution="{res}"}})'
+
+
+def _ret(res):
+    return f'sum(thanos_compact_retention_seconds{{resolution="{res}"}})'
+
+
+# Logical size raw + 5m settle at once full: growth rate x retention.
+FIXED = f'({_rate("raw")} * {_ret("raw")} + {_rate("5m")} * {_ret("5m")})'
+FOREVER_NOW = 'sum(thanos_bucket_size_bytes{resolution="1h"})'
+
+
+def _runway(m=1):
+    """Years until the 1h tier fills the ceiling, ingestion x m from now on."""
+    room = f"({CEILING} / {K} - {m} * {FIXED} - {FOREVER_NOW})"
+    return f"{room} / ({m} * {_rate('1h')} * {YEAR})"
+
+
+RUNWAY_STEPS = [{"color": RED, "value": None}, {"color": AMBER, "value": 5},
+                {"color": GREEN, "value": 15}]
+
+RUNWAY_HOW = f"""
+**How the runway is estimated**
+
+- **Ceiling** — the smaller Garage data volume (each node holds a full copy), minus
+  ext4's root reserve, × {FILL:.0%}. The volumes are fixed 1 TiB VM disks: more
+  room means a bigger disk, not a setting.
+- **Growth** — block bytes per day of data in the newest 30 days of each resolution
+  (thanos-bucket-coverage), i.e. today's series count, not the lifetime average.
+- **raw** (30d) and **5m** (1y) stop growing once full: rate × retention.
+  **1h** never ages out, so it gets whatever is left.
+- **Runway** = (ceiling ÷ compression − raw − 5m − 1h so far) ÷ 1h growth per year.
+
+The 1h rate trails by ~3 weeks (1h blocks need a compacted 10d+ source).
+If ingestion jumps, the multiplier bars show what that does.
+"""
+
+
+def _bargauge(title, targets, grid, unit, description="", steps=None, decimals=None):
+    defaults = {"unit": unit, "min": 0, "color": {"mode": "thresholds"},
+                "thresholds": {"mode": "absolute", "steps": steps or NEUTRAL}}
+    if decimals is not None:
+        defaults["decimals"] = decimals
+    for t in targets:
+        t.update(instant=True, range=False)
+    return {
+        "type": "bargauge", "title": title, "description": description,
+        "gridPos": grid, "datasource": DS_PROM, "targets": targets,
+        "fieldConfig": {"defaults": defaults, "overrides": []},
+        "options": {"orientation": "horizontal", "displayMode": "basic",
+                    "showUnfilled": True, "valueMode": "color", "namePlacement": "left",
+                    "reduceOptions": {"calcs": ["lastNotNull"]}},
+    }
+
+
+def runway_panels(y):
+    yr = "suffix: yr"
+    p = [
+        _stat("Ceiling per copy", CEILING, _g(0, y, 3, 4), unit="bytes", decimals=1,
+              description=f"Smaller Garage volume minus ext4 reserve, × {FILL:.0%} fill target."),
+        _stat("Ceiling used", f"{USED} / {CEILING}", _g(3, y, 3, 4), unit="percentunit",
+              decimals=1,
+              steps=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 0.75},
+                     {"color": RED, "value": 0.9}],
+              description="Fuller node's disk use (blocks + Garage metadata) against the ceiling."),
+        _stat("Stored per bucket byte", K, _g(6, y, 3, 4), decimals=2,
+              description="Physical disk used ÷ block bytes in the bucket (incl. blocks "
+                          "pending deletion): Garage zstd compression plus metadata."),
+        _stat("raw + 5m when full", f"{FIXED} * {K}", _g(9, y, 3, 4), unit="bytes",
+              decimals=1,
+              description="On disk once raw (30d) and 5m (1y) have filled their retention "
+                          "at today's growth. They stop growing there."),
+        _stat("1h growth / year", f"{_rate('1h')} * {YEAR} * {K}", _g(12, y, 3, 4),
+              unit="bytes", decimals=1,
+              description="On disk per year added to the forever tier at today's ingestion."),
+        _stat("Forever runway", _runway(), _g(15, y, 3, 4), unit=yr, decimals=0,
+              steps=RUNWAY_STEPS,
+              description="Years until the 1h tier fills the ceiling at today's ingestion."),
+        _stat("Ceiling reached", f"1970 + (time() + {_runway()} * {YEAR}) / {YEAR}",
+              _g(18, y, 3, 4), unit="none", decimals=0,
+              description="Calendar year the ceiling is reached at today's ingestion."),
+        _stat("1h history at full",
+              f'(time() - min(thanos_bucket_min_time_seconds{{resolution="1h"}})) / {YEAR}'
+              f" + {_runway()}", _g(21, y, 3, 4), unit=yr, decimals=0,
+              description="How far back the 1h tier reaches when the ceiling is hit."),
+    ]
+    y += 4
+    p += [
+        _bargauge("Forever runway if ingestion grows", [
+            _t(f"clamp_min({_runway(m)}, 0)", "today" if m == 1 else f"{m}× today",
+               refid=chr(65 + i))
+            for i, m in enumerate(MULTIPLIERS)], _g(0, y, 8, 9), unit=yr, decimals=1,
+            steps=RUNWAY_STEPS,
+            description="Series count (and so every tier's growth) × N from now on. "
+                        "0 = raw + 5m alone would not fit."),
+        _bargauge("Ceiling at steady state (per copy)", [
+            _t(f'{_rate("raw")} * {_ret("raw")} * {K}', "raw · 30d"),
+            _t(f'{_rate("5m")} * {_ret("5m")} * {K}', "5m · 1y", "B"),
+            _t(f"{FOREVER_NOW} * {K}", "1h · stored so far", "C"),
+            _t(f"{CEILING} - ({FIXED} + {FOREVER_NOW}) * {K}", "1h · room left", "D")],
+            _g(8, y, 8, 9), unit="bytes", decimals=1,
+            description="How the ceiling divides once raw and 5m are full, "
+                        "at today's growth."),
+        _text(RUNWAY_HOW, _g(16, y, 8, 9)),
+    ]
+    y += 9
+    p += [
+        _ts("Growth per day of data, by resolution", [
+            _t("sum by (resolution) (thanos_bucket_growth_bytes_per_second) * 86400",
+               "{{resolution}}")], _g(0, y, 8, 8), unit="bytes",
+            description="Block bytes per day of data, newest 30 days of each resolution "
+                        "(before Garage compression)."),
+        _ts("Ingestion: active series and samples/s", [
+            _t("max(prometheus_tsdb_head_series)", "active series"),
+            _t("sum(rate(prometheus_tsdb_head_samples_appended_total[1h]))", "samples/s", "B")],
+            _g(8, y, 8, 8),
+            description="What drives the growth rates. A lasting step here shows up in "
+                        "raw growth at once and in 1h growth ~3 weeks later."),
+        _ts("Forever runway estimate", [
+            _t(_runway(), "today's ingestion"),
+            _t(_runway(2), "2× today", "B")], _g(16, y, 8, 8), unit=yr,
+            description="The estimate over time: falling means ingestion is growing faster "
+                        "than the disk is filling."),
+    ]
+    return p
+
+
 def longterm_metrics_dashboard():
     p = [_text(HOW, _g(0, 0, 24, 6))]
 
@@ -151,7 +300,10 @@ def longterm_metrics_dashboard():
         _stat("Local span", "time() - min(prometheus_tsdb_lowest_timestamp_seconds)",
               _g(3, y, 3, 4), unit="s", description="How far back Prometheus itself reaches."),
         _stat("Bucket size", "sum(thanos_bucket_size_bytes)", _g(6, y, 3, 4),
-              unit="bytes", decimals=1, description="All resolutions; Garage stores this twice."),
+              unit="bytes", decimals=1,
+              description="Live blocks, all resolutions, before Garage compression; "
+                          "Garage stores this twice. Blocks marked for deletion "
+                          "(gone within 48h) are not counted."),
         _stat("Bucket span", "time() - min(thanos_bucket_min_time_seconds)", _g(9, y, 3, 4),
               unit="s", description="Oldest data at any resolution."),
         _stat("Store blocks", "sum(thanos_bucket_store_blocks_loaded)", _g(12, y, 3, 4)),
@@ -233,8 +385,14 @@ Raw older than 30 days is deleted only after its 5m/1h blocks exist.
             description="Age of the oldest sample in each tier: flat lines at the retention limits once steady."),
     ]
 
-    # ── Shipping ──
+    # ── Runway ──
     y += 8
+    p.append(_row("Retention runway: how long \"forever\" lasts on the disks we have", y))
+    y += 1
+    p += runway_panels(y)
+    y += 21
+
+    # ── Shipping ──
     p.append(_row("Shipping: metrics.sfo02 → bucket (thanos sidecar)", y))
     y += 1
     p += [
