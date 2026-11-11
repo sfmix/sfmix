@@ -234,6 +234,7 @@ bgpq4 -J -6 -l IRR-AS<ASXXXXX>-V6 <AS-SET>
 
 ## Opt-in Default Route (SEND-DEFAULT)
 
+**Live on cr1.scl02 + cr1.sjc01 (PAID only; FREE deliberately has none - partial-table VRF would blackhole). Opted in: AS56554 (IETF).**
 Customers get a full table by default. To also send `0.0.0.0/0` + `::/0`, the VPRN
 carries BGP aggregates (`aggregates aggregate 0.0.0.0/0 { blackhole }`, same for
 `::/0`; **never `summary-only`**, which would suppress the full table) and the customer
@@ -290,7 +291,7 @@ traceroute router-instance "FREE" <PEER-IP>
 
 7. **`soft-inbound` doesn't send ROUTE-REFRESH** (RIB-In is kept): it only re-runs import policy over stored routes. Check `Output RtRefresh` stays 0. Routes rejected by import policy *are* kept and counted in `received`, so `received 0` means nothing arrived.
 
-8. **BGP debug is classic-CLI only:** `//` then `debug router <svc> bgp update` (per-instance, not per-neighbor). Needs a log with `source debug true`; add a log filter dropping `.*Send BGP UPDATE.*` to keep only inbound. Remove both afterwards.
+8. **BGP debug is classic-CLI only:** `//` then `debug router <svc> bgp update` (per-instance, not per-neighbor). Needs a log with `source debug true`; add a log filter dropping `.*Send BGP UPDATE.*` to keep only inbound. **Debug is cleared when the SSH session ends**, so keep the session open while capturing. Remove the log afterwards. A peer dropping on its own shows in `show log log-id 99` ("remote end closed connection").
 
 9. **Rejected ≠ filtered:** The `rejected` counter in BGP neighbor output includes routes that passed policy but lost best-path selection. Don't assume a high rejected count means your import policy is wrong — check `active` count and route detail.
 
