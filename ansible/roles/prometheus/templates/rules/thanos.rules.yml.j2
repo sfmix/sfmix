@@ -75,4 +75,79 @@ groups:
             No compaction iteration has finished in 6 hours. Downsampling and
             retention are falling behind. `docker logs --since 6h
             thanos-compact` on metrics01.scl04.
+
+      # ── Bucket capacity (doc 012, "Bucket capacity") ──
+      # A full Garage node does not degrade gracefully: with replication 2
+      # writes stall, the sidecar can't ship, and the compactor (whose scratch
+      # dir shares /srv/telemetry on scl04) can't compact -- so retention
+      # stops too and nothing frees itself. Warn well before the node_exporter
+      # 85% alert so there is room left to run the cleanup.
+      - alert: GarageDiskLow
+        expr: >
+          100 * garage_local_disk_avail{volume="data"}
+              / garage_local_disk_total{volume="data"} < 25
+        for: 1h
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: Garage data disk on {{ $labels.host }} is {{ printf "%.0f" $value }}% free
+          description: >-
+            The Thanos bucket's disk is under 25% free. In order: grow the
+            zvol (`qm resize <vmid> scsi1 +NG`, `resize2fs`, raise
+            metrics_archive_garage_capacity); shorten
+            metrics_archive_thanos_retention_5m (1h already covers that
+            span); last, mark the oldest 1h blocks with `thanos tools bucket
+            mark --marker=deletion-mark.json`. Never delete objects in Garage
+            directly or with S3 lifecycle rules.
+          dashboard: https://grafana.sfmix.org/d/sfmix-longterm-metrics
+
+      - alert: GarageDiskCritical
+        expr: >
+          100 * garage_local_disk_avail{volume="data"}
+              / garage_local_disk_total{volume="data"} < 10
+        for: 15m
+        labels: {severity: critical, component: telemetry}
+        annotations:
+          summary: Garage data disk on {{ $labels.host }} is {{ printf "%.0f" $value }}% free
+          description: >-
+            Under 10% free: bucket writes are about to fail, and once they do
+            the compactor can neither compact nor apply retention. Grow the
+            disk now (see GarageDiskLow); deletion marks take effect only
+            after the compactor's 48h delete-delay.
+          dashboard: https://grafana.sfmix.org/d/sfmix-longterm-metrics
+
+      # Long-range trend. Gated at 50% used so one-off bulk writes (a backfill
+      # or a node resync) on a mostly-empty disk don't extrapolate to "full".
+      - alert: GarageDiskFillingUp
+        expr: >
+          predict_linear(garage_local_disk_avail{volume="data"}[30d], 90 * 86400) < 0
+          and 100 * (1 - garage_local_disk_avail{volume="data"}
+                         / garage_local_disk_total{volume="data"}) > 50
+        for: 1d
+        labels: {severity: warning, component: telemetry}
+        annotations:
+          summary: Garage data disk on {{ $labels.host }} will be full within 90 days at the 30-day trend
+          description: >-
+            Over half full and trending to zero within a quarter. Expected
+            steady state grows only ~5-15 GB/yr (the 1h tier), so a trend
+            like this means series cardinality jumped or retention stopped
+            (check ThanosCompactHalted / ThanosCompactNotRunning). Plan the
+            disk growth or retention change from GarageDiskLow.
+          dashboard: https://grafana.sfmix.org/d/sfmix-longterm-metrics
+
+      # The 1h "forever" tier is never trimmed, so its growth rate is the
+      # long-run budget. ~5-15 GB/yr is normal at ~133k series; 5 GB in 30
+      # days means a cardinality blow-up is being written into it permanently.
+      - alert: ThanosForeverTierGrowingFast
+        expr: delta(thanos_bucket_size_bytes{resolution="1h"}[30d]) > 5e9
+        for: 6h
+        labels: {severity: info, component: telemetry}
+        annotations:
+          summary: Thanos 1h tier grew {{ $value | humanize1024 }}B in 30 days
+          description: >-
+            The never-expiring 1h tier is growing several times faster than
+            planned. Find the high-cardinality job/metric
+            (`topk(10, count by (__name__) ({__name__=~".+"}))` on Prometheus,
+            or the TSDB status page) and fix it at the source; data already
+            in the tier stays until blocks are marked for deletion.
+          dashboard: https://grafana.sfmix.org/d/sfmix-longterm-metrics
 {% endraw %}
