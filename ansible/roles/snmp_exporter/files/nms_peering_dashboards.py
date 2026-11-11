@@ -283,7 +283,7 @@ def peering_dashboard():
                        "above 1: a net sender (content, CDN); below 1: a net receiver "
                        "(access, eyeball). Click a member to drill down, an ASN for "
                        "its SNMP port view.",
-        "gridPos": {"h": 16, "w": 16, "x": 0, "y": y}, "datasource": DS_PROM,
+        "gridPos": {"h": 16, "w": 24, "x": 0, "y": y}, "datasource": DS_PROM,
         "targets": targets,
         "transformations": [
             {"id": "merge", "options": {}},
@@ -306,7 +306,7 @@ def peering_dashboard():
     def balance(title, left, right, color, gy, desc):
         return {
             "id": nid(), "type": "barchart", "title": title, "description": desc,
-            "gridPos": {"h": 8, "w": 8, "x": 16, "y": gy}, "datasource": DS_DASH,
+            "gridPos": {"h": 9, "w": 24, "x": 0, "y": gy}, "datasource": DS_DASH,
             "targets": [{"refId": "A", "datasource": DS_DASH, "panelId": table_id,
                          "withTransforms": True}],
             "transformations": [
@@ -329,14 +329,16 @@ def peering_dashboard():
             "options": {"orientation": "horizontal", "xField": "member",
                         "showValue": "always", "barWidth": 0.7, "groupWidth": 0.7,
                         "legend": {"showLegend": False}, "tooltip": {"mode": "single"},
-                        "xTickLabelMaxLength": 28, "stacking": "none"},
+                        "xTickLabelMaxLength": 40, "stacking": "none"},
         }
 
+    y += 16
     p.append(balance("Biggest net senders (sent − received)", "Sent", "Received", SENT, y,
                      "Mean sent minus mean received over the visible range."))
+    y += 9
     p.append(balance("Biggest net receivers (received − sent)", "Received", "Sent", RECV,
-                     y + 8, "Mean received minus mean sent over the visible range."))
-    y += 16
+                     y, "Mean received minus mean sent over the visible range."))
+    y += 9
 
     # ── Small multiples ──
     p.append(_row(nid(), f"Top {MULTIPLES} members at a glance (sent ↑, received ↓; "
@@ -368,7 +370,7 @@ def peering_dashboard():
         top, rest = top_and_others(rule, other, n=10, sel=f'{{{mine}="$member"}}')
         p.append(_ts(
             nid(), title, [_t(top, "{{" + other + "}}", "A"), _t(rest, "All others", "B")],
-            {"h": 11, "w": 12, "x": 12 * i, "y": y}, stack=True, fill=70, legend=True,
+            {"h": 12, "w": 24, "x": 0, "y": y + 12 * i}, stack=True, fill=70, legend=True,
             description=color_desc + " Top 10 peers over the visible range, from "
                         "sflow-rt's top-1000 pair matrix.",
             overrides=[_fixed("All others", OTHERS)],
@@ -377,7 +379,7 @@ def peering_dashboard():
                            "placement": "right", "calcs": ["mean", "max"],
                            "sortBy": "Mean", "sortDesc": True},
                 "tooltip": {"mode": "multi", "sort": "desc"}}}))
-    y += 11
+    y += 24
 
     # ── Character of the traffic ──
     p.append(_row(nid(), "Character of the traffic", y)); y += 1
