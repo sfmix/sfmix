@@ -428,6 +428,22 @@ auto-closed afterward).
   with the Wireshark download retained for deep dives. Heavier alternatives:
   self-hosted Arkime/Malcolm; commercial CloudShark.
 - Cross-linking per-IP conflicts to an active `mac_claims_many_ips` sweep.
+- **Evidence pcaps in object storage** (idea, 2026-11-11). Today snapshots live
+  on rs-linux's disk under a 500 MiB oldest-first cap (~5 MB each, ~47 kept),
+  tied to the sensor host and to whichever lg-server's SQLite references them —
+  the 2026-11-04 move from alice to lg-web left 36 of them unlinked. Plan:
+  1. *Polish Garage into a general, reliable object store* (today it is the
+     Thanos bucket only, doc 012): a stable S3 endpoint that survives losing
+     either node, per-consumer buckets + least-privilege keys, and
+     health/capacity alerting and runbooks that cover every bucket, not just Thanos.
+  2. *Write snapshots to a `lan-evidence` bucket*, keys prefixed by creation
+     time (`YYYY/MM/DD/<ts>-<event_id>.pcap`) so a lexicographic listing is
+     oldest-first. Keep the ring buffer local on the sensor.
+  3. *Fixed-size dataset, oldest deleted first*: a pruner that lists the bucket
+     and deletes from the oldest end until total bytes are under budget.
+     Garage bucket quotas refuse writes when full rather than evicting, so the
+     quota is only a backstop above the pruner's budget. The inline
+     `bum_protocol` pcaps could move too, leaving the event store as metadata only.
 
 ## Source map
 
