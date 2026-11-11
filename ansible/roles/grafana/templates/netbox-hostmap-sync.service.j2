@@ -9,6 +9,8 @@ EnvironmentFile=/opt/loki/netbox-hostmap.env
 ExecStart=/usr/bin/python3 /opt/loki/netbox_syslog_hostmap.py \
   --output /opt/loki/host-map.csv \
   --status-file /opt/loki/host-map-status.json \
-  --reload-cmd 'docker kill --signal=HUP syslog-ng'
+  --reload-cmd "docker exec syslog-ng sh -c 'kill -HUP 1'"
+# Reload via docker exec, not `docker kill --signal`: the latter marks the
+# container manually stopped, so dockerd would not restore it after a reboot.
 # status is logged to the journal (journalctl -u netbox-hostmap-sync) and the
 # JSON status file above.
