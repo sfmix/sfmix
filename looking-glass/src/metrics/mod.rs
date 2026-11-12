@@ -29,7 +29,7 @@ use lg_types::metrics::*;
 
 use crate::config::MetricsConfig;
 use crate::identity::Identity;
-use crate::netbox::NetboxParticipant;
+use crate::netbox::{EnrichedPort, NetboxParticipant};
 use crate::participants::{ParticipantMap, PortClass, PortMap};
 use crate::service::LookingGlass;
 use crate::structured::LldpNeighbor;
@@ -279,6 +279,27 @@ impl Data {
 }
 
 // ── Target resolution + authorization ───────────────────────────────────
+//
+// Tenant isolation mirrors the portal's participant metrics exactly
+// (portal/dashboard/views.py: `participant_metrics`, `_metric_port`,
+// `_port_members`, `_if_counters_queries`), and reads the same data: the
+// NetBox `enriched_ports` the portal fetches from this LG.
+//
+// * Who: authenticated, and IX Administrators or a member of `as<ASN>`.
+// * What: a non-admin can only reach ports built *forward* from the
+//   `enriched_ports` of an ASN in their identity (or one of those ports'
+//   `member_interfaces`). Nothing is resolved backwards from an
+//   interface name to an owner, and no PortMap heuristics are used.
+// * How a port is measured:
+//   - A subinterface's traffic comes from its own counters. Its physical
+//     members are exactly NetBox's `member_interfaces`, which NetBox leaves
+//     empty for encapsulated subinterfaces riding another network's port.
+//     A parent port is never derived from the name.
+//   - Any other port is its members, or the port itself.
+// * Shared transceivers: lanes and module sensors of a transceiver that is
+//   broken out to other interfaces are never attributed to a tenant.
+// * Denials: a refusal never says whether an interface exists or who owns it.
+// * Admins: IX Administrators may also name infrastructure ports.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Src {
@@ -299,6 +320,9 @@ struct Resolved {
     traffic: Vec<(String, String, Src)>,
     /// Physical interfaces measured for errors and optics.
     phys: Vec<(String, String)>,
+    /// `X/2..X/9` siblings of `phys` entries that NetBox knows as interfaces
+    /// (breakouts, possibly another tenant's): never attributed as lanes.
+    breakouts: HashSet<(String, String)>,
     notes: Vec<String>,
 }
 
@@ -308,119 +332,157 @@ fn valid_name(s: &str, extra: &str) -> bool {
         && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c) || extra.contains(c))
 }
 
-/// (traffic interfaces, physical interfaces, notes) measured for a port.
-type Shape = (Vec<(String, String, Src)>, Vec<(String, String)>, Vec<String>);
-
-fn shape(
-    device: &str,
-    interface: &str,
-    members: &[(String, String)],
-    encapsulated: bool,
-) -> Shape {
-    let mut notes = vec![];
-    if let Some((parent, _vlan)) = interface.split_once('.') {
-        let traffic = vec![(device.to_string(), interface.to_string(), Src::Snmp)];
-        let phys = if encapsulated {
-            notes.push("encapsulated subinterface: the parent port belongs to another network, so only its own traffic is shown".into());
-            vec![]
-        } else if !members.is_empty() {
-            members.to_vec()
-        } else if parent.starts_with("Port-Channel") {
-            notes.push("LAG members unknown; errors/optics omitted".into());
-            vec![]
-        } else {
-            vec![(device.to_string(), parent.to_string())]
-        };
-        return (traffic, phys, notes);
-    }
-    if !members.is_empty() {
-        let traffic = members.iter().map(|(d, i)| (d.clone(), i.clone(), Src::Sflow)).collect();
-        return (traffic, members.to_vec(), notes);
-    }
-    if interface.starts_with("Port-Channel") {
-        notes.push("LAG members unknown; errors/optics omitted".into());
-        return (vec![(device.to_string(), interface.to_string(), Src::Sflow)], vec![], notes);
-    }
-    (
-        vec![(device.to_string(), interface.to_string(), Src::Sflow)],
-        vec![(device.to_string(), interface.to_string())],
-        notes,
-    )
+/// The same uniform refusal for another tenant's port, an infrastructure
+/// port, and a name that does not exist.
+fn not_yours(device: &str, interface: &str) -> MetricsError {
+    MetricsError::Denied(format!("{device} {interface} is not one of your ports"))
 }
 
-fn resolve_port(
+/// Every (device, interface) NetBox knows, for breakout-lane exclusion.
+fn known_interfaces(nb: &[NetboxParticipant], pmap: &PortMap) -> HashSet<(String, String)> {
+    let mut known: HashSet<(String, String)> = pmap.iter().map(|(k, _)| k.clone()).collect();
+    for p in nb {
+        known.extend(p.ports.iter().cloned());
+        for ep in &p.enriched_ports {
+            known.insert((ep.device.clone(), ep.interface.clone()));
+            known.extend(ep.member_interfaces.iter().cloned());
+        }
+    }
+    known
+}
+
+fn with_breakouts(mut r: Resolved, known: &HashSet<(String, String)>) -> Resolved {
+    for (d, i) in &r.phys {
+        if let Some((_, sibs)) = siblings(i) {
+            for s in sibs {
+                if known.contains(&(d.clone(), s.clone())) {
+                    r.breakouts.insert((d.clone(), s));
+                }
+            }
+        }
+    }
+    r
+}
+
+/// A tenant's NetBox port, measured as the portal measures it.
+fn tenant_port(p: &NetboxParticipant, ep: &EnrichedPort) -> Resolved {
+    let members: Vec<(String, String)> = ep
+        .member_interfaces
+        .iter()
+        .filter(|(d, i)| !d.is_empty() && !i.is_empty())
+        .cloned()
+        .collect();
+    let mut notes = vec![];
+    let (traffic, phys) = if ep.interface.contains('.') {
+        if members.is_empty() {
+            notes.push("subinterface with no physical members of its own (e.g. encapsulated on another network's port): only its own traffic is shown".into());
+        }
+        (vec![(ep.device.clone(), ep.interface.clone(), Src::Snmp)], members)
+    } else if !members.is_empty() {
+        (members.iter().map(|(d, i)| (d.clone(), i.clone(), Src::Sflow)).collect(), members)
+    } else {
+        (
+            vec![(ep.device.clone(), ep.interface.clone(), Src::Sflow)],
+            vec![(ep.device.clone(), ep.interface.clone())],
+        )
+    };
+    Resolved {
+        device: ep.device.clone(),
+        interface: ep.interface.clone(),
+        role: "participant port".into(),
+        owner_asn: Some(p.asn),
+        owner_name: Some(p.name.clone()),
+        traffic,
+        phys,
+        breakouts: HashSet::new(),
+        notes,
+    }
+}
+
+/// Find `device interface` among the ports (or their physical members) of
+/// participants accepted by `visible`, building forward from NetBox.
+fn tenant_lookup(
     nb: &[NetboxParticipant],
-    pmap: &PortMap,
-    participants: &ParticipantMap,
+    visible: impl Fn(u32) -> bool,
     device: &str,
     interface: &str,
-) -> Res<Resolved> {
+) -> Option<Resolved> {
+    let mine = || nb.iter().filter(|p| visible(p.asn));
+    for p in mine() {
+        if let Some(ep) = p.enriched_ports.iter().find(|ep| ep.device == device && ep.interface == interface) {
+            return Some(tenant_port(p, ep));
+        }
+    }
+    for p in mine() {
+        for ep in &p.enriched_ports {
+            if ep.member_interfaces.iter().any(|(d, i)| d == device && i == interface) {
+                return Some(Resolved {
+                    device: device.to_string(),
+                    interface: interface.to_string(),
+                    role: format!("member of {}", ep.interface),
+                    owner_asn: Some(p.asn),
+                    owner_name: Some(p.name.clone()),
+                    traffic: vec![(device.to_string(), interface.to_string(), Src::Sflow)],
+                    phys: vec![(device.to_string(), interface.to_string())],
+                    breakouts: HashSet::new(),
+                    notes: vec![],
+                });
+            }
+        }
+    }
+    None
+}
+
+/// Resolve `device interface` for `identity`, or refuse.
+fn resolve_for(ctx: &Ctx<'_>, known: &HashSet<(String, String)>, identity: &Identity, device: &str, interface: &str) -> Res<Resolved> {
     if !valid_name(device, "") || !valid_name(interface, "/:") {
         return Err(MetricsError::BadRequest("invalid device or interface name".into()));
     }
-    let encapsulated = pmap.lag_base(device, interface).is_none();
-    let build = |role: String, owner: Option<(u32, String)>, members: &[(String, String)]| {
-        let (traffic, phys, notes) = shape(device, interface, members, encapsulated);
-        Resolved {
-            device: device.to_string(),
-            interface: interface.to_string(),
-            role,
-            owner_asn: owner.as_ref().map(|o| o.0),
-            owner_name: owner.map(|o| o.1),
-            traffic,
-            phys,
-            notes,
-        }
+    if !identity.authenticated {
+        return Err(not_yours(device, interface));
+    }
+    let admin = identity.is_admin(ctx.admin_group);
+    if let Some(r) = tenant_lookup(ctx.nb, |asn| admin || identity.has_asn(asn), device, interface) {
+        return Ok(with_breakouts(r, known));
+    }
+    if !admin {
+        return Err(not_yours(device, interface));
+    }
+    // IX Administrators: infrastructure and anything else on the fabric.
+    let role = match ctx.pmap.classify(device, interface) {
+        Some(PortClass::Core) => "core".to_string(),
+        Some(PortClass::AdminOnly) => "admin-only".to_string(),
+        Some(PortClass::Participant { asn }) => format!("participant AS{asn} (not a NetBox peering port)"),
+        None => "unclassified".to_string(),
     };
-    for p in nb {
-        for ep in &p.enriched_ports {
-            if ep.device == device && ep.interface == interface {
-                return Ok(build("participant port".into(), Some((p.asn, p.name.clone())), &ep.member_interfaces));
-            }
-        }
-    }
-    for p in nb {
-        for ep in &p.enriched_ports {
-            if ep.member_interfaces.iter().any(|(d, i)| d == device && i == interface) {
-                return Ok(build(
-                    format!("member of {} {}", ep.device, ep.interface),
-                    Some((p.asn, p.name.clone())),
-                    &[],
-                ));
-            }
-        }
-    }
-    let (role, owner) = match pmap.classify(device, interface) {
-        Some(PortClass::Core) => ("core".to_string(), None),
-        Some(PortClass::AdminOnly) => ("admin-only".to_string(), None),
-        Some(PortClass::Participant { asn }) => (
-            "participant port".to_string(),
-            Some((*asn, participants.get(*asn).map(|p| p.name.clone()).unwrap_or_default())),
-        ),
-        None => ("unclassified".to_string(), None),
+    let mut notes = vec![];
+    let (traffic, phys) = if interface.contains('.') {
+        (vec![(device.to_string(), interface.to_string(), Src::Snmp)], vec![])
+    } else if interface.starts_with("Port-Channel") {
+        notes.push("LAG members unknown; query a member for errors/optics".into());
+        (vec![(device.to_string(), interface.to_string(), Src::Sflow)], vec![])
+    } else {
+        (
+            vec![(device.to_string(), interface.to_string(), Src::Sflow)],
+            vec![(device.to_string(), interface.to_string())],
+        )
     };
-    Ok(build(role, owner, &[]))
-}
-
-fn authorize(identity: &Identity, admin_group: &str, r: &Resolved) -> Res<()> {
-    if identity.is_admin(admin_group) {
-        return Ok(());
-    }
-    match r.owner_asn {
-        Some(asn) if identity.authenticated && identity.has_asn(asn) => Ok(()),
-        Some(_) => Err(MetricsError::Denied(format!(
-            "{} {} belongs to a network you do not administer",
-            r.device, r.interface
-        ))),
-        None => Err(MetricsError::Denied(format!(
-            "{} {} is not a participant port; infrastructure metrics require admin access",
-            r.device, r.interface
-        ))),
-    }
+    let r = Resolved {
+        device: device.to_string(),
+        interface: interface.to_string(),
+        role,
+        owner_asn: None,
+        owner_name: None,
+        traffic,
+        phys,
+        breakouts: HashSet::new(),
+        notes,
+    };
+    Ok(with_breakouts(r, known))
 }
 
 fn authorize_asn(identity: &Identity, admin_group: &str, asn: u32) -> Res<()> {
-    if identity.is_admin(admin_group) || (identity.authenticated && identity.has_asn(asn)) {
+    if identity.authenticated && (identity.is_admin(admin_group) || identity.has_asn(asn)) {
         Ok(())
     } else {
         Err(MetricsError::Denied(format!("you do not administer AS{asn}")))
@@ -515,8 +577,20 @@ impl SensorKind {
     }
 }
 
+/// Whether port `p` owns its whole transceiver (so module-level sensors are
+/// its alone): an unsplit port, or an `X/1` port none of whose `X/2..X/9`
+/// siblings is an interface. A breakout lane never does — the module is
+/// shared with other interfaces, possibly another tenant's.
+fn owns_module(p: &str, excluded: &HashSet<String>) -> bool {
+    match siblings(p) {
+        Some((_, sibs)) => !sibs.iter().any(|s| excluded.contains(s)),
+        None => module_of(p) == p,
+    }
+}
+
 /// Map a sensor's target name onto one of `ports` → (port, lane). Module
-/// temperature has no lane.
+/// temperature has no lane. `excluded` holds sibling names that are
+/// interfaces in their own right.
 fn sensor_owner(
     kind: SensorKind,
     target: &str,
@@ -526,7 +600,7 @@ fn sensor_owner(
     for p in ports {
         let module = module_of(p);
         if kind == SensorKind::Temp {
-            if target == module {
+            if target == module && owns_module(p, excluded) {
                 return Some((p.clone(), None));
             }
             continue;
@@ -827,8 +901,12 @@ impl MetricsService {
             );
             let sel = format!(r#"entPhySensorValue{{job="snmp-eos-health",host="{h}",entPhysicalName=~"{}"}}"#, esc(&name_re));
 
-            // Siblings that are interfaces in their own right are not lanes.
-            let excluded: HashSet<String> = if sib_res.is_empty() {
+            // Siblings that are interfaces in their own right are not lanes:
+            // those NetBox knows, plus any SNMP reported during the window
+            // (the portal uses only the latter).
+            let mut excluded: HashSet<String> =
+                r.breakouts.iter().filter(|(d, _)| *d == host).map(|(_, i)| i.clone()).collect();
+            excluded.extend(if sib_res.is_empty() {
                 HashSet::new()
             } else {
                 let w = if win.latest() { 900 } else { win.span() };
@@ -837,7 +915,7 @@ impl MetricsService {
                     esc(&sib_res.join("|"))
                 );
                 self.prom.instant(&q, win.end).await?.into_iter().filter_map(|(l, _)| l.get("ifname").cloned()).collect()
-            };
+            });
 
             let rows = self
                 .gauge(
@@ -935,28 +1013,25 @@ impl MetricsService {
         }
         let nb = ctx.nb;
         let participants = ctx.participants;
-        let resolve = |d: &str, i: &str| resolve_port(nb, ctx.pmap, participants, d, i);
+        let is_admin = identity.is_admin(&admin_group);
+        let known = known_interfaces(nb, ctx.pmap);
+        let resolve = |d: &str, i: &str| resolve_for(ctx, &known, identity, d, i);
 
         let (win, body, mut notes) = match req.query {
             MetricsQuery::Port { device, interface, asn, families, window } => {
                 let win = resolve_window(&window, self.cfg.max_range_secs, now)?;
                 let mut notes = vec![];
                 let targets: Vec<Resolved> = match (device, interface, asn) {
-                    (Some(d), Some(i), None) => {
-                        let r = resolve(&d, &i)?;
-                        authorize(identity, &admin_group, &r)?;
-                        vec![r]
-                    }
+                    (Some(d), Some(i), None) => vec![resolve(&d, &i)?],
                     (None, None, Some(asn)) => {
+                        // As the portal: the ASN's own NetBox ports, built forward.
                         authorize_asn(identity, &admin_group, asn)?;
                         let p = nb
                             .iter()
                             .find(|p| p.asn == asn)
-                            .ok_or_else(|| MetricsError::BadRequest(format!("AS{asn} is not a participant")))?;
-                        let mut v = vec![];
-                        for ep in &p.enriched_ports {
-                            v.push(resolve(&ep.device, &ep.interface)?);
-                        }
+                            .ok_or_else(|| MetricsError::BadRequest(format!("AS{asn} has no peering ports")))?;
+                        let mut v: Vec<Resolved> =
+                            p.enriched_ports.iter().map(|ep| with_breakouts(tenant_port(p, ep), &known)).collect();
                         if v.len() > self.cfg.max_ports {
                             notes.push(format!("showing {} of {} ports; query the rest by device+interface", self.cfg.max_ports, v.len()));
                             v.truncate(self.cfg.max_ports);
@@ -979,7 +1054,6 @@ impl MetricsService {
             MetricsQuery::Link { device, interface, families, window } => {
                 let win = resolve_window(&window, self.cfg.max_range_secs, now)?;
                 let a = resolve(&device, &interface)?;
-                authorize(identity, &admin_group, &a)?;
                 if a.phys.is_empty() {
                     return Err(MetricsError::BadRequest(format!(
                         "{device} {interface} has no physical members to follow over LLDP"
@@ -988,9 +1062,9 @@ impl MetricsService {
                 let mut legs: Vec<(Resolved, Option<Resolved>, Vec<String>)> = vec![];
                 for (d, i) in &a.phys {
                     let mut leg_notes = vec![];
-                    let mut am = resolve(d, i)?;
-                    // A LAG member inherits the parent's authorization.
-                    am.owner_asn = am.owner_asn.or(a.owner_asn);
+                    // Each member is checked on its own (it is in the same
+                    // NetBox port's member_interfaces, so an owner passes).
+                    let am = resolve(d, i)?;
                     let nbr = ctx.lldp.get(d).and_then(|v| v.iter().find(|n| &n.local_interface == i));
                     let b = match nbr {
                         None => {
@@ -999,15 +1073,20 @@ impl MetricsService {
                         }
                         Some(n) => match match_device(ctx.lldp.keys(), &n.neighbor_device) {
                             None => {
-                                leg_notes.push(format!(
-                                    "LLDP neighbour {} port {} is not a looking-glass device; far end not measurable",
-                                    n.neighbor_device, n.neighbor_port
-                                ));
+                                leg_notes.push(if is_admin {
+                                    format!(
+                                        "LLDP neighbour {} port {} is not a looking-glass device; far end not measurable",
+                                        n.neighbor_device, n.neighbor_port
+                                    )
+                                } else {
+                                    "far end is not a looking-glass device; not measurable".into()
+                                });
                                 None
                             }
+                            // The far end passes the same tenant check as A.
                             Some(bd) => match resolve(&bd, &n.neighbor_port) {
-                                Ok(b) if authorize(identity, &admin_group, &b).is_ok() => Some(b),
-                                _ => {
+                                Ok(b) => Some(b),
+                                Err(_) => {
                                     leg_notes.push("far end not visible to you".into());
                                     None
                                 }
@@ -1247,19 +1326,132 @@ mod tests {
         assert_eq!(SensorKind::Rx.convert(0.0), None);
     }
 
+    /// NetBox fixture: tenant A (64500) has LAG Po10 (Et1/1, Et2/1) on sw1 and
+    /// unsplit-looking Et5/1 on sw2; tenant B (64501) has an encapsulated
+    /// subif riding A's Po10 (NetBox gives it no members), a breakout lane
+    /// Et5/3 on the same sw2 transceiver as A's Et5/1, and a member-less
+    /// physical subif Et7/1.998 on sw3. sw1 Et49/1 is a core port.
+    fn fixture() -> (Vec<NetboxParticipant>, PortMap, ParticipantMap) {
+        let ep = |d: &str, i: &str, members: &[(&str, &str)]| EnrichedPort {
+            device: d.into(),
+            interface: i.into(),
+            device_id: 0,
+            interface_id: 0,
+            speed: None,
+            rate_limit_bps: None,
+            enabled: true,
+            member_interfaces: members.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect(),
+        };
+        let participant = |asn: u32, name: &str, ports: Vec<EnrichedPort>| {
+            let mut flat: Vec<(String, String)> = vec![];
+            for p in &ports {
+                flat.push((p.device.clone(), p.interface.clone()));
+                flat.extend(p.member_interfaces.iter().cloned());
+            }
+            NetboxParticipant { asn, name: name.into(), participant_type: None, ports: flat, enriched_ports: ports, ip_addresses: vec![] }
+        };
+        let nb = vec![
+            participant(64500, "Tenant A", vec![
+                ep("sw1", "Port-Channel10", &[("sw1", "Ethernet1/1"), ("sw1", "Ethernet2/1")]),
+                ep("sw2", "Ethernet5/1", &[]),
+            ]),
+            participant(64501, "Tenant B", vec![
+                ep("sw1", "Port-Channel10.1426", &[]),
+                ep("sw2", "Ethernet5/3", &[]),
+                ep("sw3", "Ethernet7/1.998", &[]),
+            ]),
+        ];
+        let pmap = PortMap::build(&nb, &[("sw1".to_string(), "Ethernet49/1".to_string())], &[])
+            .with_encapsulated(&[("sw1".to_string(), "Port-Channel10.1426".to_string())]);
+        let participants = ParticipantMap::build_from_netbox(&nb);
+        (nb, pmap, participants)
+    }
+
+    fn who(asns: &[u32], admin: bool) -> Identity {
+        let mut id = Identity::anonymous();
+        id.authenticated = true;
+        id.asns.extend(asns.iter().copied());
+        if admin {
+            id.groups.insert("admins".into());
+        }
+        id
+    }
+
     #[test]
-    fn shapes() {
-        let m = vec![("sw1".to_string(), "Ethernet1/1".to_string()), ("sw1".to_string(), "Ethernet2/1".to_string())];
-        let (t, p, _) = shape("sw1", "Port-Channel5", &m, false);
-        assert_eq!(t.len(), 2);
-        assert!(t.iter().all(|x| x.2 == Src::Sflow));
-        assert_eq!(p, m);
-        let (t, p, n) = shape("sw1", "Port-Channel5.998", &m, true);
-        assert_eq!(t[0].2, Src::Snmp);
-        assert!(p.is_empty());
-        assert!(!n.is_empty());
-        let (_, p, _) = shape("sw1", "Ethernet3/1.998", &[], false);
-        assert_eq!(p, vec![("sw1".to_string(), "Ethernet3/1".to_string())]);
+    fn tenant_isolation_allowlist() {
+        let (nb, pmap, participants) = fixture();
+        let lldp = HashMap::new();
+        let ctx = Ctx { nb: &nb, pmap: &pmap, participants: &participants, admin_group: "admins", lldp: &lldp };
+        let known = known_interfaces(&nb, &pmap);
+        let b = who(&[64501], false);
+
+        // B cannot reach A's LAG, A's physical members, A's port on the shared
+        // transceiver, infrastructure, or a name that does not exist — and the
+        // refusal is identical in shape for all of them (no existence/owner oracle).
+        for (d, i) in [
+            ("sw1", "Port-Channel10"),
+            ("sw1", "Ethernet1/1"),
+            ("sw2", "Ethernet5/1"),
+            ("sw1", "Ethernet49/1"),
+            ("sw9", "Ethernet1/1"),
+            ("sw3", "Ethernet7/1"), // parent of B's own subif: never derived
+        ] {
+            match resolve_for(&ctx, &known, &b, d, i) {
+                Err(MetricsError::Denied(m)) => assert_eq!(m, format!("{d} {i} is not one of your ports")),
+                other => panic!("{d} {i}: expected denial, got {:?}", other.map(|r| r.role)),
+            }
+        }
+        // Unauthenticated: same refusal even for an owned name.
+        let mut anon = b.clone();
+        anon.authenticated = false;
+        assert!(matches!(resolve_for(&ctx, &known, &anon, "sw2", "Ethernet5/3"), Err(MetricsError::Denied(_))));
+
+        // B's encapsulated subif: its own SNMP counters only; no physical
+        // members, so no errors/optics from A's Po10 members.
+        let r = resolve_for(&ctx, &known, &b, "sw1", "Port-Channel10.1426").unwrap();
+        assert_eq!(r.traffic, vec![("sw1".into(), "Port-Channel10.1426".into(), Src::Snmp)]);
+        assert!(r.phys.is_empty());
+        // B's member-less physical subif: no parent derived.
+        let r = resolve_for(&ctx, &known, &b, "sw3", "Ethernet7/1.998").unwrap();
+        assert!(r.phys.is_empty());
+
+        // A reaches its LAG (members summed via sFlow) and each member.
+        let a = who(&[64500], false);
+        let r = resolve_for(&ctx, &known, &a, "sw1", "Port-Channel10").unwrap();
+        assert_eq!(r.phys.len(), 2);
+        assert!(r.traffic.iter().all(|t| t.2 == Src::Sflow));
+        assert_eq!(resolve_for(&ctx, &known, &a, "sw1", "Ethernet2/1").unwrap().owner_asn, Some(64500));
+        // ...but not B's encapsulated subif on its own LAG.
+        assert!(resolve_for(&ctx, &known, &a, "sw1", "Port-Channel10.1426").is_err());
+
+        // A's Et5/1 shares a transceiver with B's Et5/3: that lane is excluded
+        // from A even if SNMP has a scrape gap.
+        let r = resolve_for(&ctx, &known, &a, "sw2", "Ethernet5/1").unwrap();
+        assert!(r.breakouts.contains(&("sw2".to_string(), "Ethernet5/3".to_string())));
+
+        // Admins reach infrastructure.
+        let admin = who(&[], true);
+        assert_eq!(resolve_for(&ctx, &known, &admin, "sw1", "Ethernet49/1").unwrap().role, "core");
+
+        // ASN-wide queries: own ASN or admin only.
+        assert!(authorize_asn(&b, "admins", 64500).is_err());
+        assert!(authorize_asn(&b, "admins", 64501).is_ok());
+        assert!(authorize_asn(&admin, "admins", 64500).is_ok());
+        assert!(authorize_asn(&anon, "admins", 64501).is_err());
+    }
+
+    #[test]
+    fn shared_transceiver_sensors_not_attributed() {
+        let breakout: HashSet<String> = ["Ethernet5/3".to_string()].into();
+        let a = vec!["Ethernet5/1".to_string()];
+        // A gets its own lane, not B's breakout lane, and no module temperature.
+        assert_eq!(sensor_owner(SensorKind::Rx, "Ethernet5/1", &a, &breakout), Some(("Ethernet5/1".into(), Some("1".into()))));
+        assert_eq!(sensor_owner(SensorKind::Rx, "Ethernet5/3", &a, &breakout), None);
+        assert_eq!(sensor_owner(SensorKind::Temp, "Ethernet5", &a, &breakout), None);
+        // B's breakout lane: its own lane sensors, no module temperature.
+        let b = vec!["Ethernet5/3".to_string()];
+        assert_eq!(sensor_owner(SensorKind::Tx, "Ethernet5/3", &b, &HashSet::new()), Some(("Ethernet5/3".into(), Some("3".into()))));
+        assert_eq!(sensor_owner(SensorKind::Temp, "Ethernet5", &b, &HashSet::new()), None);
     }
 
     #[test]
@@ -1268,29 +1460,6 @@ mod tests {
         assert_eq!(match_device(&devs, "switch01.fmt01").as_deref(), Some("switch01.fmt01.sfmix.org"));
         assert_eq!(match_device(&devs, "SWITCH01.SFO02.sfmix.org.").as_deref(), Some("switch01.sfo02.sfmix.org"));
         assert_eq!(match_device(&devs, "router1.example.net"), None);
-    }
-
-    #[test]
-    fn authz() {
-        let r = Resolved {
-            device: "sw".into(),
-            interface: "Ethernet1/1".into(),
-            role: "participant port".into(),
-            owner_asn: Some(64500),
-            owner_name: None,
-            traffic: vec![],
-            phys: vec![],
-            notes: vec![],
-        };
-        let mut id = Identity::anonymous();
-        id.authenticated = true;
-        assert!(authorize(&id, "admins", &r).is_err());
-        id.asns.insert(64500);
-        assert!(authorize(&id, "admins", &r).is_ok());
-        let core = Resolved { owner_asn: None, role: "core".into(), ..r };
-        assert!(authorize(&id, "admins", &core).is_err());
-        id.groups.insert("admins".into());
-        assert!(authorize(&id, "admins", &core).is_ok());
     }
 
     /// Live smoke test against a real Prometheus:

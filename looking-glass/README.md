@@ -158,12 +158,23 @@ Output is sized for LLM context:
 - **`points`** additionally returns the downsampled series. Use it only when the shape over time matters.
 - **`families`** (`traffic`, `errors`, `optics`) limits what `port_metrics` and `link_metrics` fetch.
 
-Who may query what, using the same model as the portal:
+Tenant isolation matches the portal's participant metrics (`participant_metrics`, `_metric_port`, `_port_members`, `_if_counters_queries` in `portal/dashboard/views.py`). Both read the same NetBox `enriched_ports`:
 
-- **Participants:** their own ports, LAG members and peer traffic.
-- **Infrastructure ports and other networks' data:** IX Administrators only.
+- **Who:** authenticated callers who are either in `IX Administrators` or hold the `as<ASN>` group.
+- **What a participant can reach:** only ports built forward from the `enriched_ports` of their own ASN, plus those ports' `member_interfaces`. An interface name is never resolved backwards to an owner.
+- **Subinterfaces:**
+  - Traffic comes from the subinterface's own counters.
+  - Errors and optics come only from NetBox's `member_interfaces`. NetBox leaves that empty for encapsulated subinterfaces that ride another network's port.
+  - A parent port is never derived from a subinterface's name.
+- **Shared transceivers:**
+  - A breakout's sibling lanes are never attributed to another port. Breakouts are recognised from NetBox and from SNMP over the window.
+  - Module temperature is shown only for a port that owns the whole transceiver.
+- **Refusals:** every refusal reads `"<device> <interface> is not one of your ports"`, so it never reveals whether an interface exists or who owns it.
+- **Admins:** IX Administrators may also query infrastructure ports.
+- **Link far ends:** the far end must pass the same check. Non-admins are not shown LLDP neighbour names.
+- **Peer traffic:** the same series the portal uses, `sflow_ixp_peering_bps{src_asn|dst_asn="<own ASN>"}`.
 
-The far end of a link is shown only if the caller may also see it.
+Known limitation, shared with the portal: ownership is NetBox's *current* assignment. A port reassigned within the last 30 days exposes the previous tenant's history on it to the new owner.
 
 ```yaml
 metrics:
