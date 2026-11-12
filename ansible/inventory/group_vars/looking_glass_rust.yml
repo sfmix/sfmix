@@ -83,6 +83,9 @@ looking_glass_discovered_mac_ttl_secs: 1800
 # sfmix_route_server_linux_lg_neighborhood_watch_ignore_src_macs; then flip to
 # true to start recording durable events + portal banners.
 looking_glass_discovered_bum_enabled: true
+# Prometheus for the metrics RPC / MCP metrics tools (port_metrics,
+# link_metrics, peer_traffic). OOB name keeps it on the mgmt LAN; 30d retention.
+looking_glass_metrics_prometheus_url: "http://metrics.oob.sfo02.sfmix.org:9090"
 # Allow the sensor (rs-linux mgmt IP) through UFW to reach lg-server RPC.
 looking_glass_rpc_allow_from: "10.1.1.18"
 looking_glass_public_vlans:

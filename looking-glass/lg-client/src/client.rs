@@ -171,6 +171,29 @@ impl RpcClient {
         Ok(resp.json().await?)
     }
 
+    /// Query time-series metrics. `Ok(Err((status, message)))` carries an
+    /// application error from lg-server (403 denied, 400 bad request, …);
+    /// `Err` is a transport failure.
+    pub async fn metrics(
+        &self,
+        req: &lg_types::metrics::MetricsRequest,
+    ) -> Result<std::result::Result<lg_types::metrics::MetricsReport, (u16, String)>> {
+        let resp = self
+            .http
+            .post(format!("{}/rpc/v1/metrics", self.base_url))
+            .header("X-RPC-Secret", &self.secret)
+            // A multi-port range query fans out to many Prometheus calls.
+            .timeout(std::time::Duration::from_secs(60))
+            .json(req)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status.is_success() {
+            return Ok(Ok(resp.json().await?));
+        }
+        Ok(Err((status.as_u16(), resp.text().await.unwrap_or_default())))
+    }
+
     /// Generic GET returning the raw `reqwest::Response` for streaming binary
     /// bodies (e.g. evidence pcaps) without buffering them in memory.
     pub async fn get_raw(&self, path: &str) -> Result<reqwest::Response> {

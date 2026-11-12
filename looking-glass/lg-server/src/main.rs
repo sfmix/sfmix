@@ -386,9 +386,14 @@ async fn main() -> Result<()> {
     }
 
     // Start RPC server
+    let metrics = server_cfg.metrics.clone().map(|m| {
+        info!(prometheus = %m.prometheus_url, "metrics RPC enabled");
+        Arc::new(looking_glass::metrics::MetricsService::new(m))
+    });
     let rpc_state = Arc::new(rpc_server::RpcState {
         lg,
         rpc_secret,
+        metrics,
     });
 
     let app = rpc_server::router(rpc_state);

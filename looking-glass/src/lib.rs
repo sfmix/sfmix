@@ -17,6 +17,7 @@ pub mod ixf;
 pub mod mac_table;
 pub mod discovered;
 pub mod anomaly;
+pub mod metrics;
 pub mod service;
 
 pub mod backend;
