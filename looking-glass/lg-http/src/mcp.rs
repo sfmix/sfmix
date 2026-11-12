@@ -207,7 +207,7 @@ struct PortMetricsParams {
     /// Window end (RFC 3339 or unix seconds). Default now. Without `range`, the reading at that time.
     #[serde(default)]
     end: Option<String>,
-    /// With `range`: also return this many points per series (max 500). Omit unless you need the shape over time.
+    /// With `range`: also return up to this many points per series (max 500). Omit unless you need the shape over time.
     #[serde(default)]
     points: Option<u32>,
 }
@@ -227,7 +227,7 @@ struct LinkMetricsParams {
     /// Window end (RFC 3339 or unix seconds). Default now.
     #[serde(default)]
     end: Option<String>,
-    /// With `range`: also return this many points per series (max 500).
+    /// With `range`: also return up to this many points per series (max 500). Omit unless you need the shape over time.
     #[serde(default)]
     points: Option<u32>,
 }
@@ -239,6 +239,7 @@ enum PeerDir {
     To,
     /// Traffic each peer sends to the ASN.
     From,
+    /// Both directions.
     #[default]
     Both,
 }
@@ -262,7 +263,7 @@ struct PeerTrafficParams {
     /// Window end (RFC 3339 or unix seconds). Default now.
     #[serde(default)]
     end: Option<String>,
-    /// With `range`: also return this many points per listed peer (max 500).
+    /// With `range`: also return up to this many points per listed peer (max 500). Omit unless you need the series.
     #[serde(default)]
     points: Option<u32>,
 }
@@ -466,7 +467,7 @@ impl McpHandler {
         self.run_show(Resource::InterfacesStatus, None, AddressFamily::IPv4, params.device, params.asn, true).await
     }
 
-    #[tool(description = "Show detailed counters and status for a specific interface on a specific device")]
+    #[tool(description = "Live counters and status for one interface (device + interface).")]
     async fn show_interface_detail(
         &self,
         Parameters(params): Parameters<InterfaceParams>,
@@ -495,7 +496,7 @@ impl McpHandler {
         self.run_show(Resource::Optics, None, AddressFamily::IPv4, params.device, params.asn, params.include_empty.unwrap_or(false)).await
     }
 
-    #[tool(description = "Show detailed transceiver DOM levels for a specific port on a specific device")]
+    #[tool(description = "Live transceiver DOM levels for one port (device + interface).")]
     async fn show_optics_detail(
         &self,
         Parameters(params): Parameters<InterfaceParams>,
@@ -522,19 +523,18 @@ impl McpHandler {
         self.run_show(Resource::LldpNeighbors, None, AddressFamily::IPv4, params.device, None, true).await
     }
 
-    #[tool(description = "List IXP participants with their ASN and name")]
+    #[tool(description = "IXP participants: ASN, name, type and port count.")]
     async fn show_participants(&self) -> Result<CallToolResult, McpError> {
         Ok(CallToolResult::success(vec![ContentBlock::text(self.format_participants().await)]))
     }
 
-    #[tool(description = "List the IXP peering LANs: VLAN ID, name, and IPv4/IPv6 prefixes")]
+    #[tool(description = "IXP peering LANs: VLAN ID, name and IPv4/IPv6 prefixes.")]
     async fn show_peering_vlans(&self) -> Result<CallToolResult, McpError> {
         self.run_show(Resource::PeeringVlans, None, AddressFamily::IPv4, None, None, true).await
     }
 
-    #[tool(description = "Get metadata for a specific participant by ASN, including their \
-        port names and peering IPs. Use this before show_interface_detail to discover \
-        which interfaces belong to this participant.")]
+    #[tool(description = "One participant by ASN: its ports (device + interface) and peering IPs. \
+        Use it to find the ports to pass to the per-port tools.")]
     async fn show_participant_detail(
         &self,
         Parameters(params): Parameters<ParticipantParams>,
@@ -632,8 +632,7 @@ impl McpHandler {
         Give device+interface, or asn for all of a participant's ports (LAGs are broken out per member with a total). \
         Default is the LATEST reading only (traffic = 1-minute average, errors = count over the last 15 minutes). \
         Pass range (e.g. \"24h\") for a per-series summary (last/min/avg/p95/max; counters: total and max per step). \
-        Only pass points when you need the shape over time. Use families to fetch less. \
-        Participants may query their own ports; infrastructure ports require admin.")]
+        Use families to fetch less. Participants may query their own ports; infrastructure ports require admin.")]
     async fn port_metrics(
         &self,
         Parameters(p): Parameters<PortMetricsParams>,
@@ -670,8 +669,9 @@ impl McpHandler {
 
     #[tool(description = "Per-peer traffic for a participant ASN from the sFlow peering matrix (bps): who it sends to \
         and receives from across the exchange, top N peers per direction plus an 'other' row and a total. \
-        Default is the latest 1-minute average; pass range for avg/p95/max/last per peer, and points only if you need \
-        the series. Filter to one counterpart with peer_asn. Participants may query their own ASN; admins any.")]
+        Default is the latest 1-minute average; pass range for avg/p95/max/last per peer. Filter to one counterpart \
+        with peer_asn. Values are sFlow-sampled estimates: small flows can be missing and max can catch sampling \
+        spikes, so prefer avg/p95 and port_metrics for exact port totals. Participants may query their own ASN; admins any.")]
     async fn peer_traffic(
         &self,
         Parameters(p): Parameters<PeerTrafficParams>,
@@ -692,7 +692,7 @@ impl McpHandler {
         .await
     }
 
-    #[tool(description = "Ping a destination from the looking glass vantage point")]
+    #[tool(description = "Ping a destination from the looking glass vantage point.")]
     async fn ping(
         &self,
         Parameters(params): Parameters<DestinationParams>,
@@ -711,7 +711,7 @@ impl McpHandler {
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
     }
 
-    #[tool(description = "Traceroute to a destination from the looking glass vantage point")]
+    #[tool(description = "Traceroute to a destination from the looking glass vantage point.")]
     async fn traceroute(
         &self,
         Parameters(params): Parameters<DestinationParams>,
@@ -752,18 +752,15 @@ impl ServerHandler for McpHandler {
              \n\
              Typical workflow to investigate a participant:\n\
              1. {prefix}__show_participants — list all ASNs and names\n\
-             2. {prefix}__show_participant_detail(asn) — get port names and BGP peer IPs\n\
-             3. {prefix}__show_interface_detail(interface) — per-port counters and link state\n\
-             4. {prefix}__show_optics_detail(interface) — transceiver optical power levels\n\
+             2. {prefix}__show_participant_detail(asn) — its ports (device + interface) and peering IPs\n\
+             3. {prefix}__show_interface_detail(device, interface) — live counters and link state\n\
+             4. {prefix}__show_optics_detail(device, interface) — live transceiver levels\n\
              \n\
-             For connectivity checks: {prefix}__ping / {prefix}__traceroute\n\
+             History (latest by default, range=\"24h\" etc. for a summary): {prefix}__port_metrics, \
+             {prefix}__link_metrics, {prefix}__peer_traffic\n\
              Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_lldp_neighbors, \
              {prefix}__show_peering_vlans\n\
-             \n\
-             History and statistics (latest reading by default; add range=\"24h\" etc. for a summary):\n\
-             - {prefix}__port_metrics(device+interface | asn) - traffic, errors, optics\n\
-             - {prefix}__link_metrics(device, interface) - both ends of a link via LLDP, with optical loss\n\
-             - {prefix}__peer_traffic(asn) - per-peer sFlow traffic",
+             Connectivity: {prefix}__ping / {prefix}__traceroute",
             self.network_slug,
         ))
     }

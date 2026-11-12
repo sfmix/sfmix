@@ -37,7 +37,8 @@ use prom::{alternation, esc, re_esc, Labels, PromClient};
 
 /// Smallest step for range queries: SNMP is scraped every 60–120 s.
 const MIN_STEP: u64 = 120;
-/// Steps used to summarise a range when no points were requested.
+/// Steps used to summarise a range. `points` never coarsens this grid (so
+/// the summary stats don't depend on it); asking for more points refines it.
 const SUMMARY_STEPS: u64 = 240;
 /// Hard cap on points per series.
 pub const MAX_POINTS: u32 = 500;
@@ -86,7 +87,8 @@ struct Win {
     end: i64,
     /// (start, step) for a range; `None` = latest reading at `end`.
     range: Option<(i64, u64)>,
-    points: bool,
+    /// Points requested per series (already capped at `MAX_POINTS`).
+    points: Option<usize>,
 }
 
 impl Win {
@@ -99,6 +101,32 @@ impl Win {
 
     fn latest(&self) -> bool {
         self.range.is_none()
+    }
+
+    /// Grid steps averaged into each returned point, so that at most
+    /// `points` points come back. `None` = no points (or latest mode).
+    fn bucket(&self) -> Option<usize> {
+        let n = self.points?;
+        self.range?;
+        Some(self.len().div_ceil(n).max(1))
+    }
+
+    /// The summary grid averaged down to at most `points` points.
+    fn downsample(&self, c: &Col) -> Option<Col> {
+        let k = self.bucket()?;
+        Some(
+            c.chunks(k)
+                .map(|ch| {
+                    let v: Vec<f64> = ch.iter().flatten().copied().collect();
+                    (!v.is_empty()).then(|| v.iter().sum::<f64>() / v.len() as f64)
+                })
+                .collect(),
+        )
+    }
+
+    /// Seconds between returned points.
+    fn points_step(&self) -> Option<u64> {
+        Some(self.bucket()? as u64 * self.range?.1)
     }
 
     fn span(&self) -> u64 {
@@ -119,8 +147,9 @@ fn resolve_window(w: &Window, max_range: u64, now: i64) -> Res<Win> {
             max_range / 86400
         )));
     }
+    let points = w.points.filter(|p| *p > 0).map(|p| p.min(MAX_POINTS) as usize);
     let range = match w.range_secs {
-        None | Some(0) => return Ok(Win { end, range: None, points: false }),
+        None | Some(0) => return Ok(Win { end, range: None, points }),
         Some(r) => r,
     };
     if range > max_range {
@@ -135,15 +164,12 @@ fn resolve_window(w: &Window, max_range: u64, now: i64) -> Res<Win> {
             2 * MIN_STEP
         )));
     }
-    let want = match w.points {
-        Some(p) if p > 0 => p.min(MAX_POINTS) as u64,
-        _ => SUMMARY_STEPS,
-    };
+    let want = SUMMARY_STEPS.max(points.unwrap_or(0) as u64);
     let step = range.div_ceil(want).max(MIN_STEP).div_ceil(60) * 60;
     // Align to the step so repeated queries hit the same grid.
     let end = end - end.rem_euclid(step as i64);
     let start = end - ((range / step) * step) as i64;
-    Ok(Win { end, range: Some((start, step)), points: w.points.unwrap_or(0) > 0 })
+    Ok(Win { end, range: Some((start, step)), points })
 }
 
 /// Parse "90s", "15m", "24h", "7d", "2w" or bare seconds.
@@ -273,7 +299,7 @@ impl Data {
             lane: self.lane.clone(),
             unit: self.unit.to_string(),
             stats,
-            points: win.points.then(|| self.grid.avg.clone()),
+            points: win.downsample(&self.grid.avg),
         }
     }
 }
@@ -1122,18 +1148,32 @@ impl MetricsService {
             MetricsQuery::Peers { asn, peer_asn, direction, top, window } => {
                 let win = resolve_window(&window, self.cfg.max_range_secs, now)?;
                 authorize_asn(identity, &admin_group, asn)?;
+                if participants.get(asn).is_none() {
+                    return Err(MetricsError::BadRequest(format!("AS{asn} is not a participant")));
+                }
                 let top = top.unwrap_or(DEFAULT_TOP_PEERS).clamp(1, MAX_TOP_PEERS);
                 let body = self.peers(participants, asn, peer_asn, direction, top, &win).await?;
-                (win, body, vec!["peer matrix is sFlow-sampled and limited to the fabric's top 1000 ASN pairs".into()])
+                let mut notes = vec!["peer matrix is sFlow-sampled and limited to the fabric's top 1000 ASN pairs".to_string()];
+                if matches!(&body, MetricsBody::Peers { rows, .. } if rows.is_empty()) {
+                    notes.push(match peer_asn {
+                        Some(p) => format!("no sampled traffic between AS{asn} and AS{p} in this window"),
+                        None => format!(
+                            "no sampled traffic for AS{asn} in this window: its port MACs may not be mapped to the ASN \
+                             in sFlow-RT (participants.json), or all of its pairs fall below the top-1000 cut"
+                        ),
+                    });
+                }
+                (win, body, notes)
             }
         };
-        if win.points && win.latest() {
+        if win.points.is_some() && win.latest() {
             notes.push("points ignored without a range".into());
         }
         Ok(MetricsReport {
             end: win.end,
             start: win.range.map(|(s, _)| s),
             step_secs: win.range.map(|(_, s)| s),
+            points_step_secs: win.points_step(),
             body,
             notes,
         })
@@ -1186,7 +1226,7 @@ impl MetricsService {
                             peer_name: peer_display_name(participants, &peer, labels.get(peer_name)),
                             direction: dir.to_string(),
                             stats,
-                            points: win.points.then(|| grid.avg.clone()),
+                            points: win.downsample(&grid.avg),
                         },
                         grid.avg,
                     ))
@@ -1292,12 +1332,39 @@ mod tests {
         assert_eq!(step, 360); // 86400/240
         assert_eq!(w.end % step as i64, 0);
         assert_eq!(w.end - start, 86400);
-        assert!(!w.points);
+        assert!(w.points.is_none());
         let w = resolve_window(&Window { range_secs: Some(3600), points: Some(1000), ..Default::default() }, 30 * 86400, now).unwrap();
         assert_eq!(w.step(), MIN_STEP); // clamped
-        assert!(w.points);
+        assert_eq!(w.points, Some(MAX_POINTS as usize));
         assert!(resolve_window(&Window { range_secs: Some(40 * 86400), ..Default::default() }, 30 * 86400, now).is_err());
         assert!(resolve_window(&Window { range_secs: Some(60), ..Default::default() }, 30 * 86400, now).is_err());
+    }
+
+    #[test]
+    fn points_never_coarsen_summary_and_never_exceed_request() {
+        let now = 1_800_000_000;
+        let win = |range: u64, points: Option<u32>| {
+            resolve_window(&Window { range_secs: Some(range), points, ..Default::default() }, 30 * 86400, now).unwrap()
+        };
+        for range in [6 * 3600, 86400, 7 * 86400, 30 * 86400] {
+            let base = win(range, None);
+            for n in [1, 6, 12, 100, 240, 500] {
+                let w = win(range, Some(n));
+                assert!(w.step() <= base.step(), "range {range} points {n}: step {} > {}", w.step(), base.step());
+                let col: Col = (0..w.len()).map(|i| Some(i as f64)).collect();
+                let pts = w.downsample(&col).unwrap();
+                assert!(!pts.is_empty() && pts.len() <= n as usize, "range {range} points {n}: got {}", pts.len());
+                assert_eq!(w.points_step().unwrap() % w.step(), 0);
+            }
+        }
+        // 6h with points=6 used to come back as 7 hourly points with hourly stats.
+        let w = win(6 * 3600, Some(6));
+        assert_eq!(w.step(), win(6 * 3600, None).step());
+        assert_eq!(w.downsample(&vec![Some(1.0); w.len()]).unwrap().len(), 6);
+        // Gaps stay gaps; partial buckets average what is there.
+        let w = Win { end: 600, range: Some((0, 120)), points: Some(3) };
+        assert_eq!(w.downsample(&vec![Some(1.0), Some(3.0), None, None, Some(5.0), None]).unwrap(), vec![Some(2.0), None, Some(5.0)]);
+        assert!(win(86400, None).downsample(&vec![]).is_none());
     }
 
     #[test]
@@ -1496,6 +1563,8 @@ mod tests {
         let nb = vec![
             participant(30640, "Etheric Networks", vec![ep("switch02.sfo02.sfmix.org", "Port-Channel102", &[("switch02.sfo02.sfmix.org", "Ethernet18/1")])]),
             participant(13335, "Cloudflare", vec![ep("switch04.sjc01.sfmix.org", "Port-Channel109", &[("switch04.sjc01.sfmix.org", "Ethernet5/1")])]),
+            // Infrastructure: in participants.json without MACs, so never in the sFlow matrix.
+            participant(12276, "SFMIX", vec![]),
         ];
         let core = vec![
             ("switch01.scl02.sfmix.org".to_string(), "Ethernet22/1".to_string()),
@@ -1558,6 +1627,17 @@ mod tests {
                 Err(MetricsError::Denied(m)) => println!("denied as expected: {m}"),
                 other => panic!("expected denial, got {:?}", other.map(|_| ())),
             }
+        }
+
+        // Empty peer matrices explain themselves instead of rendering blank tables.
+        let peers = |asn: u32| MetricsQuery::Peers { asn, peer_asn: None, direction: PeerDirection::Both, top: None, window: w(Some(86400), None) };
+        let r = svc.run_ctx(&ctx, req(peers(12276), &admin), now).await.expect("AS12276 peers");
+        let text = render::render(&r);
+        println!("\n######## PEERS 24h AS12276 (admin, no sFlow attribution)\n{text}");
+        assert!(text.contains("no sampled traffic for AS12276"), "{text}");
+        match svc.run_ctx(&ctx, req(peers(40271), &admin), now).await {
+            Err(MetricsError::BadRequest(m)) => assert_eq!(m, "AS40271 is not a participant"),
+            other => panic!("expected not-a-participant, got {:?}", other.map(|_| ())),
         }
     }
 }

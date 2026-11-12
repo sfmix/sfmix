@@ -155,7 +155,8 @@ Output is sized for LLM context:
 
 - **Latest reading by default:** traffic is a 1-minute average; errors are the count over the last 15 minutes.
 - **`range`** (`"1h"`, `"24h"`, `"7d"`, max 30d) returns one summary row per series instead. Rows show last/avg/p95 over step averages and the true min/max. Counter rows show the total and the maximum per step.
-- **`points`** additionally returns the downsampled series. Use it only when the shape over time matters.
+- **`points`** additionally returns up to that many points per series, averaged from the summary grid. It never changes the summary stats. Use it only when the shape over time matters.
+- **`peer_traffic`** errors for an ASN that is not a participant, and notes when a participant has no sampled traffic at all (e.g. infrastructure ASNs whose MACs aren't in `participants.json`).
 - **`families`** (`traffic`, `errors`, `optics`) limits what `port_metrics` and `link_metrics` fetch.
 
 Tenant isolation matches the portal's participant metrics (`participant_metrics`, `_metric_port`, `_port_members`, `_if_counters_queries` in `portal/dashboard/views.py`). Both read the same NetBox `enriched_ports`:
