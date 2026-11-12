@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-Sync SFMIX services (peering LAN, peering connections, PVLANs) into the netbox-services plugin.
+Sync SFMIX services (peering LAN, peering connections, PVLANs, transit) into the netbox-services plugin.
 
 Reads only NetBox: the physical/IPAM model stays the source of truth and Services are derived
-from it. Dry-run by default; --apply writes. Only the fields built here are managed; lifecycle
-dates, SLA, attachments and the billing tenant of PVLAN services are left to humans. Services are
-never deleted; synced ones whose source object disappeared are reported.
+from it. Dry-run by default; --apply writes. Only the fields built here are managed; other
+lifecycle dates, SLA, attachments and the billing tenant of PVLAN services are left to humans.
+Services are never deleted: a synced one whose source object disappeared is turned down
+(status decommissioned, dated today) and kept for history.
 
 See documentation/design_docs/009-netbox-services.md.
 """
 import argparse
+import datetime
 import re
 import sys
 from collections import defaultdict
@@ -25,11 +27,20 @@ FABRIC_VLAN_GROUP = "exchange_fabric_vlans"
 PEERING_LAN_VIDS = (997, 998, 999)
 PVLAN_TYPES = ("private_vlan", "l2vpn")
 PVLAN_NAME_RE = re.compile(r"^PVLAN-AS(\d+)-AS(\d+)$")
+# AS40271 transit VLANs; one with a tenant (the customer) is a transit service
+TRANSIT_VLAN_PREFIX = "SFMIX-TRANSIT-"
+# cr1 VPRN SAPs as named by discovery: "SAP lag-core-1:<vid>"
+TRANSIT_SAP_RE = re.compile(r"^SAP lag-core-\d+:(\d+)$")
+ONLY_TYPES = {
+    "peering": ("peering_lan", "peering"),
+    "pvlan": PVLAN_TYPES,
+    "transit": ("transit",),
+}
 # Device statuses whose ports still carry live services
 LIVE_DEVICE_STATUSES = {"active", "staged", "planned"}
 
 RELATIONS = ("tenants", "devices", "interfaces", "cables", "vlans", "prefixes", "depends_on")
-SCALARS = ("type", "status", "description", "tenant", "bandwidth", "cir")
+SCALARS = ("type", "status", "description", "tenant", "bandwidth", "cir", "decommissioned")
 
 
 class ServicesAPI:
@@ -80,9 +91,17 @@ class Fabric:
         self.peering_ports = list(nb.dcim.interfaces.filter(tag="peering_port"))
         self.peering_ports += list(nb.dcim.interfaces.filter(tag="encapsulated_peering_port"))
         self.peering_lan_prefixes = list(nb.ipam.prefixes.filter(tag="peering_lan"))
+        self.prefixes = {p.id: p for p in self.peering_lan_prefixes}
         self._by_id: Dict[int, Any] = {}
         self._members: Dict[int, List[Any]] = defaultdict(list)
         self._index(self.peering_ports)
+        # Router-side SAPs of transit VLANs, by VLAN ID
+        self.transit_saps: Dict[int, List[Any]] = defaultdict(list)
+        for i in nb.dcim.interfaces.filter(tag="transit_peer"):
+            m = TRANSIT_SAP_RE.match(i.description or "")
+            if m:
+                self.transit_saps[int(m.group(1))].append(i)
+                self._index([i])
 
     def _index(self, interfaces: Iterable[Any]):
         for i in interfaces:
@@ -111,7 +130,7 @@ class Fabric:
         if field in ("tenant", "tenants") and pk in self.tenants:
             return self.tenants[pk].name
         if field == "prefixes":
-            return next((p.prefix for p in self.peering_lan_prefixes if p.id == pk), f"#{pk}")
+            return self.prefixes[pk].prefix if pk in self.prefixes else f"#{pk}"
         if field == "cables":
             return f"cable #{pk}"
         return str(pk)
@@ -124,6 +143,21 @@ class Fabric:
         found = list(self.nb.dcim.interfaces.filter(vlan_id=vlan.id))
         self._index(found)
         return found
+
+    def vlan_prefixes(self, vlan) -> List[Any]:
+        found = list(self.nb.ipam.prefixes.filter(vlan_id=vlan.id))
+        self.prefixes.update((p.id, p) for p in found)
+        return found
+
+    def live_vlan_ports(self, vlan, warnings: List[str]) -> List["Port"]:
+        ports = []
+        for iface in sorted(self.vlan_interfaces(vlan), key=iface_label):
+            device = self.devices.get(iface.device.id)
+            if device and device.status.value not in LIVE_DEVICE_STATUSES:
+                warnings.append(f"{vlan.name}: skip {iface_label(iface)} on {device.status.value} device")
+                continue
+            ports.append(Port(self, iface))
+        return ports
 
 
 class Port:
@@ -182,6 +216,10 @@ def iface_label(i) -> str:
     return f"{i.device.name} {i.name}"
 
 
+def is_core(i) -> bool:
+    return any(t.slug == "core_port" for t in i.tags)
+
+
 def service_status(port: Port, fabric: Fabric) -> str:
     device = fabric.devices.get(port.iface.device.id)
     if device and device.status.value not in LIVE_DEVICE_STATUSES:
@@ -220,7 +258,11 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
                 warnings.append(
                     f"{service_id}: shaper on {iface_label(i)} belongs to {i.custom_fields['participant']['name']}, "
                     f"not {tenant.name}")
-        vlans = sorted({v.id for v in iface.tagged_vlans} | ({iface.untagged_vlan.id} if iface.untagged_vlan else set()))
+        # Only the peering LAN; other VLANs on the same port (e.g. transit) are their own services
+        vlans = sorted({
+            v.id for v in [*iface.tagged_vlans, *([iface.untagged_vlan] if iface.untagged_vlan else [])]
+            if v.vid in PEERING_LAN_VIDS
+        })
         desired[service_id] = {
             "type": "peering",
             "status": service_status(port, fabric),
@@ -246,13 +288,7 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
                 parties.append(fabric.tenants_by_asn[asn].id)
             else:
                 warnings.append(f"{vlan.name}: no tenant with as_number {asn}")
-        ports = []
-        for iface in sorted(fabric.vlan_interfaces(vlan), key=iface_label):
-            device = fabric.devices.get(iface.device.id)
-            if device and device.status.value not in LIVE_DEVICE_STATUSES:
-                warnings.append(f"{vlan.name}: skip {iface_label(iface)} on {device.status.value} device")
-                continue
-            ports.append(Port(fabric, iface))
+        ports = fabric.live_vlan_ports(vlan, warnings)
         bandwidths = [p.bandwidth for p in ports if p.bandwidth]
         status = "active" if vlan.status.value == "active" else "offline"
         desired[vlan.name] = {
@@ -280,6 +316,35 @@ def build_desired(fabric: Fabric, warnings: List[str]) -> Dict[str, dict]:
                 "cir": port.commit,
                 "depends_on": [vlan.name],
             }
+
+    # AS40271 transit sold to a customer: the VLAN from their port to cr1, plus the cr1 SAP
+    for vid, vlan in sorted(fabric.vlans.items()):
+        if not vlan.name.startswith(TRANSIT_VLAN_PREFIX) or not vlan.tenant:
+            continue
+        tenant = fabric.tenants[vlan.tenant.id]
+        ports = fabric.live_vlan_ports(vlan, warnings)
+        # The hop to cr1 is a sub-interface of a shared core trunk: list only that sub-interface
+        core = [p.iface for p in ports if is_core(p.iface) or (p.parent and is_core(p.parent))]
+        ports = [p for p in ports if p.iface not in core]
+        saps = fabric.transit_saps.get(vid, [])
+        bandwidths = [p.bandwidth for p in ports if p.bandwidth]
+        desired[vlan.name] = {
+            "type": "transit",
+            "status": "active" if vlan.status.value == "active" else "offline",
+            "description": f"AS40271 transit: {tenant.description or tenant.name} ({tenant.name}), VLAN {vid}",
+            "tenant": tenant.id,
+            "tenants": [tenant.id],
+            "devices": sorted({i.device.id for i in [*(p.iface for p in ports), *core, *saps]}),
+            "interfaces": sorted({i.id for p in ports for i in p.interfaces} | {i.id for i in [*core, *saps]}),
+            "cables": sorted({c for p in ports for c in p.cables}),
+            "vlans": [vlan.id],
+            "prefixes": sorted(p.id for p in fabric.vlan_prefixes(vlan)),
+            "bandwidth": min(bandwidths) if bandwidths else None,
+        }
+
+    # A service derived from live objects is not turned down (clears it if one comes back)
+    for spec in desired.values():
+        spec["decommissioned"] = None
     return desired
 
 
@@ -316,7 +381,7 @@ def diff(existing: Optional[dict], spec: dict, service_ids_by_pk: Dict[int, str]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     parser.add_argument("--apply", action="store_true", help="write changes (default: dry-run)")
-    parser.add_argument("--only", choices=("peering", "pvlan"), help="limit to peering LAN or PVLAN services")
+    parser.add_argument("--only", choices=sorted(ONLY_TYPES), help="limit to one family of services")
     parser.add_argument("-v", "--verbose", action="store_true", help="show unchanged services too")
     args = parser.parse_args()
 
@@ -330,10 +395,8 @@ def main() -> int:
     warnings: List[str] = []
     fabric = Fabric(nb)
     desired = build_desired(fabric, warnings)
-    if args.only == "peering":
-        desired = {k: v for k, v in desired.items() if v["type"] in ("peering_lan", "peering")}
-    elif args.only == "pvlan":
-        desired = {k: v for k, v in desired.items() if v["type"] in PVLAN_TYPES}
+    if args.only:
+        desired = {k: v for k, v in desired.items() if v["type"] in ONLY_TYPES[args.only]}
 
     existing = {s["service_id"]: s for s in api.all()}
     service_ids_by_pk = {s["id"]: s["service_id"] for s in existing.values()}
@@ -372,17 +435,31 @@ def main() -> int:
         else:
             api.update(existing[service_id]["id"], payload)
 
+    # Synced services whose source is gone (participant offboarded, port moved): turn down, keep
+    today = datetime.date.today().isoformat()
     stale = sorted(
         sid for sid, s in existing.items()
         if sid not in desired and any(t["slug"] == SYNC_TAG for t in s.get("tags", []))
-        and (not args.only or (current_value(s, "type") in PVLAN_TYPES) == (args.only == "pvlan"))
+        and (not args.only or current_value(s, "type") in ONLY_TYPES[args.only])
     )
     for sid in stale:
-        print(f"? {sid}: tagged {SYNC_TAG} but no longer derived from NetBox (left alone)")
+        service = existing[sid]
+        if current_value(service, "status") == "decommissioned":
+            counts["decommissioned"] += 1
+            if args.verbose:
+                print(f"  {sid} (decommissioned {service.get('decommissioned')})")
+            continue
+        counts["turn down"] += 1
+        when = service.get("decommissioned") or today
+        print(f"- {sid}: no longer derived from NetBox")
+        print(f"    status: {current_value(service, 'status')!r} -> 'decommissioned'; decommissioned: {when}")
+        if args.apply:
+            api.update(service["id"], {"status": "decommissioned", "decommissioned": when})
     for w in warnings:
         print(f"! {w}")
     print(f"\n{'Applied' if args.apply else 'Dry-run'}: {counts['create']} create, {counts['update']} update, "
-          f"{counts['unchanged']} unchanged, {len(stale)} stale, {len(warnings)} warnings")
+          f"{counts['turn down']} turn down, {counts['unchanged']} unchanged, "
+          f"{counts['decommissioned']} decommissioned, {len(warnings)} warnings")
     return 0
 
 

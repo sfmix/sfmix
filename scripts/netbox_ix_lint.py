@@ -8,7 +8,7 @@ from typing import Dict
 import pynetbox
 import yaml
 
-from netbox_services_sync import LIVE_DEVICE_STATUSES, PVLAN_NAME_RE, ServicesAPI
+from netbox_services_sync import LIVE_DEVICE_STATUSES, PVLAN_NAME_RE, ServicesAPI, current_value
 
 """
 Perform some sanity checking against the IX-specific data in Netbox
@@ -171,6 +171,9 @@ def check_participant_ports_have_services(netbox: pynetbox.api) -> None:
     print("[!!] Checking that each participant port has a service")
     services_by_port = defaultdict(list)
     for service in ServicesAPI(netbox).all():
+        # Turned-down services keep their old ports for history; the port may be reused since
+        if current_value(service, "status") == "decommissioned":
+            continue
         for interface in service["interfaces"]:
             interface_id = interface["id"] if isinstance(interface, dict) else interface
             services_by_port[(service["type"], interface_id)].append(service)

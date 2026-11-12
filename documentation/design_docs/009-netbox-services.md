@@ -36,8 +36,15 @@ Deployment is in [netbox.md](../netbox.md#plugins).
 
 Everything is derived by `scripts/netbox_services_sync.py` from data already in NetBox. The sync
 is idempotent and keyed on `service_id`. It tags what it creates `services_sync`. It never deletes:
-a synced Service whose source is gone is reported as stale. It only writes the fields below;
-lifecycle dates, SLA, attachments and a PVLAN's billing `tenant` are left to humans.
+a synced Service whose source is gone (participant offboarded, port moved) is **turned down**,
+i.e. `status=decommissioned` with `decommissioned` set to the day of the run, and kept for history.
+It only writes the fields below; the other lifecycle dates, `decommission_reason`, SLA, attachments
+and a PVLAN's billing `tenant` are left to humans.
+
+Offboarding: don't delete a participant's Services. Delete the NetBox port/IPs/tenant as usual,
+then `netbox_services_sync.py --apply` turns the Services down and sets the date; set
+`decommission_reason` (usually `churn`; `upgrade` for a move) by hand. A decommissioned Service
+keeps its old ports, so the lint ignores decommissioned Services when a port is reused.
 
 | Service | `service_id` | Type | Derived from |
 | --- | --- | --- | --- |
@@ -45,6 +52,7 @@ lifecycle dates, SLA, attachments and a PVLAN's billing `tenant` are left to hum
 | Peering connection | `PEERING-AS<asn>-<device>-<interface>` | `peering` | each `peering_port` / `encapsulated_peering_port` interface with a `participant` |
 | Private VLAN | the VLAN name, `PVLAN-AS<a>-AS<b>` | `private_vlan` | VLANs in `exchange_fabric_vlans` with that name |
 | Private VLAN port | `PVLAN-AS<a>-AS<b>-<device>-<interface>` | `l2vpn` | each interface carrying the PVLAN, on live devices |
+| AS40271 transit | the VLAN name, `SFMIX-TRANSIT-<NAME>` | `transit` (plugin built-in) | `SFMIX-TRANSIT-*` VLANs in `exchange_fabric_vlans` that have a `tenant` (the customer) |
 
 Each participant connection is its own service, tied to the peering LAN by `depends_on`, so every
 connection carries its own port rate and commit. It is per port rather than per participant: a
@@ -55,7 +63,8 @@ Peering connection fields:
 - `interfaces`: the peering interface, its parent (for a `.998` sub-interface) and the LAG
   members.
 - `cables`: the cables on those members.
-- `vlans`: the interface's VLANs.
+- `vlans`: the interface's peering LAN VLANs (997/998/999) only. Anything else trunked on the
+  same port, such as a transit VLAN, belongs to its own Service.
 - `depends_on`: `SFMIX-PEERING`.
 - `status`: `active` if enabled, `offline` if not, `deprovisioning` on a device that is being
   decommissioned.
@@ -84,6 +93,16 @@ PVLAN fields:
 If Services become authoritative later, the consumers (`eos/interface.j2` shaper, IX-F
 `if_speed`, website table, LG `ixf.rs`) switch to `Service.cir` and `rate_limit_bps` goes away. We
 won't keep two stores.
+
+Transit fields:
+- `tenant`/`tenants`: the VLAN's tenant. Untenanted transit VLANs (internal, legacy, free
+  peers not yet modelled) get no Service; setting the tenant is what makes one.
+- `interfaces`: the customer-facing port(s) carrying the VLAN with their parent/LAG members, the
+  `core_port` sub-interface towards cr1 (not its shared trunk or members), and the cr1 VPRN SAP
+  whose description is `SAP lag-core-N:<vid>` (from `discovery.py --sync-hardware-interfaces
+  --sync-core-port-tags` on the cr1).
+- `prefixes`: prefixes assigned to the VLAN (the /31 and /127 interconnects).
+- `bandwidth`: the slowest customer-facing port; no `cir`.
 
 ## Import (prod, 2026-10-25)
 
@@ -132,8 +151,20 @@ scl04 PVE access LAG), and the PVLAN 1411 endpoint on decommissioning switch02.s
 
 ## Next steps
 
-- Model AS40271 transit VLANs (`SFMIX-TRANSIT-*`) as `transit` services.
+- Transit services exist for tenanted `SFMIX-TRANSIT-*` VLANs (IETF and Air Rabbit, 2026-11-11).
+  To cover the rest, set each customer VLAN's `tenant`.
 - Model remote-peering (reseller) sub-interfaces once they carry a `participant`. Today the one
   PacketFabric sub-interface has none.
 - Decide whether to adopt Services as the source of truth, and if so, cut consumers over and
   retire `rate_limit_bps`.
+
+## Changes
+
+- **2026-11-11**:
+  - Transit services added. Peering services now carry only the peering LAN VLANs.
+  - Stale Services are turned down (`decommissioned`) instead of only being reported.
+  - The five peering Services deleted by that day's offboarding were recreated as decommissioned
+    records with reason `churn`: AS20326, AS31898, AS38195, AS396356 and AS21928. Their tenants
+    were already gone, so the description carries the participant's identity.
+  - SpaceX's old switch02.sjc01 Po113 was turned down with reason `upgrade`, because SpaceX moved
+    to switch04.sjc01.
