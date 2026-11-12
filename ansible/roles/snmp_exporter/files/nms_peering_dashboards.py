@@ -270,19 +270,14 @@ def peering_dashboard():
         {"matcher": {"id": "byName", "options": "asn"},
          "properties": [{"id": "displayName", "value": "ASN"},
                         {"id": "unit", "value": "string"},
-                        {"id": "custom.width", "value": 64},
-                        {"id": "links", "value": [{
-                            "title": "Participant Traffic (SNMP) for AS${__value.raw}",
-                            "url": "/d/sfmix-participant-traffic/participant-traffic"
-                                   "?var-participant=AS${__value.raw}&${__url_time_range}"}]}]},
+                        {"id": "custom.width", "value": 64}]},
     ]
     p.append({
         "id": table_id, "type": "table",
         "title": "Members: mean and peak over the visible range",
         "description": "Bars are each column's share of its maximum. Sent ÷ received "
                        "above 1: a net sender (content, CDN); below 1: a net receiver "
-                       "(access, eyeball). Click a member to drill down, an ASN for "
-                       "its SNMP port view.",
+                       "(access, eyeball). Click a member to drill down.",
         "gridPos": {"h": 16, "w": 24, "x": 0, "y": y}, "datasource": DS_PROM,
         "targets": targets,
         "transformations": [
@@ -503,9 +498,6 @@ def peering_dashboard():
         "graphTooltip": 1,   # shared crosshair across panels
         "time": {"from": "now-24h", "to": "now"},
         "templating": {"list": templating},
-        "links": [{"title": "Participant Traffic (SNMP)", "type": "link",
-                   "icon": "dashboard", "keepTime": True,
-                   "url": "/d/sfmix-participant-traffic/participant-traffic"}],
         "panels": p,
     }
 
