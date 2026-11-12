@@ -141,6 +141,38 @@ No manual token configuration is needed in the MCP config — the client handles
 
 The MCP endpoint does not support anonymous access. All requests require a valid token from the OIDC provider. Authentication follows the same tiers as the HTTP REST API (Participant or Administrator).
 
+### Metrics tools
+
+Three tools read history and statistics from the fabric Prometheus. lg-server runs them through `POST /rpc/v1/metrics`, which resolves and authorizes each request (`src/metrics/`). They are enabled by a `metrics:` block in `lg-server.yml`.
+
+| Tool | Target | Returns |
+|---|---|---|
+| `port_metrics` | `device`+`interface`, or `asn` (all of a participant's ports) | Traffic in/out (bps, % of speed); error/discard counters; optics per lane (Rx/Tx dBm, bias mA, SNR for coherent optics) plus module temperature. LAGs are broken out per member, with a total. |
+| `link_metrics` | `device`+`interface` (LAGs followed member by member) | Both ends of each physical link side by side. The far end comes from the cached LLDP table. Also derives per-lane loss (A tx − B rx) and sent-minus-received traffic in each direction. |
+| `peer_traffic` | `asn` (optional `peer_asn`, `direction`, `top`) | Per-peer bps from the sFlow peering matrix: the top N peers per direction, an "other" row and a total. |
+
+Output is sized for LLM context:
+
+- **Latest reading by default:** traffic is a 1-minute average; errors are the count over the last 15 minutes.
+- **`range`** (`"1h"`, `"24h"`, `"7d"`, max 30d) returns one summary row per series instead. Rows show last/avg/p95 over step averages and the true min/max. Counter rows show the total and the maximum per step.
+- **`points`** additionally returns the downsampled series. Use it only when the shape over time matters.
+- **`families`** (`traffic`, `errors`, `optics`) limits what `port_metrics` and `link_metrics` fetch.
+
+Who may query what, using the same model as the portal:
+
+- **Participants:** their own ports, LAG members and peer traffic.
+- **Infrastructure ports and other networks' data:** IX Administrators only.
+
+The far end of a link is shown only if the caller may also see it.
+
+```yaml
+metrics:
+  prometheus_url: "http://metrics.oob.sfo02.sfmix.org:9090"
+  max_range_secs: 2592000   # match Prometheus retention
+  timeout_secs: 15
+  max_ports: 16             # cap for asn-wide port queries
+```
+
 ## Documentation
 
 - **[Operations Guide](doc/operations.md)** — configuration reference, authentication, policy engine, deployment, systemd

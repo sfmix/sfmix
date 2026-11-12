@@ -26,6 +26,8 @@ use looking_glass::command::{AddressFamily, Command, Resource, Verb};
 use looking_glass::identity::Identity;
 use looking_glass::oidc::OidcClient;
 use looking_glass::frontend::auth;
+use looking_glass::metrics::{parse_duration, parse_time, render::render as render_metrics, MAX_POINTS};
+use lg_types::metrics::{Family, MetricsQuery, MetricsRequest, PeerDirection, Window};
 
 tokio::task_local! {
     static CURRENT_IDENTITY: Identity;
@@ -157,6 +159,134 @@ struct ParticipantParams {
     asn: u32,
 }
 
+// --- Metrics tool parameters ---
+//
+// Every metrics tool defaults to the *latest* reading. `range` switches to a
+// per-series summary (last/min/avg/p95/max) over that window; `points` adds
+// the raw downsampled series and should only be used when a shape over time
+// is actually needed.
+
+#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum MetricFamily {
+    /// Throughput in/out (bps) and utilisation.
+    Traffic,
+    /// Interface error and discard counters.
+    Errors,
+    /// Transceiver DOM: per-lane Rx/Tx dBm, bias mA, SNR (coherent), module temperature.
+    Optics,
+}
+
+impl From<MetricFamily> for Family {
+    fn from(f: MetricFamily) -> Self {
+        match f {
+            MetricFamily::Traffic => Family::Traffic,
+            MetricFamily::Errors => Family::Errors,
+            MetricFamily::Optics => Family::Optics,
+        }
+    }
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+struct PortMetricsParams {
+    /// Device hostname (e.g. "switch02.sfo02.sfmix.org"); use with `interface`.
+    #[serde(default)]
+    device: Option<String>,
+    /// Interface name (e.g. "Ethernet18/1", "Port-Channel111", "Port-Channel114.998").
+    #[serde(default)]
+    interface: Option<String>,
+    /// Instead of device+interface: every port of this participant ASN.
+    #[serde(default)]
+    asn: Option<u32>,
+    /// Limit to these metric families (default: all).
+    #[serde(default)]
+    families: Option<Vec<MetricFamily>>,
+    /// Look-back window, e.g. "1h", "24h", "7d" (max 30d). Omit for the latest reading only.
+    #[serde(default)]
+    range: Option<String>,
+    /// Window end (RFC 3339 or unix seconds). Default now. Without `range`, the reading at that time.
+    #[serde(default)]
+    end: Option<String>,
+    /// With `range`: also return this many points per series (max 500). Omit unless you need the shape over time.
+    #[serde(default)]
+    points: Option<u32>,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+struct LinkMetricsParams {
+    /// Device hostname of the A side (e.g. "switch01.sfo02.sfmix.org").
+    device: String,
+    /// A-side interface; a LAG is followed member by member.
+    interface: String,
+    /// Limit to these metric families (default: all).
+    #[serde(default)]
+    families: Option<Vec<MetricFamily>>,
+    /// Look-back window, e.g. "1h", "24h", "7d" (max 30d). Omit for the latest reading only.
+    #[serde(default)]
+    range: Option<String>,
+    /// Window end (RFC 3339 or unix seconds). Default now.
+    #[serde(default)]
+    end: Option<String>,
+    /// With `range`: also return this many points per series (max 500).
+    #[serde(default)]
+    points: Option<u32>,
+}
+
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum PeerDir {
+    /// Traffic the ASN sends to each peer.
+    To,
+    /// Traffic each peer sends to the ASN.
+    From,
+    #[default]
+    Both,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+struct PeerTrafficParams {
+    /// Participant ASN whose peer traffic to show.
+    asn: u32,
+    /// Only this peer ASN.
+    #[serde(default)]
+    peer_asn: Option<u32>,
+    /// "to", "from" or "both" (default).
+    #[serde(default)]
+    direction: Option<PeerDir>,
+    /// Peers listed per direction, largest first (default 10, max 100); the rest are summed as "other".
+    #[serde(default)]
+    top: Option<u32>,
+    /// Look-back window, e.g. "1h", "24h", "7d" (max 30d). Omit for the latest reading (1-minute average).
+    #[serde(default)]
+    range: Option<String>,
+    /// Window end (RFC 3339 or unix seconds). Default now.
+    #[serde(default)]
+    end: Option<String>,
+    /// With `range`: also return this many points per listed peer (max 500).
+    #[serde(default)]
+    points: Option<u32>,
+}
+
+fn metrics_window(range: Option<&str>, end: Option<&str>, points: Option<u32>) -> Result<Window, McpError> {
+    let range_secs = match range {
+        None => None,
+        Some(r) => Some(parse_duration(r).ok_or_else(|| {
+            McpError::invalid_params(format!("range {r:?}: expected e.g. \"90m\", \"24h\", \"7d\""), None)
+        })?),
+    };
+    let end = match end {
+        None => None,
+        Some(e) => Some(parse_time(e).ok_or_else(|| {
+            McpError::invalid_params(format!("end {e:?}: expected RFC 3339 or unix seconds"), None)
+        })?),
+    };
+    Ok(Window { range_secs, end, points: points.map(|p| p.min(MAX_POINTS)) })
+}
+
+fn families(f: Option<Vec<MetricFamily>>) -> Vec<Family> {
+    f.unwrap_or_default().into_iter().map(Family::from).collect()
+}
+
 // --- MCP Server Handler ---
 
 #[derive(Clone)]
@@ -279,6 +409,22 @@ impl McpHandler {
         };
         let output = self.execute_command(&cmd, include_empty).await?;
         Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
+    }
+
+    /// Run a metrics query through lg-server and render it as text.
+    async fn run_metrics(&self, query: MetricsQuery) -> Result<CallToolResult, McpError> {
+        let req = MetricsRequest {
+            query,
+            identity: self.identity.clone(),
+            rate_key: self.rate_key.clone(),
+        };
+        match self.rpc.metrics(&req).await {
+            Ok(Ok(report)) => Ok(CallToolResult::success(vec![ContentBlock::text(render_metrics(&report))])),
+            Ok(Err((400 | 403 | 429, msg))) => Err(McpError::invalid_request(msg, None)),
+            Ok(Err((503, _))) => Err(McpError::internal_error("metrics are not configured on this looking glass", None)),
+            Ok(Err((_, msg))) => Err(McpError::internal_error(msg, None)),
+            Err(e) => Err(McpError::internal_error(e.to_string(), None)),
+        }
     }
 
     /// Format participant list via RPC.
@@ -481,6 +627,71 @@ impl McpHandler {
         }
     }
 
+    #[tool(description = "Port metrics from the fabric's time-series store: throughput (bps, utilisation), \
+        error/discard counters, and optics (per-lane Rx/Tx dBm, bias mA, SNR for coherent optics, module temperature). \
+        Give device+interface, or asn for all of a participant's ports (LAGs are broken out per member with a total). \
+        Default is the LATEST reading only (traffic = 1-minute average, errors = count over the last 15 minutes). \
+        Pass range (e.g. \"24h\") for a per-series summary (last/min/avg/p95/max; counters: total and max per step). \
+        Only pass points when you need the shape over time. Use families to fetch less. \
+        Participants may query their own ports; infrastructure ports require admin.")]
+    async fn port_metrics(
+        &self,
+        Parameters(p): Parameters<PortMetricsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let window = metrics_window(p.range.as_deref(), p.end.as_deref(), p.points)?;
+        self.run_metrics(MetricsQuery::Port {
+            device: p.device,
+            interface: p.interface,
+            asn: p.asn,
+            families: families(p.families),
+            window,
+        })
+        .await
+    }
+
+    #[tool(description = "Both ends of a link side by side. Follows the A-side interface (each LAG member) to its \
+        LLDP neighbour and, when that is another looking-glass device, returns traffic, errors and optics for both ends \
+        plus derived values: per-lane optical loss (A tx - B rx and B tx - A rx, dB) and sent-minus-received throughput \
+        in each direction. Use this to tell a dirty/attenuated span from a failing transmitter, or to spot one-sided errors. \
+        Same latest/range/points semantics as port_metrics. Far ends that are participant routers are not measurable.")]
+    async fn link_metrics(
+        &self,
+        Parameters(p): Parameters<LinkMetricsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let window = metrics_window(p.range.as_deref(), p.end.as_deref(), p.points)?;
+        self.run_metrics(MetricsQuery::Link {
+            device: p.device,
+            interface: p.interface,
+            families: families(p.families),
+            window,
+        })
+        .await
+    }
+
+    #[tool(description = "Per-peer traffic for a participant ASN from the sFlow peering matrix (bps): who it sends to \
+        and receives from across the exchange, top N peers per direction plus an 'other' row and a total. \
+        Default is the latest 1-minute average; pass range for avg/p95/max/last per peer, and points only if you need \
+        the series. Filter to one counterpart with peer_asn. Participants may query their own ASN; admins any.")]
+    async fn peer_traffic(
+        &self,
+        Parameters(p): Parameters<PeerTrafficParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let window = metrics_window(p.range.as_deref(), p.end.as_deref(), p.points)?;
+        let direction = match p.direction.unwrap_or_default() {
+            PeerDir::To => PeerDirection::To,
+            PeerDir::From => PeerDirection::From,
+            PeerDir::Both => PeerDirection::Both,
+        };
+        self.run_metrics(MetricsQuery::Peers {
+            asn: p.asn,
+            peer_asn: p.peer_asn,
+            direction,
+            top: p.top.map(|t| t as usize),
+            window,
+        })
+        .await
+    }
+
     #[tool(description = "Ping a destination from the looking glass vantage point")]
     async fn ping(
         &self,
@@ -547,7 +758,12 @@ impl ServerHandler for McpHandler {
              \n\
              For connectivity checks: {prefix}__ping / {prefix}__traceroute\n\
              Fabric-wide state: {prefix}__show_interfaces_status, {prefix}__show_lldp_neighbors, \
-             {prefix}__show_peering_vlans",
+             {prefix}__show_peering_vlans\n\
+             \n\
+             History and statistics (latest reading by default; add range=\"24h\" etc. for a summary):\n\
+             - {prefix}__port_metrics(device+interface | asn) - traffic, errors, optics\n\
+             - {prefix}__link_metrics(device, interface) - both ends of a link via LLDP, with optical loss\n\
+             - {prefix}__peer_traffic(asn) - per-peer sFlow traffic",
             self.network_slug,
         ))
     }

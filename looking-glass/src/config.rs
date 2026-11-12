@@ -29,6 +29,34 @@ pub struct Config {
     pub discovered: Option<DiscoveredNeighborsConfig>,
 }
 
+/// Prometheus source for the time-series metrics RPC (`/rpc/v1/metrics`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct MetricsConfig {
+    /// Prometheus HTTP API base URL (e.g. "http://metrics.oob.sfo02.sfmix.org:9090").
+    pub prometheus_url: String,
+    /// Longest window a caller may request; match the Prometheus retention.
+    #[serde(default = "default_metrics_max_range")]
+    pub max_range_secs: u64,
+    /// Per-query HTTP timeout.
+    #[serde(default = "default_metrics_timeout")]
+    pub timeout_secs: u64,
+    /// Most ports a single ASN-wide query may cover.
+    #[serde(default = "default_metrics_max_ports")]
+    pub max_ports: usize,
+}
+
+fn default_metrics_max_range() -> u64 {
+    30 * 86400
+}
+
+fn default_metrics_timeout() -> u64 {
+    15
+}
+
+fn default_metrics_max_ports() -> usize {
+    16
+}
+
 /// Polls the lg-neighborhood-watch sensor for passively-heard ARP/NDP neighbors
 /// and accumulates them into a durable, persisted store.
 #[derive(Debug, Clone, Deserialize)]

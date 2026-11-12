@@ -28,6 +28,9 @@ pub struct ServerConfig {
     pub device_cache: looking_glass::config::DeviceCacheConfig,
     #[serde(default)]
     pub discovered: Option<looking_glass::config::DiscoveredNeighborsConfig>,
+    /// Prometheus source for `/rpc/v1/metrics`; unset disables the endpoint.
+    #[serde(default)]
+    pub metrics: Option<looking_glass::config::MetricsConfig>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -112,6 +112,16 @@ discovered:
   bum_enabled: {{ looking_glass_discovered_bum_enabled | default(true) | to_json }}
   bum_active_secs: {{ looking_glass_discovered_bum_active_secs | default(7200) }}
 {% endif %}
+{% if looking_glass_metrics_prometheus_url is defined %}
+
+# Time-series metrics RPC (/rpc/v1/metrics → MCP port_metrics, link_metrics,
+# peer_traffic). Reads the fabric Prometheus; max range matches its retention.
+metrics:
+  prometheus_url: "{{ looking_glass_metrics_prometheus_url }}"
+  max_range_secs: {{ looking_glass_metrics_max_range_secs | default(2592000) }}
+  timeout_secs: {{ looking_glass_metrics_timeout_secs | default(15) }}
+  max_ports: {{ looking_glass_metrics_max_ports | default(16) }}
+{% endif %}
 
 rate_limits:
   global:

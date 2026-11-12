@@ -1883,6 +1883,7 @@ dependencies = [
  "chrono",
  "clap",
  "dashmap",
+ "futures",
  "jsonwebtoken",
  "lg-types",
  "owo-colors",

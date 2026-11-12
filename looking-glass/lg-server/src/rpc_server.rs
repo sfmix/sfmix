@@ -24,12 +24,15 @@ use looking_glass::structured::CommandOutput;
 pub struct RpcState {
     pub lg: Arc<LookingGlass>,
     pub rpc_secret: String,
+    /// `None` when no `metrics:` block is configured.
+    pub metrics: Option<Arc<looking_glass::metrics::MetricsService>>,
 }
 
 /// Build the axum router for the RPC server.
 pub fn router(state: Arc<RpcState>) -> Router {
     Router::new()
         .route("/rpc/v1/execute", post(execute))
+        .route("/rpc/v1/metrics", post(metrics))
         .route("/rpc/v1/devices", get(list_devices))
         .route("/rpc/v1/service-info", get(service_info))
         .route("/rpc/v1/participants", get(participants_list))
@@ -53,6 +56,44 @@ fn check_secret(headers: &HeaderMap, expected: &str) -> Result<(), (StatusCode, 
     match headers.get("X-RPC-Secret") {
         Some(val) if val.as_bytes() == expected.as_bytes() => Ok(()),
         _ => Err((StatusCode::UNAUTHORIZED, "invalid or missing X-RPC-Secret")),
+    }
+}
+
+/// POST /rpc/v1/metrics — time-series metrics from Prometheus.
+///
+/// Authorization (port/ASN ownership, admin for infrastructure) is decided
+/// in `looking_glass::metrics`; the caller's identity comes from lg-http.
+/// Errors are plain text: 403 denied, 400 bad request, 429 rate limited,
+/// 502 Prometheus failure, 503 not configured.
+async fn metrics(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+    Json(req): Json<lg_types::metrics::MetricsRequest>,
+) -> impl IntoResponse {
+    use looking_glass::metrics::MetricsError;
+    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+        return e.into_response();
+    }
+    let Some(svc) = state.metrics.as_ref() else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "metrics are not configured").into_response();
+    };
+    let _guard = match state.lg.rate_limiter.acquire(&req.rate_key).await {
+        Ok(g) => g,
+        Err(e) => return (StatusCode::TOO_MANY_REQUESTS, e.to_string()).into_response(),
+    };
+    match svc.run(&state.lg, req).await {
+        Ok(report) => Json(report).into_response(),
+        Err(e) => {
+            let code = match &e {
+                MetricsError::Denied(_) => StatusCode::FORBIDDEN,
+                MetricsError::BadRequest(_) => StatusCode::BAD_REQUEST,
+                MetricsError::Backend(_) => StatusCode::BAD_GATEWAY,
+            };
+            if code == StatusCode::BAD_GATEWAY {
+                tracing::warn!(error = %e, "metrics query failed");
+            }
+            (code, e.to_string()).into_response()
+        }
     }
 }
 
