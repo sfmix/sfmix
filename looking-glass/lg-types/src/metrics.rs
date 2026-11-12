@@ -90,7 +90,8 @@ pub struct Window {
     /// End of the window (unix seconds). `None` = now.
     #[serde(default)]
     pub end: Option<i64>,
-    /// Also return up to this many points per series (0/None = summary only).
+    /// Also return at most this many points per series (0/None = summary
+    /// only). Points are averages of the summary grid; they never change it.
     #[serde(default)]
     pub points: Option<u32>,
 }
@@ -126,7 +127,7 @@ pub struct Series {
     /// "bps", "dBm", "mA", "C", "dB", "count".
     pub unit: String,
     pub stats: Stats,
-    /// Per-step values aligned to `MetricsReport::start` + i * `step_secs`.
+    /// Values aligned to `MetricsReport::start` + i * `points_step_secs`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub points: Option<Vec<Option<f64>>>,
 }
@@ -199,8 +200,13 @@ pub struct MetricsReport {
     /// Window start; `None` in latest mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start: Option<i64>,
+    /// Step of the grid the summary stats are computed over.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step_secs: Option<u64>,
+    /// Spacing of returned points (a multiple of `step_secs`); `None` when
+    /// no points were requested.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub points_step_secs: Option<u64>,
     pub body: MetricsBody,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<String>,

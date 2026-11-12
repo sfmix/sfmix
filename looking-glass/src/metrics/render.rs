@@ -258,9 +258,13 @@ pub fn render(r: &MetricsReport) -> String {
     let latest = r.start.is_none();
     match (r.start, r.step_secs) {
         (Some(s), Some(step)) => {
+            let counters = match &r.body {
+                MetricsBody::Peers { .. } => "",
+                _ => "; counters: total and max per step",
+            };
             let _ = writeln!(
                 out,
-                "window {} → {} · step {step}s · last/avg/p95 are over step averages; min/max are true extremes; counters: total and max per step",
+                "window {} → {} · step {step}s · last/avg/p95 are over step averages; min/max are true extremes{counters}",
                 ts(s),
                 ts(r.end)
             );
@@ -272,6 +276,11 @@ pub fn render(r: &MetricsReport) -> String {
     for n in &r.notes {
         let _ = writeln!(out, "note: {n}");
     }
+    let points_header = |out: &mut String| {
+        if let (Some(s), Some(step)) = (r.start, r.points_step_secs.or(r.step_secs)) {
+            let _ = writeln!(out, "points (from {} every {step}s; '-' = no data)", ts(s));
+        }
+    };
     let mut points: Vec<&Series> = vec![];
     match &r.body {
         MetricsBody::Ports { ports } => {
@@ -322,7 +331,8 @@ pub fn render(r: &MetricsReport) -> String {
             }
         }
         MetricsBody::Peers { asn, name, rows, others, totals } => {
-            for (dir, total) in totals {
+            // An empty matrix is explained by a note; blank tables add nothing.
+            for (dir, total) in totals.iter().filter(|_| !rows.is_empty()) {
                 let arrow = if dir == "to" { format!("AS{asn} → peer") } else { format!("peer → AS{asn}") };
                 let _ = writeln!(out, "== AS{asn} {name} · {dir} peers ({arrow}), bps ==");
                 let dir_rows: Vec<&PeerRow> = rows.iter().filter(|r| &r.direction == dir).collect();
@@ -351,18 +361,18 @@ pub fn render(r: &MetricsReport) -> String {
                 } else {
                     out.push_str(&table(&["peer_asn", "name", "avg", "share", "p95", "max", "last"], &t));
                 }
-                for r in &dir_rows {
-                    if let Some(p) = &r.points {
-                        points_line(&mut out, &format!("{dir} AS{} {}", r.peer_asn, r.peer_name), "bps", p);
-                    }
+                let with_points: Vec<_> = dir_rows.iter().filter_map(|r| r.points.as_ref().map(|p| (r, p))).collect();
+                if !with_points.is_empty() {
+                    points_header(&mut out);
+                }
+                for (r, p) in with_points {
+                    points_line(&mut out, &format!("{dir} AS{} {}", r.peer_asn, r.peer_name), "bps", p);
                 }
             }
         }
     }
     if !points.is_empty() {
-        if let (Some(s), Some(step)) = (r.start, r.step_secs) {
-            let _ = writeln!(out, "points (from {} every {step}s; '-' = no data)", ts(s));
-        }
+        points_header(&mut out);
         series_points(&mut out, &points.into_iter().cloned().collect::<Vec<_>>());
     }
     out
@@ -396,6 +406,7 @@ mod tests {
             end: 1_794_355_200,
             start: None,
             step_secs: None,
+            points_step_secs: None,
             body: MetricsBody::Ports {
                 ports: vec![PortReport {
                     device: "switch02.sfo02.sfmix.org".into(),
