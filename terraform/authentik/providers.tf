@@ -71,6 +71,7 @@ resource "authentik_provider_oauth2" "looking_glass" {
     data.authentik_property_mapping_provider_scope.openid.id,
     data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.profile.id,
+    data.authentik_property_mapping_provider_scope.offline_access.id,
     authentik_property_mapping_provider_scope.groups.id,
   ]
 }
@@ -110,6 +111,7 @@ resource "authentik_provider_oauth2" "looking_glass_api" {
     data.authentik_property_mapping_provider_scope.openid.id,
     data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.profile.id,
+    data.authentik_property_mapping_provider_scope.offline_access.id,
     authentik_property_mapping_provider_scope.groups.id,
   ]
 }

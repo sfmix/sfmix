@@ -522,6 +522,13 @@ async fn get_peeringdb_cache(
 // OAuth Protected Resource Metadata (RFC 9728)
 // ---------------------------------------------------------------------------
 
+/// Scopes MCP clients should request. `offline_access` is what makes authentik
+/// issue a refresh token, so clients can renew the 1h access token silently.
+pub const OAUTH_SCOPES: &[&str] = &["openid", "email", "profile", "offline_access"];
+
+/// Grants clients may use against authentik's token endpoint.
+const OAUTH_GRANT_TYPES: &[&str] = &["authorization_code", "refresh_token"];
+
 /// OAuth 2.0 Protected Resource Metadata (RFC 9728).
 /// Tells MCP clients where to obtain tokens.
 #[derive(Serialize)]
@@ -557,7 +564,7 @@ async fn get_oauth_protected_resource(
     let metadata = ProtectedResourceMetadata {
         resource,
         authorization_servers: vec![resource_url.clone()],
-        scopes_supported: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
+        scopes_supported: OAUTH_SCOPES.iter().map(|s| s.to_string()).collect(),
         bearer_methods_supported: vec!["header".to_string()],
     };
 
@@ -604,9 +611,9 @@ async fn get_oauth_authorization_server_metadata(
         token_endpoint: token_endpoint.clone(),
         jwks_uri: jwks_uri.clone(),
         registration_endpoint: format!("{}/oauth/register", resource_url),
-        scopes_supported: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
+        scopes_supported: OAUTH_SCOPES.iter().map(|s| s.to_string()).collect(),
         response_types_supported: vec!["code".to_string()],
-        grant_types_supported: vec!["authorization_code".to_string()],
+        grant_types_supported: OAUTH_GRANT_TYPES.iter().map(|s| s.to_string()).collect(),
         code_challenge_methods_supported: vec!["S256".to_string()],
         token_endpoint_auth_methods_supported: vec!["none".to_string()],
     };
@@ -635,7 +642,7 @@ async fn post_oauth_register(
         "client_id": client_id,
         "client_name": "Looking Glass",
         "token_endpoint_auth_method": "none",
-        "grant_types": ["authorization_code"],
+        "grant_types": OAUTH_GRANT_TYPES,
         "response_types": ["code"],
         "redirect_uris": redirect_uris,
     });

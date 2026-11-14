@@ -57,7 +57,18 @@ pub async fn auth_middleware(
             .status(axum::http::StatusCode::UNAUTHORIZED);
 
         if let Some(ref url) = resource_metadata_url {
-            let header_value = format!("Bearer resource_metadata=\"{}\"", url);
+            // RFC 6750 §3: a presented-but-rejected token (typically expired)
+            // gets error="invalid_token" so clients refresh rather than
+            // starting a fresh login; scope= asks for offline_access so the
+            // first login yields a refresh token.
+            let had_token = request.headers().contains_key(axum::http::header::AUTHORIZATION);
+            let error = if had_token { "error=\"invalid_token\", " } else { "" };
+            let header_value = format!(
+                "Bearer {}scope=\"{}\", resource_metadata=\"{}\"",
+                error,
+                crate::rest::OAUTH_SCOPES.join(" "),
+                url,
+            );
             response = response.header(axum::http::header::WWW_AUTHENTICATE, header_value);
         }
 
