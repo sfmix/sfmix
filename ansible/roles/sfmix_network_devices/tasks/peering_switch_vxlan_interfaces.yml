@@ -40,7 +40,10 @@
         map('regex_replace', '^(.*)$', 'vxlan vlan \1 vni \1') |
         list +
 
-        ['vxlan flood vtep ' + other_peering_switch_loopbacks | join(' ')]
+        ['vxlan flood vtep ' + other_peering_switch_loopbacks | join(' ')] +
+
+        (['vxlan qos dscp ecn propagation decapsulation disabled']
+         if 'dcs_7280_c_r_3_36_s_f' in device_types else [])
       }}
 
 
