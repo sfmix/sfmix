@@ -129,6 +129,6 @@ ASN groups (e.g. `as12276`, `as64500`) are created dynamically by PeeringDB sour
 ## Security notes
 
 - **No persistent credentials**: `setup-env.sh` creates an ephemeral API token per session. Secrets are held only in shell environment variables.
-- **No persistent state**: The `.tfstate` file is gitignored and ephemeral. Each run imports fresh via `imports.tf`.
+- **No persistent state**: The `.tfstate` file is gitignored and ephemeral. `setup-env.sh` deletes any leftover `terraform.tfstate`/`.backup`/`tfplan`, and each run imports fresh via `imports.tf`. So anything you create must get an `import` block in the same change, or the next session will try to create it again.
 - **Secrets** are passed via `TF_VAR_*` environment variables — never committed to git.
 - ASN groups (e.g. `as12276`) are created dynamically by PeeringDB enrollment and are **not** managed by Terraform.

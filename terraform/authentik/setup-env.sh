@@ -21,6 +21,23 @@ AUTHENTIK_CONTAINER="authentik-server-1"
 AK_USER="${1:-$(whoami)}"
 TOKEN_ID="terraform-$(date +%s)"
 
+# Fresh-state model: imports.tf is the source of truth, so every session starts
+# with no local state. A leftover state file goes stale as resources are
+# renamed and then plans destroys of live objects (e.g. the admin-group policy
+# after grafana_require_admin_group -> require_admin_group).
+# Terraform keeps state in the working directory, so clean $PWD (sourcing
+# makes the script's own path unreliable across bash/zsh).
+if [[ ! -f imports.tf ]]; then
+  echo "ERROR: source setup-env.sh from terraform/authentik/ (no imports.tf in $PWD)" >&2
+  return 1 2>/dev/null || exit 1
+fi
+for _f in terraform.tfstate terraform.tfstate.backup tfplan; do
+  if [[ -e "${_f}" ]]; then
+    rm -f "${_f}"
+    echo "==> Removed stale ${_f} (fresh state; imports.tf rebuilds it)"
+  fi
+done
+
 echo "==> Creating ephemeral API token for user '${AK_USER}' on ${AUTHENTIK_HOST}..."
 # Capture stderr so a remote failure (e.g. unknown user) can be reported
 # instead of silently aborting. The `|| true` keeps `set -e` from killing the
