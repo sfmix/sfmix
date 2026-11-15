@@ -66,10 +66,17 @@ groups:
       # have one runaway sender turn Loki into the bottleneck. Alloy already
       # rate-limits containers at the source; this catches journald/syslog
       # floods and anything that slips past.
+      #
+      # Excluded: OpenBSD bgpd's per-prefix `log updates` lines on rs-openbsd
+      # ("Rib Loc-RIB: neighbor ... : update|withdraw <prefix>"). They track
+      # BGP churn, not a fault -- a routine Hurricane Electric (AS6939) table
+      # reshuffle bursts past 200 lines/s -- and are kept in Loki for
+      # troubleshooting. Without them rs-openbsd stays under ~10 lines/s.
       - alert: LogStreamFlood
         expr: >
           topk(3,
-            sum by (host, unit, container) (rate({job=~"journal|docker|syslog"}[5m]))
+            sum by (host, unit, container) (rate({job=~"journal|docker|syslog"}
+              !~ `^Rib \S+: neighbor .*: (update|withdraw) ` [5m]))
           ) > 30
         for: 10m
         labels: {severity: warning, component: logging}
