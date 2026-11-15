@@ -3,7 +3,7 @@ define rs_as = {{ cfg.rs_as }};
 
 {% if not "logging" is used_local_file %}
 log syslog { remote, warning, error, fatal, bug };
-debug protocols { states, routes, filters, interfaces, events };
+debug protocols { states, interfaces, events };
 {% else %}
 {{ "logging"|include_local_file -}}
 {% endif %}

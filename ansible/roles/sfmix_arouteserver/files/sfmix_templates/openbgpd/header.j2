@@ -4,9 +4,7 @@ router-id {{ cfg.router_id }}
 socket "/var/run/bgpd.rsock" restricted
 
 fib-update no
-{% if not "logging" is used_local_file %}
-log updates
-{% else %}
+{% if "logging" is used_local_file %}
 {{ "logging"|include_local_file -}}
 {% endif %}
 
