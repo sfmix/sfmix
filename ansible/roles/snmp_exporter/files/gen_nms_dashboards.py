@@ -843,12 +843,34 @@ def switch_view_dashboard():
 # ── Optical Degradation dashboard ────────────────────────────────────
 #
 # Long-horizon DOM trending on the recorded sfmix:optic_{rx,tx}_dbm:1h
-# series (prometheus role rules). The optics alert rules deep-link here as
-# .../d/sfmix-optics/optical-degradation?var-switch=<device>&var-port=<ifname>
-# — keep the uid and the switch/port variable names stable, they are the
-# alert->dashboard contract for Alertmanager notifications.
+# series (prometheus role rules). Two dashboards:
+#   * Optical Degradation (sfmix-optics) — fleet triage: fading counts,
+#     weakest lanes, drift/projection work-lists. Heavy (fleet-wide 30d
+#     offsets + predict_linear), so alerts do NOT land here.
+#   * Optic Lane (sfmix-optic-lane) — one switch + one lane, nothing else.
+#     The optics alert rules deep-link here as
+#     .../d/sfmix-optic-lane/optic-lane?var-switch=<device>&var-port=<ifname>
+#     — keep that uid and the switch/port variable names stable, they are
+#     the alert->dashboard contract for Alertmanager notifications.
 
 OPTICS_UID = "sfmix-optics"
+OPTIC_LANE_UID = "sfmix-optic-lane"
+OPTIC_LANE_URL = f"/d/{OPTIC_LANE_UID}/optic-lane"
+
+
+def _lane_link(switch_ref, port_ref):
+    """Data link from a fleet panel into the single-lane dashboard."""
+    return [{"title": f"Lane detail — {switch_ref} {port_ref}",
+             "url": f"{OPTIC_LANE_URL}?var-switch={switch_ref}"
+                    f"&var-port={port_ref}&${{__url_time_range}}"}]
+
+
+# Table cells: fields after the organize rename (switch / port).
+_TABLE_LANE_LINK = _lane_link("${__data.fields.switch}",
+                              "${__data.fields.port}")
+# Timeseries: the series' own labels.
+_SERIES_LANE_LINK = _lane_link("${__field.labels.device}",
+                               "${__field.labels.ifname}")
 
 
 def _drift_table(title, metric, days, grid):
@@ -884,6 +906,8 @@ def _drift_table(title, metric, days, grid):
                      {"color": "#e8a33d", "value": -2},
                      {"color": "#3d9950", "value": -1}]}},
              ]},
+            {"matcher": {"id": "byName", "options": "port"},
+             "properties": [{"id": "links", "value": _TABLE_LANE_LINK}]},
         ]},
         "options": {"sortBy": [{"displayName": "drift (dB)", "desc": False}]},
     }
@@ -920,6 +944,8 @@ def _projection_table(title, metric, grid):
                      {"color": "#e8a33d", "value": -3},
                      {"color": "#3d9950", "value": -1}]}},
              ]},
+            {"matcher": {"id": "byName", "options": "port"},
+             "properties": [{"id": "links", "value": _TABLE_LANE_LINK}]},
         ]},
         "options": {"sortBy": [{"displayName": "projected 90d (dB)",
                                 "desc": False}]},
@@ -928,7 +954,6 @@ def _projection_table(title, metric, grid):
 
 def optics_dashboard():
     rx, tx = "sfmix:optic_rx_dbm:1h", "sfmix:optic_tx_dbm:1h"
-    sel = '{device=~"$switch", ifname=~"$port"}'
     p = []
     y = 0
 
@@ -945,11 +970,14 @@ def optics_dashboard():
             description="Fleet-wide, ignores the switch filter."))
     y += 4
     for i, (t, metric) in enumerate([("RX", rx), ("TX", tx)]):
-        p.append(timeseries(
+        ts = timeseries(
             f"Weakest {t} lanes (fleet)",
             [target(f'bottomk(10, {metric})', "{{device}} {{ifname}}")],
             {"h": 8, "w": 12, "x": 12 * i, "y": y}, unit="dBm",
-            legend_calcs=["lastNotNull", "min"]))
+            legend_calcs=["lastNotNull", "min"],
+            description="Click a series for its Optic Lane detail.")
+        ts["fieldConfig"]["defaults"]["links"] = _SERIES_LANE_LINK
+        p.append(ts)
     y += 8
 
     # ── degradation triage tables
@@ -965,49 +993,6 @@ def optics_dashboard():
                                tx, {"h": 10, "w": 12, "x": 12, "y": y}))
     y += 10
 
-    # ── per-port trend detail (alert deep-links land here)
-    p.append(row("Lane detail — $switch / $port", y)); y += 1
-    p.append(timeseries(
-        "RX power — $switch / $port",
-        [target(rx + sel, "{{device}} {{ifname}} RX")],
-        {"h": 9, "w": 12, "x": 0, "y": y}, unit="dBm",
-        legend_calcs=["lastNotNull", "min", "max"],
-        description="Hourly-smoothed. Widen the time range to see the "
-                    "long-horizon trend an alert fired on."))
-    p.append(timeseries(
-        "TX power — $switch / $port",
-        [target(tx + sel, "{{device}} {{ifname}} TX")],
-        {"h": 9, "w": 12, "x": 12, "y": y}, unit="dBm",
-        legend_calcs=["lastNotNull", "min", "max"],
-        description="Hourly-smoothed. TX fading = the laser itself aging."))
-    y += 9
-    p.append(timeseries(
-        "30-day drift — $switch / $port", [
-            target(f'avg_over_time({rx}{sel}[24h])'
-                   f' - avg_over_time({rx}{sel}[24h] offset 30d)',
-                   "{{device}} {{ifname}} RX", "A"),
-            target(f'avg_over_time({tx}{sel}[24h])'
-                   f' - avg_over_time({tx}{sel}[24h] offset 30d)',
-                   "{{device}} {{ifname}} TX", "B"),
-        ], {"h": 9, "w": 12, "x": 0, "y": y}, unit="dB",
-        description="dB change against the same lane 30 days earlier — the "
-                    "series the *Degraded30d alerts watch (threshold "
-                    "-2 dB)."))
-    p.append(timeseries(
-        "Optic temperature — $switch / $port",
-        [target(
-            'label_replace(max by (entPhysicalIndex, entPhysicalName, host) '
-            '(entPhySensorValue{host=~"($switch).%s", '
-            'entPhysicalName=~"DOM Temperature Sensor for ($port)"}) / 10, '
-            '"ifname", "$1", "entPhysicalName", '
-            '"DOM Temperature Sensor for (.+)")' % DOMAIN,
-            "{{ifname}}")],
-        {"h": 9, "w": 12, "x": 12, "y": y}, unit="celsius",
-        description="Module temperature — power readings are "
-                    "temperature-sensitive, so check this before blaming "
-                    "the fiber."))
-    y += 9
-
     templ = [
         {"name": "switch", "label": "Switch", "type": "query",
          "datasource": DATASOURCE,
@@ -1015,25 +1000,257 @@ def optics_dashboard():
                    "refId": "switch"},
          "refresh": 2, "sort": 1, "multi": False, "includeAll": True,
          "allValue": ".*", "current": {"text": "All", "value": "$__all"}},
-        {"name": "port", "label": "Port", "type": "query",
-         "datasource": DATASOURCE,
-         "query": {"query": f'label_values({rx}{{device=~"$switch"}}, ifname)',
-                   "refId": "port"},
-         "refresh": 2, "sort": 1, "multi": False, "includeAll": True,
-         "allValue": ".*", "current": {"text": "All", "value": "$__all"}},
     ]
     d = dashboard(
         OPTICS_UID, "Optical Degradation", p, templating=templ,
-        description="Slow-loss trending of every DOM lane, RX and TX: drift "
-                    "against each lane's own 7/30-day baseline plus a 90-day "
-                    "projection of the 30-day slope. The optics alert rules "
-                    "deep-link here with the switch/port pre-selected. "
+        description="Fleet triage for slow optic loss, RX and TX: drift "
+                    "against each lane's own 30-day baseline plus a 90-day "
+                    "projection of the 30-day slope. Click a port for its "
+                    "Optic Lane detail (where the optics alerts land). "
                     "Generated by gen_nms_dashboards.py — edits will be "
                     "overwritten.")
     d["time"] = {"from": "now-30d", "to": "now"}
     d["links"] = [{"title": "Switch View", "type": "link", "icon": "bolt",
                    "url": "/d/sfmix-switch-view/switch-view",
                    "keepTime": False}]
+    return d
+
+
+# ── Optic Lane dashboard (single switch + lane; alert landing page) ──
+#
+# Every query is pinned to device="$switch" and one lane, and neither
+# variable offers "All" — this page must never fan out to the fleet.
+#
+# $cage is a hidden variable derived from $port (Ethernet5/3 -> Ethernet5)
+# for two things:
+#   * sibling lanes of the same optic — one lane fading vs. the whole
+#     module/fiber tells you laser vs. connector;
+#   * the OWNING interface. Lanes of a non-breakout multi-lane optic
+#     (Et5/2..4) have no ifOperStatus/counters of their own; they belong
+#     to <cage>/1, the same mapping as the sfmix:optic_*_dbm:1h rules.
+
+
+def _owner(tmpl):
+    """`tmpl` (with {SEL} as the selector) for the lane's owning interface:
+    $port itself when it is an interface, else $cage/1."""
+    a = tmpl.replace("{SEL}", '{device="$switch", ifname="$port"}')
+    b = tmpl.replace("{SEL}", '{device="$switch", ifname="$cage/1"}')
+    return f'({a}) or (({b}) unless on (device) ({a}))'
+
+
+def _istat(title, expr, grid, unit="none", decimals=None, thresholds=None,
+           mappings=None, description="", legend="", text_mode="value"):
+    """Instant-query stat — evaluated once, not across the 30-90d range."""
+    s = stat(title, expr, grid, unit=unit, decimals=decimals,
+             thresholds=thresholds, mappings=mappings,
+             description=description)
+    s["targets"][0].update(instant=True, range=False, legendFormat=legend)
+    s["options"].update(graphMode="none", textMode=text_mode)
+    return s
+
+
+def _threshold_lines(panel, steps):
+    """Draw alert thresholds as dashed lines on a timeseries panel."""
+    dflt = panel["fieldConfig"]["defaults"]
+    dflt["thresholds"] = {"mode": "absolute", "steps": steps}
+    dflt["custom"]["thresholdsStyle"] = {"mode": "dashed"}
+    return panel
+
+
+def optic_lane_dashboard():
+    rx, tx = "sfmix:optic_rx_dbm:1h", "sfmix:optic_tx_dbm:1h"
+    sel = '{device="$switch", ifname="$port"}'
+    sibs = '{device="$switch", ifname=~"$cage(/[0-9]+)?"}'
+    drift_steps = {
+        30: [{"color": "transparent", "value": None},
+             {"color": "#e0226e", "value": -2}],
+        7: [{"color": "transparent", "value": None},
+            {"color": "#e0226e", "value": -3}],
+    }
+    p = []
+    y = 0
+
+    # ── headline: who is on the port + where the lane stands now
+    p.append(_istat(
+        "Port", _owner("max by (ifname, ifAlias) (ifOperStatus{SEL})"),
+        {"h": 4, "w": 6, "x": 0, "y": y}, legend="{{ifname}} — {{ifAlias}}",
+        text_mode="value_and_name",
+        mappings=[{"type": "value", "options": {
+            "1": {"color": C_UP, "text": "up"},
+            "2": {"color": C_DOWN, "text": "down"}}}],
+        description="Owning interface and its link state. A bare lane of a "
+                    "multi-lane optic (e.g. Et5/3) reports its <cage>/1 "
+                    "interface."))
+    x = 6
+    for t, metric in (("RX", rx), ("TX", tx)):
+        p.append(_istat(f"{t} now", f'{metric}{sel}',
+                        {"h": 4, "w": 3, "x": x, "y": y}, unit="dBm",
+                        decimals=2, description="Hourly-smoothed."))
+        x += 3
+    for t, metric in (("RX", rx), ("TX", tx)):
+        p.append(_istat(
+            f"{t} Δ 30d",
+            f'avg_over_time({metric}{sel}[24h])'
+            f' - avg_over_time({metric}{sel}[24h] offset 30d)',
+            {"h": 4, "w": 3, "x": x, "y": y}, unit="dB", decimals=2,
+            thresholds=[{"color": "#e0226e", "value": None},
+                        {"color": "#e8a33d", "value": -2},
+                        {"color": "#3d9950", "value": -1}],
+            description="24h average now minus 30 days ago — the "
+                        "*Degraded30d alerts fire below -2 dB."))
+        x += 3
+    for t, metric in (("RX", rx), ("TX", tx)):
+        p.append(_istat(
+            f"{t} 90d projection",
+            f'predict_linear({metric}{sel}[30d], 90 * 86400)'
+            f' - avg_over_time({metric}{sel}[6h])',
+            {"h": 4, "w": 3, "x": x, "y": y}, unit="dB", decimals=2,
+            thresholds=[{"color": "#e0226e", "value": None},
+                        {"color": "#e8a33d", "value": -3},
+                        {"color": "#3d9950", "value": -1}],
+            description="30-day slope projected 90 days out — the "
+                        "*ProjectedLoss alerts fire below -3 dB."))
+        x += 3
+    y += 4
+
+    # ── power trend
+    p.append(timeseries(
+        "RX power", [target(rx + sel, "{{ifname}} RX")],
+        {"h": 9, "w": 12, "x": 0, "y": y}, unit="dBm",
+        legend_calcs=["lastNotNull", "min", "max"],
+        description="Hourly-smoothed. Widen the time range to see the "
+                    "long-horizon trend an alert fired on."))
+    p.append(timeseries(
+        "TX power", [target(tx + sel, "{{ifname}} TX")],
+        {"h": 9, "w": 12, "x": 12, "y": y}, unit="dBm",
+        legend_calcs=["lastNotNull", "min", "max"],
+        description="Hourly-smoothed. TX fading = the laser itself aging."))
+    y += 9
+
+    # ── drift — exactly the series the alerts evaluate
+    for i, days in enumerate((30, 7)):
+        p.append(_threshold_lines(timeseries(
+            f"{days}-day drift", [
+                target(f'avg_over_time({rx}{sel}[24h])'
+                       f' - avg_over_time({rx}{sel}[24h] offset {days}d)',
+                       "RX", "A"),
+                target(f'avg_over_time({tx}{sel}[24h])'
+                       f' - avg_over_time({tx}{sel}[24h] offset {days}d)',
+                       "TX", "B"),
+            ], {"h": 8, "w": 12, "x": 12 * i, "y": y}, unit="dB",
+            legend_calcs=["lastNotNull", "min"],
+            description=(
+                "24h average vs. the same lane 30 days earlier — the "
+                "*Degraded30d alerts (dashed line, -2 dB)." if days == 30
+                else "24h average vs. a week earlier — the *DegradedFast "
+                     "alerts (dashed line, -3 dB).")),
+            drift_steps[days]))
+    y += 8
+
+    # ── every lane on the same optic
+    for i, (t, metric) in enumerate((("RX", rx), ("TX", tx))):
+        p.append(timeseries(
+            f"{t} — all lanes on this optic ($cage)",
+            [target(metric + sibs, "{{ifname}}")],
+            {"h": 8, "w": 12, "x": 12 * i, "y": y}, unit="dBm",
+            legend_calcs=["lastNotNull", "min"],
+            description="One lane fading alone points at that lane's laser "
+                        "or receiver; every lane moving together points at "
+                        "the connector, the fiber, or the module."))
+    y += 8
+
+    # ── module + link context
+    p.append(timeseries(
+        "Optic temperature",
+        [target('max by (entPhysicalName) (entPhySensorValue{'
+                'device="$switch", entPhysicalName=~"DOM Temperature Sensor '
+                'for ($port|$cage|$cage/1)"}) / 10', "{{entPhysicalName}}")],
+        {"h": 8, "w": 12, "x": 0, "y": y}, unit="celsius",
+        legend_calcs=["lastNotNull", "min", "max"],
+        description="Module temperature — power readings are "
+                    "temperature-sensitive, so check this before blaming "
+                    "the fiber."))
+    link = {
+        "type": "state-timeline", "title": "Link state",
+        "description": "Owning interface's ifOperStatus. Any change in the "
+                       "last 31 days suppresses the drift alerts (a flap "
+                       "means a step, not drift).",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": y},
+        "datasource": DATASOURCE,
+        "targets": [target(
+            _owner("max by (ifname) (ifOperStatus{SEL})"), "{{ifname}}")],
+        "fieldConfig": {"defaults": {
+            "color": {"mode": "thresholds"},
+            "mappings": [{"type": "value", "options": {
+                "1": {"color": C_UP, "text": "up"},
+                "2": {"color": C_DOWN, "text": "down"}}}],
+            "thresholds": {"mode": "absolute", "steps": [
+                {"color": C_OTHER, "value": None}]}},
+            "overrides": []},
+        "options": {"showValue": "never", "mergeValues": True,
+                    "rowHeight": 0.8, "legend": {"showLegend": False}},
+    }
+    p.append(link)
+    y += 8
+
+    # ── traffic + errors on the owning interface
+    p.append(timeseries("Traffic", [
+        target(_owner("rate(ifHCInOctets{SEL}[$__rate_interval]) * 8"),
+               "in", "A"),
+        target(_owner("rate(ifHCOutOctets{SEL}[$__rate_interval]) * 8"),
+               "out", "B"),
+    ], {"h": 8, "w": 12, "x": 0, "y": y}, unit="bps"))
+    p.append(timeseries("Errors / discards", [
+        target(_owner("rate(ifInErrors{SEL}[$__rate_interval])"),
+               "in errors", "A"),
+        target(_owner("rate(ifOutErrors{SEL}[$__rate_interval])"),
+               "out errors", "B"),
+        target(_owner("rate(ifInDiscards{SEL}[$__rate_interval])"),
+               "in discards", "C"),
+        target(_owner("rate(ifOutDiscards{SEL}[$__rate_interval])"),
+               "out discards", "D"),
+    ], {"h": 8, "w": 12, "x": 12, "y": y}, unit="pps",
+        description="Input errors (FCS) climbing as RX fades means the "
+                    "receiver is already at its sensitivity edge."))
+    y += 8
+
+    templ = [
+        {"name": "switch", "label": "Switch", "type": "query",
+         "datasource": DATASOURCE,
+         "query": {"query": f'label_values({rx}, device)',
+                   "refId": "switch"},
+         "refresh": 2, "sort": 1, "multi": False, "includeAll": False},
+        {"name": "port", "label": "Lane", "type": "query",
+         "datasource": DATASOURCE,
+         "query": {"query": f'label_values({rx}{{device="$switch"}}, ifname)',
+                   "refId": "port"},
+         "refresh": 2, "sort": 1, "multi": False, "includeAll": False},
+        # Optic cage of $port: Ethernet5/3 -> Ethernet5, Ethernet49 as-is.
+        {"name": "cage", "type": "query", "hide": 2,
+         "datasource": DATASOURCE,
+         "query": {"query": f'label_values({rx}{{device="$switch", '
+                            f'ifname="$port"}}, ifname)',
+                   "refId": "cage"},
+         "regex": r"/^(.+?)(?:\/[0-9]+)?$/",
+         "refresh": 2, "multi": False, "includeAll": False},
+    ]
+    d = dashboard(
+        OPTIC_LANE_UID, "Optic Lane", p, templating=templ,
+        description="One optic lane in depth: RX/TX power, the drift and "
+                    "projection series the optics alerts evaluate, sibling "
+                    "lanes, module temperature, and the owning interface's "
+                    "link state, traffic and errors. The optics alerts "
+                    "deep-link here. Generated by gen_nms_dashboards.py — "
+                    "edits will be overwritten.")
+    d["time"] = {"from": "now-30d", "to": "now"}
+    d["links"] = [
+        {"title": "Optical Degradation (fleet)", "type": "link",
+         "icon": "bolt", "url": f"/d/{OPTICS_UID}/optical-degradation"
+                                "?var-switch=${switch}",
+         "keepTime": True},
+        {"title": "Switch View", "type": "link", "icon": "bolt",
+         "url": "/d/sfmix-switch-view/switch-view?var-switch=${switch}",
+         "keepTime": False}]
     return d
 
 
@@ -1462,7 +1679,7 @@ def main():
     mirror_faceplate_images([d["model"] for d, _ in devices_ifnames])
 
     dashboards = [participant_dashboard(), switch_view_dashboard(),
-                  optics_dashboard(),
+                  optics_dashboard(), optic_lane_dashboard(),
                   front_panels_dashboard(devices_ifnames),
                   pdu_dashboard(), pdu_outlets_dashboard()]
     # Alert landing pages (Loki log views + TLS) — see nms_alert_dashboards.py.

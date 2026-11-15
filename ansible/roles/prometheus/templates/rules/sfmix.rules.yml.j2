@@ -220,9 +220,10 @@ groups:
   # The 30d alerts self-gate on history (the offset window is empty until
   # 30 days of data exist); the projection alerts gate explicitly on ≥14d
   # of samples so a few days of noisy slope can't fire them.
-  # `dashboard` deep-links into the Optical Degradation dashboard with the
-  # switch/port pre-selected and a 90-day window — wire it into the
-  # Alertmanager notification template when Alertmanager lands.
+  # `dashboard` (the Slack "Dashboard" button) deep-links into the
+  # single-lane Optic Lane dashboard with switch/port pre-selected — NOT
+  # the fleet Optical Degradation dashboard, which is far too heavy to
+  # load just to look at one port.
   # 5m: every alert here holds `for` 2h-6h, so the 15s global interval buys
   # nothing and the 30d predict_linear across ~660 lanes costs ~13s per eval.
   - name: sfmix-optics-alerts
@@ -248,7 +249,7 @@ groups:
             contamination, a stressed fiber, or far-end laser aging — clean
             and re-seat before it reaches the receiver floor.
           dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+            https://grafana.sfmix.org/d/sfmix-optic-lane/optic-lane?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
       - alert: OpticTxPowerDegraded30d
         expr: >
           (
@@ -268,7 +269,7 @@ groups:
             (24h averages). TX loss is the laser itself aging — plan an optic
             swap; the far end sees this as their RX degrading.
           dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+            https://grafana.sfmix.org/d/sfmix-optic-lane/optic-lane?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
       - alert: OpticRxPowerDegradedFast
         expr: >
           (
@@ -288,7 +289,7 @@ groups:
             (24h averages) — faster than aging explains. Check for a bent or
             pinched patch, recent physical work, or a failing far-end laser.
           dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-30d&to=now
+            https://grafana.sfmix.org/d/sfmix-optic-lane/optic-lane?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-30d&to=now
       - alert: OpticTxPowerDegradedFast
         expr: >
           (
@@ -307,7 +308,7 @@ groups:
             dropped {{ printf "%.1f" $value }} dB against last week
             (24h averages) — a laser fading this fast is close to failing.
           dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-30d&to=now
+            https://grafana.sfmix.org/d/sfmix-optic-lane/optic-lane?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-30d&to=now
       - alert: OpticRxPowerProjectedLoss
         expr: >
           (
@@ -329,7 +330,7 @@ groups:
             this port to the cleaning list for the next visit to
             {{ $labels.site }}.
           dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+            https://grafana.sfmix.org/d/sfmix-optic-lane/optic-lane?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
       - alert: OpticTxPowerProjectedLoss
         expr: >
           (
@@ -350,5 +351,5 @@ groups:
             {{ printf "%.1f" $value }} dB within 90 days — stage a spare
             optic for the next visit to {{ $labels.site }}.
           dashboard: >-
-            https://grafana.sfmix.org/d/sfmix-optics/optical-degradation?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
+            https://grafana.sfmix.org/d/sfmix-optic-lane/optic-lane?var-switch={{ $labels.device }}&var-port={{ $labels.ifname }}&from=now-90d&to=now
 {% endraw %}
