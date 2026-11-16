@@ -1,0 +1,76 @@
+{#
+  mgmt-gw routing (design doc 015). OSPF/OSPFv3 area 0 enabled per
+  interface (no `network` statements):
+    lo, LAN            passive (LAN cost 1)
+    VLAN 200 (fabric)  cost 10
+    WireGuard tunnels  cost 20  (backup to the fabric)
+  No router originates a default into OSPF (doc 011). Each gw's default is
+  a static via its own OOB uplink.
+#}
+{% set gw = mgmt_gw[inventory_hostname] %}
+{% set n = gw.id %}
+{% set me = inventory_hostname %}
+{% set hubs = mgmt_gw_wireguard_hubs %}
+{% set wg = [] %}
+{% for hub in hubs %}
+{%   if me == hub %}
+{%     for other in mgmt_gw | dict2items | map(attribute='key') | reject('equalto', me) %}
+{%       set _ = wg.append('wg%d%d' % (gw.id, mgmt_gw[other].id)) %}
+{%     endfor %}
+{%   elif me not in hubs %}
+{%     set _ = wg.append('wg%d%d' % (mgmt_gw[hub].id, n)) %}
+{%   endif %}
+{% endfor %}
+{% set vif200 = gw.trunk ~ '.200' %}
+delete protocols ospf
+set protocols ospf parameters router-id '10.{{ n }}.0.0'
+set protocols ospf interface lo area '0'
+set protocols ospf interface lo passive
+set protocols ospf interface {{ gw.lan }} area '0'
+set protocols ospf interface {{ gw.lan }} cost '1'
+set protocols ospf interface {{ gw.lan }} passive
+set protocols ospf interface {{ vif200 }} area '0'
+set protocols ospf interface {{ vif200 }} cost '10'
+{% for t in wg %}
+set protocols ospf interface {{ t }} area '0'
+set protocols ospf interface {{ t }} cost '20'
+{% endfor %}
+{% for i in gw.ospf_extra_passive | default([]) %}
+set protocols ospf interface {{ i }} area '0'
+set protocols ospf interface {{ i }} passive
+{% endfor %}
+{% if gw.ospf_redistribute_static_route_map is defined %}
+set protocols ospf redistribute static metric-type '2'
+set protocols ospf redistribute static route-map '{{ gw.ospf_redistribute_static_route_map }}'
+{% endif %}
+
+delete protocols ospfv3
+set protocols ospfv3 parameters router-id '10.{{ n }}.0.0'
+set protocols ospfv3 interface lo area '0'
+set protocols ospfv3 interface lo cost '1'
+set protocols ospfv3 interface lo passive
+set protocols ospfv3 interface {{ gw.lan }} area '0'
+set protocols ospfv3 interface {{ gw.lan }} cost '1'
+set protocols ospfv3 interface {{ gw.lan }} passive
+set protocols ospfv3 interface {{ vif200 }} area '0'
+set protocols ospfv3 interface {{ vif200 }} cost '10'
+{% for t in wg %}
+set protocols ospfv3 interface {{ t }} area '0'
+set protocols ospfv3 interface {{ t }} cost '20'
+{% endfor %}
+{% for i in gw.ospf_extra_passive | default([]) %}
+set protocols ospfv3 interface {{ i }} area '0'
+set protocols ospfv3 interface {{ i }} passive
+{% endfor %}
+
+delete protocols static route 0.0.0.0/0
+set protocols static route 0.0.0.0/0 next-hop {{ gw.wan_v4_gw }}
+{% if gw.wan_v6_gw is defined %}
+delete protocols static route6 ::/0
+set protocols static route6 ::/0 next-hop {{ gw.wan_v6_gw }}
+{% endif %}
+
+{# IPv4 egress: masquerade to the OOB uplink address. #}
+delete nat source
+set nat source rule 10 outbound-interface name '{{ gw.wan }}'
+set nat source rule 10 translation address 'masquerade'

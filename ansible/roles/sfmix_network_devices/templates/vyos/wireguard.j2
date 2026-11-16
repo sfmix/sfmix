@@ -1,0 +1,42 @@
+{#
+  mgmt-gw WireGuard hub-and-spoke (design doc 015). Each non-hub gw has one
+  tunnel to each hub in mgmt_gw_wireguard_hubs:
+    wg<hub id><spoke id>, port 520<hub id><spoke id>,
+    10.255.<hub id>.(4*spoke+1)/30 at the hub, .(4*spoke+2) at the spoke.
+  The hub<->hub tunnel is numbered from the first hub at both ends.
+  Keys are never templated: private keys stay on the box, peer public keys
+  are set by hand when a tunnel is created.
+#}
+{% set me = inventory_hostname %}
+{% set hubs = mgmt_gw_wireguard_hubs %}
+{% macro tunnel(ifname, local_ip, port, peer) -%}
+{%   set p = mgmt_gw[peer] %}
+{%   set site = peer.split('.')[1] %}
+delete interfaces wireguard {{ ifname }} address
+set interfaces wireguard {{ ifname }} address '{{ local_ip }}/30'
+set interfaces wireguard {{ ifname }} description '{{ site }}'
+set interfaces wireguard {{ ifname }} port '{{ port }}'
+set interfaces wireguard {{ ifname }} peer {{ site }} address '{{ p.wan_v4.split('/')[0] }}'
+set interfaces wireguard {{ ifname }} peer {{ site }} port '{{ port }}'
+set interfaces wireguard {{ ifname }} peer {{ site }} allowed-ips '0.0.0.0/0'
+set interfaces wireguard {{ ifname }} peer {{ site }} allowed-ips '::/0'
+{%- endmacro %}
+{% for hub in hubs %}
+{%   set h = mgmt_gw[hub].id %}
+{%   if me == hub %}
+{%     for spoke in mgmt_gw | dict2items | map(attribute='key') | reject('equalto', me) %}
+{%       set s = mgmt_gw[spoke].id %}
+{%       if spoke in hubs and hubs.index(spoke) < hubs.index(me) %}
+{#         hub<->hub: numbered by the first hub; this is the second. #}
+{%         set a = mgmt_gw[spoke].id %}
+{{ tunnel('wg%d%d' % (h, a), '10.255.%d.%d' % (a, 4 * h + 2), '520%d%d' % (a, h), spoke) }}
+{%       else %}
+{{ tunnel('wg%d%d' % (h, s), '10.255.%d.%d' % (h, 4 * s + 1), '520%d%d' % (h, s), spoke) }}
+{%       endif %}
+
+{%     endfor %}
+{%   elif me not in hubs %}
+{{ tunnel('wg%d%d' % (h, mgmt_gw[me].id), '10.255.%d.%d' % (h, 4 * mgmt_gw[me].id + 2), '520%d%d' % (h, mgmt_gw[me].id), hub) }}
+
+{%   endif %}
+{% endfor %}

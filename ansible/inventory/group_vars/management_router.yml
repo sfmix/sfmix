@@ -3,19 +3,187 @@ ansible_connection: ansible.netcommon.network_cli
 ansible_network_os: vyos.vyos.vyos
 ansible_python_interpreter: auto_silent # don't issue warning about auto-detected ansible_python_interpreter under VyOS
 
-# Uplink (internet / OOB transit) interface per mgmt-gw: the only untrusted
-# interface. vyos/firewall.j2 puts it in the WAN interface-group; everything
-# else (mgmt LAN, WireGuard, transport VLAN) stays trusted. See doc 010.
-mgmt_gw_wan_interface:
-  mgmt-gw.sfo01: eth0.50
-  mgmt-gw.sfo02: eth2.31
-  mgmt-gw.fmt01: eth1
-  mgmt-gw.sjc01: eth1
-  mgmt-gw.scl01: eth1
-  mgmt-gw.scl02: eth1
-  mgmt-gw.scl04: eth1
-  mgmt-gw.scl05: eth0
-  mgmt-gw.sjc02: eth1
+# Template parts (roles/sfmix_network_devices/templates/vyos/<part>.j2), in
+# push order.
+mgmt_gw_config_parts:
+  - interfaces
+  - wireguard
+  - routing
+  - firewall
+  - general
+
+# Per-gateway facts that cannot be derived (design doc 015). Everything else
+# is computed in the vyos/*.j2 templates from `id` (the NetBox site_id, the N
+# in 10.N.0.0/16):
+#   loopback 10.N.0.0/32 + 2620:11a:b00f:N00::/128
+#   LAN      10.N.1.1/24 + 2620:11a:b00f:N01::1/64
+#   VLAN 200 10.255.200.10N/24 + 2620:11a:b00f:fffe::10N/64 on `trunk`
+#   WireGuard to each hub in mgmt_gw_wireguard_hubs
+#
+# trunk: port facing the exchange fabric (VLAN 200 MGMT-PEERING, later 202
+#        MGMT-INTERNET). Cabling differs per site; *_peer is from LLDP.
+# lan:   mgmt LAN interface (switches, PDUs, consoles, Proxmox).
+# wan:   OOB internet uplink, the only untrusted interface (WAN group in
+#        firewall.j2). wan_v4/wan_v6 are the addresses; *_gw the next hops.
+# release: VyOS build; sfmix-3 renamed some syslog nodes.
+mgmt_gw:
+  mgmt-gw.sfo01:
+    id: 0
+    release: sfmix-2
+    trunk: eth0
+    trunk_peer: switch01.sfo01:Ethernet4
+    lan: eth1
+    lan_peer: switch01.sfo01:Management1 (flat, no mgmt-switch)
+    wan: eth0.50
+    wan_descr: 'OOB Transit (via switch): Telx Circuit ID: IPSH-DLR00627385 (marked DLR?)'
+    wan_v4: 192.235.122.10/29
+    wan_v4_gw: 192.235.122.9
+  mgmt-gw.sfo02:
+    id: 1
+    release: sfmix-2
+    dns_forwarders: []  # recurses itself; works fine
+    trunk: eth0
+    trunk_peer: switch02.sfo02:Ethernet7/1
+    lan: eth2.20
+    lan_peer: mgmt-switch.sfo02:ge-0/0/24
+    lan_legacy_v4: 100.64.0.1/24
+    # Stretched VXLAN mgmt segment shared with fmt01 (br210, VRRP).
+    ospf_extra_passive: [br210]
+    # sFlow collector 100.100.100.102 (static via 10.1.1.14) into OSPF.
+    ospf_redistribute_static_route_map: redistribute-static
+    wan: eth2.31
+    wan_descr: 'Transit: Telx CID:TELXDIA00186269'
+    wan_v4: 198.35.53.243/29
+    wan_v4_gw: 198.35.53.241
+    wan_v6_autoconf: true
+  mgmt-gw.fmt01:
+    id: 2
+    release: sfmix-2
+    trunk: eth0
+    trunk_peer: switch03.fmt01:Ethernet5/1
+    lan: eth2
+    lan_peer: mgmt-switch.fmt01:ge-0/0/12
+    lan_legacy_v4: 100.64.1.1/24
+    ospf_extra_passive: [br210]
+    wan: eth1
+    wan_descr: 'Transit: Hurricane Electric OOB'
+    wan_v4: 64.71.188.18/29
+    wan_v4_gw: 64.71.188.17
+    # HE never answers ND on this /64 (doc 011); the static ::/0 blackholes.
+    wan_v6: 2001:470:0:321::2/64
+    wan_v6_gw: 2001:470:0:321::1
+  mgmt-gw.sjc01:
+    id: 3
+    release: sfmix-2
+    trunk: eth0
+    # switch02.sjc01 is retired; needs a new port on switch03/04.sjc01.
+    trunk_peer: switch02.sjc01:Ethernet11/1 (DOWN)
+    lan: eth2
+    lan_peer: mgmt-switch.sjc01:ge-0/0/0
+    wan: eth1
+    wan_descr: 'Transit: Softcom OOB'
+    wan_v4: 173.243.64.202/29
+    wan_v4_gw: 173.243.64.201
+  mgmt-gw.scl01:
+    id: 4
+    release: sfmix-2
+    trunk: eth0
+    trunk_peer: switch01.scl01:Ethernet48
+    lan: eth2
+    lan_peer: mgmt-switch.scl01
+    wan: eth1
+    wan_descr: 'Transit: OOB Internet from QTS'
+    wan_v4: 205.234.25.36/28
+    wan_v4_gw: 205.234.25.33
+  mgmt-gw.scl02:
+    id: 5
+    release: sfmix-2
+    trunk: eth0
+    trunk_peer: switch01.scl02:Ethernet48
+    lan: eth2
+    lan_peer: mgmt-switch.scl02:ge-0/0/0
+    wan: eth1
+    wan_descr: 'Transit: OOB Internet from Comfluent (CoreSite SV4)'
+    wan_v4: 66.128.149.4/29
+    wan_v4_gw: 66.128.149.1
+    wan_v6: 2605:6c00:2000:2d::100/64
+    wan_v6_gw: 2605:6c00:2000:2d::1
+  mgmt-gw.scl04:
+    id: 6
+    release: sfmix-2
+    trunk: eth0
+    # VLAN 200 transits the mgmt-switch here (uplink module port), not a
+    # direct fabric switch port.
+    trunk_peer: mgmt-switch.scl04:ge-0/2/2
+    lan: eth2
+    lan_peer: mgmt-switch.scl04:ge-0/0/0
+    wan: eth1
+    wan_descr: 'Transit: OpenColo (Energy Group Networks LLC)'
+    wan_v4: 50.117.26.130/29
+    wan_v4_gw: 50.117.26.129
+  mgmt-gw.sjc02:
+    id: 7
+    release: sfmix-3
+    trunk: eth0
+    trunk_peer: switch01.sjc02:Ethernet48
+    lan: eth2
+    lan_peer: mgmt-switch.sjc02:ge-0/0/0
+    wan: eth1
+    wan_descr: 'Transit: OOB Internet from CoreSite {SVC-001887719}'
+    wan_v4: 66.128.149.164/29
+    wan_v4_gw: 66.128.149.161
+    wan_v6: 2605:6c00:2000:4d::100/64
+    wan_v6_gw: 2605:6c00:2000:4d::1
+    dns_forwarders: [4.2.2.2, 9.9.9.9]
+  mgmt-gw.scl05:
+    id: 8
+    release: sfmix-3
+    # The only gw with the uplink on eth0; eth1 is the fabric trunk (DOWN).
+    trunk: eth1
+    trunk_peer: switch01.scl05 (DOWN)
+    lan: eth2
+    lan_peer: mgmt-switch.scl05:ge-0/0/3
+    wan: eth0
+    wan_descr: 'Transit: Digital Realty/Telx'
+    wan_v4: 198.24.47.162/28
+    wan_v4_gw: 198.24.47.161
+
+# WireGuard hubs. Every other gw has one tunnel to each hub:
+#   wg<hub id><spoke id>, port 520<hub id><spoke id>,
+#   10.255.<hub id>.(4*spoke+1)/30 at the hub, .(4*spoke+2) at the spoke.
+# The hub<->hub tunnel uses the sfo02 numbering (wg12 / 52012 /
+# 10.255.1.8/30) at both ends; fmt01 calls it wg21.
+mgmt_gw_wireguard_hubs:
+  - mgmt-gw.sfo02
+  - mgmt-gw.fmt01
+
+# Local accounts besides admin (vault password) and oxidized (vault keys).
+# Key-only; per-user passwords are left alone. `only_on` limits a user to
+# some gws.
+mgmt_gw_login_users:
+  - username: jof
+    keys:
+      - name: jof@ash
+        type: ssh-ed25519
+        key: AAAAC3NzaC1lZDI1NTE5AAAAIOuY6EvHXYsIUze58ezF6wiExe64t1+8r2Mk5AYC+YM+
+  - username: pozar
+    full_name: Tim Pozar
+    keys:
+      - name: pozar@lns.com
+        type: ssh-rsa
+        key: AAAAB3NzaC1yc2EAAAADAQABAAACAQDhqJlzx+FJrgSdQk9wJtpdKWbF/h13XNV54RCmbtnfFxOXW1uEmX7RxjLFkh+Uu4YsPFyBk/sh972zAviywTPjOUDErgSPYxQZPlgpCsra50K0RulcaahHNWbfWl0O/kOQeu1VUAs92ozYYp/3YT//WYcbircFUVzH98EIk1IiTF9fyqkLPsjpuMW2W/vAFgV2wBKkS+5MjuPXLxL5OkaUlTnHnNAOoidVdunqruMtNsmgSxYFSCTD/4HvmrOGrXq15tKSQ+jJ7oq8JwUwEcPONxvxy8/O+ZjhTQokp/3NHGk+Fz4sZB5FiQHEsDk3WhGO3nad5rZ5KkltMRwHyGPT020FPNYd7ackMeH7hmASHJJDfJu8+VEXm7aNDc+rDMVL65cc0ru0SdcE8zd2Yv3UxZh0hv/Pw1MGQ+uVj6tcQ2XGnwBvKXCjaWrIKjKygGE8Dmk/mXvD8txBkrVAGvsFBAK+FA5AE8Ui8v66Pu3Oh+TrUHXXhPt8IRBLs73eON56R5GDZ8zzaRJKcAhKbSkMWo0+3MKc3xFoWsZFYw2L9TKYU6g/VgY518VBoUNQU6auk6grd8zMwxO5SoJLrx8iBsUjY9ujtFb6TGS8Bp6EEU2iSH/hb3pfr3Kn+T1XK3r4Mml1BGglKrHxDo+ZGT0geVyMsZ1vSvbZHzbdrZHVyw==
+  - username: matt
+    only_on: [mgmt-gw.scl01, mgmt-gw.sjc02]
+    keys:
+      - name: matt
+        type: ssh-rsa
+        key: AAAAB3NzaC1yc2EAAAADAQABAAACAQD31qHeGDGkvXMUdpf2nmWhyqnQyBKiTPr+cq5P17uUc1qcyA1M3VfdZupYeyyoLKCaMTzxpREFKLzu6j/+DGeLE/wScKa1+x/+mkRLN5DkYaMUCYlSGDsKXxPNHM2XHFCif4gCYqVKPGMwBR/eSUnqKhWJhcLgKBTRKsbSrsjTewv6J6ZpwA7ApmJH6XCf93hm3nUZ3YLDj9nkv1af5Iw5DRJ0l2xDmmLhNY53q+04St9ALK8Far6eFfWuFdUySaEgaccirLn5UCDc8HGop8+2cEPusJPKm8yW6WuBXpbR48PLc39nSZOjzMFPnU7gx1iBD5jrRitgWdncdupdK28mixDDDH3XRS7zwjo4KVOJZO/vr53CRlxyOqWeXq7Oq2JOF64IZeYTWyHoXLNlkxF9ZmxsHhnz8KNgNgzpZPtLkGcYJcF04lQHQcO+nHuwpOTWhfDmCReex1AFL9QEXu1HbDs/CeRUj2a49rQaHzQwy1keinSLQ4HoPRg855T3kiKa3Yq1UZ7fgVA2nX4iCpKOaSeZhe97isYfyz1eh9qiMjG5AijqItLpo6UgaEbN4Gb+Oxr4z7kO68nS7U64LurCJonVXvYmzUyzMXDwOZZowwtWPMkORjQb9gxJG7xbhmYoJwsDtA9Z4i+dBAUv4ehsA8a11Yt0EE4OdspkVV2z2Q==
+
+# Upstream for the mgmt-gw's DNS service (empty = recurse itself, as sfo02
+# does). 192.33.255.3 (na-ix.net) has a source ACL: it answers every gw's
+# WAN address except sjc02's (REFUSED, 2026-11-16), so sjc02 overrides.
+mgmt_gw_dns_forwarders:
+  - 192.33.255.3
 
 # Sources allowed to query SNMP on the mgmt-gws (vyos/general.j2). Internal
 # only: the pollers are metrics (10.1.1.14) and LibreNMS (10.2.1.9). The legacy

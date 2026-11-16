@@ -1,0 +1,61 @@
+{#
+  mgmt-gw addressing (design doc 015). Owns the addresses and descriptions
+  of the loopback, the fabric trunk's VLAN 200, the mgmt LAN and the WAN
+  uplink. Other interface settings (speed, hw-id, unused ports) are left as
+  they are on the box.
+#}
+{% set gw = mgmt_gw[inventory_hostname] %}
+{% set n = gw.id %}
+{% macro descr(iface, text) -%}
+{%   if '.' in iface -%}
+set interfaces ethernet {{ iface.split('.')[0] }} vif {{ iface.split('.')[1] }} description '{{ text }}'
+{%-  else -%}
+set interfaces ethernet {{ iface }} description '{{ text }}'
+{%-  endif %}
+{%- endmacro %}
+{% macro addr_path(iface) -%}
+{%   if '.' in iface -%}
+interfaces ethernet {{ iface.split('.')[0] }} vif {{ iface.split('.')[1] }}
+{%-  else -%}
+interfaces ethernet {{ iface }}
+{%-  endif %}
+{%- endmacro %}
+delete interfaces loopback lo address
+set interfaces loopback lo address '10.{{ n }}.0.0/32'
+set interfaces loopback lo address '2620:11a:b00f:{{ '%04x' | format(n * 256) }}::/128'
+
+{# Fabric trunk: VLAN 200 MGMT-PEERING (mgmt-gw OSPF). #}
+{% if '.' not in gw.wan or gw.wan.split('.')[0] != gw.trunk %}
+set interfaces ethernet {{ gw.trunk }} description 'Core: {{ gw.trunk_peer }}'
+{% else %}
+set interfaces ethernet {{ gw.trunk }} description 'Core: {{ gw.trunk_peer }} (also carries WAN)'
+{% endif %}
+delete interfaces ethernet {{ gw.trunk }} vif 200 address
+set interfaces ethernet {{ gw.trunk }} vif 200 address '10.255.200.10{{ n }}/24'
+set interfaces ethernet {{ gw.trunk }} vif 200 address '2620:11a:b00f:fffe::10{{ n }}/64'
+set interfaces ethernet {{ gw.trunk }} vif 200 description 'Management Routers Peering'
+
+{# Mgmt LAN. #}
+{% if '.' in gw.lan %}
+set interfaces ethernet {{ gw.lan.split('.')[0] }} description 'Core: {{ gw.lan_peer }}'
+{{ descr(gw.lan, 'LAN') }}
+{% else %}
+{{ descr(gw.lan, 'LAN: ' ~ gw.lan_peer) }}
+{% endif %}
+delete {{ addr_path(gw.lan) }} address
+set {{ addr_path(gw.lan) }} address '10.{{ n }}.1.1/24'
+set {{ addr_path(gw.lan) }} address '2620:11a:b00f:{{ '%04x' | format(n * 256 + 1) }}::1/64'
+{% if gw.lan_legacy_v4 is defined %}
+set {{ addr_path(gw.lan) }} address '{{ gw.lan_legacy_v4 }}'
+{% endif %}
+
+{# OOB internet uplink. #}
+{{ descr(gw.wan, gw.wan_descr) }}
+delete {{ addr_path(gw.wan) }} address
+set {{ addr_path(gw.wan) }} address '{{ gw.wan_v4 }}'
+{% if gw.wan_v6 is defined %}
+set {{ addr_path(gw.wan) }} address '{{ gw.wan_v6 }}'
+{% endif %}
+{% if gw.wan_v6_autoconf | default(false) %}
+set {{ addr_path(gw.wan) }} ipv6 address autoconf
+{% endif %}

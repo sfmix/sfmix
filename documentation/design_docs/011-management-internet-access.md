@@ -77,7 +77,9 @@ mgmt-gw and not on the edges.
 
 ## mgmt-gw side (one template, per-site variables)
 
-1. `eth0.202` on VLAN 202 with the site's addresses (table below). It joins
+1. `<trunk>.202` on VLAN 202 with the site's addresses (table below); the
+   trunk is the port that already carries VLAN 200 (`eth0` everywhere except
+   scl05, see the table and doc 015). It joins
    the existing `WAN` interface group next to the OOB uplink, so the
    current `firewall.j2` chains apply unchanged (replies only, admin
    allowlist, rate-limited ping). Add to `WAN4/6_LOCAL`: BGP (tcp/179) and
@@ -91,7 +93,7 @@ mgmt-gw and not on the edges.
 4. IPv4: masquerade on **both** WAN interfaces. Normally the site appears as
    its own `192.33.255.1NN` (via VLAN 202 → edges); on fallback as the OOB
    ISP's address.
-5. IPv6: the site's `/56` is routed untranslated out `eth0.202`; the forward
+5. IPv6: the site's `/56` is routed untranslated out `<trunk>.202`; the forward
    chain allows replies only. On fallback, NAT66 masquerade on the OOB
    uplink where the ISP has IPv6; elsewhere there is simply no IPv6 default
    during fallback, so IPv6 fails fast instead of timing out.
@@ -116,19 +118,22 @@ this.
 N = management number (`10.N.0.0/16`, `lo` = `10.N.0.0`). OOB facts from
 the 2026-11-09 probe (below).
 
-| site | N | VLAN 202 v4 / v6 | site IPv6 /56 | ASN | OOB iface / ISP | OOB IPv6 → NAT66 fallback |
-|---|---|---|---|---|---|---|
-| sfo01 | 0 | .100 / ::100 | 2620:11a:b00f::/56 | 65100 | eth0.50 / Telx-DRT | none → v4-only |
-| sfo02 | 1 | .101 / ::101 | 2620:11a:b00f:100::/56 | 65101 | eth2.31 / DRT-Telx DIA | DRT router present, unconfirmed → ask DRT |
-| fmt01 | 2 | .102 / ::102 | 2620:11a:b00f:200::/56 | 65102 | eth1 / HE | configured but dead (HE ND) → v4-only until fixed |
-| sjc01 | 3 | .103 / ::103 | 2620:11a:b00f:300::/56 | 65103 | eth1 / SoftCom | none → v4-only |
-| scl01 | 4 | .104 / ::104 | 2620:11a:b00f:400::/56 | 65104 | eth1 / QTS | RAs present; take an address → NAT66 |
-| scl02 | 5 | .105 / ::105 | 2620:11a:b00f:500::/56 | 65105 | eth1 / Comfluent (CoreSite) | working → NAT66 |
-| scl04 | 6 | .106 / ::106 | 2620:11a:b00f:600::/56 | 65106 | eth1 / OpenColo | none → v4-only |
-| sjc02 | 7 | .107 / ::107 | 2620:11a:b00f:700::/56 | 65107 | eth1 / CoreSite | working → NAT66 |
-| scl05 | 8 | .108 / ::108 | 2620:11a:b00f:800::/56 | 65108 | eth0 / DRT-Telx | none → v4-only |
+| site | N | trunk (VLAN 200/202) | VLAN 202 v4 / v6 | site IPv6 /56 | ASN | OOB iface / ISP | OOB IPv6 → NAT66 fallback |
+|---|---|---|---|---|---|---|---|
+| sfo01 | 0 | eth0 (WAN shares it) | .100 / ::100 | 2620:11a:b00f::/56 | 65100 | eth0.50 / Telx-DRT | none → v4-only |
+| sfo02 | 1 | eth0 | .101 / ::101 | 2620:11a:b00f:100::/56 | 65101 | eth2.31 / DRT-Telx DIA | DRT router present, unconfirmed → ask DRT |
+| fmt01 | 2 | eth0 | .102 / ::102 | 2620:11a:b00f:200::/56 | 65102 | eth1 / HE | configured but dead (HE ND) → v4-only until fixed |
+| sjc01 | 3 | eth0 (**down**) | .103 / ::103 | 2620:11a:b00f:300::/56 | 65103 | eth1 / SoftCom | none → v4-only |
+| scl01 | 4 | eth0 | .104 / ::104 | 2620:11a:b00f:400::/56 | 65104 | eth1 / QTS | RAs present; take an address → NAT66 |
+| scl02 | 5 | eth0 | .105 / ::105 | 2620:11a:b00f:500::/56 | 65105 | eth1 / Comfluent (CoreSite) | working → NAT66 |
+| scl04 | 6 | eth0 (via mgmt-switch) | .106 / ::106 | 2620:11a:b00f:600::/56 | 65106 | eth1 / OpenColo | none → v4-only |
+| sjc02 | 7 | eth0 | .107 / ::107 | 2620:11a:b00f:700::/56 | 65107 | eth1 / CoreSite | working → NAT66 |
+| scl05 | 8 | **eth1** (**down**) | .108 / ::108 | 2620:11a:b00f:800::/56 | 65108 | eth0 / DRT-Telx | none → v4-only |
 
 v4 addresses are in `192.33.255.96/27`, v6 in `2620:11a:b000:202::/64`.
+Trunks were checked by LLDP on 2026-11-16 (doc 015). sfo01's OOB uplink is
+a VLAN on the same trunk, so its fallback does not survive a trunk failure.
+At scl04, VLAN 200 (and so 202) passes through mgmt-switch.scl04.
 scl02 and sjc02 currently carry their own static `::/0` at distance 1;
 under this design it moves to distance 210.
 
@@ -156,13 +161,14 @@ the same at every site regardless of ISP filtering. Probe script:
 2. NetBox: VLAN 202 in "Exchange Fabric VLANs"; prefixes
    `192.33.255.96/27` and `2620:11a:b000:202::/64`; addresses per the table.
 3. Fabric: carry VLAN 202 to every site's mgmt-gw port and both edge-gw
-   ports (same way as VLAN 200).
+   ports (same way as VLAN 200; at scl04 also through mgmt-switch.scl04).
+   Prerequisite: the gateway matches the doc 015 templates (empty drift).
 4. edge-gws: interface, listen ranges, peer-group, filters, conditional
    defaults. Inert until a mgmt-gw peers. `commit-confirm`.
 5. Pilot sfo02, then one site at a time (as the 2026-11-08 firewall
    rollout). Per site:
    - `compare saved` empty; session via an internal path
-   - add `eth0.202`, `WAN` group membership, BGP/BFD, fallback statics,
+   - add `<trunk>.202`, `WAN` group membership, BGP/BFD, fallback statics,
      NAT rules; `commit-confirm`
    - verify: BGP Established to both edges, defaults installed, outbound
      v4 shows `192.33.255.1NN`, v6 from the site `/56` reaches the internet,

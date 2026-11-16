@@ -1,6 +1,5 @@
 {#
-  Uniform mgmt-gw firewall (design doc 010). Desired state, applied by hand
-  one gateway at a time with commit-confirm — not yet wired into the push.
+  Uniform mgmt-gw firewall (design doc 010, standard in doc 015).
 
   Model: only the uplink (WAN interface-group) is untrusted. The base
   input/forward chains stay default-accept and contain a single jump for
@@ -13,11 +12,25 @@
                      unrestricted; rate-limited ping; v6 on-link ND.
     WAN -> inside  : est/related only. We only ever initiate outbound.
 #}
-{% set wan_if = mgmt_gw_wan_interface[fw_host | default(inventory_hostname)] %}
+{% set wan_if = mgmt_gw[inventory_hostname].wan %}
 {% set never = mgmt_gw_wan_never_trusted | map('lower') | list %}
 {% set admin = ixp_admin_source_subnets | map('string') | map('trim') | map('lower') | reject('in', never) | unique | list %}
 {% set admin6 = admin | select('search', ':') | list %}
 {% set admin4 = admin | reject('search', ':') | list %}
+{# Kernel knobs. send-redirects off: the gw is never a good redirect source
+   for hosts on its LAN, and redirects on the uplink only leak topology. #}
+delete firewall global-options
+set firewall global-options all-ping 'enable'
+set firewall global-options broadcast-ping 'disable'
+set firewall global-options ip-src-route 'disable'
+set firewall global-options ipv6-receive-redirects 'disable'
+set firewall global-options ipv6-src-route 'disable'
+set firewall global-options log-martians 'enable'
+set firewall global-options receive-redirects 'disable'
+set firewall global-options send-redirects 'disable'
+set firewall global-options source-validation 'disable'
+set firewall global-options syn-cookies 'enable'
+
 delete firewall group interface-group WAN
 set firewall group interface-group WAN interface '{{ wan_if }}'
 

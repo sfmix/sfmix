@@ -1,7 +1,11 @@
 ---
-- name: "Push: General"
+# Not yet the normal path: gws are still changed by hand with commit-confirm
+# (doc 015). Use --limit one gw at a time.
+- name: "Push: {{ item }}"
+  when: inventory_hostname in mgmt_gw
   vyos.vyos.vyos_config:
-    src: "{{ config_parts_dir }}/general.vyos_config.txt"
+    src: "{{ config_parts_dir }}/{{ item }}.vyos_config.txt"
     match: none
   register: vyos_result
   changed_when: vyos_result.diff.prepared
+  loop: "{{ mgmt_gw_config_parts }}"

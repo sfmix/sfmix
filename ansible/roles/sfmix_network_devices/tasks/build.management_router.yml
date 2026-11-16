@@ -1,7 +1,11 @@
 ---
-- name: "Template: General"
+# One file per template, pushed in this order (design doc 015). Hosts that
+# NetBox lists but mgmt_gw does not describe are skipped.
+- name: "Template: {{ item }}"
+  when: inventory_hostname in mgmt_gw
   delegate_to: localhost
   ansible.builtin.template:
-    src: vyos/general.j2
-    dest: "{{ config_parts_dir }}/general.vyos_config.txt"
+    src: "vyos/{{ item }}.j2"
+    dest: "{{ config_parts_dir }}/{{ item }}.vyos_config.txt"
     mode: ug=rw,o=r
+  loop: "{{ mgmt_gw_config_parts }}"

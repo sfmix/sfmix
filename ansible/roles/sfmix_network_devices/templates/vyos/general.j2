@@ -1,91 +1,102 @@
-{# NTP is served only to the site's own mgmt LAN, numbered from the NetBox
-   site custom field site_id: 10.<id>.1.0/24 and 2620:11a:b00f:<id>01::/64.
-   Switches point at 10.<id>.1.1; nothing else should use these.
-   sfo02 and fmt01 still carry their pre-renumbering 100.64.x.0/24 LAN, where
-   Proxmox hosts live until they are renumbered; serve those too. #}
-{% set site_id = sites[0].custom_fields.site_id %}
-{% set legacy_mgmt_lan = {'sfo02': '100.64.0.0/24', 'fmt01': '100.64.1.0/24'}.get(sites[0].slug) %}
+{#
+  mgmt-gw system services (design doc 015). Each block owns its subtree:
+  `delete` then `set` in one commit is a no-op when nothing changed.
+#}
+{% set gw = mgmt_gw[inventory_hostname] %}
+{% set n = gw.id %}
+{% set site = sites[0] %}
+{% set lan_ip = '10.%d.1.1' % n %}
+{% set legacy_ip = gw.lan_legacy_v4.split('/')[0] if gw.lan_legacy_v4 is defined else none %}
+{# legacy LANs are /24s #}
+{% set legacy_net = (legacy_ip.split('.')[:3] | join('.')) ~ '.0/24' if legacy_ip else none %}
+set system host-name '{{ inventory_hostname }}'
+set system domain-name 'sfmix.org'
+set system time-zone 'UTC'
+set system console device ttyS0 speed '115200'
+set system config-management commit-revisions '100'
+delete system name-server
+set system name-server '8.8.8.8'
+set system name-server '8.8.4.4'
+
+{# NTP is served only to the site's own mgmt LAN (and the legacy 100.64 LAN
+   where Proxmox hosts still live). Switches point at 10.N.1.1. #}
 delete service ntp
-set service ntp allow-client address '10.{{ site_id }}.1.0/24'
-set service ntp allow-client address '2620:11a:b00f:{{ '%x' | format(site_id * 256 + 1) }}::/64'
-{% if legacy_mgmt_lan %}
-set service ntp allow-client address '{{ legacy_mgmt_lan }}'
+set service ntp allow-client address '10.{{ n }}.1.0/24'
+set service ntp allow-client address '2620:11a:b00f:{{ '%x' | format(n * 256 + 1) }}::/64'
+{% if legacy_net %}
+set service ntp allow-client address '{{ legacy_net }}'
 {% endif %}
 set service ntp server 0.pool.ntp.org
 set service ntp server 1.pool.ntp.org
 set service ntp server 2.pool.ntp.org
 set service ntp server 3.pool.ntp.org
-set system time-zone 'UTC'
+
+{# Recursive DNS for the mgmt LAN; DHCP hands out 10.N.1.1. #}
+delete service dns forwarding
+set service dns forwarding allow-from '10.0.0.0/8'
+set service dns forwarding allow-from '2620:11a:b00f::/48'
+{% if legacy_ip %}
+set service dns forwarding allow-from '100.64.0.0/10'
+{% endif %}
+set service dns forwarding cache-size '10000'
+set service dns forwarding listen-address '{{ lan_ip }}'
+{% if legacy_ip %}
+set service dns forwarding listen-address '{{ legacy_ip }}'
+{% endif %}
+{% for f in gw.dns_forwarders | default(mgmt_gw_dns_forwarders) %}
+set service dns forwarding name-server {{ f }}
+{% endfor %}
+
+delete service lldp
+set service lldp interface all
+set service lldp management-address '{{ lan_ip }}'
+set service lldp snmp
 
 delete service ssh
-set service ssh
-set service ssh port 22
+set service ssh port '22'
 {% for subnet in ixp_admin_source_subnets %}
-set service ssh dynamic-protection allow-from {{ subnet }}
+set service ssh dynamic-protection allow-from '{{ subnet }}'
 {% endfor %}
 
+{# Syslog to Loki via syslog-ng on metrics.sfo02 (OOB name, TCP). The
+   sfmix-3 build renamed global -> local and host -> remote. #}
 delete system syslog
-set system syslog global facility all level 'notice'
-set system syslog global facility local7 level 'debug'
-set system syslog host metrics.oob.sfo02.sfmix.org facility all level 'info'
-set system syslog host metrics.oob.sfo02.sfmix.org port '514'
-set system syslog host metrics.oob.sfo02.sfmix.org protocol 'tcp'
+{% set local = 'local' if gw.release == 'sfmix-3' else 'global' %}
+{% set remote = 'remote' if gw.release == 'sfmix-3' else 'host' %}
+set system syslog {{ local }} facility all level 'notice'
+set system syslog {{ local }} facility local7 level 'debug'
+set system syslog {{ remote }} metrics.oob.sfo02.sfmix.org facility all level 'info'
+set system syslog {{ remote }} metrics.oob.sfo02.sfmix.org port '514'
+set system syslog {{ remote }} metrics.oob.sfo02.sfmix.org protocol 'tcp'
 
-set system name-server '8.8.8.8'
-set system name-server '8.8.4.4'
-
-delete system login
-set system login user admin authentication encrypted-password '{{ sfmix_management_router_admin_password }}'
-set system login user oxidized authentication public-keys ed25519 type 'ssh-ed25519'
-set system login user oxidized authentication public-keys ed25519 key '{{ sfmix_oxidized_public_keys.ssh_ed25519.split()[1] }}'
-set system login user oxidized authentication public-keys rsa type 'ssh-rsa'
-set system login user oxidized authentication public-keys rsa key '{{ sfmix_oxidized_public_keys.ssh_rsa.split()[1] }}'
-{% for user in sfmix_admin_users %}
-{%   if user.github_username is defined %}
-{%     set key_filename = (playbook_dir ~ '/.github_ssh_keys/' ~ user.github_username ~ '.keys') %}
-{%   elif user.keys_file is defined %}
-{%     set key_filename = user.keys_file %}
-{%   endif %}
-{%   set keys = lookup('file', key_filename) %}
-{%   set key_number = 1 %}
-{%   for key_line in keys.split('\n') %}
-{%     if key_line.strip() != '' %}
-{%       set key_parts = key_line.split() %}
-{%         if key_parts | length >= 2 %}
-set system login user {{ user.username }} authentication public-keys key{{ key_number }} type '{{ key_parts[0] }}'
-set system login user {{ user.username }} authentication public-keys key{{ key_number }} key '{{ key_parts[1] }}'
-{%           set key_number = key_number + 1 %}
-{%         endif %}
-{%     endif %}
-{%   endfor %}
-{% endfor %}
-
-set system console device ttyS0 speed '115200'
-set system domain-name 'sfmix.org'
-
+{# SNMP answers internal sources only; pollers are metrics (10.1.1.14) and
+   LibreNMS (10.2.1.9). #}
 delete service snmp
 set service snmp community {{ sfmix_snmp_community }} authorization 'ro'
-{# SNMP answers internal sources only (mgmt_gw_snmp_networks); the pollers
-   are metrics (10.1.1.14) and LibreNMS (10.2.1.9). #}
 {% for net in mgmt_gw_snmp_networks %}
 set service snmp community {{ sfmix_snmp_community }} network '{{ net }}'
 {% endfor %}
 set service snmp contact '{{ ixp_primary_tech_contact_email }}'
-{% if sites | length > 0 %}
-{%   set site = sites[0] %}
-set service snmp location '{{ site.display }} ({{ site.physical_address | replace('\n', ' ') | replace('\r', ',')}}) [{{ site.latitude }}, {{ site.longitude }}]'
-{% endif %}
+set service snmp location '{{ site.name | upper }} ({{ site.physical_address | replace('\n', ' ') | replace('\r', '') }}) [{{ site.latitude }}, {{ site.longitude }}]'
 
-delete service dns forwarding
-{% for subnet in ixp_admin_source_subnets %}
-{% if '/' in subnet %}
-set service dns forwarding allow-from '{{ subnet }}'
-{% else %}
-{%   if ':' in subnet %}
-set service dns forwarding allow-from '{{ subnet }}/128'
-{%   else %}
-set service dns forwarding allow-from '{{ subnet }}/32'
-{%   endif %}
+{# Accounts. Only the users below are managed (keys + names); per-user
+   passwords and anything else under system login are left alone. The admin
+   (console) password is opt-in: on-box hashes are salted, so drift output
+   cannot tell whether it matches the vault. #}
+{% if mgmt_gw_manage_admin_password | default(false) %}
+set system login user admin authentication encrypted-password '{{ sfmix_management_router_admin_password }}'
 {% endif %}
+set system login user oxidized full-name 'Oxidized'
+set system login user oxidized authentication public-keys oxidized+ed25519@sfmix.org type '{{ sfmix_oxidized_public_keys.ssh_ed25519.split()[0] }}'
+set system login user oxidized authentication public-keys oxidized+ed25519@sfmix.org key '{{ sfmix_oxidized_public_keys.ssh_ed25519.split()[1] }}'
+set system login user oxidized authentication public-keys oxidized@sfmix.org type '{{ sfmix_oxidized_public_keys.ssh_rsa.split()[0] }}'
+set system login user oxidized authentication public-keys oxidized@sfmix.org key '{{ sfmix_oxidized_public_keys.ssh_rsa.split()[1] }}'
+{% for user in mgmt_gw_login_users if inventory_hostname in user.only_on | default([inventory_hostname]) %}
+{%   if user.full_name is defined %}
+set system login user {{ user.username }} full-name '{{ user.full_name }}'
+{%   endif %}
+{%   for k in user['keys'] %}
+set system login user {{ user.username }} authentication public-keys {{ k.name }} type '{{ k.type }}'
+set system login user {{ user.username }} authentication public-keys {{ k.name }} key '{{ k.key }}'
+{%   endfor %}
 {% endfor %}
-set service dns forwarding cache-size 150
