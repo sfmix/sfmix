@@ -102,6 +102,7 @@ all:
         pve01.scl04.sfmix.org:
           ansible_user: root
         pve01.sfo02.sfmix.org:
+        pve02.scl04.sfmix.org:
     obscreen:
       hosts:
         obscreen.sfmix.org:
