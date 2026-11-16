@@ -1,0 +1,17 @@
+[Unit]
+Description=Sync NetBox -> Prometheus SNMP file_sd targets (management switches)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/snmp_exporter/netbox-sd.env
+# Same syncer as the peering switches, enumerating the Junos EX mgmt-switches
+# into their own file so only the snmp-clock job polls them (the if_mib /
+# eos_health walks stay on snmp_targets.json). Names with a space ("Softcom
+# Switch", an OOB ISP's CPE) aren't SFMIX hostnames and are excluded.
+ExecStart=/usr/bin/python3 /opt/snmp_exporter/netbox_prometheus_sd.py \
+  --role {{ snmp_exporter_mgmt_switch_role | default('management-switch') }} \
+  --exclude-name-regex '[ ]' \
+  --output /opt/prometheus/file_sd/mgmt_switch_targets.json \
+  --status-file /opt/snmp_exporter/netbox-sd-mgmt-status.json

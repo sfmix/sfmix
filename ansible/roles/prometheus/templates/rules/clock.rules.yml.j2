@@ -8,13 +8,15 @@
 #
 # Each switch syncs to its site mgmt-gw (10.<site_id>.1.1), so a mgmt-gw that
 # loses its upstream shows up here too, as every switch at that site drifts.
-# Nokia SR-OS (cr1.*) doesn't answer hrSystemDate and is not covered.
+# Covers the Arista peering switches, ar1 (Junos) and the Junos EX
+# mgmt-switches (NetBox role management-switch). Nokia SR-OS (cr1.*) doesn't
+# answer hrSystemDate and is not covered.
 {% raw %}
 groups:
   - name: sfmix-device-clock
     rules:
       # Seconds the device clock is AHEAD of Prometheus (negative = behind).
-      # EOS reports whole seconds, so ±1 s is quantisation, not drift.
+      # EOS and Junos report whole seconds, so ±1 s is quantisation, not drift.
       - record: sfmix:device_clock_offset_seconds
         expr: hrSystemDate{job="snmp-clock"} - timestamp(hrSystemDate{job="snmp-clock"})
 
@@ -34,9 +36,12 @@ groups:
             certificate checks on this device are now skewed. On EOS:
             `show ntp status` / `show ntp associations` /
             `show running-config | include ntp` — it should have
-            `ntp server 10.<site_id>.1.1` and be synchronised to it. If every
-            switch at a site drifts together, check chrony on that site's
-            mgmt-gw (`show ntp`).
+            `ntp server 10.<site_id>.1.1` and be synchronised to it. On Junos
+            (mgmt-switch.*): `show ntp associations no-resolve` /
+            `show configuration system ntp` — expect
+            `set system ntp server 10.<site_id>.1.1`. If every switch at a
+            site drifts together, check chrony on that site's mgmt-gw
+            (`show ntp`).
 
       # Catches the clock module breaking (OID filtered, SNMP view change,
       # exporter regression) on a device that used to report a clock — the

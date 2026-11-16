@@ -70,7 +70,8 @@ scrape_configs:
     # Device wall clock (HOST-RESOURCES-MIB hrSystemDate), compared against
     # the scrape timestamp by clock.rules.yml to catch NTP drift. One GET in
     # its own job, kept off the slow health walk so the reading is taken
-    # within a second of the scrape start.
+    # within a second of the scrape start. Covers the peering switches plus
+    # the Junos EX mgmt-switches (netbox-prometheus-sd-mgmt timer).
     - job_name: snmp-clock
       scrape_interval: 60s
       scrape_timeout: 20s
@@ -81,6 +82,7 @@ scrape_configs:
       file_sd_configs:
           - files:
               - /opt/prometheus/file_sd/snmp_targets.json
+              - /opt/prometheus/file_sd/mgmt_switch_targets.json
       relabel_configs:
           - source_labels: [__address__]
             target_label: __param_target

@@ -96,6 +96,28 @@
     state: started
     daemon_reload: true
 
+# ── Management-switch target syncer (Junos EX; snmp-clock job only) ────
+- name: "SNMP exporter: Install mgmt-switch target sync systemd units"
+  become: true
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: ug=rw,o=r
+  loop:
+    - netbox-prometheus-sd-mgmt.service
+    - netbox-prometheus-sd-mgmt.timer
+
+- name: "SNMP exporter: Enable mgmt-switch target sync timer"
+  become: true
+  ignore_errors: "{{ ansible_check_mode }}"   # unit isn't written in --check
+  ansible.builtin.systemd_service:
+    name: netbox-prometheus-sd-mgmt.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
 # ── NMS Grafana dashboard generator (systemd timer) ────────────────────
 - name: "SNMP exporter: ensure faceplate image dir (served by grafana nginx)"
   become: true
