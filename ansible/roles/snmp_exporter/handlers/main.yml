@@ -1,6 +1,8 @@
 ---
-- name: Restart snmp_exporter
-  community.docker.docker_container:
-    name: "snmp_exporter"
-    state: started
-    restart: true
+# Hot-reload rather than restart the container: a restart aborts in-flight
+# walks (sjc01's switches take ~45s) and drops that scrape. A bad config
+# makes the reload return non-200, failing the play loudly.
+- name: Reload snmp_exporter
+  ansible.builtin.uri:
+    url: http://127.0.0.1:9116/-/reload
+    method: POST

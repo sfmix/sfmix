@@ -21,9 +21,10 @@ modules:
   # scraped by its own fast job so the reading lands close to the scrape
   # timestamp it is compared against. EOS has no NTPv4-MIB; SR-OS (cr1)
   # answers noSuchObject and simply yields no series.
+  # (The generator turns a walked scalar into a GET of its .0 instance.)
   clock:
-    get:
-      - hrSystemDate.0
+    walk:
+      - hrSystemDate
     overrides:
       hrSystemDate:
         type: DateAndTime
@@ -109,6 +110,19 @@ modules:
       - st4PhaseVoltage             # deci-V
       - st4OutletName               # per-outlet name (human)
       - st4OutletState              # per-outlet on/off (numeric: unknown0 on1 off2)
+      # ── Environmental probes (temp/humidity pucks on the PDU's sensor
+      # ports) — the only rack-air readings we have. Absent probes read the
+      # MIB's "invalid" sentinel (Sentry4 temp -410, humid -1; Sentry3 -1);
+      # pdu.rules drops those.
+      - tempHumidSensorName         # Sentry3 1718.3.2.5.1.3
+      - tempHumidSensorTempValue    # Sentry3 1718.3.2.5.1.6  (tenth degrees, in TempScale)
+      - tempHumidSensorTempScale    # Sentry3 1718.3.2.5.1.13 (celsius0 fahrenheit1)
+      - tempHumidSensorHumidValue   # Sentry3 1718.3.2.5.1.10 (%RH)
+      - st4TempSensorScale          # Sentry4 1718.4.1.9.1.10 (scalar: celsius0 fahrenheit1)
+      - st4TempSensorName           # Sentry4 1718.4.1.9.2.1.3
+      - st4TempSensorValue          # Sentry4 1718.4.1.9.3.1.1 (tenth degrees, in st4TempSensorScale)
+      - st4HumidSensorName          # Sentry4 1718.4.1.10.2.1.3
+      - st4HumidSensorValue         # Sentry4 1718.4.1.10.3.1.1 (%RH)
     lookups:
       # Sentry3
       - source_indexes: [towerIndex, infeedIndex]
@@ -124,6 +138,13 @@ modules:
         lookup: st4OutletName
       - source_indexes: [st4UnitIndex]
         lookup: st4UnitName
+      # Environmental probes: human probe name onto each reading
+      - source_indexes: [envMonIndex, tempHumidSensorIndex]
+        lookup: tempHumidSensorName
+      - source_indexes: [st4UnitIndex, st4TempSensorIndex]
+        lookup: st4TempSensorName
+      - source_indexes: [st4UnitIndex, st4HumidSensorIndex]
+        lookup: st4HumidSensorName
     overrides:
       towerName: {type: DisplayString}
       infeedID: {type: DisplayString}
@@ -159,6 +180,12 @@ modules:
       - outletLabel                   # 13742.6.3.5.3.1.2   (per-outlet label)
       - measurementsOutletSensorValue # 13742.6.5.4.3.1.4   (per-outlet reading)
       - outletSensorDecimalDigits     # 13742.6.3.5.4.1.7   (per-outlet scale)
+      # External environmental probes (DPX temp/humidity on the sensor port).
+      # externalSensorType rides on as a NUMERIC label (temperature=10,
+      # humidity=11 — same SensorTypeEnumeration as the inlet sensorType);
+      # readings are scaled by externalSensorDecimalDigits.
+      - measurementsExternalSensorValue # 13742.6.5.5.3.1.4  (reading)
+      - externalSensorDecimalDigits     # 13742.6.3.6.3.1.17 (scale exponent)
     lookups:
       - source_indexes: [pduId, inletId]
         lookup: inletName
@@ -168,6 +195,10 @@ modules:
         lookup: pduName
       - source_indexes: [pduId, outletId]
         lookup: outletLabel
+      - source_indexes: [pduId, sensorID]
+        lookup: externalSensorName
+      - source_indexes: [pduId, sensorID]
+        lookup: externalSensorType
     overrides:
       pduName: {type: DisplayString}
       inletLabel: {type: DisplayString}

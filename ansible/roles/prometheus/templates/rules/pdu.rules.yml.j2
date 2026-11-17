@@ -175,6 +175,66 @@ groups:
       - record: pdu:up
         expr: up{job="snmp-pdu"}
 
+  # Environmental probes (temp/humidity pucks on the PDU sensor ports) — the
+  # only true rack-AIR readings we have; switch "Inlet" sensors read a few
+  # degrees above room air. Same three dialects. Empty probe ports report the
+  # MIB's invalid sentinel (Sentry4 temp -410, humid -1; Sentry3 -1) and are
+  # dropped. Temps are tenth-degrees in the unit's configured scale (Sentry)
+  # or × 10^-externalSensorDecimalDigits (Raritan, type 10=temp 11=humidity).
+  # `probe` = the probe's name on the PDU (Raritan names say where it hangs,
+  # e.g. "Cab Front Door").
+  - name: sfmix-pdu-environment
+    interval: 60s
+    rules:
+      - record: pdu:env_temp_celsius
+        expr: >
+          max by (device, site, vendor, probe) (
+            label_replace(
+              (st4TempSensorValue{job="snmp-pdu"} > -410) * 0.1
+                and on (instance) (st4TempSensorScale{job="snmp-pdu"} == 0),
+              "probe", "$1", "st4TempSensorName", "(.+)")
+            or
+            label_replace(
+              ((st4TempSensorValue{job="snmp-pdu"} > -410) * 0.1 - 32) / 1.8
+                and on (instance) (st4TempSensorScale{job="snmp-pdu"} == 1),
+              "probe", "$1", "st4TempSensorName", "(.+)")
+            or
+            label_replace(
+              (tempHumidSensorTempValue{job="snmp-pdu"} > -1) * 0.1
+                and on (instance, envMonIndex, tempHumidSensorIndex)
+                  (tempHumidSensorTempScale{job="snmp-pdu"} == 0),
+              "probe", "$1", "tempHumidSensorName", "(.+)")
+            or
+            label_replace(
+              ((tempHumidSensorTempValue{job="snmp-pdu"} > -1) * 0.1 - 32) / 1.8
+                and on (instance, envMonIndex, tempHumidSensorIndex)
+                  (tempHumidSensorTempScale{job="snmp-pdu"} == 1),
+              "probe", "$1", "tempHumidSensorName", "(.+)")
+            or
+            label_replace(
+              measurementsExternalSensorValue{job="snmp-pdu", externalSensorType="10"}
+                * on (instance, pduId, sensorID) group_left ()
+                  (10 ^ (0 - externalSensorDecimalDigits{job="snmp-pdu", externalSensorType="10"})),
+              "probe", "$1", "externalSensorName", "(.+)")
+          )
+      - record: pdu:env_humidity_pct
+        expr: >
+          max by (device, site, vendor, probe) (
+            label_replace(
+              st4HumidSensorValue{job="snmp-pdu"} >= 0,
+              "probe", "$1", "st4HumidSensorName", "(.+)")
+            or
+            label_replace(
+              tempHumidSensorHumidValue{job="snmp-pdu"} >= 0,
+              "probe", "$1", "tempHumidSensorName", "(.+)")
+            or
+            label_replace(
+              measurementsExternalSensorValue{job="snmp-pdu", externalSensorType="11"}
+                * on (instance, pduId, sensorID) group_left ()
+                  (10 ^ (0 - externalSensorDecimalDigits{job="snmp-pdu", externalSensorType="11"})),
+              "probe", "$1", "externalSensorName", "(.+)")
+          )
+
   - name: sfmix-pdu-alerts
     rules:
       - alert: PduUnreachable

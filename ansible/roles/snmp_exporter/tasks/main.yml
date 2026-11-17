@@ -16,7 +16,7 @@
 
 - name: "SNMP exporter: Template snmp.yml (embeds SNMP community)"
   become: true
-  notify: Restart snmp_exporter
+  notify: Reload snmp_exporter
   ansible.builtin.template:
     src: snmp.yml.j2
     dest: /opt/snmp_exporter/snmp.yml
@@ -144,6 +144,7 @@
     - nms_telemetry_dashboards.py  # long-term metrics: Thanos + Garage (doc 012)
     - nms_backup_dashboards.py   # fleet backups (doc 013) + storage health
     - nms_peering_dashboards.py  # peering traffic from sflow-rt ixp-metrics
+    - nms_environment_dashboards.py  # per-site temperatures / humidity
 
 - name: "SNMP exporter: Template dashboard generator env"
   become: true

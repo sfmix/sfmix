@@ -19,9 +19,13 @@ modules:
     - 1.3.6.1.4.1.13742.6.3.3.4.1.7
     - 1.3.6.1.4.1.13742.6.3.5.3.1.2
     - 1.3.6.1.4.1.13742.6.3.5.4.1.7
+    - 1.3.6.1.4.1.13742.6.3.6.3.1.17
+    - 1.3.6.1.4.1.13742.6.3.6.3.1.2
+    - 1.3.6.1.4.1.13742.6.3.6.3.1.4
     - 1.3.6.1.4.1.13742.6.5.2.3.1.3
     - 1.3.6.1.4.1.13742.6.5.2.3.1.4
     - 1.3.6.1.4.1.13742.6.5.4.3.1.4
+    - 1.3.6.1.4.1.13742.6.5.5.3.1.4
     metrics:
     - name: pduName
       oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
@@ -526,6 +530,33 @@ modules:
         labelname: outletLabel
         oid: 1.3.6.1.4.1.13742.6.3.5.3.1.2
         type: DisplayString
+    - name: externalSensorDecimalDigits
+      oid: 1.3.6.1.4.1.13742.6.3.6.3.1.17
+      type: gauge
+      help: The number of digits displayed to the right of the decimal point - 1.3.6.1.4.1.13742.6.3.6.3.1.17
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: sensorID
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      - labels:
+        - pduId
+        - sensorID
+        labelname: externalSensorName
+        oid: 1.3.6.1.4.1.13742.6.3.6.3.1.4
+        type: DisplayString
+      - labels:
+        - pduId
+        - sensorID
+        labelname: externalSensorType
+        oid: 1.3.6.1.4.1.13742.6.3.6.3.1.2
+        type: gauge
     - name: measurementsInletSensorState
       oid: 1.3.6.1.4.1.13742.6.5.2.3.1.3
       type: EnumAsInfo
@@ -891,6 +922,33 @@ modules:
         labelname: outletLabel
         oid: 1.3.6.1.4.1.13742.6.3.5.3.1.2
         type: DisplayString
+    - name: measurementsExternalSensorValue
+      oid: 1.3.6.1.4.1.13742.6.5.5.3.1.4
+      type: gauge
+      help: The sensor reading as a signed integer - 1.3.6.1.4.1.13742.6.5.5.3.1.4
+      indexes:
+      - labelname: pduId
+        type: gauge
+      - labelname: sensorID
+        type: gauge
+      lookups:
+      - labels:
+        - pduId
+        labelname: pduName
+        oid: 1.3.6.1.4.1.13742.6.3.2.2.1.13
+        type: DisplayString
+      - labels:
+        - pduId
+        - sensorID
+        labelname: externalSensorName
+        oid: 1.3.6.1.4.1.13742.6.3.6.3.1.4
+        type: DisplayString
+      - labels:
+        - pduId
+        - sensorID
+        labelname: externalSensorType
+        oid: 1.3.6.1.4.1.13742.6.3.6.3.1.2
+        type: gauge
   pdu_servertech:
     walk:
     - 1.3.6.1.4.1.1718.3.2.1.1.3
@@ -906,6 +964,12 @@ modules:
     - 1.3.6.1.4.1.1718.3.2.2.1.7
     - 1.3.6.1.4.1.1718.3.2.3.1.2
     - 1.3.6.1.4.1.1718.3.2.3.1.5
+    - 1.3.6.1.4.1.1718.3.2.5.1.10
+    - 1.3.6.1.4.1.1718.3.2.5.1.13
+    - 1.3.6.1.4.1.1718.3.2.5.1.3
+    - 1.3.6.1.4.1.1718.3.2.5.1.6
+    - 1.3.6.1.4.1.1718.4.1.10.2.1.3
+    - 1.3.6.1.4.1.1718.4.1.10.3.1.1
     - 1.3.6.1.4.1.1718.4.1.2.2.1.3
     - 1.3.6.1.4.1.1718.4.1.3.2.1.10
     - 1.3.6.1.4.1.1718.4.1.3.2.1.3
@@ -918,6 +982,10 @@ modules:
     - 1.3.6.1.4.1.1718.4.1.5.3.1.3
     - 1.3.6.1.4.1.1718.4.1.8.2.1.3
     - 1.3.6.1.4.1.1718.4.1.8.3.1.1
+    - 1.3.6.1.4.1.1718.4.1.9.2.1.3
+    - 1.3.6.1.4.1.1718.4.1.9.3.1.1
+    get:
+    - 1.3.6.1.4.1.1718.4.1.9.1.10.0
     metrics:
     - name: towerName
       oid: 1.3.6.1.4.1.1718.3.2.1.1.3
@@ -1224,6 +1292,116 @@ modules:
         7: reading
         8: offFuse
         9: onFuse
+    - name: tempHumidSensorHumidValue
+      oid: 1.3.6.1.4.1.1718.3.2.5.1.10
+      type: gauge
+      help: The humidity measured by the sensor - 1.3.6.1.4.1.1718.3.2.5.1.10
+      indexes:
+      - labelname: envMonIndex
+        type: gauge
+      - labelname: tempHumidSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - envMonIndex
+        - tempHumidSensorIndex
+        labelname: tempHumidSensorName
+        oid: 1.3.6.1.4.1.1718.3.2.5.1.3
+        type: DisplayString
+    - name: tempHumidSensorTempScale
+      oid: 1.3.6.1.4.1.1718.3.2.5.1.13
+      type: gauge
+      help: The scale used for temperature values - 1.3.6.1.4.1.1718.3.2.5.1.13
+      indexes:
+      - labelname: envMonIndex
+        type: gauge
+      - labelname: tempHumidSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - envMonIndex
+        - tempHumidSensorIndex
+        labelname: tempHumidSensorName
+        oid: 1.3.6.1.4.1.1718.3.2.5.1.3
+        type: DisplayString
+      enum_values:
+        0: celsius
+        1: fahrenheit
+    - name: tempHumidSensorName
+      oid: 1.3.6.1.4.1.1718.3.2.5.1.3
+      type: DisplayString
+      help: The name of the temperature/humidity sensor. - 1.3.6.1.4.1.1718.3.2.5.1.3
+      indexes:
+      - labelname: envMonIndex
+        type: gauge
+      - labelname: tempHumidSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - envMonIndex
+        - tempHumidSensorIndex
+        labelname: tempHumidSensorName
+        oid: 1.3.6.1.4.1.1718.3.2.5.1.3
+        type: DisplayString
+    - name: tempHumidSensorTempValue
+      oid: 1.3.6.1.4.1.1718.3.2.5.1.6
+      type: gauge
+      help: The temperature measured by the sensor - 1.3.6.1.4.1.1718.3.2.5.1.6
+      indexes:
+      - labelname: envMonIndex
+        type: gauge
+      - labelname: tempHumidSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - envMonIndex
+        - tempHumidSensorIndex
+        labelname: tempHumidSensorName
+        oid: 1.3.6.1.4.1.1718.3.2.5.1.3
+        type: DisplayString
+    - name: st4HumidSensorName
+      oid: 1.3.6.1.4.1.1718.4.1.10.2.1.3
+      type: DisplayString
+      help: The name of the humidity sensor. - 1.3.6.1.4.1.1718.4.1.10.2.1.3
+      indexes:
+      - labelname: st4UnitIndex
+        type: gauge
+      - labelname: st4HumidSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - st4UnitIndex
+        labelname: st4UnitName
+        oid: 1.3.6.1.4.1.1718.4.1.2.2.1.3
+        type: DisplayString
+      - labels:
+        - st4UnitIndex
+        - st4HumidSensorIndex
+        labelname: st4HumidSensorName
+        oid: 1.3.6.1.4.1.1718.4.1.10.2.1.3
+        type: DisplayString
+    - name: st4HumidSensorValue
+      oid: 1.3.6.1.4.1.1718.4.1.10.3.1.1
+      type: gauge
+      help: The measured humidity on the sensor in percentage relative humidity. -
+        1.3.6.1.4.1.1718.4.1.10.3.1.1
+      indexes:
+      - labelname: st4UnitIndex
+        type: gauge
+      - labelname: st4HumidSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - st4UnitIndex
+        labelname: st4UnitName
+        oid: 1.3.6.1.4.1.1718.4.1.2.2.1.3
+        type: DisplayString
+      - labels:
+        - st4UnitIndex
+        - st4HumidSensorIndex
+        labelname: st4HumidSensorName
+        oid: 1.3.6.1.4.1.1718.4.1.10.2.1.3
+        type: DisplayString
     - name: st4UnitName
       oid: 1.3.6.1.4.1.1718.4.1.2.2.1.3
       type: DisplayString
@@ -1499,6 +1677,56 @@ modules:
         0: unknown
         1: "on"
         2: "off"
+    - name: st4TempSensorScale
+      oid: 1.3.6.1.4.1.1718.4.1.9.1.10
+      type: gauge
+      help: The current scale used for all temperature values. - 1.3.6.1.4.1.1718.4.1.9.1.10
+      enum_values:
+        0: celsius
+        1: fahrenheit
+    - name: st4TempSensorName
+      oid: 1.3.6.1.4.1.1718.4.1.9.2.1.3
+      type: DisplayString
+      help: The name of the temperature sensor. - 1.3.6.1.4.1.1718.4.1.9.2.1.3
+      indexes:
+      - labelname: st4UnitIndex
+        type: gauge
+      - labelname: st4TempSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - st4UnitIndex
+        labelname: st4UnitName
+        oid: 1.3.6.1.4.1.1718.4.1.2.2.1.3
+        type: DisplayString
+      - labels:
+        - st4UnitIndex
+        - st4TempSensorIndex
+        labelname: st4TempSensorName
+        oid: 1.3.6.1.4.1.1718.4.1.9.2.1.3
+        type: DisplayString
+    - name: st4TempSensorValue
+      oid: 1.3.6.1.4.1.1718.4.1.9.3.1.1
+      type: gauge
+      help: The measured temperature on the sensor in tenth degrees using the scale
+        selected by st4TempSensorScale - 1.3.6.1.4.1.1718.4.1.9.3.1.1
+      indexes:
+      - labelname: st4UnitIndex
+        type: gauge
+      - labelname: st4TempSensorIndex
+        type: gauge
+      lookups:
+      - labels:
+        - st4UnitIndex
+        labelname: st4UnitName
+        oid: 1.3.6.1.4.1.1718.4.1.2.2.1.3
+        type: DisplayString
+      - labels:
+        - st4UnitIndex
+        - st4TempSensorIndex
+        labelname: st4TempSensorName
+        oid: 1.3.6.1.4.1.1718.4.1.9.2.1.3
+        type: DisplayString
   eos_health:
     walk:
     - 1.3.6.1.2.1.25.2.3
@@ -3068,4 +3296,4 @@ modules:
     - name: hrSystemDate
       oid: 1.3.6.1.2.1.25.1.2
       type: DateAndTime
-      help: The host's notion of the local date and time. - 1.3.6.1.2.1.25.1.2
+      help: The host's notion of the local date and time of day. - 1.3.6.1.2.1.25.1.2

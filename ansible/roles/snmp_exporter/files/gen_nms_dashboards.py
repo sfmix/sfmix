@@ -33,6 +33,7 @@ from nms_node_dashboards import node_dashboards  # noqa: E402
 from nms_telemetry_dashboards import telemetry_dashboards  # noqa: E402
 from nms_backup_dashboards import backup_dashboards  # noqa: E402
 from nms_peering_dashboards import peering_dashboards  # noqa: E402
+from nms_environment_dashboards import environment_dashboards  # noqa: E402
 
 log = logging.getLogger("nms-dashboards")
 logging.basicConfig(level=logging.INFO, stream=sys.stderr,
@@ -1693,6 +1694,9 @@ def main():
     # Peering traffic from sflow-rt ixp-metrics (replaces the hand-built
     # "Overall Traffic Breakdown") — see nms_peering_dashboards.py.
     dashboards += peering_dashboards()
+    # Per-site temperature/humidity (switch inlets, PDU probes, room sensor)
+    # — see nms_environment_dashboards.py.
+    dashboards += environment_dashboards()
     for d in dashboards:
         push(gurl, hdrs, folder, d, ds_uid, loki_uid)
     cleanup_stale(gurl, hdrs, {d["uid"] for d in dashboards})
