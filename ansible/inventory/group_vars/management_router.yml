@@ -16,6 +16,7 @@ mgmt_gw_wan_interface:
   mgmt-gw.scl04: eth1
   mgmt-gw.scl05: eth0
   mgmt-gw.sjc02: eth1
+  mgmt-gw.nuq01: eth3
 
 # Sources allowed to query SNMP on the mgmt-gws (vyos/general.j2). Internal
 # only: the pollers are metrics (10.1.1.14) and LibreNMS (10.2.1.9). The legacy
