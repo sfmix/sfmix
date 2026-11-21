@@ -104,7 +104,7 @@ test.
 
 ## Hosts and naming
 
-- Sites have both an ID/name as well as a numeric ID. e.g. 200 Paul Avenue is `sfo01` as well as `2`. Hosts are typically
+- Sites have both an ID/name as well as a numeric ID. e.g. 200 Paul Avenue is `sfo02` as well as `1`. Hosts are typically
   `<role>[nn].<site>.sfmix.org` (e.g. `switch01.sfo02`, `metrics.sfo02`).
 - New VMs are mgmt-network-only by default. A host gets a public IP only if
   it serves a public frontend or an ingestion endpoint that public-only hosts
