@@ -165,6 +165,8 @@ test.
   `type(scope): summary` subject (e.g. `fix(lg): ...`, `feat(portal): ...`,
   `dns: ...`, `docs(012): ...`) plus at most a couple of lines of body. The
   long reasoning goes in a design doc.
+- No AI attribution in commits or PRs: no `Co-Authored-By: Claude` (or
+  similar) trailers and no "Generated with ..." lines.
 - Looking glass releases come from `looking-glass-v<semver>` tags, which CI
   builds into GitHub Release binaries. The website deploys from `main` via
   GitHub Actions.
