@@ -564,6 +564,7 @@ wg15.mgmt-gw.sfo02		IN	A	10.255.1.21
 wg16.mgmt-gw.sfo02		IN	A	10.255.1.25
 wg17.mgmt-gw.sfo02		IN	A	10.255.1.29
 wg18.mgmt-gw.sfo02		IN	A	10.255.1.33
+wg19.mgmt-gw.sfo02		IN	A	10.255.1.37
 pdu01.sfo02			IN	A	10.1.1.3
 pdu02.sfo02			IN	A	10.1.1.4
 switch01.sfo02			IN	A	10.1.1.15
@@ -632,6 +633,7 @@ wg25.mgmt-gw.fmt01			IN	A		10.255.2.21
 wg26.mgmt-gw.fmt01			IN	A		10.255.2.25
 wg27.mgmt-gw.fmt01			IN	A		10.255.2.30
 wg28.mgmt-gw.fmt01			IN	A		10.255.2.33
+wg29.mgmt-gw.fmt01			IN	A		10.255.2.37
 mgmt-switch.fmt01			IN	A		10.2.1.3
 pdu01.fmt01				IN	A		10.2.1.4
 pdu02.fmt01				IN	A		10.2.1.5
@@ -847,8 +849,13 @@ pdu02.scl05		IN	A	10.8.1.5
 switch01.scl05		IN	A	10.8.1.15
 
 ; NUQ01 (H5 Data Centers Silicon Valley, 1360 Kifer Rd) / Site ID 9
-; mgmt-gw/lo/wg/VLAN 200 names get added once the loopback + tunnels exist.
+; VLAN 200 (in-band) names get added once nuq01 has a fabric trunk.
 wan.mgmt-gw.nuq01	IN	A	104.254.65.164
+mgmt-gw.nuq01		IN	A	10.9.0.0
+lo.mgmt-gw.nuq01	IN	A	10.9.0.0
+lo.mgmt-gw.nuq01	IN	AAAA	2620:11a:b00f:900::
+wg19.mgmt-gw.nuq01	IN	A	10.255.1.38
+wg29.mgmt-gw.nuq01	IN	A	10.255.2.38
 eth3.mgmt-gw.nuq01	IN	A	104.254.65.164
 eth2.mgmt-gw.nuq01	IN	A	10.9.1.1
 mgmt-switch01.nuq01	IN	A	10.9.1.2
