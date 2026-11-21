@@ -285,6 +285,74 @@ def check_ixp_participant_ip_tenant(netbox: pynetbox.core.api.Api) -> None:
             )
 
 
+# Public site metadata the looking glass serves at /api/v1/sites and the website
+# and map render (design doc 016). (label, getter on a NetBox site record/dict)
+SITE_REQUIRED_FIELDS = [
+    ("region (city)", lambda s: (s.get("region") or {}).get("name")),
+    ("site group (metro)", lambda s: (s.get("group") or {}).get("name")),
+    ("description (display name)", lambda s: s.get("description")),
+    ("facility", lambda s: s.get("facility")),
+    ("physical address", lambda s: s.get("physical_address")),
+    ("latitude", lambda s: s.get("latitude")),
+    ("longitude", lambda s: s.get("longitude")),
+    ("peeringdb_facility", lambda s: (s.get("custom_fields") or {}).get("peeringdb_facility")),
+    ("facility_operator", lambda s: (s.get("custom_fields") or {}).get("facility_operator")),
+    ("mmr_operator", lambda s: (s.get("custom_fields") or {}).get("mmr_operator")),
+    ("mmr_portal_url", lambda s: (s.get("custom_fields") or {}).get("mmr_portal_url")),
+]
+
+
+def _status(obj) -> str:
+    status = obj.get("status")
+    return status.get("value") if isinstance(status, dict) else (status or "")
+
+
+def site_metadata_problems(sites: list, peering_switches: list) -> list:
+    """Problems with SFMIX site metadata, as (slug, message) pairs.
+
+    A site counts when it has a `site_id` or is active: it then needs every
+    SITE_REQUIRED_FIELDS entry (else /locations/ gets a blank cell or the map a
+    stray one-site metro). `site_id` must be unique, and every active peering
+    switch must sit at a site with a `site_id` (else its IX-F `colo` is empty).
+    Inputs are NetBox REST dicts (pynetbox records via dict()).
+    """
+    problems = []
+    by_site_id = defaultdict(list)
+    numbered = set()
+    for site in sites:
+        site_id = (site.get("custom_fields") or {}).get("site_id")
+        if site_id is None and _status(site) != "active":
+            continue
+        if site_id is None:
+            problems.append((site["slug"], "active site has no `site_id`"))
+        else:
+            by_site_id[site_id].append(site["slug"])
+            numbered.add(site["slug"])
+        missing = [label for label, get in SITE_REQUIRED_FIELDS if get(site) in (None, "")]
+        if missing:
+            problems.append((site["slug"], "missing " + ", ".join(missing)))
+    for site_id, slugs in sorted(by_site_id.items()):
+        if len(slugs) > 1:
+            for slug in slugs:
+                problems.append((slug, f"`site_id` {site_id} is shared with {', '.join(s for s in slugs if s != slug)}"))
+    for device in peering_switches:
+        if _status(device) != "active":
+            continue
+        slug = (device.get("site") or {}).get("slug")
+        if slug not in numbered:
+            problems.append((slug, f"active peering switch {device['name']} is at a site without `site_id`"))
+    return problems
+
+
+def check_site_metadata(netbox: pynetbox.core.api.Api) -> None:
+    print("[!!] Check that SFMIX sites have complete public metadata (doc 016)")
+    sites = [dict(s) for s in netbox.dcim.sites.all()]
+    switches = [dict(d) for d in netbox.dcim.devices.filter(role="peering_switch")]
+    urls = {s["slug"]: s.get("url", "") for s in sites}
+    for slug, message in site_metadata_problems(sites, switches):
+        print(f"Site {slug}: {message}", url_strip_api(urls.get(slug, "")))
+
+
 def netbox_lint(operator_config: Dict[str, str]) -> None:
     netbox = netbox_client(operator_config)
     check_peering_lan_ip_tags(netbox=netbox)
@@ -298,6 +366,7 @@ def netbox_lint(operator_config: Dict[str, str]) -> None:
     check_participant_has_ports(netbox=netbox)
     check_participant_has_ips(netbox=netbox)
     check_ixp_participant_ip_tenant(netbox=netbox)
+    check_site_metadata(netbox=netbox)
 
 
 if __name__ == "__main__":

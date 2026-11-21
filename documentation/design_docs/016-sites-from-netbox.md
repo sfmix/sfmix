@@ -4,8 +4,8 @@ Status: LG part live 2026-11-21. `/api/v1/sites` and
 `/api/v1/participants-table` are served by lg-server, the IX-F export is at
 parity with the old static file, the Ansible `participants_json` renderer is
 removed, the legacy URLs are nginx aliases, and PeeringDB points at
-`/api/v1/participants.json`. NetBox site fields filled (step 8). Still to do:
-lint, website locations layout, mapbuild, weathermap lab.
+`/api/v1/participants.json`. NetBox site fields filled (step 8) and linted
+(step 9). Still to do: website locations layout, mapbuild, weathermap lab.
 
 ## Problem
 
@@ -288,7 +288,12 @@ PUT 204; stale lg-web files removed).
      PeeringDB's sfo02 ZIP (94110) is wrong; NetBox keeps 94124.
    - Verified live: `/api/v1/sites` carries every field after the next
      refresh; IX-F and participants-table output unchanged.
-9. Lint check (fails until step 8 is complete, which is useful as a checklist).
+9. ~~Lint check.~~ Done 2026-11-21: `check_site_metadata` in
+   `scripts/netbox_ix_lint.py` (pure logic in `site_metadata_problems`, unit
+   tests in `scripts/test_netbox_ix_lint.py`). It requires every
+   SITE_REQUIRED_FIELDS entry on sites with a `site_id` or status active,
+   unique `site_id`, and every active peering switch at a numbered site.
+   Live NetBox: 11 sites and 17 active switches checked, no findings.
 10. Website: sites curl, locations layout, format-string hero/about. Compare
     the rendered `/locations/` against today's in all 5 locales before pushing.
 11. mapbuild: read the NetBox fields, delete `data/sites.json`, deploy portal,
