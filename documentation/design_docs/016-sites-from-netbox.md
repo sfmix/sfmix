@@ -6,7 +6,8 @@ parity with the old static file, the Ansible `participants_json` renderer is
 removed, the legacy URLs are nginx aliases, and PeeringDB points at
 `/api/v1/participants.json`. NetBox site fields filled (step 8) and linted
 (step 9); sfmix.org/locations/ and the location count/city list render from
-`/api/v1/sites` (step 10). Still to do: mapbuild, weathermap lab.
+`/api/v1/sites` (step 10); the map reads the same NetBox fields (step 11).
+Still to do: the weathermap lab.
 
 ## Problem
 
@@ -308,8 +309,11 @@ PUT 204; stale lg-web files removed).
     "365 Main St."), sjc01 operator "Equinix" (was `Equinix "SV1"`), scl01
     "QTS" (was "QTS Santa Clara"), scl02 links to PeeringDB fac 1619 (was
     campus 10), and the city order follows `site_id`.
-11. mapbuild: read the NetBox fields, delete `data/sites.json`, deploy portal,
-    rebuild the map and diff `map.json` sites/metros against the previous build.
+11. ~~mapbuild.~~ Done 2026-11-21. `load_sites()` takes name ← description
+    (else facility), operator ← `facility_operator`, metro ← site group;
+    `portal/mapbuild/data/sites.json` deleted. Before deploying, the new
+    `load_sites()` was compared with the live map.json: 12 sites, 5 metros,
+    no differences in name/operator/metro/address/lat/lon.
 12. Retire or rewire `weathermap_layouts.py`.
 13. ~~Runbooks that say "run `--tags participants_json`" drop that step.~~
     None in the repo; NetBox edits show up within 300 s.

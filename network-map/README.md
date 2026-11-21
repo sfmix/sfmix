@@ -186,7 +186,6 @@ network-map/
   dev/deploy_demo.sh         publish frontend → demo.sfmix.org (points at live portal)
 portal/mapbuild/data/
   atlas/<ID>.geojson         committed coarsened circuit shapes (+ _TEMPLATE)
-  sites.json                 display names/operators/metros per site code (public)
   basemap-*.json             water rings + road corridors (build inputs, image-baked)
   rights-of-way.json         rail/pipeline corridors for KMZ-less routing
 ```

@@ -180,7 +180,6 @@ network-map/
 portal/mapbuild/          self-contained builder app (production)
   data/atlas/*.geojson    COMMITTED  coarse cable geometry (image-baked)
   data/rights-of-way.json COMMITTED  rail/pipeline routing corridors
-  data/sites.json         COMMITTED  site name/operator/metro overrides
   data/basemap-*.json     COMMITTED  water rings + road corridors (build inputs)
   geometry.py             render-geometry engine (was scripts/map_geometry.py)
   routing.py              infra-following Dijkstra over rights-of-way

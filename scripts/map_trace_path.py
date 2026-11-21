@@ -36,7 +36,7 @@ DP_TOLERANCE_DEG = 0.0008
 ROUND_DECIMALS = 4
 
 # Public site coordinates (lon, lat) — for orienting merged paths A->Z and
-# snapping the first/last vertex onto the datacenter. Same values as sites.json.
+# snapping the first/last vertex onto the datacenter. Same values as NetBox site lat/lon.
 SITE_COORDS = {
     "sfo01": (-122.390168, 37.788971), "sfo02": (-122.398125, 37.723214),
     "fmt01": (-121.920111, 37.471810), "sjc01": (-121.782426, 37.242351),

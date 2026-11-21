@@ -23,7 +23,7 @@ Inputs, all NetBox + committed geometry (no internal network needed):
 - NetBox transport circuits traced to switch ports (inter-site), NetBox intra-site inter-switch
   cabling (LAGs), NetBox devices/sites, and NetBox `interface.speed` (capacity).
 - Committed coarse geometry baked into the image at `portal/mapbuild/data/`: cable `atlas/`,
-  `sites.json` overrides, `basemap-water.json`, `basemap-roads.json`, `rights-of-way.json`.
+  `basemap-water.json`, `basemap-roads.json`, `rights-of-way.json`.
 - KMZ-less links are routed over the committed transport corridors (`routing.infra_route`).
 
 NetBox honesty is enforced by `scripts/netbox_backbone_lint.py` (gate this in CI) and reconciled by

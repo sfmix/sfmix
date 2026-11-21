@@ -29,7 +29,7 @@ interface-description parsing) — which already collapsed most of the old
 2. **Profile — per-IXP config.** How this IXP's network describes itself in NetBox.
    Much smaller now that the builder is NetBox-native (see "Collector" below).
 
-3. **Data — per-IXP inputs.** Sites (NetBox + `sites.json`), the coarsened cable
+3. **Data — per-IXP inputs.** Sites (NetBox site fields (description, `facility_operator`, site group; doc 016)), the coarsened cable
    atlas (`portal/mapbuild/data/atlas/*.geojson`), the basemap
    (`portal/mapbuild/data/basemap-*.json` + `website/static/map/*`), and whimsy
    (`decorations.json`). Mostly data-driven; the geography is naturally specific to
@@ -37,8 +37,8 @@ interface-description parsing) — which already collapsed most of the old
 
 ## What's already reusable / data-driven
 
-- Site lat/lon/name/address from NetBox (`load_sites`), overridable in
-  `portal/mapbuild/data/sites.json`.
+- Site lat/lon/name/operator/metro/address from NetBox (`load_sites`): display
+  name = description, operator = `facility_operator`, metro = site group.
 - Cable geometry + circuit metadata as committed data in `atlas/*.geojson`.
 - **Topology, devices, cabling, and capacity all come from NetBox** — the builder
   needs only NetBox (world-reachable) + committed geometry, no internal network.
@@ -56,7 +56,7 @@ Grouped by concern; **[HARD]** = hardcoded in source, **[DATA]** = already confi
 - **[HARD]** A site table is still duplicated in the offline/dev tools:
   `map_trace_path.SITE_COORDS`, `make_fixture.SITES` (plus
   `map_boldyn_route.SITE_DC_NAME`). The builder itself reads NetBox, but these
-  laptop tools should share **one** source (extend `sites.json` / NetBox).
+  laptop tools should share **one** source (NetBox sites).
 - **[HARD]** Site-code shape is baked in: device names are parsed for the site as
   the "second dotted label" (`site_of` in `portal/mapbuild/builder.py`, and in
   `portal/dashboard/`). A different IXP's naming (or non-FQDN device ids) won't match.
@@ -107,7 +107,7 @@ collector code.
 Ordered by leverage. None of this blocks SFMIX; each step also de-duplicates SFMIX's
 own code.
 
-1. **Unify site identity.** One site table (NetBox + `sites.json`) consumed by the
+1. **Unify site identity.** One site table (NetBox sites) consumed by the
    builder, both KMZ tools, and the fixture. Add `site_code_regex` +
    `fqdn_site_index` to config; delete the duplicate tables in the laptop tools.
 2. **Generalise the NetBox conventions.** Move the role/tag/circuit-type names
@@ -127,7 +127,7 @@ own code.
 
 ### To stand up the map for a new IXP (target end-state)
 1. Point at the IXP's NetBox (API + token); tag transport ports `core_port`, set the
-   device role, and write `sites.json` overrides.
+   device role, and fill each site's description, `facility_operator` and site group.
 2. Fill a small conventions block (code shape, NetBox role/tag/circuit-type names).
 3. Regenerate the basemap for the metro (`fetch_basemap.py` with a new BBOX) and set
    the view config; optionally add local whimsy.

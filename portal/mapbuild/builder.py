@@ -34,7 +34,6 @@ from .routing import infra_route
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 ATLAS_DIR = os.path.join(DATA_DIR, "atlas")
-SITES_JSON = os.path.join(DATA_DIR, "sites.json")
 WATER_JSON = os.path.join(DATA_DIR, "basemap-water.json")
 
 # uuid5 namespace for opaque per-generation cable ids (stable within a generation)
@@ -125,31 +124,23 @@ def load_atlas():
 
 
 def load_sites(nb):
-    """Site lat/lon/name/address from NetBox, with name/operator/metro overrides
-    from the committed data/sites.json. Also carries the PeeringDB facility id
-    (NetBox custom field `peeringdb_facility`, or a sites.json override) so the
-    build can enrich the site with public PeeringDB metadata."""
-    override = json.load(open(SITES_JSON)).get("sites", {}) if os.path.exists(SITES_JSON) else {}
-    base = {}
+    """Site metadata, all from NetBox (design doc 016): lat/lon, display name
+    (description, else facility), operator (`facility_operator` custom field),
+    metro (site group), address, and the PeeringDB facility id used to enrich
+    the site with public PeeringDB metadata. `netbox_ix_lint.check_site_metadata`
+    keeps these filled for every numbered site, so a site never lands as its
+    own one-site metro for want of a group."""
+    sites = {}
     for s in nb.dcim.sites.all():
-        base[s.slug] = {
+        cf = s.custom_fields or {}
+        sites[s.slug] = {
             "lat": float(s.latitude) if s.latitude is not None else None,
             "lon": float(s.longitude) if s.longitude is not None else None,
-            "name": s.facility or s.name,
+            "name": s.description or s.facility or s.name,
+            "operator": cf.get("facility_operator") or "",
+            "metro": s.group.name if s.group else "",
             "address": (s.physical_address or "").replace("\r\n", ", "),
-            "pdb_fac": (s.custom_fields or {}).get("peeringdb_facility"),
-        }
-    sites = {}
-    for code in set(list(base) + list(override)):
-        b = base.get(code, {})
-        o = override.get(code, {})
-        sites[code] = {
-            "lat": b.get("lat"), "lon": b.get("lon"),
-            "name": o.get("name") or b.get("name") or code,
-            "operator": o.get("operator") or b.get("operator") or "",
-            "metro": o.get("metro") or b.get("metro") or "",
-            "address": b.get("address", ""),
-            "pdb_fac": o.get("peeringdb_facility") or b.get("pdb_fac"),
+            "pdb_fac": cf.get("peeringdb_facility"),
         }
     return sites
 
