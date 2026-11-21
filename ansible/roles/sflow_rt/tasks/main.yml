@@ -97,6 +97,7 @@
 
 - name: "Import participants.json every 12 hours"
   become: true
+  tags: [sflow_rt_members_import]
   ansible.builtin.cron:
     name: "Import participants.json"
     user: sfmix

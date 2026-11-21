@@ -8,8 +8,11 @@
     group: sfmix
     mode: ug=rwx,o=rx
 
+# lg_web_vhost: content + vhost only, without the base nginx.conf
+# (geerlingguy.nginx), for narrow changes like doc 016's export aliases.
 - name: "Summary page and its assets"
   become: true
+  tags: [lg_web_vhost]
   ansible.builtin.copy:
     src: "{{ item }}"
     dest: "{{ looking_glass_web_static_directory }}/"
@@ -105,6 +108,7 @@
 
 - name: "Template nginx vhosts config"
   become: true
+  tags: [lg_web_vhost]
   ansible.builtin.template:
     src: nginx-vhosts.conf.j2
     dest: /etc/nginx/conf.d/vhosts.conf

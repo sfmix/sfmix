@@ -245,11 +245,16 @@ order is safe but noisy.
    lg-web. Verify `curl -f https://lg.sfmix.org/api/v1/{sites,participants-table,participants.json}`
    and `/api/v1/netbox/status`. Mind worktree-deployed lg-web: don't revert it
    from a `main` push.
-3. lg-web nginx (`--tags looking_glass_web`): legacy aliases. Re-run the
-   parity diff against the *aliased* `/participants.json` and
-   `/participants_table.json`.
-4. metrics (`--tags sflow_rt`): new cron. Check the next import landed
-   (sflow-rt member count unchanged).
+3. lg-web nginx: `--limit lg-web.sfmix.org --tags lg_web_vhost` (vhost +
+   index page only). Not `--tags looking_glass_web`: on 2026-11-21 that
+   check-mode run also rewrote nginx.conf's rate-limit exemption `geo` list
+   (the live list differs from main's) and `worker_processes` 4→2.
+   Reconcile that separately. Then re-run the parity diff against the
+   *aliased* `/participants.json` and `/participants_table.json`.
+4. metrics: `--limit metrics.sfo02.sfmix.org --tags sflow_rt_members_import`
+   (cron only; `--tags metrics` also carries unrelated pending Loki alerts and
+   nginx changes). Check the next import landed (sflow-rt member count
+   unchanged).
 5. Land on `main` so the website CI uses `/api/v1/participants-table`.
    Trigger `workflow_dispatch` and check sfmix.org/participants/.
 6. PeeringDB: set SFMIX's IX-F member export URL to
