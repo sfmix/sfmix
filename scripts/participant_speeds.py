@@ -37,7 +37,7 @@ def print_total_speeds(participants):
 
 
 if __name__ == "__main__":
-    participants = requests.get("https://lg.sfmix.org/participants.json").json()
+    participants = requests.get("https://lg.sfmix.org/api/v1/participants.json").json()
     print()
     print_site_speeds(participants=participants)
     print()

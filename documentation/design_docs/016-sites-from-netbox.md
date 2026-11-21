@@ -1,6 +1,10 @@
-# 016 — Site listings from NetBox (LG `/api/v1/sites`)
+# 016 — Site listings and participant exports from NetBox, served by the LG
 
-Status: proposed, 2026-11-21. Nothing built yet.
+Status: LG part built 2026-11-21 (branch `worktree-design-016-sites-from-netbox`):
+`/api/v1/sites` and `/api/v1/participants-table` added, the IX-F export
+brought to parity with the static file, and the Ansible `participants_json`
+renderer removed. Not yet deployed. NetBox fields, website locations layout,
+mapbuild and lint are still to do.
 
 ## Problem
 
@@ -22,14 +26,13 @@ metro. `weathermap_layouts.py` still doesn't know nuq01.
 ## Design
 
 The looking glass serves the site list. lg-server already holds a hot NetBox
-cache: one GraphQL query refreshed every `refresh_interval_secs` (300 s),
-which already pulls site facility/region/PeeringDB id for each peering
-switch. It also already serves a public IX-F export built from that cache
+cache, rebuilt by one refresh job every `refresh_interval_secs` (300 s). That
+job already pulled site facility/region/PeeringDB id for each peering switch. It also already serves a public IX-F export built from that cache
 (`/api/v1/participants.json` → RPC `/rpc/v1/participants.json`). Sites fit
 the same path:
 
 ```
-NetBox ──GraphQL, 300 s──▶ lg-server (ixp_data.sites) ──RPC /rpc/v1/sites──▶ lg-http GET /api/v1/sites
+NetBox ──refresh job, 300 s──▶ lg-server (ixp_data.sites) ──RPC /rpc/v1/sites──▶ lg-http GET /api/v1/sites
                                                                                ├──▶ website CI (Hugo, 6-hourly)
                                                                                └──▶ weathermap lab, scripts, MCP
 NetBox ──────────────────────────────────────────────────────────────────────────▶ mapbuild (daily; already reads NetBox)
@@ -98,49 +101,38 @@ sfo02's "Suite 303" moves into the first segment of its NetBox
 that for the facility link unless we want a `peeringdb_campus` field (not
 proposed).
 
-### 2. lg-server: sites in the existing NetBox fetch
+### 2. lg-server: sites in the existing NetBox refresh job (built)
 
-- `fetch_port_map` (`looking-glass/src/netbox.rs`): add a `site_list` block
-  to the existing single GraphQL query: `slug status description facility
-  physical_address latitude longitude custom_fields region { name } group {
-  name }`. Keep only sites with a `site_id`. Filter in Rust, as switch status
-  already is, because of the NetBox 4.5 enum-filter change.
-- Add `sites: Vec<IxpSite>` to `NetboxIxpData`, the same struct and refresh
-  as the switches and VLANs:
+- One refresh job, two GraphQL lookups. `fetch_port_map`
+  (`looking-glass/src/netbox.rs`) runs the existing port-map query and a
+  separate `SITES_QUERY` (`site_list { slug status description facility
+  physical_address latitude longitude custom_fields region group }`)
+  concurrently (`tokio::try_join!`) through a shared `graphql_query` helper.
+  Both results land in the same `NetboxFetchResult`, so every consumer sees
+  one consistent snapshot. Only sites with a `site_id` are kept, and status
+  is filtered in Rust because of the NetBox 4.5 enum-filter change.
+- `NetboxIxpData.sites: Vec<IxpSite>`, sorted by `site_id`. Fields NetBox
+  doesn't have yet (`metro` = site group, `facility_operator`,
+  `mmr_operator`, `mmr_portal_url`) are `null` until filled in. `street` is
+  the first line of `physical_address` (NetBox separates lines with `\r\n`).
+- The port-map query now selects only `site { slug }` for peering switches
+  and peering-port devices. `IxpSwitch` and `EnrichedPort` carry the site code,
+  and the IX-F switch's colo/city/PeeringDB id are looked up from `sites`.
+- Tenants carry `ixp_membership` (from the `ixp_participant` /
+  `ixp_infrastructure` tags). The LG keeps every tenant with an ASN for port
+  classification, which includes AS40271 transit customers. The public exports
+  filter to IXP members, matching the Ansible `netbox_participants` lookup.
+- RPC `GET /rpc/v1/sites` → `{"sites": [...]}`. All three NetBox exports
+  (`participants.json`, `participants-table`, `sites`) return **503 until the
+  first NetBox fetch has succeeded**. A freshly restarted lg-server never hands
+  PeeringDB an empty member list, or the website an empty page.
 
-  ```rust
-  pub struct IxpSite {
-      pub code: String,            // slug, "nuq01"
-      pub site_id: u32,
-      pub status: String,          // "active" | "planned"
-      pub name: String,            // description, "H5 Silicon Valley"
-      pub facility: String,        // "H5 Data Centers Silicon Valley"
-      pub street: String,          // physical_address up to first comma
-      pub city: String,            // region
-      pub metro: String,           // site group
-      pub facility_operator: String,
-      pub mmr_operator: String,
-      pub mmr_portal_url: String,
-      pub peeringdb_facility: Option<u64>,
-      pub lat: Option<f64>,
-      pub lon: Option<f64>,
-  }
-  ```
-
-- `IxpSwitch` gains `site: String` (code). The IX-F builder looks up
-  colo/city/PeeringDB id from `sites`, so `SiteEntry` is parsed once.
-- RPC: `GET /rpc/v1/sites` → `{"sites": [...]}` sorted by `site_id`.
-  **Return 503 until the first NetBox fetch has succeeded.** Otherwise a
-  freshly restarted lg-server serves an empty list, and the website would
-  publish an empty locations page. The cache-warm work in 859e641 made that
-  window short, but it still exists.
-
-### 3. lg-http: public `GET /api/v1/sites`
+### 3. lg-http: public `GET /api/v1/sites` (built)
 
 A plain proxy like `get_ixf_member_export`, anonymous. All of it is already
 public (PeeringDB / IX-F / the website itself), so per-ASN isolation doesn't
-apply. Set `Cache-Control: public, max-age=300` to match the refresh
-interval. It sits under the existing lg-web `/api/v1/` nginx location and
+apply. `Cache-Control: public, max-age=300` matches the refresh interval
+(shared helper with the other two exports). It sits under the existing lg-web `/api/v1/` nginx location and
 rate limit; one request per website build is nothing. Optionally add an MCP
 tool `show_sites` / lg-cli `show sites`, which costs little with the data in
 hand. Fixtures for tests stay synthetic.
@@ -202,41 +194,87 @@ a warning for a `site_id` site with missing fields rather than skipping it.
 - **Portal publishes it** (it already rebuilds from NetBox daily). That makes
   the public website depend on the portal, and it's only daily.
 
-## Follow-on: retire the Ansible-rendered participant artefacts
+## Participant exports moved to the LG (built)
 
-There are two IX-F exports today, built from the same NetBox data. One is
-static, rendered by the Ansible `participants_json` role and served at
-`lg.sfmix.org/participants.json` (Jinja). The other is live, from lg-server
-at `/api/v1/participants.json` (Rust). `participants_table.json`, which the
-website uses, is Ansible-only. With `/api/v1/sites` in place, the same move
-for the participants table (`/api/v1/participants-table`, or reshape
-`/api/v1/participants`) would let the `participants_json` role go away.
-Point `/participants.json` at the LG route and check what PeeringDB / the
-IX-F database have registered first. That's a separate change, but it's the
-"unify state" end state this doc points toward.
+There were two IX-F exports built from the same NetBox data: the static
+Ansible one (`participants_json` role, Jinja, `lg.sfmix.org/participants.json`)
+and lg-server's live `/api/v1/participants.json`. `participants_table.json`
+existed only on the Ansible side. Both are now served by lg-server, and the
+role is deleted:
+
+| Public URL | Served by | Notes |
+|---|---|---|
+| `/api/v1/participants.json` | lg-server IX-F builder | Canonical, give this to PeeringDB |
+| `/api/v1/participants-table` | `participants_table.rs` (new) | Same shape as the old file, so the website template is unchanged |
+| `/participants.json`, `/participants.min.json`, `/participants_table.json` | nginx `rewrite` → the routes above | Legacy aliases for external scrapers; nothing in-repo uses them |
+
+In-repo consumers moved to the `/api/v1/` URLs: website CI (`curl -f`), the
+participants page footer link, the sflow-rt member/MAC import cron (now
+fetch-to-file, then PUT only on success, so it never PUTs an empty body), the
+LG index page links, and `scripts/participant_speeds.py`. The IX-F schema
+moved to `looking-glass/doc/ixp-member-list.schema.json`.
+
+**Parity check, 2026-11-21.** `cargo run --example netbox_exports` (live
+NetBox) was diffed against the static files fetched minutes earlier:
+
+- **Participants table: byte-identical.** 99 participants, same order
+  (IXP participants by ASN, then infrastructure), every field equal. The only
+  normalisation was `peering_ports: null`, a Jinja/YAML artefact for
+  AS63055, which is now `[]`.
+- **IX-F:** all 99 members and every connection identical (switch ids,
+  speeds, VLAN, IPs, MACs). ixp/VLAN blocks are equal. One switch differs:
+  `switch02.sjc01` (NetBox status `decommissioning`, no connections
+  reference it) was listed by the Jinja template, which didn't filter switch
+  status. lg-server lists active switches only.
+- Fixed in the LG along the way. It had listed 8 non-IXP tenants (AS40271
+  transit customers) as IX-F members with empty connection lists; that is now
+  filtered by tag plus non-empty connections. The timestamp is now RFC 3339
+  UTC (`…Z`): the static file had local time with no zone, and the LG had
+  `+0000`. Both outputs validate against the IX-F schema.
+
+Cutover order matters: deploy lg-server/lg-http **before** the nginx aliases
+or the website CI change go live. If the website change lands first, the
+scheduled build fails on `curl -f` and the last good deploy stays up, so that
+order is safe but noisy.
 
 ## Rollout
 
-1. NetBox: create site groups, normalise descriptions, add the 3 custom
+1. ~~LG: sites lookup, `/api/v1/sites`, `/api/v1/participants-table`, IX-F
+   parity, 503 guard, tests.~~ Built; parity verified (above).
+2. Deploy the LG (musl build, `looking_glass` role) to the LG server and
+   lg-web. Verify `curl -f https://lg.sfmix.org/api/v1/{sites,participants-table,participants.json}`
+   and `/api/v1/netbox/status`. Mind worktree-deployed lg-web: don't revert it
+   from a `main` push.
+3. lg-web nginx (`--tags looking_glass_web`): legacy aliases. Re-run the
+   parity diff against the *aliased* `/participants.json` and
+   `/participants_table.json`.
+4. metrics (`--tags sflow_rt`): new cron. Check the next import landed
+   (sflow-rt member count unchanged).
+5. Land on `main` so the website CI uses `/api/v1/participants-table`.
+   Trigger `workflow_dispatch` and check sfmix.org/participants/.
+6. PeeringDB: set SFMIX's IX-F member export URL to
+   `https://lg.sfmix.org/api/v1/participants.json`. Done by hand in the
+   PeeringDB IX settings; the old URL keeps working as an alias.
+7. Remove the stale static files from lg-web:
+   `/var/www/lg-web/participants{,.min,_table,_table.min}.json`. nginx no
+   longer serves them after step 3.
+8. NetBox: create site groups, normalise descriptions, add the 3 custom
    fields (`netbox_schema.playbook.yml` defines `site_id`, so add them there)
    and fill all sites. Fix sfo02's suite in the address.
-2. Lint check (fails until step 1 is complete, which is useful as a checklist).
-3. LG: query + `IxpSite` + IX-F switch→site refactor + RPC/REST route, with
-   unit tests on synthetic GraphQL fixtures. Confirm the IX-F output is
-   byte-identical before/after. Tag a `looking-glass-v*` release and deploy
-   lg-server and lg-web. Mind worktree-deployed lg-web; don't revert it from
-   a `main` push. Verify `curl -f https://lg.sfmix.org/api/v1/sites`, and
-   that it 503s, not `[]`, during a restart.
-4. Website: CI curl, locations layout, format-string hero/about. Compare the
-   rendered `/locations/` against today's in all 5 locales before pushing.
-5. mapbuild: read the NetBox fields, delete `data/sites.json`, deploy portal,
-   rebuild the map and diff `map.json` sites/metros against the previous build.
-6. Retire or rewire `weathermap_layouts.py`.
+9. Lint check (fails until step 8 is complete, which is useful as a checklist).
+10. Website: sites curl, locations layout, format-string hero/about. Compare
+    the rendered `/locations/` against today's in all 5 locales before pushing.
+11. mapbuild: read the NetBox fields, delete `data/sites.json`, deploy portal,
+    rebuild the map and diff `map.json` sites/metros against the previous build.
+12. Retire or rewire `weathermap_layouts.py`.
+13. Runbooks that say "run `--tags participants_json`" (participant
+    offboarding, MAC refresh) drop that step: NetBox edits show up within
+    300 s.
 
 ## Aside found while surveying
 
-The IX-F `switch` list (both the Jinja `participants.yaml.j2` and lg-server's
-`peering_switches` query, `role == peering_switch`) includes the AS40271
+The IX-F `switch` list (lg-server's `peering_switches` query,
+`role == peering_switch`) includes the AS40271
 transit routers (`ar1.scl02.transit`, `cr1.*.transit`). Those are not IXP
 switches. Check whether they carry IX member ports. If not, filter them out
 of the IX-F `switch` list.

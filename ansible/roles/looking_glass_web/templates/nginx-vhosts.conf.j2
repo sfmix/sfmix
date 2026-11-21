@@ -49,11 +49,32 @@ server {
         return 200 "User-agent: *\n{% for path in looking_glass_web_robots_disallow %}Disallow: {{ path }}\n{% endfor %}";
     }
 
-    # Artefacts published by Ansible (participants_json role, arouteserver
-    # summary pages). Consumed by sfmix.org/participants/, sflow-rt, scripts.
-    location ~ ^/(participants(\.min)?\.json|participants_table\.json|[^/]+\.summary\.html)$ {
+    # arouteserver summary pages, published by Ansible.
+    location ~ ^/[^/]+\.summary\.html$ {
         root {{ looking_glass_web_static_directory }};
         add_header Cache-Control "public, max-age=300";
+    }
+
+    # Legacy public URLs of the NetBox exports, now served live by lg-server
+    # (doc 016). Kept for external scrapers and anything still configured with
+    # the old URL; everything in this repo uses the /api/v1/ paths.
+    location ~ ^/participants(\.min)?\.json$ {
+        limit_req zone=lg_ip burst={{ looking_glass_web_rate_limit_burst }} nodelay;
+        rewrite ^ /api/v1/participants.json break;
+        proxy_pass {{ looking_glass_web_lg_http_upstream }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location = /participants_table.json {
+        limit_req zone=lg_ip burst={{ looking_glass_web_rate_limit_burst }} nodelay;
+        rewrite ^ /api/v1/participants-table break;
+        proxy_pass {{ looking_glass_web_lg_http_upstream }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # lg-ng REST API. Longest ^~ prefix wins, so this takes precedence over the

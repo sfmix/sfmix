@@ -37,10 +37,12 @@ jobs:
           hugo-version: '0.142.0'
           extended: true
 
+      # -f: an HTTP error (e.g. lg-server still loading NetBox) fails the build,
+      # so the previous Pages deploy stays up instead of an empty table.
       - name: Fetch participants data
         run: |
           mkdir -p data
-          curl -sL -o data/participants_table.json https://lg.sfmix.org/participants_table.json
+          curl -fsSL -o data/participants_table.json https://lg.sfmix.org/api/v1/participants-table
 
       - name: Build
         run: hugo --minify

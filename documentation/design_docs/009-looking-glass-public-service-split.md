@@ -73,6 +73,7 @@ Internet ──► lg.sfmix.org = lg-ng.sfmix.org = lg-web.sfmix.org
                ├─ ^~ /api/                     → http://mgmt.lg.sfmix.org/api/      (bgplgd, legacy + Alice source)
                ├─ ^~ /cgi-bin/, = /sfmix.png   → http://mgmt.lg.sfmix.org/...       (bgplg CGI)
                └─ /participants*.json, /*.summary.html → /var/www/lg-web            (participants_json, arouteserver)
+                  [since doc 016: /participants*.json proxy to lg-http /api/v1/; participants_json role removed]
              lg-cli telnet :2023 / ssh :2222 bound to 10.1.1.17 (admin-only, as on alice today)
              lg-server RPC 10.1.1.17:9090 ← lg-neighborhood-watch on rs-linux (10.1.1.18)
 

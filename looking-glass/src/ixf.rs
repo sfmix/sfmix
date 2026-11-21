@@ -1,6 +1,8 @@
 //! IX-F Member Export builder.
 //!
-//! Produces a JSON value conforming to the IX-F Member Export Schema v1.0.
+//! Produces a JSON value conforming to the IX-F Member Export Schema v1.0
+//! (`doc/ixp-member-list.schema.json`). PeeringDB imports it from
+//! `https://lg.sfmix.org/api/v1/participants.json`.
 //! Used by both the monolith REST frontend and the lg-server RPC endpoint.
 
 use crate::netbox::{IxpVlan, NetboxIxpData, NetboxParticipant};
@@ -48,14 +50,21 @@ pub fn build_ixf_export(
         .collect();
 
     // Build member list
+    // IXP members only (tenants tagged ixp_participant / ixp_infrastructure),
+    // and only once they have a connection: a newly-approved joiner whose port
+    // isn't turned up yet is left out. AS12276 / AS63055 always have their
+    // hardcoded connection below.
     let mut members: Vec<serde_json::Value> = Vec::new();
-    for p in participants {
+    for p in participants.iter().filter(|p| p.ixp_membership.is_some()) {
         let member_type = match p.participant_type.as_deref() {
             Some("Infrastructure") => "ixp",
             _ => "peering",
         };
 
         let connections = build_connection_list(p, &ixp_data.vlans);
+        if connections.is_empty() {
+            continue;
+        }
         members.push(serde_json::json!({
             "asnum": p.asn,
             "member_type": member_type,
@@ -65,8 +74,9 @@ pub fn build_ixf_export(
     }
     members.sort_by_key(|m| m["asnum"].as_u64().unwrap_or(0));
 
+    // RFC 3339 (the schema's `date-time`): "2026-11-21T09:05:11Z".
     let timestamp = chrono::Utc::now()
-        .format("%Y-%m-%dT%H:%M:%S%z")
+        .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
 
     serde_json::json!({
@@ -185,4 +195,54 @@ fn build_connection_list(
     }
 
     connections
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::netbox::{EnrichedPort, IxpMembership};
+
+    fn participant(asn: u32, membership: Option<IxpMembership>, ports: u64) -> NetboxParticipant {
+        NetboxParticipant {
+            asn,
+            name: format!("Example {asn}"),
+            participant_type: None,
+            ixp_membership: membership,
+            ports: Vec::new(),
+            enriched_ports: (0..ports)
+                .map(|i| EnrichedPort {
+                    device: "switch01.tst01".into(),
+                    interface: format!("Ethernet{i}"),
+                    device_id: 1,
+                    site: "tst01".into(),
+                    interface_id: i,
+                    speed: Some(10_000),
+                    rate_limit_bps: None,
+                    enabled: true,
+                    member_interfaces: Vec::new(),
+                })
+                .collect(),
+            ip_addresses: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn members_are_ixp_tagged_with_a_connection() {
+        let ps = vec![
+            participant(64512, Some(IxpMembership::Participant), 1),
+            participant(64513, Some(IxpMembership::Participant), 0), // port not turned up yet
+            participant(64514, None, 1),                              // not an IXP member
+            participant(63055, Some(IxpMembership::Infrastructure), 0), // hardcoded connection
+        ];
+        let v = build_ixf_export(&NetboxIxpData::default(), &ps);
+        let asns: Vec<u64> = v["member_list"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["asnum"].as_u64().unwrap())
+            .collect();
+        assert_eq!(asns, vec![63055, 64512]);
+        let ts = v["timestamp"].as_str().unwrap();
+        assert!(ts.ends_with('Z') && ts.len() == 20, "RFC 3339 UTC timestamp, got {ts}");
+    }
 }

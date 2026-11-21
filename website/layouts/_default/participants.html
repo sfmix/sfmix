@@ -76,7 +76,7 @@
       {{ end }}
     </div>
 
-    <p class="table-footer">{{ len . }} {{ if eq (len .) 1 }}{{ partial "T.html" "participant" }}{{ else }}{{ partial "T.html" "participants" }}{{ end }}. {{ partial "T.html" "Data sourced from" }} <a href="https://lg.sfmix.org/participants_table.json">lg.sfmix.org</a>. {{ partial "T.html" "Last updated" }} {{ now.Format "January 2, 2006 15:04 MST" }}.</p>
+    <p class="table-footer">{{ len . }} {{ if eq (len .) 1 }}{{ partial "T.html" "participant" }}{{ else }}{{ partial "T.html" "participants" }}{{ end }}. {{ partial "T.html" "Data sourced from" }} <a href="https://lg.sfmix.org/api/v1/participants-table">lg.sfmix.org</a>. {{ partial "T.html" "Last updated" }} {{ now.Format "January 2, 2006 15:04 MST" }}.</p>
     {{ end }}
   </div>
 </div>

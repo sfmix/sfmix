@@ -1403,6 +1403,7 @@ mod tests {
             device: d.into(),
             interface: i.into(),
             device_id: 0,
+            site: String::new(),
             interface_id: 0,
             speed: None,
             rate_limit_bps: None,
@@ -1415,7 +1416,7 @@ mod tests {
                 flat.push((p.device.clone(), p.interface.clone()));
                 flat.extend(p.member_interfaces.iter().cloned());
             }
-            NetboxParticipant { asn, name: name.into(), participant_type: None, ports: flat, enriched_ports: ports, ip_addresses: vec![] }
+            NetboxParticipant { asn, name: name.into(), participant_type: None, ixp_membership: None, ports: flat, enriched_ports: ports, ip_addresses: vec![] }
         };
         let nb = vec![
             participant(64500, "Tenant A", vec![
@@ -1546,6 +1547,7 @@ mod tests {
             device: d.into(),
             interface: i.into(),
             device_id: 0,
+            site: String::new(),
             interface_id: 0,
             speed: None,
             rate_limit_bps: None,
@@ -1556,6 +1558,7 @@ mod tests {
             asn,
             name: name.into(),
             participant_type: None,
+            ixp_membership: None,
             ports: ports.iter().map(|p| (p.device.clone(), p.interface.clone())).collect(),
             enriched_ports: ports,
             ip_addresses: vec![],

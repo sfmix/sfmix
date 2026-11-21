@@ -155,7 +155,7 @@ async fn main() -> Result<()> {
         oidc_client,
         public_vlans,
         netbox_status: ArcSwap::from_pointee(NetboxStatus::unconfigured()),
-        ixp_data: ArcSwap::from_pointee(NetboxIxpData { switches: Vec::new(), vlans: Vec::new() }),
+        ixp_data: ArcSwap::from_pointee(NetboxIxpData::default()),
         netbox_participants: ArcSwap::from_pointee(Vec::new()),
         device_state_cache: ArcSwap::from_pointee(std::collections::HashMap::new()),
         device_cache_cfg: server_cfg.device_cache.clone(),

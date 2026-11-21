@@ -7,7 +7,7 @@ Static website for [sfmix.org](https://sfmix.org), built with [Hugo](https://goh
 Every push to `main` triggers a GitHub Actions workflow that:
 
 1. Builds the Hugo site (with `--minify`)
-2. Fetches live participant data from `https://lg.sfmix.org/participants_table.json`
+2. Fetches live participant data from `https://lg.sfmix.org/api/v1/participants-table` (served live by the looking glass from NetBox)
 3. Deploys to GitHub Pages at [sfmix.org](https://sfmix.org)
 
 The workflow also runs on a schedule (every 6 hours) to keep participant data fresh, and can be triggered manually via `workflow_dispatch`.
@@ -21,7 +21,7 @@ Requires [Hugo](https://gohugo.io/installation/) (extended edition, v0.142.0+).
 ```bash
 # Fetch participant data
 mkdir -p data
-curl -sL -o data/participants_table.json https://lg.sfmix.org/participants_table.json
+curl -fsSL -o data/participants_table.json https://lg.sfmix.org/api/v1/participants-table
 
 # Start dev server with live reload
 hugo server

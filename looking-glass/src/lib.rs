@@ -14,6 +14,7 @@ pub mod ratelimit;
 pub mod structured;
 pub mod format;
 pub mod ixf;
+pub mod participants_table;
 pub mod mac_table;
 pub mod discovered;
 pub mod anomaly;

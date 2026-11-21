@@ -87,6 +87,7 @@ impl ParticipantMap {
                 asn: p.asn,
                 name: p.name.clone(),
                 participant_type: p.participant_type.clone(),
+                ixp_membership: Some(crate::netbox::IxpMembership::Participant),
                 ports: p.ports.iter().map(|pp| (pp.device.clone(), pp.interface.clone())).collect(),
                 enriched_ports: Vec::new(),
                 ip_addresses: Vec::new(),
@@ -369,6 +370,7 @@ mod tests {
                 asn: 13335,
                 name: "Cloudflare".to_string(),
                 participant_type: Some("Member".to_string()),
+                ixp_membership: None,
                 ports: vec![
                     ("switch01.sfo02".to_string(), "Ethernet3/1".to_string()),
                     ("switch02.sfo02".to_string(), "Ethernet3/1".to_string()),
@@ -380,6 +382,7 @@ mod tests {
                 asn: 15169,
                 name: "Google".to_string(),
                 participant_type: Some("Member".to_string()),
+                ixp_membership: None,
                 ports: vec![
                     ("switch01.sfo02".to_string(), "Ethernet3/2".to_string()),
                 ],

@@ -26,7 +26,7 @@ looking_glass_web_collector_url: http://mgmt.lg.sfmix.org
 # lg-http upstream (roles/looking_glass binds it to 127.0.0.1:8080).
 looking_glass_web_lg_http_upstream: "http://127.0.0.1:{{ looking_glass_http_port | default(8080) }}"
 
-# Static files published by other roles (participants_json, sfmix_arouteserver
+# Static files published by other roles (sfmix_arouteserver
 # publish_html_summary) and served verbatim.
 looking_glass_web_static_directory: /var/www/lg-web
 

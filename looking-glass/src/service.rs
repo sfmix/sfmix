@@ -760,6 +760,7 @@ mod tests {
                 asn: 6939,
                 name: "Hurricane Electric".to_string(),
                 participant_type: Some("Member".to_string()),
+                ixp_membership: None,
                 ports: vec![
                     (DEVICE.to_string(), "Port-Channel101".to_string()),
                 ],
@@ -770,6 +771,7 @@ mod tests {
                 asn: 6140,
                 name: "Two P".to_string(),
                 participant_type: Some("Member".to_string()),
+                ixp_membership: None,
                 ports: vec![
                     ("switch01.fmt01.sfmix.org".to_string(), "Port-Channel114.998".to_string()),
                 ],
@@ -780,6 +782,7 @@ mod tests {
                 asn: 13335,
                 name: "Cloudflare".to_string(),
                 participant_type: Some("Member".to_string()),
+                ixp_membership: None,
                 ports: vec![
                     (DEVICE.to_string(), "Ethernet5/1".to_string()),
                 ],
@@ -816,6 +819,7 @@ mod tests {
             asn,
             name: name.to_string(),
             participant_type: Some("Member".to_string()),
+            ixp_membership: None,
             ports: Vec::new(),
             enriched_ports: Vec::new(),
             ip_addresses: Vec::new(),
@@ -890,6 +894,7 @@ mod tests {
             asn: 39961,
             name: "CCSF".to_string(),
             participant_type: Some("Member".to_string()),
+            ixp_membership: None,
             ports: vec![sub.clone()],
             enriched_ports: Vec::new(),
             ip_addresses: Vec::new(),

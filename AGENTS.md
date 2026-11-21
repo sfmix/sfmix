@@ -50,7 +50,7 @@ LG_USE_FIXTURES=true python manage.py runserver
 
 # Website
 cd website
-mkdir -p data && curl -sL -o data/participants_table.json https://lg.sfmix.org/participants_table.json
+mkdir -p data && curl -fsSL -o data/participants_table.json https://lg.sfmix.org/api/v1/participants-table
 hugo server
 
 # Scripts / Ansible

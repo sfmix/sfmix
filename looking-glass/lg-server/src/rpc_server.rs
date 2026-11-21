@@ -37,6 +37,8 @@ pub fn router(state: Arc<RpcState>) -> Router {
         .route("/rpc/v1/service-info", get(service_info))
         .route("/rpc/v1/participants", get(participants_list))
         .route("/rpc/v1/participants.json", get(ixf_member_export))
+        .route("/rpc/v1/participants-table", get(participants_table))
+        .route("/rpc/v1/sites", get(sites))
         .route("/rpc/v1/peering-vlans", get(peering_vlans))
         .route("/rpc/v1/participants/{asn}", get(participant_detail))
         .route("/rpc/v1/participant-ports", get(participant_ports))
@@ -246,17 +248,53 @@ async fn participants_list(
     Json(serde_json::to_value(&*nb_participants).unwrap_or_default()).into_response()
 }
 
+/// The public NetBox exports must never serve the empty pre-fetch snapshot:
+/// a just-restarted lg-server would otherwise hand PeeringDB an IX-F export
+/// with no members, or the website an empty participants/locations page.
+fn check_netbox_ready(state: &RpcState) -> Result<(), (StatusCode, &'static str)> {
+    if state.lg.netbox_status.load().last_success.is_some() {
+        Ok(())
+    } else {
+        Err((StatusCode::SERVICE_UNAVAILABLE, "NetBox data not loaded yet"))
+    }
+}
+
 /// GET /rpc/v1/participants.json — IX-F Member Export
 async fn ixf_member_export(
     State(state): State<Arc<RpcState>>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    if let Err(e) = check_secret(&headers, &state.rpc_secret) {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret).and_then(|_| check_netbox_ready(&state)) {
         return e.into_response();
     }
     let ixp_data = state.lg.ixp_data.load();
     let nb_participants = state.lg.netbox_participants.load();
     Json(looking_glass::ixf::build_ixf_export(&ixp_data, &nb_participants)).into_response()
+}
+
+/// GET /rpc/v1/participants-table — per-port participant list (sfmix.org/participants/)
+async fn participants_table(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret).and_then(|_| check_netbox_ready(&state)) {
+        return e.into_response();
+    }
+    let ixp_data = state.lg.ixp_data.load();
+    let nb_participants = state.lg.netbox_participants.load();
+    Json(looking_glass::participants_table::build_participants_table(&ixp_data, &nb_participants)).into_response()
+}
+
+/// GET /rpc/v1/sites — SFMIX sites (NetBox Sites with a site_id), by site_id
+async fn sites(
+    State(state): State<Arc<RpcState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = check_secret(&headers, &state.rpc_secret).and_then(|_| check_netbox_ready(&state)) {
+        return e.into_response();
+    }
+    let ixp_data = state.lg.ixp_data.load();
+    Json(serde_json::json!({ "sites": ixp_data.sites })).into_response()
 }
 
 /// GET /rpc/v1/peering-vlans — IXP peering-LAN VLANs (with dot1q VIDs)

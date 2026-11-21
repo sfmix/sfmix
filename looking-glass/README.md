@@ -107,6 +107,18 @@ Output that fits on one screen prints inline. Longer output opens a full-screen 
 | **Participant** | SSH, HTTP | OIDC (PeeringDB/GitHub) | Public + own port details, own port optics |
 | **Administrator** | SSH, HTTP | OIDC (IX Administrators group) | Full read-only access to all ports |
 
+## Public NetBox exports
+
+lg-server builds these from its NetBox cache (refreshed every `refresh_interval_secs`, 300 s in production; sites are their own GraphQL lookup inside the same refresh). They are anonymous, `Cache-Control: public, max-age=300`, and return an error (503 from lg-server, 502 at lg-http) until the first NetBox fetch has succeeded, never an empty document.
+
+| Endpoint | What | Consumers |
+|---|---|---|
+| `/api/v1/participants.json` | IX-F Member Export (`doc/ixp-member-list.schema.json`): IXP-tagged tenants with at least one connection | PeeringDB, sflow-rt member/MAC import, portal, MCP `show_participants` |
+| `/api/v1/participants-table` | Per-port participant rows (speed, facility, IPs + integer sort keys) | sfmix.org/participants/ (website CI) |
+| `/api/v1/sites` | NetBox Sites with a `site_id`: code, site_id, status, facility, street, city, metro, operators, PeeringDB facility, lat/lon | sfmix.org/locations/ (doc 016) |
+
+The legacy `https://lg.sfmix.org/participants.json` and `/participants_table.json` URLs are nginx aliases of the first two. To diff a change against production before deploying: `NETBOX_URL=… NETBOX_TOKEN=… cargo run --example netbox_exports -- <out-dir>`.
+
 ## MCP Interface
 
 The MCP (Model Context Protocol) endpoint at `/mcp` allows LLM agents and tools (e.g. Windsurf, Claude Desktop) to query the looking glass programmatically.

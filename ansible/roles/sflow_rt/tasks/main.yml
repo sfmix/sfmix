@@ -100,9 +100,11 @@
   ansible.builtin.cron:
     name: "Import participants.json"
     user: sfmix
+    # Fetch to a file first: only PUT when the fetch succeeded, never an empty
+    # body or an error page (which would wipe sflow-rt's member/MAC map).
     job: >
-      curl https://lg.sfmix.org/participants.json |
-      curl -d @- -X PUT -H "Content-Type: application/json"
+      curl -fsS -o "$HOME/participants.json" https://lg.sfmix.org/api/v1/participants.json &&
+      curl -fsS -d @"$HOME/participants.json" -X PUT -H "Content-Type: application/json"
       http://localhost:8008/app/ixp-metrics/scripts/metrics.js/members/json
     minute: "30"
     hour: "*/12"

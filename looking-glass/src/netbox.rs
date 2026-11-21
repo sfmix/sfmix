@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use serde::de::{self, Deserializer};
+use serde::de::{self, DeserializeOwned, Deserializer};
 use std::collections::HashMap;
 use std::time::Instant;
 use tracing::info;
@@ -56,6 +56,11 @@ pub struct NetboxParticipant {
     pub asn: u32,
     pub name: String,
     pub participant_type: Option<String>,
+    /// IXP membership from the tenant's `ixp_participant` / `ixp_infrastructure`
+    /// tag. `None` for tenants that only exist for other reasons (e.g. AS40271
+    /// transit customers): they stay in the port map but are not IXP members, so
+    /// the public exports (IX-F, participants table) leave them out.
+    pub ixp_membership: Option<IxpMembership>,
     /// (device_name, interface_name) pairs — used by PortMap/ParticipantMap.
     #[serde(skip)]
     pub ports: Vec<(String, String)>,
@@ -65,6 +70,16 @@ pub struct NetboxParticipant {
     pub ip_addresses: Vec<ParticipantIp>,
 }
 
+/// How a tenant belongs to the IXP, from its NetBox tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IxpMembership {
+    /// Tagged `ixp_participant`.
+    Participant,
+    /// Tagged `ixp_infrastructure` (SFMIX itself, the route servers).
+    Infrastructure,
+}
+
 /// Enriched peering port with speed and device info.
 #[derive(Debug, Clone, Serialize)]
 pub struct EnrichedPort {
@@ -72,6 +87,8 @@ pub struct EnrichedPort {
     pub interface: String,
     /// NetBox device ID (used for IX-F switch_id).
     pub device_id: u64,
+    /// Site code (NetBox slug) of the port's device, e.g. "sfo02".
+    pub site: String,
     /// Interface ID in NetBox (used to match IP addresses via participant_lag).
     pub interface_id: u64,
     /// Speed in Mbps (converted from NetBox kbps), e.g. 10000 = 10G.
@@ -105,6 +122,8 @@ pub struct ParticipantIp {
 pub struct IxpSwitch {
     pub id: u64,
     pub name: String,
+    /// Site code (NetBox slug).
+    pub site: String,
     pub colo: String,
     pub pdb_facility_id: Option<u64>,
     pub city: String,
@@ -130,11 +149,49 @@ pub struct IxpVlan {
     pub ipv6_mask_length: Option<u32>,
 }
 
-/// IXP infrastructure data needed for IX-F Member Export.
+/// An SFMIX site (NetBox Site with a `site_id`), served at `/api/v1/sites`.
+///
+/// Fields NetBox doesn't model yet (`metro` = site group, operators, MMR
+/// portal) are `None` until filled in; see design doc 016.
 #[derive(Debug, Clone, Serialize)]
+pub struct IxpSite {
+    /// Site code (NetBox slug), e.g. "nuq01".
+    pub code: String,
+    /// SFMIX numeric site ID (NetBox `site_id` custom field). Not the NetBox PK.
+    pub site_id: u32,
+    /// NetBox status: "active", "planned", ...
+    pub status: String,
+    /// Short display name (NetBox description), e.g. "1360 Kifer Road".
+    pub name: String,
+    /// Facility name (NetBox facility), e.g. "H5 Data Centers Silicon Valley".
+    pub facility: String,
+    /// First line of the NetBox physical address.
+    pub street: String,
+    /// City (NetBox region).
+    pub city: String,
+    /// Metro (NetBox site group), e.g. "Santa Clara/Sunnyvale".
+    pub metro: Option<String>,
+    pub facility_operator: Option<String>,
+    pub mmr_operator: Option<String>,
+    pub mmr_portal_url: Option<String>,
+    pub peeringdb_facility: Option<u64>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+}
+
+/// IXP infrastructure data: sites, peering switches and peering VLANs.
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct NetboxIxpData {
     pub switches: Vec<IxpSwitch>,
     pub vlans: Vec<IxpVlan>,
+    /// Sites with a `site_id`, sorted by `site_id`.
+    pub sites: Vec<IxpSite>,
+}
+
+impl NetboxIxpData {
+    pub fn site(&self, code: &str) -> Option<&IxpSite> {
+        self.sites.iter().find(|s| s.code == code)
+    }
 }
 
 /// Result of a NetBox fetch: participants + core port list + IXP data.
@@ -152,79 +209,15 @@ pub struct NetboxFetchResult {
     pub ixp_data: NetboxIxpData,
 }
 
-/// Fetch participant→port mapping, core port list, and IXP infrastructure data
-/// from NetBox in a single GraphQL query.
-pub async fn fetch_port_map(
-    url: &str,
+/// POST one GraphQL query to NetBox and deserialize its `data`.
+async fn graphql_query<T: DeserializeOwned>(
+    client: &reqwest::Client,
+    graphql_url: &str,
     token: &str,
-    domain_suffix: Option<&str>,
-) -> Result<NetboxFetchResult> {
-    let graphql_url = format!("{}/graphql/", url.trim_end_matches('/'));
-
-    let query = r#"{
-        tenant_list {
-            id
-            name
-            description
-            custom_fields
-        }
-        peering_ports: interface_list(filters: { tags: { slug: { exact: "peering_port" } } }) {
-            id
-            name
-            speed
-            enabled
-            device { id name }
-            custom_fields
-            tags { slug }
-            member_interfaces { id name device { id name } }
-            parent { id name member_interfaces { id name device { id name } } }
-        }
-        core_ports: interface_list(filters: { tags: { slug: { exact: "core_port" } } }) {
-            name
-            device { name }
-        }
-        admin_ports: interface_list(filters: { tags: { slug: { exact: "admin_port" } } }) {
-            name
-            device { name }
-        }
-        transit_peers: interface_list(filters: { tags: { slug: { exact: "transit_peer" } } }) {
-            id
-            name
-            speed
-            enabled
-            device { id name }
-            custom_fields
-        }
-        ip_addresses: ip_address_list(filters: { tags: { slug: { exact: "ixp_participant" } } }) {
-            address
-            family { value label }
-            status
-            tenant { id }
-            custom_fields
-        }
-        peering_switches: device_list(filters: { role: { slug: { exact: "peering_switch" } } }) {
-            id
-            name
-            status
-            site { id name facility custom_fields region { name } }
-            device_type { manufacturer { name } model }
-        }
-        peering_vlans: vlan_list(filters: { group: { slug: { exact: "exchange_fabric_vlans" } } }) {
-            id
-            vid
-            name
-            tags { slug }
-        }
-        prefix_list {
-            prefix
-            family { value }
-            vlan { id }
-        }
-    }"#;
-
-    let client = reqwest::Client::new();
+    query: &str,
+) -> Result<T> {
     let resp = client
-        .post(&graphql_url)
+        .post(graphql_url)
         .header("Authorization", format!("Token {}", token))
         .json(&serde_json::json!({ "query": query }))
         .send()
@@ -237,7 +230,7 @@ pub async fn fetch_port_map(
         anyhow::bail!("NetBox GraphQL returned {status}: {body}");
     }
 
-    let body: GraphQlResponse = resp
+    let body: GraphQlResponse<T> = resp
         .json()
         .await
         .context("failed to parse NetBox GraphQL response")?;
@@ -249,10 +242,149 @@ pub async fn fetch_port_map(
         }
     }
 
-    let data = body.data.context("NetBox GraphQL response has no data")?;
+    body.data.context("NetBox GraphQL response has no data")
+}
 
-    // Build tenant_id → (asn, name, participant_type) lookup
-    let mut tenants_by_id: HashMap<String, (u32, String, Option<String>)> = HashMap::new();
+const SITES_QUERY: &str = r#"{
+    site_list {
+        slug
+        status
+        description
+        facility
+        physical_address
+        latitude
+        longitude
+        custom_fields
+        region { name }
+        group { name }
+    }
+}"#;
+
+/// Fetch the SFMIX sites (NetBox Sites carrying a `site_id`), sorted by `site_id`.
+async fn fetch_sites(client: &reqwest::Client, graphql_url: &str, token: &str) -> Result<Vec<IxpSite>> {
+    let data: SitesData = graphql_query(client, graphql_url, token, SITES_QUERY).await?;
+    Ok(sites_from_entries(data.site_list))
+}
+
+fn sites_from_entries(entries: Vec<SiteEntry>) -> Vec<IxpSite> {
+    let mut sites: Vec<IxpSite> = entries
+        .into_iter()
+        .filter_map(|s| {
+            let site_id = s.custom_fields.site_id?;
+            let street = s
+                .physical_address
+                .lines()
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            Some(IxpSite {
+                code: s.slug,
+                site_id,
+                status: s.status,
+                name: s.description,
+                facility: s.facility.unwrap_or_default(),
+                street,
+                city: s.region.map(|r| r.name).unwrap_or_default(),
+                metro: s.group.map(|g| g.name),
+                facility_operator: non_empty(s.custom_fields.facility_operator),
+                mmr_operator: non_empty(s.custom_fields.mmr_operator),
+                mmr_portal_url: non_empty(s.custom_fields.mmr_portal_url),
+                peeringdb_facility: s.custom_fields.peeringdb_facility,
+                latitude: s.latitude.as_deref().and_then(|v| v.parse().ok()),
+                longitude: s.longitude.as_deref().and_then(|v| v.parse().ok()),
+            })
+        })
+        .collect();
+    sites.sort_by_key(|s| s.site_id);
+    sites
+}
+
+fn non_empty(v: Option<String>) -> Option<String> {
+    v.filter(|s| !s.trim().is_empty())
+}
+
+const PORT_MAP_QUERY: &str = r#"{
+    tenant_list {
+        id
+        name
+        description
+        custom_fields
+        tags { slug }
+    }
+    peering_ports: interface_list(filters: { tags: { slug: { exact: "peering_port" } } }) {
+        id
+        name
+        speed
+        enabled
+        device { id name site { slug } }
+        custom_fields
+        tags { slug }
+        member_interfaces { id name device { id name } }
+        parent { id name member_interfaces { id name device { id name } } }
+    }
+    core_ports: interface_list(filters: { tags: { slug: { exact: "core_port" } } }) {
+        name
+        device { name }
+    }
+    admin_ports: interface_list(filters: { tags: { slug: { exact: "admin_port" } } }) {
+        name
+        device { name }
+    }
+    transit_peers: interface_list(filters: { tags: { slug: { exact: "transit_peer" } } }) {
+        id
+        name
+        speed
+        enabled
+        device { id name }
+        custom_fields
+    }
+    ip_addresses: ip_address_list(filters: { tags: { slug: { exact: "ixp_participant" } } }) {
+        address
+        family { value label }
+        status
+        tenant { id }
+        custom_fields
+    }
+    peering_switches: device_list(filters: { role: { slug: { exact: "peering_switch" } } }) {
+        id
+        name
+        status
+        site { slug }
+        device_type { manufacturer { name } model }
+    }
+    peering_vlans: vlan_list(filters: { group: { slug: { exact: "exchange_fabric_vlans" } } }) {
+        id
+        vid
+        name
+        tags { slug }
+    }
+    prefix_list {
+        prefix
+        family { value }
+        vlan { id }
+    }
+}"#;
+
+/// One NetBox refresh: participant→port mapping, core/admin port lists, and
+/// IXP infrastructure data (sites, switches, VLANs). Sites are a separate
+/// GraphQL lookup run concurrently with the port-map query; both land in the
+/// same result so every consumer sees one consistent snapshot.
+pub async fn fetch_port_map(
+    url: &str,
+    token: &str,
+    domain_suffix: Option<&str>,
+) -> Result<NetboxFetchResult> {
+    let graphql_url = format!("{}/graphql/", url.trim_end_matches('/'));
+    let client = reqwest::Client::new();
+
+    let (data, sites): (GraphQlData, Vec<IxpSite>) = tokio::try_join!(
+        graphql_query(&client, &graphql_url, token, PORT_MAP_QUERY),
+        fetch_sites(&client, &graphql_url, token),
+    )?;
+
+    // Build tenant_id → (asn, name, participant_type, ixp_membership) lookup
+    let mut tenants_by_id: HashMap<String, (u32, String, Option<String>, Option<IxpMembership>)> = HashMap::new();
     for tenant in &data.tenant_list {
         if let Some(asn) = tenant.custom_fields.as_number {
             if asn > 0 {
@@ -264,7 +396,7 @@ pub async fn fetch_port_map(
                 };
                 tenants_by_id.insert(
                     tenant.id.clone(),
-                    (asn, label, tenant.custom_fields.participant_type.clone()),
+                    (asn, label, tenant.custom_fields.participant_type.clone(), tenant.ixp_membership()),
                 );
             }
         }
@@ -280,7 +412,7 @@ pub async fn fetch_port_map(
     for iface in &data.transit_peers {
         if let Some(tenant_id) = iface.custom_fields.participant {
             let tid = tenant_id.to_string();
-            if let Some((asn, _, _)) = tenants_by_id.get(&tid) {
+            if let Some((asn, _, _, _)) = tenants_by_id.get(&tid) {
                 let device_name = normalize_device_name(&iface.device.name, domain_suffix);
                 ports_by_asn
                     .entry(*asn)
@@ -293,7 +425,7 @@ pub async fn fetch_port_map(
     for iface in &data.peering_ports {
         if let Some(tenant_id) = iface.custom_fields.participant {
             let tid = tenant_id.to_string();
-            if let Some((asn, _, _)) = tenants_by_id.get(&tid) {
+            if let Some((asn, _, _, _)) = tenants_by_id.get(&tid) {
                 let device_name = normalize_device_name(&iface.device.name, domain_suffix);
                 ports_by_asn
                     .entry(*asn)
@@ -340,6 +472,7 @@ pub async fn fetch_port_map(
                         device: device_name,
                         interface: iface.name.clone(),
                         device_id: iface.device.id,
+                        site: iface.device.site.as_ref().map(|s| s.slug.clone()).unwrap_or_default(),
                         interface_id: iface.id,
                         speed: iface.speed.map(|s| s / 1000),
                         rate_limit_bps: iface.custom_fields.rate_limit_bps,
@@ -354,7 +487,7 @@ pub async fn fetch_port_map(
     let mut ips_by_asn: HashMap<u32, Vec<ParticipantIp>> = HashMap::new();
     for ip in &data.ip_addresses {
         if let Some(ref tenant) = ip.tenant {
-            if let Some((asn, _, _)) = tenants_by_id.get(&tenant.id) {
+            if let Some((asn, _, _, _)) = tenants_by_id.get(&tenant.id) {
                 // Strip prefix length from address (e.g. "206.197.187.62/32" → "206.197.187.62")
                 let addr = ip.address.split('/').next().unwrap_or(&ip.address).to_string();
                 let family = match ip.family.value {
@@ -375,11 +508,12 @@ pub async fn fetch_port_map(
 
     // Assemble participants
     let mut participants: Vec<NetboxParticipant> = Vec::new();
-    for (asn, name, ptype) in tenants_by_id.values() {
+    for (asn, name, ptype, membership) in tenants_by_id.values() {
         participants.push(NetboxParticipant {
             asn: *asn,
             name: name.clone(),
             participant_type: ptype.clone(),
+            ixp_membership: *membership,
             ports: ports_by_asn.remove(asn).unwrap_or_default(),
             enriched_ports: enriched_by_asn.remove(asn).unwrap_or_default(),
             ip_addresses: ips_by_asn.remove(asn).unwrap_or_default(),
@@ -404,13 +538,17 @@ pub async fn fetch_port_map(
     // Status is filtered here, not in GraphQL: the enum filter syntax changed
     // incompatibly in NetBox 4.5 (`status: X` -> `status: { exact: X }`).
     let switches: Vec<IxpSwitch> = data.peering_switches.iter().filter(|d| d.status == "active").map(|d| {
-        let site = &d.site;
+        let site = sites.iter().find(|s| s.code == d.site.slug);
+        if site.is_none() {
+            tracing::warn!("peering switch {} is at site {} which has no site_id", d.name, d.site.slug);
+        }
         IxpSwitch {
             id: d.id,
             name: d.name.clone(),
-            colo: site.facility.clone().unwrap_or_default(),
-            pdb_facility_id: site.custom_fields.peeringdb_facility,
-            city: site.region.as_ref().map(|r| r.name.clone()).unwrap_or_default(),
+            site: d.site.slug.clone(),
+            colo: site.map(|s| s.facility.clone()).unwrap_or_default(),
+            pdb_facility_id: site.and_then(|s| s.peeringdb_facility),
+            city: site.map(|s| s.city.clone()).unwrap_or_default(),
             country: "US".to_string(),
             manufacturer: d.device_type.manufacturer.name.clone(),
             model: d.device_type.model.clone(),
@@ -454,14 +592,15 @@ pub async fn fetch_port_map(
         })
         .collect();
 
-    let ixp_data = NetboxIxpData { switches, vlans };
+    let ixp_data = NetboxIxpData { switches, vlans, sites };
 
     info!(
-        "NetBox: {} participants ({} peering ports), {} core ports, {} admin ports, {} switches, {} vlans, {} IPs",
+        "NetBox: {} participants ({} peering ports), {} core ports, {} admin ports, {} sites, {} switches, {} vlans, {} IPs",
         participants.len(),
         participants.iter().map(|p| p.ports.len()).sum::<usize>(),
         core_ports.len(),
         admin_ports.len(),
+        ixp_data.sites.len(),
         ixp_data.switches.len(),
         ixp_data.vlans.len(),
         participants.iter().map(|p| p.ip_addresses.len()).sum::<usize>(),
@@ -494,9 +633,14 @@ fn normalize_device_name(name: &str, domain_suffix: Option<&str>) -> String {
 // ── GraphQL response types ──────────────────────────────────────────
 
 #[derive(Deserialize)]
-struct GraphQlResponse {
-    data: Option<GraphQlData>,
+struct GraphQlResponse<T> {
+    data: Option<T>,
     errors: Option<Vec<GraphQlError>>,
+}
+
+#[derive(Deserialize)]
+struct SitesData {
+    site_list: Vec<SiteEntry>,
 }
 
 #[derive(Deserialize)]
@@ -535,6 +679,20 @@ struct TenantEntry {
     #[serde(default)]
     description: String,
     custom_fields: TenantCustomFields,
+    #[serde(default)]
+    tags: Vec<TagEntry>,
+}
+
+impl TenantEntry {
+    fn ixp_membership(&self) -> Option<IxpMembership> {
+        if self.tags.iter().any(|t| t.slug == "ixp_participant") {
+            Some(IxpMembership::Participant)
+        } else if self.tags.iter().any(|t| t.slug == "ixp_infrastructure") {
+            Some(IxpMembership::Infrastructure)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -592,6 +750,14 @@ struct InterfaceDevice {
     #[serde(deserialize_with = "deserialize_string_id")]
     id: u64,
     name: String,
+    /// Only selected for peering ports.
+    #[serde(default)]
+    site: Option<SiteRef>,
+}
+
+#[derive(Deserialize)]
+struct SiteRef {
+    slug: String,
 }
 
 #[derive(Deserialize)]
@@ -644,30 +810,43 @@ struct DeviceEntry {
     id: u64,
     name: String,
     status: String,
-    site: SiteEntry,
+    site: SiteRef,
     device_type: DeviceTypeEntry,
 }
 
 #[derive(Deserialize)]
 struct SiteEntry {
-    #[allow(dead_code)]
-    #[serde(deserialize_with = "deserialize_string_id")]
-    id: u64,
-    #[allow(dead_code)]
-    name: String,
+    slug: String,
+    status: String,
+    #[serde(default)]
+    description: String,
     facility: Option<String>,
+    #[serde(default)]
+    physical_address: String,
+    /// NetBox GraphQL returns decimals as strings ("37.372036").
+    latitude: Option<String>,
+    longitude: Option<String>,
     custom_fields: SiteCustomFields,
-    region: Option<RegionEntry>,
+    region: Option<NamedRef>,
+    group: Option<NamedRef>,
 }
 
 #[derive(Deserialize)]
 struct SiteCustomFields {
     #[serde(default, deserialize_with = "deserialize_optional_u64")]
     peeringdb_facility: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_optional_u32")]
+    site_id: Option<u32>,
+    #[serde(default)]
+    facility_operator: Option<String>,
+    #[serde(default)]
+    mmr_operator: Option<String>,
+    #[serde(default)]
+    mmr_portal_url: Option<String>,
 }
 
 #[derive(Deserialize)]
-struct RegionEntry {
+struct NamedRef {
     name: String,
 }
 
@@ -748,6 +927,17 @@ where
     }
 }
 
+/// Like `deserialize_optional_u64`, narrowed to u32.
+fn deserialize_optional_u32<'de, D>(deserializer: D) -> std::result::Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match deserialize_optional_u64(deserializer)? {
+        None => Ok(None),
+        Some(v) => u32::try_from(v).map(Some).map_err(de::Error::custom),
+    }
+}
+
 /// Deserialize a select custom field: a plain string (NetBox < 4.7) or a
 /// `{"value": ..., "label": ...}` object (NetBox >= 4.7).
 fn deserialize_choice_value<'de, D>(deserializer: D) -> std::result::Result<Option<String>, D::Error>
@@ -807,6 +997,53 @@ mod tests {
         assert_eq!(old.participant_type.as_deref(), Some("Member"));
         assert_eq!(new.participant_type.as_deref(), Some("Member"));
         assert_eq!(unset.participant_type, None);
+    }
+
+    #[test]
+    fn sites_parsed_filtered_and_sorted() {
+        // Mirrors the SITES_QUERY selection (synthetic data).
+        let json = r#"{"site_list": [
+            {"slug": "tst02", "status": "planned", "description": "2 Example Way",
+             "facility": "Example DC Two", "physical_address": "2 Example Way\r\nExampleville, CA 90000",
+             "latitude": "37.500000", "longitude": "-122.100000",
+             "custom_fields": {"site_id": 2, "peeringdb_facility": 64512, "mmr_operator": ""},
+             "region": {"name": "Exampleville"}, "group": {"name": "Example Metro"}},
+            {"slug": "tst01", "status": "active", "description": "1 Example Way",
+             "facility": "Example DC One", "physical_address": "1 Example Way\r\nExampleville, CA 90000",
+             "latitude": null, "longitude": null,
+             "custom_fields": {"site_id": 1, "facility_operator": "Example Co"},
+             "region": null, "group": null},
+            {"slug": "unassigned", "status": "planned", "description": "", "facility": null,
+             "physical_address": "", "latitude": null, "longitude": null,
+             "custom_fields": {"site_id": null}, "region": null, "group": null}
+        ]}"#;
+        let data: SitesData = serde_json::from_str(json).unwrap();
+        let sites = sites_from_entries(data.site_list);
+        let codes: Vec<&str> = sites.iter().map(|s| s.code.as_str()).collect();
+        assert_eq!(codes, vec!["tst01", "tst02"]);
+        assert_eq!(sites[0].street, "1 Example Way");
+        assert_eq!(sites[0].facility_operator.as_deref(), Some("Example Co"));
+        assert_eq!(sites[0].latitude, None);
+        assert_eq!(sites[1].metro.as_deref(), Some("Example Metro"));
+        assert_eq!(sites[1].city, "Exampleville");
+        assert_eq!(sites[1].latitude, Some(37.5));
+        assert_eq!(sites[1].peeringdb_facility, Some(64512));
+        assert_eq!(sites[1].mmr_operator, None, "blank custom field reads as unset");
+    }
+
+    #[test]
+    fn tenant_ixp_membership_from_tags() {
+        let t: TenantEntry = serde_json::from_str(
+            r#"{"id": "1", "name": "AS64512", "custom_fields": {"as_number": 64512},
+                "tags": [{"slug": "ixp_participant"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(t.ixp_membership(), Some(IxpMembership::Participant));
+        let t: TenantEntry = serde_json::from_str(
+            r#"{"id": "2", "name": "AS64513", "custom_fields": {"as_number": 64513}, "tags": []}"#,
+        )
+        .unwrap();
+        assert_eq!(t.ixp_membership(), None);
     }
 
     #[test]

@@ -341,14 +341,29 @@ async fn get_participants(
     }
 }
 
-/// Proxy participants.json (IX-F export) from lg-server.
-async fn get_ixf_member_export(
-    State(state): State<HttpState>,
-) -> impl IntoResponse {
-    match state.rpc.get_json("/rpc/v1/participants.json").await {
-        Ok(v) => Json(v).into_response(),
+/// Proxy one of the public NetBox-derived exports from lg-server. Anonymous
+/// and cacheable for lg-server's NetBox refresh interval (300 s): everything
+/// in them is already public (PeeringDB, IX-F, sfmix.org).
+async fn public_export(state: &HttpState, rpc_path: &str) -> axum::response::Response {
+    match state.rpc.get_json(rpc_path).await {
+        Ok(v) => ([(axum::http::header::CACHE_CONTROL, "public, max-age=300")], Json(v)).into_response(),
         Err(e) => api_err(StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
     }
+}
+
+/// IX-F Member Export (participants.json); PeeringDB imports this.
+async fn get_ixf_member_export(State(state): State<HttpState>) -> impl IntoResponse {
+    public_export(&state, "/rpc/v1/participants.json").await
+}
+
+/// Per-port participant list behind sfmix.org/participants/.
+async fn get_participants_table(State(state): State<HttpState>) -> impl IntoResponse {
+    public_export(&state, "/rpc/v1/participants-table").await
+}
+
+/// SFMIX sites (site code, site_id, facility, address, ...) behind sfmix.org/locations/.
+async fn get_sites(State(state): State<HttpState>) -> impl IntoResponse {
+    public_export(&state, "/rpc/v1/sites").await
 }
 
 /// Proxy IXP peering-LAN VLANs (with dot1q VIDs) from lg-server.
@@ -668,6 +683,8 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/v1/ipv6/neighbors", get(get_ipv6_neighbors))
         .route("/api/v1/participants", get(get_participants))
         .route("/api/v1/participants.json", get(get_ixf_member_export))
+        .route("/api/v1/participants-table", get(get_participants_table))
+        .route("/api/v1/sites", get(get_sites))
         .route("/api/v1/peering-vlans", get(get_peering_vlans))
         .route("/api/v1/participants/{asn}", get(get_participant_detail))
         .route("/api/v1/participant-ports", get(get_participant_ports))
