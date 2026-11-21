@@ -1,0 +1,2 @@
+{{- /* Number of active SFMIX sites (from /api/v1/sites). Usage: {{< site-count >}} */ -}}
+{{- len (partial "sites/active.html" .Page) -}}

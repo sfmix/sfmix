@@ -2,7 +2,7 @@
 "About SFMIX" = "Acerca de SFMIX"
 "Annual Fee" = "Cuota anual"
 "Annual membership fees (as of 2023):" = "Cuotas anuales de membresía (a partir de 2023):"
-"Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 10 locations across SF, San Jose, Santa Clara, Sunnyvale, and Fremont." = "El punto de intercambio de Internet sin fines de lucro y gobernado por sus miembros del Área de la Bahía. Conéctate con casi 100 redes en 10 ubicaciones en San Francisco, San José, Santa Clara, Sunnyvale y Fremont."
+"Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at %d locations across %s." = "El punto de intercambio de Internet sin fines de lucro y gobernado por sus miembros del Área de la Bahía. Conéctate con casi 100 redes en %d ubicaciones en %s."
 "Change language" = "Cambiar idioma"
 "Connect" = "Conéctate"
 "Get Connected" = "Únete"
@@ -139,3 +139,12 @@
 "Network automation" = "Automatización de red"
 "Co-founder" = "Cofundador"
 "Technical advisor" = "Asesor técnico"
+
+# Locations page + site summary (design doc 016)
+"SFMIX Site Code" = "Código de sede SFMIX"
+"Address" = "Dirección"
+"Facility Operator" = "Operador de la instalación"
+"MMR Operator / Portal" = "Operador / portal de la MMR"
+", and " = " y "
+" and " = " y "
+"San Jose" = "San José"

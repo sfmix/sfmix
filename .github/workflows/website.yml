@@ -39,10 +39,11 @@ jobs:
 
       # -f: an HTTP error (e.g. lg-server still loading NetBox) fails the build,
       # so the previous Pages deploy stays up instead of an empty table.
-      - name: Fetch participants data
+      - name: Fetch looking glass data (participants, sites)
         run: |
           mkdir -p data
           curl -fsSL -o data/participants_table.json https://lg.sfmix.org/api/v1/participants-table
+          curl -fsSL -o data/sites.json https://lg.sfmix.org/api/v1/sites
 
       - name: Build
         run: hugo --minify

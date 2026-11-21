@@ -1,0 +1,22 @@
+{{- /*
+  Active SFMIX sites, sorted by site_id, from data/sites.json — the looking
+  glass's /api/v1/sites (NetBox Sites with a site_id; design doc 016),
+  fetched at build time by CI / build-staging.sh.
+
+  Fails the build when there is no data, so a broken fetch keeps the previous
+  deploy instead of publishing an empty locations page.
+
+  Usage: {{ $sites := partial "sites/active.html" . }}
+*/ -}}
+{{- $sites := slice -}}
+{{- with site.Data.sites -}}
+  {{- range sort .sites "site_id" -}}
+    {{- if eq .status "active" -}}
+      {{- $sites = $sites | append . -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if not $sites -}}
+  {{- errorf "no active sites in data/sites.json; fetch it with: curl -fsSL -o data/sites.json https://lg.sfmix.org/api/v1/sites" -}}
+{{- end -}}
+{{- return $sites -}}

@@ -2,7 +2,7 @@
 "About SFMIX" = "sfmix: the lore 📖"
 "Annual Fee" = "yearly bag 💰"
 "Annual membership fees (as of 2023):" = "yearly membership fees, no cap (as of 2023) 💸:"
-"Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 10 locations across SF, San Jose, Santa Clara, Sunnyvale, and Fremont." = "the bay area's nonprofit, member-run internet exchange, fr fr 🌉. peer with hella networks (nearly 100) at 10 spots across sf, san jose, santa clara, sunnyvale, and fremont. bet 🤝"
+"Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at %d locations across %s." = "the bay area's nonprofit, member-run internet exchange, fr fr 🌉. peer with hella networks (nearly 100) at %d spots across %s. bet 🤝"
 "Change language" = "switch the vibe 🌐"
 "Connect" = "pull up 🚀"
 "Get Connected" = "link up 🔌"
@@ -131,3 +131,11 @@
 "Hackathon" = "hackathon"
 "since %d" = "since %d"
 "Since %d" = "here since %d"
+
+# Locations page + site summary (design doc 016)
+"San Francisco" = "sf"
+"Fremont" = "fremont"
+"San Jose" = "san jose"
+"Santa Clara" = "santa clara"
+"Sunnyvale" = "sunnyvale"
+"Oakland" = "oakland"

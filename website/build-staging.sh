@@ -10,7 +10,8 @@ hugo=$(command -v hugo || echo "$HOME/go/bin/hugo")
 
 out=.staging
 mkdir -p data
-curl -fsSL -o data/participants_table.json https://lg.sfmix.org/participants_table.json
+curl -fsSL -o data/participants_table.json https://lg.sfmix.org/api/v1/participants-table
+curl -fsSL -o data/sites.json https://lg.sfmix.org/api/v1/sites
 
 rm -rf "$out"
 "$hugo" --quiet --minify -d "$out" --baseURL https://www-staging.sfmix.org/

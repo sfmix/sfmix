@@ -1,0 +1,9 @@
+{{- /*
+  The one-line exchange summary (hero subtitle, footer): the location count
+  and city list come from the looking glass's /api/v1/sites, so adding a site
+  in NetBox updates it without touching any translation.
+
+  Usage: {{ partial "sites/summary.html" . }}
+*/ -}}
+{{- $sites := partial "sites/active.html" . -}}
+{{- return printf (partial "T.html" "Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at %d locations across %s.") (len $sites) (partial "sites/cities.html" .) -}}

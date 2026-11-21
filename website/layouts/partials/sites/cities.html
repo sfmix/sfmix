@@ -1,0 +1,24 @@
+{{- /*
+  The cities of the active sites (NetBox region), in site_id order, each
+  through T and joined as a localized list: "A, B, and C" / "A, B und C".
+  The joiners are T keys too (", and " for the last of 3+, " and " for 2).
+
+  Usage: {{ partial "sites/cities.html" . }}
+*/ -}}
+{{- $cities := slice -}}
+{{- range partial "sites/active.html" . -}}
+  {{- $city := partial "T.html" .city -}}
+  {{- if not (in $cities $city) -}}
+    {{- $cities = $cities | append $city -}}
+  {{- end -}}
+{{- end -}}
+{{- $n := len $cities -}}
+{{- $out := "" -}}
+{{- if eq $n 1 -}}
+  {{- $out = index $cities 0 -}}
+{{- else if eq $n 2 -}}
+  {{- $out = printf "%s%s%s" (index $cities 0) (partial "T.html" " and ") (index $cities 1) -}}
+{{- else -}}
+  {{- $out = printf "%s%s%s" (delimit (first (sub $n 1) $cities) ", ") (partial "T.html" ", and ") (index $cities (sub $n 1)) -}}
+{{- end -}}
+{{- return $out -}}

@@ -1,0 +1,39 @@
+{{ define "main" }}
+<div class="page-header page-header-video"{{ with .Params.mobile_image }} style="--mobile-bg: url('/{{ . }}')"{{ end }}>
+  <video class="page-header-bg" autoplay muted loop playsinline aria-hidden="true">
+    <source src="{{ .Params.video | relURL }}" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="container" style="position: relative; z-index: 2;">
+    <h1>{{ .Title }}</h1>
+  </div>
+</div>
+<div class="content">
+  <div class="container">
+    {{ .Content }}
+
+    {{/* Rows: active NetBox sites via the looking glass's /api/v1/sites (doc 016). */}}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{{ partial "T.html" "SFMIX Site Code" }}</th>
+          <th scope="col">{{ partial "T.html" "Address" }}</th>
+          <th scope="col">{{ partial "T.html" "Facility Operator" }}</th>
+          <th scope="col">{{ partial "T.html" "MMR Operator / Portal" }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range $s := partial "sites/active.html" . }}
+        {{ $address := printf "%s, %s" $s.street $s.city }}
+        <tr>
+          <td>{{ $s.code }} / {{ $s.site_id }}</td>
+          <td>{{ with $s.peeringdb_facility }}<a href="https://www.peeringdb.com/fac/{{ . }}">{{ $address }}</a>{{ else }}{{ $address }}{{ end }}</td>
+          <td>{{ $s.facility_operator }}</td>
+          <td>{{ with $s.mmr_portal_url }}<a href="{{ . }}">{{ $s.mmr_operator }}</a>{{ else }}{{ $s.mmr_operator }}{{ end }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ end }}

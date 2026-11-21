@@ -2,7 +2,7 @@
 "About SFMIX" = "About SFMIX, Arrr"
 "Annual Fee" = "Yearly Plunder"
 "Annual membership fees (as of 2023):" = "Yearly crew dues (as o' 2023):"
-"Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at 10 locations across SF, San Jose, Santa Clara, Sunnyvale, and Fremont." = "Th' Bay Area's nonprofit, crew-governed Internet Exchange. Peer with nigh on 100 networks at 10 ports o' call across SF, San Jose, Santa Clara, Sunnyvale, an' Fremont."
+"Bay Area's nonprofit, member-governed Internet Exchange. Peer with nearly 100 networks at %d locations across %s." = "Th' Bay Area's nonprofit, crew-governed Internet Exchange. Peer with nigh on 100 networks at %d ports o' call across %s."
 "Change language" = "Change yer tongue"
 "Connect" = "Climb Aboard"
 "Get Connected" = "Set Sail"
@@ -125,3 +125,7 @@
 "Hackathon" = "Hackathon"
 "since %d" = "since %d"
 "Since %d" = "aboard since %d"
+
+# Locations page + site summary (design doc 016)
+", and " = ", an' "
+" and " = " an' "

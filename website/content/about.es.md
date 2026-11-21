@@ -31,7 +31,7 @@ Cuantas más redes se conectan, más valioso se vuelve el intercambio: un ejempl
 
 ## ¿Dónde conectarse?
 
-SFMIX opera en múltiples [ubicaciones](/locations/) neutrales respecto al operador en San Francisco, Santa Clara, Fremont y San José. Se planean sedes adicionales según la demanda.
+SFMIX opera en múltiples [ubicaciones](/locations/) neutrales respecto al operador en {{< site-cities >}}. Se planean sedes adicionales según la demanda.
 
 ## Historia
 
@@ -39,7 +39,7 @@ Fundado en 2006 en 365 Main Street, en San Francisco, como un IX de un solo edif
 
 En 2013, SFMIX comenzó a expandirse a instalaciones adicionales del Área de la Bahía, impulsado por las contribuciones de la comunidad en forma de equipos, tiempo voluntario y una pasión compartida por una mejor Internet.
 
-Hoy SFMIX abarca 10 ubicaciones con velocidades de puerto de 1, 10, 100 y 400Gbps. SFMIX es una cooperativa IRS 501(c)(12), parte de una comunidad de intercambios propiedad de sus miembros que incluye a [SIX](http://www.seattleix.net/), [NWAX](http://www.nwax.net/) y [MICE](http://www.micemn.net/).
+Hoy SFMIX abarca {{< site-count >}} ubicaciones con velocidades de puerto de 1, 10, 100 y 400Gbps. SFMIX es una cooperativa IRS 501(c)(12), parte de una comunidad de intercambios propiedad de sus miembros que incluye a [SIX](http://www.seattleix.net/), [NWAX](http://www.nwax.net/) y [MICE](http://www.micemn.net/).
 
 Conoce a las [personas detrás de SFMIX](/team/).
 

@@ -5,7 +5,8 @@ Status: LG part live 2026-11-21. `/api/v1/sites` and
 parity with the old static file, the Ansible `participants_json` renderer is
 removed, the legacy URLs are nginx aliases, and PeeringDB points at
 `/api/v1/participants.json`. NetBox site fields filled (step 8) and linted
-(step 9). Still to do: website locations layout, mapbuild, weathermap lab.
+(step 9); sfmix.org/locations/ and the location count/city list render from
+`/api/v1/sites` (step 10). Still to do: mapbuild, weathermap lab.
 
 ## Problem
 
@@ -294,8 +295,19 @@ PUT 204; stale lg-web files removed).
    SITE_REQUIRED_FIELDS entry on sites with a `site_id` or status active,
    unique `site_id`, and every active peering switch at a numbered site.
    Live NetBox: 11 sites and 17 active switches checked, no findings.
-10. Website: sites curl, locations layout, format-string hero/about. Compare
-    the rendered `/locations/` against today's in all 5 locales before pushing.
+10. ~~Website.~~ Done 2026-11-21. CI and `build-staging.sh` fetch
+    `data/sites.json`. `layouts/_default/locations.html` renders the active
+    sites (`partials/sites/active.html` fails the build when there are none).
+    The hero/footer use `partials/sites/summary.html`: a `%d`/`%s` format
+    string in each locale, with cities from NetBox regions in `site_id` order,
+    each through `T` (es "San José", genz lowercase) and joined with the `T`
+    keys `", and "` / `" and "`. The about pages use the `{{< site-count >}}`
+    and `{{< site-cities >}}` shortcodes. `llms.txt` drops the count.
+    Rendered output checked in all 5 locales. Visible changes from NetBox
+    being the source: addresses as NetBox writes them ("365 Main St" vs
+    "365 Main St."), sjc01 operator "Equinix" (was `Equinix "SV1"`), scl01
+    "QTS" (was "QTS Santa Clara"), scl02 links to PeeringDB fac 1619 (was
+    campus 10), and the city order follows `site_id`.
 11. mapbuild: read the NetBox fields, delete `data/sites.json`, deploy portal,
     rebuild the map and diff `map.json` sites/metros against the previous build.
 12. Retire or rewire `weathermap_layouts.py`.

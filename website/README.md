@@ -7,10 +7,10 @@ Static website for [sfmix.org](https://sfmix.org), built with [Hugo](https://goh
 Every push to `main` triggers a GitHub Actions workflow that:
 
 1. Builds the Hugo site (with `--minify`)
-2. Fetches live participant data from `https://lg.sfmix.org/api/v1/participants-table` (served live by the looking glass from NetBox)
+2. Fetches live data the looking glass serves from NetBox: participants (`https://lg.sfmix.org/api/v1/participants-table`) and sites (`https://lg.sfmix.org/api/v1/sites`, which drives `/locations/`, the location count and city list; design doc 016). The build fails if either fetch fails, so the last good deploy stays up.
 3. Deploys to GitHub Pages at [sfmix.org](https://sfmix.org)
 
-The workflow also runs on a schedule (every 6 hours) to keep participant data fresh, and can be triggered manually via `workflow_dispatch`.
+The workflow also runs on a schedule (every 6 hours) to keep participant and site data fresh, and can be triggered manually via `workflow_dispatch`.
 
 DNS is a CNAME from `sfmix.org` to `sfmix.github.io`, managed by the `sfmix_dns` Ansible role in [sfmix/sfmix](https://github.com/sfmix/sfmix).
 
@@ -19,9 +19,10 @@ DNS is a CNAME from `sfmix.org` to `sfmix.github.io`, managed by the `sfmix_dns`
 Requires [Hugo](https://gohugo.io/installation/) (extended edition, v0.142.0+).
 
 ```bash
-# Fetch participant data
+# Fetch participant and site data (the build fails without sites.json)
 mkdir -p data
 curl -fsSL -o data/participants_table.json https://lg.sfmix.org/api/v1/participants-table
+curl -fsSL -o data/sites.json https://lg.sfmix.org/api/v1/sites
 
 # Start dev server with live reload
 hugo server
