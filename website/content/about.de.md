@@ -39,7 +39,7 @@ Gegründet 2006 in der 365 Main Street in San Francisco als IX in einem einzigen
 
 2013 begann SFMIX, sich auf weitere Einrichtungen in der Bay Area auszuweiten, getragen von Beiträgen der Community in Form von Ausrüstung, ehrenamtlicher Zeit und einer gemeinsamen Leidenschaft für ein besseres Internet.
 
-Heute erstreckt sich SFMIX über 9 Standorte mit Port-Geschwindigkeiten von 1, 10, 100 und 400 Gbit/s. SFMIX ist eine nach IRS 501(c)(12) anerkannte Genossenschaft — Teil einer Gemeinschaft von Internet-Knoten in Mitgliederbesitz, darunter [SIX](http://www.seattleix.net/), [NWAX](http://www.nwax.net/) und [MICE](http://www.micemn.net/).
+Heute erstreckt sich SFMIX über 10 Standorte mit Port-Geschwindigkeiten von 1, 10, 100 und 400 Gbit/s. SFMIX ist eine nach IRS 501(c)(12) anerkannte Genossenschaft — Teil einer Gemeinschaft von Internet-Knoten in Mitgliederbesitz, darunter [SIX](http://www.seattleix.net/), [NWAX](http://www.nwax.net/) und [MICE](http://www.micemn.net/).
 
 Lernen Sie die [Menschen hinter SFMIX](/team/) kennen.
 

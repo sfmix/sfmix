@@ -12,6 +12,7 @@
     "scl01": {"metro": "Santa Clara/Sunnyvale", "name": "QTS SC2", "operator": "QTS"},
     "scl02": {"metro": "Santa Clara/Sunnyvale", "name": "CoreSite SV4", "operator": "CoreSite"},
     "scl04": {"metro": "Santa Clara/Sunnyvale", "name": "OpenColo SV1", "operator": "OpenColo"},
-    "scl05": {"metro": "Santa Clara/Sunnyvale", "name": "Digital Realty SJC31", "operator": "Digital Realty"}
+    "scl05": {"metro": "Santa Clara/Sunnyvale", "name": "Digital Realty SJC31", "operator": "Digital Realty"},
+    "nuq01": {"metro": "Santa Clara/Sunnyvale", "name": "H5 Silicon Valley", "operator": "H5 Data Centers"}
   }
 }

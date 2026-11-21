@@ -24,3 +24,4 @@ all locations offer **10, 100, or 400Gbps** fiber connectivity. hella fast fr âš
 | scl04 / 6 | [3223 Kenneth St., Santa Clara](https://www.peeringdb.com/fac/10674) | OpenColo | [OpenColo](https://www.opencolo.com/) |
 | sjc02 / 7 | [55 S Market St., San Jose](https://www.peeringdb.com/fac/20) | CoreSite | [CoreSite](https://mycoresite.coresite.com/) |
 | scl05 / 8 | [2805 Lafayette St., Santa Clara](https://www.peeringdb.com/fac/2542) | Digital Realty | [Digital Realty](https://marketplaceportal.com/) |
+| nuq01 / 9 | [1360 Kifer Rd., Sunnyvale](https://www.peeringdb.com/fac/2873) | H5 Data Centers | [H5 Data Centers](https://h5datacenters.com/) |
