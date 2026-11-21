@@ -1,10 +1,11 @@
 # 016 — Site listings and participant exports from NetBox, served by the LG
 
-Status: LG part built 2026-11-21 (branch `worktree-design-016-sites-from-netbox`):
-`/api/v1/sites` and `/api/v1/participants-table` added, the IX-F export
-brought to parity with the static file, and the Ansible `participants_json`
-renderer removed. Not yet deployed. NetBox fields, website locations layout,
-mapbuild and lint are still to do.
+Status: LG part live 2026-11-21. `/api/v1/sites` and
+`/api/v1/participants-table` are served by lg-server, the IX-F export is at
+parity with the old static file, the Ansible `participants_json` renderer is
+removed, the legacy URLs are nginx aliases, and PeeringDB points at
+`/api/v1/participants.json`. Still to do: NetBox fields, website locations
+layout, mapbuild, lint.
 
 ## Problem
 
@@ -238,6 +239,10 @@ scheduled build fails on `curl -f` and the last good deploy stays up, so that
 order is safe but noisy.
 
 ## Rollout
+
+Steps 1–6 were done 2026-11-21 (LG restarted 09:45Z; live endpoints and the
+aliased legacy URLs re-diffed: table byte-identical, IX-F identical apart from
+switch02.sjc01 and the timestamp; sflow-rt import run once by hand, PUT 204).
 
 1. ~~LG: sites lookup, `/api/v1/sites`, `/api/v1/participants-table`, IX-F
    parity, 503 guard, tests.~~ Built; parity verified (above).
