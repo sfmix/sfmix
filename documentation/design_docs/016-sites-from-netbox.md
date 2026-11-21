@@ -4,8 +4,8 @@ Status: LG part live 2026-11-21. `/api/v1/sites` and
 `/api/v1/participants-table` are served by lg-server, the IX-F export is at
 parity with the old static file, the Ansible `participants_json` renderer is
 removed, the legacy URLs are nginx aliases, and PeeringDB points at
-`/api/v1/participants.json`. Still to do: NetBox fields, website locations
-layout, mapbuild, lint.
+`/api/v1/participants.json`. NetBox site fields filled (step 8). Still to do:
+lint, website locations layout, mapbuild, weathermap lab.
 
 ## Problem
 
@@ -269,9 +269,25 @@ PUT 204; stale lg-web files removed).
 7. Remove the stale static files from lg-web:
    `/var/www/lg-web/participants{,.min,_table,_table.min}.json`. nginx no
    longer serves them after step 3.
-8. NetBox: create site groups, normalise descriptions, add the 3 custom
-   fields (`netbox_schema.playbook.yml` defines `site_id`, so add them there)
-   and fill all sites. Fix sfo02's suite in the address.
+8. ~~NetBox: site groups, descriptions, the 3 custom fields, addresses.~~
+   Done 2026-11-21:
+   - Schema (`netbox_schema.playbook.yml`): `facility_operator`,
+     `mmr_operator` (text), `mmr_portal_url` (URL) on dcim.site; `site_id`
+     is now `unique`.
+   - Site groups = metros: `san-francisco`, `oakland`, `fremont`,
+     `san-jose`, `santa-clara-sunnyvale` (Santa Clara/Sunnyvale); all 12
+     real sites assigned (scl03 included; `unassigned` left out).
+   - Descriptions set to the map's curated display names (from
+     `portal/mapbuild/data/sites.json`), so step 11 doesn't change map labels.
+     alice's `…:1984:<site_id>` labels quote the description and pick up
+     the new text on the next alice regen; that change is cosmetic.
+   - Operators and MMR portals copied from the website's locations table.
+   - Addresses checked against PeeringDB: scl04 "Kenneth Avenue" → "Kenneth
+     St" (PeeringDB and the website agree), sfo02 gains "Suite 303", and
+     scl01/sjc02/scl05 second lines normalised to "City, CA ZIP".
+     PeeringDB's sfo02 ZIP (94110) is wrong; NetBox keeps 94124.
+   - Verified live: `/api/v1/sites` carries every field after the next
+     refresh; IX-F and participants-table output unchanged.
 9. Lint check (fails until step 8 is complete, which is useful as a checklist).
 10. Website: sites curl, locations layout, format-string hero/about. Compare
     the rendered `/locations/` against today's in all 5 locales before pushing.

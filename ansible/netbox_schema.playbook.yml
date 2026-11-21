@@ -112,6 +112,24 @@
         type: integer
         object_types: ["dcim.site"]
         description: "The numerical Site ID of this Site"
+        unique: true
+      # Public site metadata for sfmix.org/locations/ and the map, served by
+      # lg-server at /api/v1/sites (design doc 016).
+      - name: facility_operator
+        label: "Facility Operator"
+        type: text
+        object_types: ["dcim.site"]
+        description: "Company operating the facility, as shown publicly (e.g. Digital Realty)"
+      - name: mmr_operator
+        label: "MMR Operator"
+        type: text
+        object_types: ["dcim.site"]
+        description: "Who participants order cross-connects from (meet-me room operator)"
+      - name: mmr_portal_url
+        label: "MMR Portal URL"
+        type: url
+        object_types: ["dcim.site"]
+        description: "Where participants place cross-connect orders"
 
       # dcim.cable
       - name: serial
