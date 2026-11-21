@@ -9,4 +9,7 @@
 <span class="team-chip team-chip--{{ . }}">{{ partial "T.html" (index $labels .) }}{{ with $r.since }} <span class="team-chip__x">{{ printf (partial "T.html" "since %d") . }}</span>{{ end }}</span>
 {{- end -}}
 {{- end -}}
+{{- with $p.since -}}
+<span class="team-chip team-chip--since">{{ printf (partial "T.html" "Since %d") . }}</span>
+{{- end -}}
 </span>

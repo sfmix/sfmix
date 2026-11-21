@@ -655,7 +655,7 @@ img { max-width: 100%; height: auto; }
 .team-chip__x { font-weight: 400; }
 .team-chip--ops { background: var(--team-ops-wash); color: var(--team-ops-ink); }
 .team-chip--board { background: var(--team-board-wash); color: var(--team-board-ink); }
-.team-chip--founder { background: transparent; box-shadow: inset 0 0 0 1px var(--color-border); }
+.team-chip--founder, .team-chip--since { background: transparent; box-shadow: inset 0 0 0 1px var(--color-border); }
 
 /* Operations */
 .team-ops-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 0.5rem 2rem; margin-bottom: 1.25rem; }
@@ -691,7 +691,7 @@ img { max-width: 100%; height: auto; }
 .team-op--lead .team-more { color: var(--team-ops); }
 .team-op--lead .team-chip { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .team-op--lead .team-chip--board { background: rgba(111, 188, 208, 0.25); }
-.team-op--lead .team-chip--founder { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); background: transparent; }
+.team-op--lead .team-chip--founder, .team-op--lead .team-chip--since { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); background: transparent; }
 .content .team-op--lead p.team-xref { margin: 0.75rem 0 0; font-size: 0.875rem; }
 .team-xref a { color: #fff; text-decoration: underline; }
 

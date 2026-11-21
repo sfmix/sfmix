@@ -13,6 +13,9 @@
 #   alumni:    {}                former board member
 #   hackathon: {}
 #
+# since (optional, person-level): year someone joined the SFMIX community,
+# shown as a "Since <year>" pill after the role chips.
+#
 # Titles go through the T partial, so add new ones to i18n/*.toml. Bios,
 # summaries and focus lines are English in every language (as before).
 # Photos live in static/img/team/; people without one get their initials.
@@ -43,8 +46,10 @@ people:
     photo: img/team/jof.jpg
     affiliation: Volunteer operator
     focus: Route servers, AS40271 transit, the participant portal, automation and monitoring
+    since: 2009
     roles:
       ops: { title: Network automation }
+      alumni: {}
     bio: |
       jof is a dedicated volunteer operator at SFMIX since 2013, and has been a community participant since 2009. He designed and deployed the architecture for AS40271 and the SFMIX Transit Network, and develops the [network automation platform](https://github.com/sfmix/sfmix) — from Netbox-driven Ansible configuration management and BGP Route Server automation with BIRD and OpenBGPD, to the participant portal and monitoring stack.
 
