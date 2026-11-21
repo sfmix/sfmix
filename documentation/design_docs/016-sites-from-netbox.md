@@ -6,8 +6,9 @@ parity with the old static file, the Ansible `participants_json` renderer is
 removed, the legacy URLs are nginx aliases, and PeeringDB points at
 `/api/v1/participants.json`. NetBox site fields filled (step 8) and linted
 (step 9); sfmix.org/locations/ and the location count/city list render from
-`/api/v1/sites` (step 10); the map reads the same NetBox fields (step 11).
-Still to do: the weathermap lab.
+`/api/v1/sites` (step 10); the map reads the same NetBox fields (step 11);
+the Grafana weathermap takes its metros from `/api/v1/sites` (step 12). All
+rollout steps are done.
 
 ## Problem
 
@@ -314,7 +315,19 @@ PUT 204; stale lg-web files removed).
     `portal/mapbuild/data/sites.json` deleted. Before deploying, the new
     `load_sites()` was compared with the live map.json: 12 sites, 5 metros,
     no differences in name/operator/metro/address/lat/lon.
-12. Retire or rewire `weathermap_layouts.py`.
+12. ~~Weathermap lab.~~ Done 2026-11-21. `scripts/weathermap_layouts.py`
+    lost its `SITE_METRO` / `METRO_ORDER` / `METRO_NAME` lists. A switch's
+    metro is its site's NetBox site group from `/api/v1/sites` (`SITES_URL`,
+    or a `sites.json` snapshot next to the script). `metro_ring()` orders
+    metros by bearing around their centre, and `metro_anchors()` spaces them
+    on an ellipse that puts four metros exactly on the old corners. Old and
+    new were run on the live topology on metrics.sfo02: all 13 switches at
+    identical positions; the only change is the label "Santa Clara" →
+    "Santa Clara/Sunnyvale". Deployed with `--tags weathermap_cron`; a manual
+    refresh pushed the dashboard (status success). A new metro (Oakland) slots
+    in by geography; a switch at an unlisted site lands in a "?" group
+    instead of being dropped. `scripts/gen_weathermap.py`, an older laptop
+    prototype that nothing deploys, still has its own `METROS` list.
 13. ~~Runbooks that say "run `--tags participants_json`" drop that step.~~
     None in the repo; NetBox edits show up within 300 s.
 

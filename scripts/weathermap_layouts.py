@@ -5,7 +5,9 @@
 #
 # Requires: graphviz (dot/neato/sfdp/fdp) locally; optional inkscape for the
 # offline SVG->PNG previews. Reads a topo.json snapshot if present, else fetches
-# live via SFLOW_URL / PROM_URL env (default localhost:8008 / :9090).
+# live via SFLOW_URL / PROM_URL env (default localhost:8008 / :9090). Sites and
+# metros (NetBox site groups) come from the looking glass's /api/v1/sites
+# (SITES_URL; design doc 016), or a sites.json snapshot next to this script.
 #
 # Usage:
 #   python3 weathermap_layouts.py                # score + preview all layouts
@@ -21,18 +23,13 @@ from collections import defaultdict, Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOPO = os.path.join(HERE, "topo.json")
+SITES = os.path.join(HERE, "sites.json")
 
 # node bounding box in weathermap px (icon + label under it)
 NW, NH = 140, 66
 ICON_W, ICON_H = 46, 40
 
-SITE_METRO = {"sfo01": "SF", "sfo02": "SF", "fmt01": "FMT",
-              "scl01": "SCL", "scl02": "SCL", "scl04": "SCL", "scl05": "SCL",
-              "sjc01": "SJC", "sjc02": "SJC"}
-# geographic-ish ring order (secondary hint)
-METRO_ORDER = ["SF", "FMT", "SJC", "SCL"]
-METRO_NAME = {"SF": "San Francisco", "FMT": "Fremont",
-              "SCL": "Santa Clara", "SJC": "San Jose"}
+UNKNOWN_METRO = "?"  # switch at a site the looking glass doesn't list
 SPEED_W = {"1G": 2, "10G": 3, "25G": 3, "40G": 4, "100G": 5, "400G": 8, "800G": 10}
 SPEED_BITS = {"1G": 1e9, "10G": 10e9, "25G": 25e9, "40G": 40e9,
               "100G": 100e9, "400G": 400e9, "800G": 800e9}
@@ -53,8 +50,56 @@ def short(n):
     return ".".join(n.split(".")[:2])
 
 
+def load_sites():
+    """{site code: site} from /api/v1/sites (or a sites.json snapshot)."""
+    if os.path.exists(SITES):
+        data = json.load(open(SITES))
+    else:
+        import urllib.request
+        url = os.environ.get("SITES_URL", "https://lg.sfmix.org/api/v1/sites")
+        with urllib.request.urlopen(url, timeout=30) as r:
+            data = json.load(r)
+    return {s["code"]: s for s in data["sites"]}
+
+
+_SITES = None
+
+
+def sites():
+    global _SITES
+    if _SITES is None:
+        _SITES = load_sites()
+    return _SITES
+
+
 def metro(n):
-    return SITE_METRO.get(n.split(".")[1], "?")
+    """Metro (NetBox site group) of switch `n` ("switch01.sfo02")."""
+    site = sites().get(n.split(".")[1]) or {}
+    return site.get("metro") or UNKNOWN_METRO
+
+
+def metro_ring(metros):
+    """Metros in ring order: by bearing around the centre of their sites,
+    clockwise from the one nearest the top-left (with today's sites:
+    San Francisco, Fremont, San Jose, Santa Clara/Sunnyvale). Metros without
+    coordinates (UNKNOWN_METRO) go last."""
+    pts = defaultdict(list)
+    for s in sites().values():
+        if s.get("metro") in metros and s.get("latitude") is not None:
+            pts[s["metro"]].append(
+                (s["longitude"] * math.cos(math.radians(s["latitude"])), s["latitude"]))
+    centre = {m: (sum(p[0] for p in v) / len(v), sum(p[1] for p in v) / len(v))
+              for m, v in pts.items()}
+    if not centre:
+        return sorted(metros)
+    cx = sum(c[0] for c in centre.values()) / len(centre)
+    cy = sum(c[1] for c in centre.values()) / len(centre)
+    bearing = {m: math.degrees(math.atan2(y - cy, x - cx)) for m, (x, y) in centre.items()}
+    ring = sorted(bearing, key=lambda m: -bearing[m])  # clockwise
+    start = min(range(len(ring)),
+                key=lambda i: abs(((bearing[ring[i]] - 135) + 180) % 360 - 180))
+    ring = ring[start:] + ring[:start]
+    return ring + sorted(m for m in metros if m not in centre)
 
 
 def load_live():
@@ -140,9 +185,9 @@ def layout_clustered(nodes, edges, engine, extra=None):
     for n in nodes:
         by_metro[metro(n)].append(n)
     dot = ["graph G {", _node_stanza(), "compound=true;"]
-    for mi, m in enumerate(METRO_ORDER):
-        dot.append(f'subgraph cluster_{m} {{')
-        dot.append(f'label="{METRO_NAME[m]}"; fontsize=28; fontcolor="#8899aa"; '
+    for mi, m in enumerate(metro_ring(set(by_metro))):
+        dot.append(f'subgraph cluster_{mi} {{')
+        dot.append(f'label="{m}"; fontsize=28; fontcolor="#8899aa"; '
                    f'style=rounded; color="#33404d";')
         for n in sorted(by_metro.get(m, [])):
             dot.append(f'"{n}";')
@@ -173,18 +218,27 @@ def _cluster_layout(mem, sub_edges, cell_w, cell_h):
     return {n: ((x - mx) * sx, (y - my) * sy) for n, (x, y) in sp.items()}
 
 
+def metro_anchors(ring):
+    """Ring metros evenly around an ellipse, first at the top-left. With four
+    metros this is exactly the corners of a 1900x1150 rectangle (inter-metro
+    links become its edges, no diagonals; also ~matches Bay geography)."""
+    rx, ry = 950 * math.sqrt(2), 575 * math.sqrt(2)
+    step = 360 / max(len(ring), 1)
+    return {m: (round(950 + rx * math.cos(math.radians(135 - i * step)), 6),
+                round(575 + ry * math.sin(math.radians(135 - i * step)), 6))
+            for i, m in enumerate(ring)}
+
+
 def layout_metro_regions(nodes, edges):
-    """Metros in ring order at 4 corners (topology: inter-metro links become the
-    4 rectangle edges, no diagonals; also ~matches Bay geography). Each metro's
-    switches are laid out internally with neato and scaled for clear spacing."""
+    """Metros in ring order (metro_ring) around an ellipse (metro_anchors).
+    Each metro's switches are laid out internally with neato and scaled for
+    clear spacing."""
     by_metro = defaultdict(list)
     for n in nodes:
         by_metro[metro(n)].append(n)
-    # ring order SF-FMT-SJC-SCL-SF -> corners so adjacent metros are adjacent
-    REG = {"SF": (0, 1150), "FMT": (1900, 1150), "SJC": (1900, 0), "SCL": (0, 0)}
-    # cell size scaled to node count so dense metros (SCL/SJC) get more room
+    # cell size scaled to node count so dense metros get more room
     pos = {}
-    for m, (cx, cy) in REG.items():
+    for m, (cx, cy) in metro_anchors(metro_ring(set(by_metro))).items():
         mem = sorted(by_metro.get(m, []))
         sub_edges = [e for e in edges if e["a"] in mem and e["b"] in mem]
         span = 260 + 150 * (len(mem) - 1)
@@ -342,7 +396,7 @@ def render_svg(pos, edges, path, title=""):
         top = max(28, min(p[1] for p in pts) - NH / 2 - 16)
         s.append(f'<text x="{cx:.0f}" y="{top:.0f}" fill="#5b6b7d" '
                  f'font-family="sans-serif" font-size="26" font-weight="bold" '
-                 f'text-anchor="middle" opacity="0.6">{esc(METRO_NAME.get(m,m))}</text>')
+                 f'text-anchor="middle" opacity="0.6">{esc(m)}</text>')
     # edges
     for e in edges:
         if e["a"] not in pos or e["b"] not in pos:
@@ -440,7 +494,7 @@ def build_weathermap(pos, edges, with_metro_labels):
         for m, pts in by.items():
             cx = sum(p[0] for p in pts) / len(pts)
             top = min(p[1] for p in pts) - 60
-            labels.append(_node(METRO_NAME.get(m, m), cx, top, is_label=True))
+            labels.append(_node(m, cx, top, is_label=True))
     # Group edges by unordered node pair so parallel links (e.g. a 100G + a 400G
     # between the same two switches) can be given DISTINCT anchors — otherwise
     # both route on anchor 0 (auto) between the same points and overlap, hiding
