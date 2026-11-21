@@ -240,9 +240,10 @@ order is safe but noisy.
 
 ## Rollout
 
-Steps 1–6 were done 2026-11-21 (LG restarted 09:45Z; live endpoints and the
-aliased legacy URLs re-diffed: table byte-identical, IX-F identical apart from
-switch02.sjc01 and the timestamp; sflow-rt import run once by hand, PUT 204).
+Steps 1–7 and 13 were done 2026-11-21 (LG restarted 09:45Z; live endpoints
+and the aliased legacy URLs re-diffed: table byte-identical, IX-F identical
+apart from switch02.sjc01 and the timestamp; sflow-rt import run once by hand,
+PUT 204; stale lg-web files removed).
 
 1. ~~LG: sites lookup, `/api/v1/sites`, `/api/v1/participants-table`, IX-F
    parity, 503 guard, tests.~~ Built; parity verified (above).
@@ -277,9 +278,8 @@ switch02.sjc01 and the timestamp; sflow-rt import run once by hand, PUT 204).
 11. mapbuild: read the NetBox fields, delete `data/sites.json`, deploy portal,
     rebuild the map and diff `map.json` sites/metros against the previous build.
 12. Retire or rewire `weathermap_layouts.py`.
-13. Runbooks that say "run `--tags participants_json`" (participant
-    offboarding, MAC refresh) drop that step: NetBox edits show up within
-    300 s.
+13. ~~Runbooks that say "run `--tags participants_json`" drop that step.~~
+    None in the repo; NetBox edits show up within 300 s.
 
 ## Aside found while surveying
 
