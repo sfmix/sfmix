@@ -15,7 +15,7 @@ Alle Standorte bieten Glasfaser-Konnektivität mit **10, 100 oder 400 Gbit/s**.
 
 Sie müssen nicht in einem der unten aufgeführten Gebäude sein. SFMIX ist auch erreichbar aus:
 
-- **Jedem CoreSite-Gebäude:** CoreSite führt Cross-Connects aus jedem seiner Gebäude zu SFMIX, auch aus Gebäuden, in denen SFMIX nicht vertreten ist.
-- **Jedem Equinix-Campus:** Equinix führt Cross-Connects aus jedem seiner Campusse zu SFMIX.
+- **Jedem CoreSite-Gebäude in der Region:** CoreSite führt Cross-Connects zu SFMIX.
+- **Jedem Equinix-Campus in der Region:** Equinix führt Cross-Connects zu SFMIX.
 - **Der Astound-Suite in 200 Paul:** über einen passiven DWDM-MUX zu SFMIX (durchstimmbare oder farbige DWDM-Optiken erforderlich).
 - **Lumen, neben H5 Silicon Valley:** auf der anderen Seite des Parkplatzes.

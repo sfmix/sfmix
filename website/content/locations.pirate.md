@@ -15,7 +15,7 @@ All ports o' call offer **10, 100, or 400Gbps** fiber connectivity.
 
 Ye needn't be moored in one o' th' buildings below. SFMIX be reachable from:
 
-- **Any CoreSite buildin':** CoreSite hauls cross-connects to SFMIX from any o' its buildings, even ones SFMIX ain't anchored in.
-- **Any Equinix campus:** Equinix hauls cross-connects to SFMIX from any o' its campuses.
+- **Any CoreSite buildin' in these waters:** CoreSite hauls th' cross-connect to SFMIX.
+- **Any Equinix campus in these waters:** Equinix hauls th' cross-connect to SFMIX.
 - **Th' Astound suite at 200 Paul:** over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
 - **Lumen, next to H5 Silicon Valley:** across th' parkin' lot.

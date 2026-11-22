@@ -16,7 +16,7 @@ All locations offer **10, 100, or 400Gbps** fiber connectivity.
 
 You don't have to be in one of the buildings below. SFMIX is also reachable from:
 
-- **Any CoreSite building:** CoreSite transports cross-connects to SFMIX from any of its buildings, including ones SFMIX isn't built into.
-- **Any Equinix campus:** Equinix transports cross-connects to SFMIX from any of its campuses.
+- **Any CoreSite building in the region:** CoreSite transports cross-connects to SFMIX.
+- **Any Equinix campus in the region:** Equinix transports cross-connects to SFMIX.
 - **The Astound suite at 200 Paul:** over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
 - **Lumen, next to H5 Silicon Valley:** across the parking lot.
