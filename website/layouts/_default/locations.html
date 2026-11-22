@@ -29,11 +29,16 @@
           <td>{{ with $s.peeringdb_facility }}<a href="https://www.peeringdb.com/fac/{{ . }}">{{ $address }}</a>{{ else }}{{ $address }}{{ end }}</td>
           <td>{{ with $s.mmr_portal_url }}<a href="{{ . }}">{{ $s.facility_operator }}</a>{{ else }}{{ $s.facility_operator }}{{ end }}</td>
         </tr>
-        {{/* The operator's neighbouring buildings (NetBox `cross_connect_from`). */}}
+        {{/* Buildings without SFMIX gear that reach this site (NetBox `cross_connect_from`). */}}
         {{ with $s.cross_connect_from }}
-        {{ $op := htmlEscape $s.facility_operator }}
+        {{ $from := slice }}
+        {{ range . }}
+          {{ $name := htmlEscape .name }}
+          {{ with .peeringdb_facility }}{{ $name = printf `<a href="https://www.peeringdb.com/fac/%d">%s</a>` (int .) $name }}{{ end }}
+          {{ $from = $from | append (printf "<strong>%s</strong>" $name) }}
+        {{ end }}
         <tr class="site-reach">
-          <td colspan="3">{{ printf (partial "T.html" "Also reachable from <strong>%s %s</strong>: order a standard in-building cross-connect from %s, not their lit transport service.") $op (htmlEscape (delimit . ", ")) $op | safeHTML }}</td>
+          <td colspan="3">{{ printf (partial "T.html" "Also reachable from %s: order a standard cross-connect from %s, not a lit transport service.") (delimit $from ", ") (htmlEscape $s.facility_operator) | safeHTML }}</td>
         </tr>
         {{ end }}
         {{ end }}

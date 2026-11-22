@@ -14,7 +14,4 @@ All locations offer **10, 100, or 400Gbps** fiber connectivity.
 
 *Single-mode fiber only (10km 1310nm optics). No multi-mode fiber or copper. BiDi available for 10G and 100G.*
 
-You don't have to be in one of the buildings below. Some sites also take standard cross-connects from the facility operator's neighboring buildings, listed under each site. SFMIX is also reachable from:
-
-- **The Astound suite at 200 Paul:** over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
-- **Lumen, next to H5 Silicon Valley:** across the parking lot.
+You don't have to be in one of the buildings below. Some sites also take standard cross-connects from nearby buildings, listed under each site. The Astound suite at 200 Paul reaches SFMIX over a passive DWDM mux (tunable or colored DWDM optics required).

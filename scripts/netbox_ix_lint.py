@@ -306,28 +306,71 @@ def _status(obj) -> str:
     return status.get("value") if isinstance(status, dict) else (status or "")
 
 
+# Buildings SFMIX is reachable from without gear there (`sfmix_presence` =
+# cross_connect): /locations/ names them and the map draws them.
+REACH_REQUIRED_FIELDS = [
+    (label, get) for label, get in SITE_REQUIRED_FIELDS
+    if label not in ("peeringdb_facility", "mmr_portal_url")
+]
+
+
+def _choice(value):
+    return value.get("value") if isinstance(value, dict) else value
+
+
+def _linked_ids(value) -> list:
+    """A multi-object custom field's site IDs (REST gives brief objects)."""
+    return [v.get("id") if isinstance(v, dict) else v for v in (value or [])]
+
+
 def site_metadata_problems(sites: list, peering_switches: list) -> list:
     """Problems with SFMIX site metadata, as (slug, message) pairs.
 
-    A site counts when it has a `site_id` or is active: it then needs every
-    SITE_REQUIRED_FIELDS entry (else /locations/ gets a blank cell or the map a
-    stray one-site metro). `site_id` must be unique, and every active peering
-    switch must sit at a site with a `site_id` (else its IX-F `colo` is empty).
-    Inputs are NetBox REST dicts (pynetbox records via dict()).
+    `sfmix_presence` says what a site is to SFMIX. A `peering` site needs a
+    unique `site_id` and every SITE_REQUIRED_FIELDS entry (else /locations/
+    gets a blank cell or the map a stray one-site metro), and may link only
+    `cross_connect` sites in `cross_connect_from`. A `cross_connect` site has
+    no `site_id`, needs REACH_REQUIRED_FIELDS, and must be linked from some
+    peering site. An active or numbered site must say which it is. Every
+    active peering switch must sit at a numbered peering site (else its IX-F
+    `colo` is empty). Inputs are NetBox REST dicts (pynetbox records via dict()).
     """
     problems = []
     by_site_id = defaultdict(list)
     numbered = set()
+    by_pk = {site.get("id"): site for site in sites}
+    linked = {pk for site in sites if _choice((site.get("custom_fields") or {}).get("sfmix_presence")) == "peering"
+              for pk in _linked_ids(site["custom_fields"].get("cross_connect_from"))}
     for site in sites:
-        site_id = (site.get("custom_fields") or {}).get("site_id")
-        if site_id is None and _status(site) != "active":
+        cf = site.get("custom_fields") or {}
+        site_id = cf.get("site_id")
+        presence = _choice(cf.get("sfmix_presence"))
+        if presence == "peering":
+            if site_id is None:
+                problems.append((site["slug"], "peering site has no `site_id`"))
+            else:
+                by_site_id[site_id].append(site["slug"])
+                numbered.add(site["slug"])
+            required = SITE_REQUIRED_FIELDS
+            for pk in _linked_ids(cf.get("cross_connect_from")):
+                target = by_pk.get(pk) or {}
+                if _choice((target.get("custom_fields") or {}).get("sfmix_presence")) != "cross_connect":
+                    problems.append((site["slug"], f"`cross_connect_from` links {target.get('slug', pk)}, "
+                                                   "which isn't a cross_connect site"))
+        elif presence == "cross_connect":
+            if site_id is not None:
+                problems.append((site["slug"], "cross_connect site has a `site_id`"))
+            if site.get("id") not in linked:
+                problems.append((site["slug"], "cross_connect site isn't in any peering site's `cross_connect_from`"))
+            required = REACH_REQUIRED_FIELDS
+        elif presence:
+            problems.append((site["slug"], f"unknown `sfmix_presence` {presence!r}"))
             continue
-        if site_id is None:
-            problems.append((site["slug"], "active site has no `site_id`"))
         else:
-            by_site_id[site_id].append(site["slug"])
-            numbered.add(site["slug"])
-        missing = [label for label, get in SITE_REQUIRED_FIELDS if get(site) in (None, "")]
+            if site_id is not None or _status(site) == "active":
+                problems.append((site["slug"], "site has no `sfmix_presence`"))
+            continue
+        missing = [label for label, get in required if get(site) in (None, "")]
         if missing:
             problems.append((site["slug"], "missing " + ", ".join(missing)))
     for site_id, slugs in sorted(by_site_id.items()):

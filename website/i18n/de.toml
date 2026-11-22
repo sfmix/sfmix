@@ -146,4 +146,4 @@
 "Facility Operator" = "Einrichtungsbetreiber"
 ", and " = " und "
 " and " = " und "
-"Also reachable from <strong>%s %s</strong>: order a standard in-building cross-connect from %s, not their lit transport service." = "Auch erreichbar aus <strong>%s %s</strong>: Bestellen Sie bei %s einen normalen gebäudeinternen Cross-Connect, nicht deren Lit-Transportdienst."
+"Also reachable from %s: order a standard cross-connect from %s, not a lit transport service." = "Auch erreichbar aus %s: Bestellen Sie bei %s einen normalen Cross-Connect, keinen Lit-Transportdienst."

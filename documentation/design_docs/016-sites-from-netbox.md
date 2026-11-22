@@ -85,7 +85,9 @@ What already exists and gets reused:
 
 - **Status**: `active` means listed. `planned` (oak01, scl03) can render
   as a "coming soon" row or be hidden; that's a website choice, not data.
-  `unassigned` has no `site_id` and is excluded by rule.
+  `unassigned` has no `site_id` and is excluded by rule. Since step 15 the
+  export takes only `sfmix_presence` = `peering` sites, so buildings that
+  merely reach a site (`cross_connect`) never list as locations.
 - **`site_id`** custom field: shown as `sfo02 / 1`.
 - **Region**: already the city (Sunnyvale exists, nuq01 is in it).
 - **`peeringdb_facility`**: the address link.
@@ -99,7 +101,8 @@ What's missing, and goes in NetBox:
 | Short display name ("365 Main", "H5 Silicon Valley") | **description** | Already half-used this way. Normalise all 12. |
 | Facility operator ("Digital Realty", "H5 Data Centers") | new custom field `facility_operator` (text) | lg-server already has a PeeringDB cache, but a NetBox field lets us write "Equinix" rather than the PeeringDB org name. |
 | Cross-connect portal | new custom field `mmr_portal_url` (URL) | Participants order from the facility operator. A separate `mmr_operator` field was dropped 2026-11-21 (step 14). |
-| Neighbouring buildings that reach the site with a standard cross-connect | custom field `cross_connect_from` (text, comma-separated) | Added 2026-11-21 (step 15). |
+| Peering location vs. building that only reaches one | custom field `sfmix_presence` (select: `peering`, `cross_connect`) | Added 2026-11-21 (step 15). Listings key on this. |
+| Buildings that reach a peering site with a standard cross-connect | custom field `cross_connect_from` (multi-object → dcim.site) | Added 2026-11-21 (step 15); each building is a `cross_connect` Site. |
 
 sfo02's "Suite 303" moves into the first segment of its NetBox
 `physical_address`. scl02 currently links to PeeringDB *campus* 10. Drop
@@ -337,18 +340,45 @@ PUT 204; stale lg-web files removed).
     the lint and the locations table, where the facility operator now links
     to `mmr_portal_url`. Delete the NetBox custom field once lg-server
     is redeployed.
-15. Campus reach in NetBox (2026-11-21). Some operators take a standard
-    in-building cross-connect from their neighbouring buildings, priced as
-    a normal cross-connect and distinct from their lit transport product:
-    CoreSite SV3/7/8/9 → SV4 (scl02), Equinix SV5/10/11/12x → SV1 (sjc01),
-    HE FMT1 → FMT2 (fmt01). That is per-site data, so it lives in a new
-    `cross_connect_from` text custom field on dcim.site (comma-separated
-    building names, without the operator). lg-server exports it as a list
-    (`[]` when unset) and `/locations/` renders it as a full-width row under
-    the parent site; the sentence around it goes through `T`. Not a lint
-    requirement: most sites have none. The Astound suite at 200 Paul
-    (passive DWDM mux) and Lumen next to H5 aren't operator campus
-    cross-connects and stay as prose on the page.
+15. Reach buildings as NetBox Sites (2026-11-21). Some peering sites also
+    take a standard cross-connect, ordered from that site's facility
+    operator and distinct from any lit transport product, from buildings
+    where SFMIX has no gear: CoreSite SV3/7/8/9 → SV4 (scl02), Equinix
+    SV5/10/11/12x → SV1 (sjc01), HE FMT1 → FMT2 (fmt01), and Lumen's 1380
+    Kifer building → H5 (nuq01, a panel SFMIX brokered between the two
+    building operators, ordered as a plain H5 cross-connect).
+    - Each such building is its own NetBox Site with a descriptive slug
+      (`coresite-sv3`, `equinix-sv12x`, `he-fmt1`, `lumen-sunnyvale`), so
+      it carries its own address, PeeringDB id, operator, region and metro.
+      `name` = slug and `description` = display name, as for peering sites.
+    - New select field `sfmix_presence` says what a site is to SFMIX:
+      `peering` (gear here; listed; needs a `site_id`) or `cross_connect`
+      (no gear; reaches a peering site). Listings key on it rather than on
+      `site_id` or status. Every numbered site (oak01 included) is
+      `peering`; scl03 and `unassigned` are left unset.
+    - The peering site's multi-object field `cross_connect_from` links its
+      reach sites. NetBox GraphQL returns it as a list of site PKs.
+      lg-server lists only `peering` sites in `/api/v1/sites` and resolves
+      the links into `{code, name, facility, facility_operator, street,
+      city, peeringdb_facility}` objects.
+    - `/locations/` shows them as a full-width row under the parent site,
+      each name linked to PeeringDB; the sentence goes through `T`. The
+      network map draws them as gear-less buildings (mapbuild already draws
+      every site with lat/lon).
+    - Lint (`site_metadata_problems`): an active or numbered site must have
+      `sfmix_presence`; `peering` needs a unique `site_id` and every
+      SITE_REQUIRED_FIELDS entry, and may link only `cross_connect` sites;
+      `cross_connect` has no `site_id`, needs the same fields minus
+      `peeringdb_facility`/`mmr_portal_url`, and must be linked from some
+      peering site.
+    - Data gaps: PeeringDB has no record for Equinix SV11 or SV12x, so
+      those two have no address or coordinates yet (lint flags them; the
+      map skips them). SV5 and SV10 carry PeeringDB fac 6 ("Equinix
+      SV1/SV5/SV10", 11 Great Oaks Blvd) and so sit on SV1's coordinates.
+      PeeringDB gives Lumen's ZIP as 95051; NetBox uses 94086 like H5
+      next door.
+    - The Astound suite at 200 Paul (passive DWDM mux inside sfo02's
+      building) is a different mechanism and stays prose on the page.
 
 ## Aside found while surveying
 

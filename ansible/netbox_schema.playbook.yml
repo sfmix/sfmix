@@ -31,6 +31,10 @@
           - ["Member", "Member"]
           - ["Exempt", "Exempt"]
           - ["Infrastructure", "Infrastructure"]
+      - name: "sfmix_presence Choices"
+        extra_choices:
+          - ["peering", "Peering"]
+          - ["cross_connect", "Cross-connect"]
       - name: "hw_slot_kind Choices"
         extra_choices:
           - ["psu", "Power supply"]
@@ -125,11 +129,18 @@
         type: url
         object_types: ["dcim.site"]
         description: "Where participants place cross-connect orders with the facility operator"
+      - name: sfmix_presence
+        label: "SFMIX Presence"
+        type: select
+        object_types: ["dcim.site"]
+        choice_set: "sfmix_presence Choices"
+        description: "peering = SFMIX gear here (listed on /locations/, needs site_id); cross_connect = no gear, reaches a peering site that links it in cross_connect_from"
       - name: cross_connect_from
         label: "Cross-Connect From"
-        type: text
+        type: multiobject
         object_types: ["dcim.site"]
-        description: "Comma-separated other buildings of the facility operator that reach this site with a standard in-building cross-connect (e.g. SV3, SV7)"
+        related_object_type: "dcim.site"
+        description: "Buildings (sfmix_presence = cross_connect) that reach this site with a standard cross-connect ordered from this site's facility operator"
 
       # dcim.cable
       - name: serial

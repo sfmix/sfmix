@@ -149,7 +149,8 @@ pub struct IxpVlan {
     pub ipv6_mask_length: Option<u32>,
 }
 
-/// An SFMIX site (NetBox Site with a `site_id`), served at `/api/v1/sites`.
+/// An SFMIX peering site (NetBox Site with `sfmix_presence` = peering and a
+/// `site_id`), served at `/api/v1/sites`.
 ///
 /// Fields NetBox doesn't model yet (`metro` = site group, facility operator,
 /// cross-connect portal) are `None` until filled in; see design doc 016.
@@ -175,14 +176,31 @@ pub struct IxpSite {
     pub facility_operator: Option<String>,
     /// Where participants place cross-connect orders with the facility operator.
     pub mmr_portal_url: Option<String>,
-    /// The facility operator's other buildings that reach this site with a
-    /// standard in-building cross-connect (NetBox `cross_connect_from`,
-    /// comma-separated), e.g. ["SV3", "SV7"]. Empty when there are none.
-    pub cross_connect_from: Vec<String>,
+    /// Buildings without SFMIX gear that reach this site with a standard
+    /// cross-connect ordered from this site's facility operator (NetBox
+    /// `cross_connect_from`, linking `sfmix_presence` = cross_connect sites).
+    pub cross_connect_from: Vec<ReachSite>,
     pub peeringdb_facility: Option<u64>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
 }
+
+/// A building SFMIX is reachable from but has no gear in.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReachSite {
+    /// NetBox slug, e.g. "coresite-sv3".
+    pub code: String,
+    /// Short display name (NetBox description), e.g. "CoreSite SV3".
+    pub name: String,
+    pub facility: String,
+    pub facility_operator: Option<String>,
+    pub street: String,
+    pub city: String,
+    pub peeringdb_facility: Option<u64>,
+}
+
+/// NetBox `sfmix_presence` choice: SFMIX has peering gear here.
+const PRESENCE_PEERING: &str = "peering";
 
 /// IXP infrastructure data: sites, peering switches and peering VLANs.
 #[derive(Debug, Clone, Default, Serialize)]
@@ -252,6 +270,7 @@ async fn graphql_query<T: DeserializeOwned>(
 
 const SITES_QUERY: &str = r#"{
     site_list {
+        id
         slug
         status
         description
@@ -265,44 +284,53 @@ const SITES_QUERY: &str = r#"{
     }
 }"#;
 
-/// Fetch the SFMIX sites (NetBox Sites carrying a `site_id`), sorted by `site_id`.
+/// Fetch the SFMIX peering sites, sorted by `site_id`.
 async fn fetch_sites(client: &reqwest::Client, graphql_url: &str, token: &str) -> Result<Vec<IxpSite>> {
     let data: SitesData = graphql_query(client, graphql_url, token, SITES_QUERY).await?;
     Ok(sites_from_entries(data.site_list))
 }
 
+fn first_line(address: &str) -> String {
+    address.lines().next().unwrap_or_default().trim().to_string()
+}
+
+/// Peering sites (`sfmix_presence` = peering, with a `site_id`), each with the
+/// sites it links in `cross_connect_from` resolved (an ID that isn't in
+/// `site_list` is skipped).
 fn sites_from_entries(entries: Vec<SiteEntry>) -> Vec<IxpSite> {
+    let by_id: HashMap<u64, &SiteEntry> = entries.iter().map(|s| (s.id, s)).collect();
     let mut sites: Vec<IxpSite> = entries
-        .into_iter()
+        .iter()
+        .filter(|s| s.custom_fields.sfmix_presence.as_deref() == Some(PRESENCE_PEERING))
         .filter_map(|s| {
             let site_id = s.custom_fields.site_id?;
-            let street = s
-                .physical_address
-                .lines()
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_string();
+            let cross_connect_from = s
+                .custom_fields
+                .cross_connect_from
+                .iter()
+                .filter_map(|id| by_id.get(id))
+                .map(|r| ReachSite {
+                    code: r.slug.clone(),
+                    name: r.description.clone(),
+                    facility: r.facility.clone().unwrap_or_default(),
+                    facility_operator: non_empty(r.custom_fields.facility_operator.clone()),
+                    street: first_line(&r.physical_address),
+                    city: r.region.as_ref().map(|g| g.name.clone()).unwrap_or_default(),
+                    peeringdb_facility: r.custom_fields.peeringdb_facility,
+                })
+                .collect();
             Some(IxpSite {
-                code: s.slug,
+                code: s.slug.clone(),
                 site_id,
-                status: s.status,
-                name: s.description,
-                facility: s.facility.unwrap_or_default(),
-                street,
-                city: s.region.map(|r| r.name).unwrap_or_default(),
-                metro: s.group.map(|g| g.name),
-                facility_operator: non_empty(s.custom_fields.facility_operator),
-                mmr_portal_url: non_empty(s.custom_fields.mmr_portal_url),
-                cross_connect_from: s
-                    .custom_fields
-                    .cross_connect_from
-                    .unwrap_or_default()
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|b| !b.is_empty())
-                    .map(String::from)
-                    .collect(),
+                status: s.status.clone(),
+                name: s.description.clone(),
+                facility: s.facility.clone().unwrap_or_default(),
+                street: first_line(&s.physical_address),
+                city: s.region.as_ref().map(|r| r.name.clone()).unwrap_or_default(),
+                metro: s.group.as_ref().map(|g| g.name.clone()),
+                facility_operator: non_empty(s.custom_fields.facility_operator.clone()),
+                mmr_portal_url: non_empty(s.custom_fields.mmr_portal_url.clone()),
+                cross_connect_from,
                 peeringdb_facility: s.custom_fields.peeringdb_facility,
                 latitude: s.latitude.as_deref().and_then(|v| v.parse().ok()),
                 longitude: s.longitude.as_deref().and_then(|v| v.parse().ok()),
@@ -829,6 +857,8 @@ struct DeviceEntry {
 
 #[derive(Deserialize)]
 struct SiteEntry {
+    #[serde(deserialize_with = "deserialize_string_id")]
+    id: u64,
     slug: String,
     status: String,
     #[serde(default)]
@@ -854,8 +884,11 @@ struct SiteCustomFields {
     facility_operator: Option<String>,
     #[serde(default)]
     mmr_portal_url: Option<String>,
-    #[serde(default)]
-    cross_connect_from: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_choice_value")]
+    sfmix_presence: Option<String>,
+    /// Multi-object custom field: NetBox Site PKs.
+    #[serde(default, deserialize_with = "deserialize_id_list")]
+    cross_connect_from: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -971,6 +1004,30 @@ where
     }
 }
 
+/// Deserialize a multi-object custom field: null, or a list whose items are
+/// plain integers, string-encoded integers, or nested objects `{"id": 123}`.
+fn deserialize_id_list<'de, D>(deserializer: D) -> std::result::Result<Vec<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde_json::Value;
+    let items = Option::<Vec<Value>>::deserialize(deserializer)?.unwrap_or_default();
+    items
+        .into_iter()
+        .map(|v| {
+            let id = match &v {
+                Value::Object(map) => map.get("id").cloned().unwrap_or(Value::Null),
+                _ => v,
+            };
+            match id {
+                Value::Number(n) => n.as_u64().ok_or_else(|| de::Error::custom("invalid id")),
+                Value::String(s) => s.parse::<u64>().map_err(de::Error::custom),
+                _ => Err(de::Error::custom("expected id, string id, or {\"id\": ...}")),
+            }
+        })
+        .collect()
+}
+
 /// Deserialize a NetBox custom field that may be a nested object `{"id": 123}`,
 /// a plain integer, or null.
 fn deserialize_nested_id<'de, D>(deserializer: D) -> std::result::Result<Option<u64>, D::Error>
@@ -1016,25 +1073,38 @@ mod tests {
     fn sites_parsed_filtered_and_sorted() {
         // Mirrors the SITES_QUERY selection (synthetic data).
         let json = r#"{"site_list": [
-            {"slug": "tst02", "status": "planned", "description": "2 Example Way",
+            {"id": "2", "slug": "tst02", "status": "planned", "description": "2 Example Way",
              "facility": "Example DC Two", "physical_address": "2 Example Way\r\nExampleville, CA 90000",
              "latitude": "37.500000", "longitude": "-122.100000",
-             "custom_fields": {"site_id": 2, "peeringdb_facility": 64512, "mmr_portal_url": ""},
+             "custom_fields": {"site_id": 2, "peeringdb_facility": 64512, "mmr_portal_url": "",
+                               "sfmix_presence": {"value": "peering", "label": "Peering"}},
              "region": {"name": "Exampleville"}, "group": {"name": "Example Metro"}},
-            {"slug": "tst01", "status": "active", "description": "1 Example Way",
+            {"id": "1", "slug": "tst01", "status": "active", "description": "1 Example Way",
              "facility": "Example DC One", "physical_address": "1 Example Way\r\nExampleville, CA 90000",
              "latitude": null, "longitude": null,
-             "custom_fields": {"site_id": 1, "facility_operator": "Example Co",
-                               "cross_connect_from": "EX2, EX3 ,"},
+             "custom_fields": {"site_id": 1, "facility_operator": "Example Co", "sfmix_presence": "peering",
+                               "cross_connect_from": [3, {"id": "4"}, 99]},
              "region": null, "group": null},
-            {"slug": "unassigned", "status": "planned", "description": "", "facility": null,
+            {"id": "3", "slug": "example-ex3", "status": "active", "description": "Example EX3",
+             "facility": "Example Co - EX3", "physical_address": "3 Example Way\r\nExampleville, CA 90000",
+             "latitude": null, "longitude": null,
+             "custom_fields": {"facility_operator": "Example Co", "peeringdb_facility": 64513,
+                               "sfmix_presence": "cross_connect", "cross_connect_from": null},
+             "region": {"name": "Exampleville"}, "group": null},
+            {"id": "4", "slug": "other-ex4", "status": "active", "description": "Other EX4",
+             "facility": null, "physical_address": "", "latitude": null, "longitude": null,
+             "custom_fields": {"sfmix_presence": "cross_connect"}, "region": null, "group": null},
+            {"id": "5", "slug": "unassigned", "status": "planned", "description": "", "facility": null,
              "physical_address": "", "latitude": null, "longitude": null,
-             "custom_fields": {"site_id": null}, "region": null, "group": null}
+             "custom_fields": {"site_id": null}, "region": null, "group": null},
+            {"id": "6", "slug": "tst09", "status": "active", "description": "", "facility": null,
+             "physical_address": "", "latitude": null, "longitude": null,
+             "custom_fields": {"site_id": 9}, "region": null, "group": null}
         ]}"#;
         let data: SitesData = serde_json::from_str(json).unwrap();
         let sites = sites_from_entries(data.site_list);
         let codes: Vec<&str> = sites.iter().map(|s| s.code.as_str()).collect();
-        assert_eq!(codes, vec!["tst01", "tst02"]);
+        assert_eq!(codes, vec!["tst01", "tst02"], "only peering sites, by site_id");
         assert_eq!(sites[0].street, "1 Example Way");
         assert_eq!(sites[0].facility_operator.as_deref(), Some("Example Co"));
         assert_eq!(sites[0].latitude, None);
@@ -1043,7 +1113,13 @@ mod tests {
         assert_eq!(sites[1].latitude, Some(37.5));
         assert_eq!(sites[1].peeringdb_facility, Some(64512));
         assert_eq!(sites[1].mmr_portal_url, None, "blank custom field reads as unset");
-        assert_eq!(sites[0].cross_connect_from, vec!["EX2", "EX3"]);
+        let reach: Vec<&str> = sites[0].cross_connect_from.iter().map(|r| r.code.as_str()).collect();
+        assert_eq!(reach, vec!["example-ex3", "other-ex4"], "links resolved in order, unknown id skipped");
+        let ex3 = &sites[0].cross_connect_from[0];
+        assert_eq!(ex3.name, "Example EX3");
+        assert_eq!(ex3.street, "3 Example Way");
+        assert_eq!(ex3.city, "Exampleville");
+        assert_eq!(ex3.peeringdb_facility, Some(64513));
         assert!(sites[1].cross_connect_from.is_empty());
     }
 

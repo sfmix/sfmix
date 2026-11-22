@@ -13,7 +13,4 @@ Todas las ubicaciones ofrecen conectividad de fibra de **10, 100 o 400Gbps**.
 
 *Solo fibra monomodo (óptica de 10km 1310nm). Sin fibra multimodo ni cobre. BiDi disponible para 10G y 100G.*
 
-No necesitas estar en uno de los edificios de abajo. Algunas ubicaciones también aceptan interconexiones estándar desde edificios vecinos del operador de la instalación, indicados bajo cada ubicación. También puedes llegar a SFMIX desde:
-
-- **La suite de Astound en 200 Paul:** mediante un MUX DWDM pasivo hacia SFMIX (se requiere óptica DWDM sintonizable o coloreada).
-- **Lumen, junto a H5 Silicon Valley:** al otro lado del estacionamiento.
+No necesitas estar en uno de los edificios de abajo. Algunas ubicaciones también aceptan interconexiones estándar desde edificios cercanos, indicados bajo cada ubicación. La suite de Astound en 200 Paul llega a SFMIX mediante un MUX DWDM pasivo (se requiere óptica DWDM sintonizable o coloreada).
