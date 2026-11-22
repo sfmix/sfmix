@@ -31,7 +31,7 @@ authentik_authentik:
       30323565636532653663363963303532636234386230333533623864623231353462303865363664
       6439316136376266383464636165313037383234333531303132
     from: noreply@sfmix.org
-  tag: "2026.8.3"
+  tag: "2026.8.6"
 
 # Fleet backups (design doc 013, deploy_backups.playbook.yml). Postgres lives
 # in the compose project, so dump and verify run inside its container; the raw
