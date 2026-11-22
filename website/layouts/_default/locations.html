@@ -19,7 +19,6 @@
           <th scope="col">{{ partial "T.html" "SFMIX Site Code" }}</th>
           <th scope="col">{{ partial "T.html" "Address" }}</th>
           <th scope="col">{{ partial "T.html" "Facility Operator" }}</th>
-          <th scope="col">{{ partial "T.html" "MMR Operator / Portal" }}</th>
         </tr>
       </thead>
       <tbody>
@@ -28,8 +27,7 @@
         <tr>
           <td>{{ $s.code }} / {{ $s.site_id }}</td>
           <td>{{ with $s.peeringdb_facility }}<a href="https://www.peeringdb.com/fac/{{ . }}">{{ $address }}</a>{{ else }}{{ $address }}{{ end }}</td>
-          <td>{{ $s.facility_operator }}</td>
-          <td>{{ with $s.mmr_portal_url }}<a href="{{ . }}">{{ $s.mmr_operator }}</a>{{ else }}{{ $s.mmr_operator }}{{ end }}</td>
+          <td>{{ with $s.mmr_portal_url }}<a href="{{ . }}">{{ $s.facility_operator }}</a>{{ else }}{{ $s.facility_operator }}{{ end }}</td>
         </tr>
         {{ end }}
       </tbody>

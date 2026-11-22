@@ -297,7 +297,6 @@ SITE_REQUIRED_FIELDS = [
     ("longitude", lambda s: s.get("longitude")),
     ("peeringdb_facility", lambda s: (s.get("custom_fields") or {}).get("peeringdb_facility")),
     ("facility_operator", lambda s: (s.get("custom_fields") or {}).get("facility_operator")),
-    ("mmr_operator", lambda s: (s.get("custom_fields") or {}).get("mmr_operator")),
     ("mmr_portal_url", lambda s: (s.get("custom_fields") or {}).get("mmr_portal_url")),
 ]
 

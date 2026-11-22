@@ -148,7 +148,6 @@ mod tests {
             city: String::new(),
             metro: None,
             facility_operator: None,
-            mmr_operator: None,
             mmr_portal_url: None,
             peeringdb_facility: None,
             latitude: None,

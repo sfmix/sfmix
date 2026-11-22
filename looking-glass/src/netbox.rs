@@ -151,8 +151,8 @@ pub struct IxpVlan {
 
 /// An SFMIX site (NetBox Site with a `site_id`), served at `/api/v1/sites`.
 ///
-/// Fields NetBox doesn't model yet (`metro` = site group, operators, MMR
-/// portal) are `None` until filled in; see design doc 016.
+/// Fields NetBox doesn't model yet (`metro` = site group, facility operator,
+/// cross-connect portal) are `None` until filled in; see design doc 016.
 #[derive(Debug, Clone, Serialize)]
 pub struct IxpSite {
     /// Site code (NetBox slug), e.g. "nuq01".
@@ -171,8 +171,9 @@ pub struct IxpSite {
     pub city: String,
     /// Metro (NetBox site group), e.g. "Santa Clara/Sunnyvale".
     pub metro: Option<String>,
+    /// Who participants order cross-connects from (always the facility owner).
     pub facility_operator: Option<String>,
-    pub mmr_operator: Option<String>,
+    /// Where participants place cross-connect orders with the facility operator.
     pub mmr_portal_url: Option<String>,
     pub peeringdb_facility: Option<u64>,
     pub latitude: Option<f64>,
@@ -288,7 +289,6 @@ fn sites_from_entries(entries: Vec<SiteEntry>) -> Vec<IxpSite> {
                 city: s.region.map(|r| r.name).unwrap_or_default(),
                 metro: s.group.map(|g| g.name),
                 facility_operator: non_empty(s.custom_fields.facility_operator),
-                mmr_operator: non_empty(s.custom_fields.mmr_operator),
                 mmr_portal_url: non_empty(s.custom_fields.mmr_portal_url),
                 peeringdb_facility: s.custom_fields.peeringdb_facility,
                 latitude: s.latitude.as_deref().and_then(|v| v.parse().ok()),
@@ -840,8 +840,6 @@ struct SiteCustomFields {
     #[serde(default)]
     facility_operator: Option<String>,
     #[serde(default)]
-    mmr_operator: Option<String>,
-    #[serde(default)]
     mmr_portal_url: Option<String>,
 }
 
@@ -1006,7 +1004,7 @@ mod tests {
             {"slug": "tst02", "status": "planned", "description": "2 Example Way",
              "facility": "Example DC Two", "physical_address": "2 Example Way\r\nExampleville, CA 90000",
              "latitude": "37.500000", "longitude": "-122.100000",
-             "custom_fields": {"site_id": 2, "peeringdb_facility": 64512, "mmr_operator": ""},
+             "custom_fields": {"site_id": 2, "peeringdb_facility": 64512, "mmr_portal_url": ""},
              "region": {"name": "Exampleville"}, "group": {"name": "Example Metro"}},
             {"slug": "tst01", "status": "active", "description": "1 Example Way",
              "facility": "Example DC One", "physical_address": "1 Example Way\r\nExampleville, CA 90000",
@@ -1028,7 +1026,7 @@ mod tests {
         assert_eq!(sites[1].city, "Exampleville");
         assert_eq!(sites[1].latitude, Some(37.5));
         assert_eq!(sites[1].peeringdb_facility, Some(64512));
-        assert_eq!(sites[1].mmr_operator, None, "blank custom field reads as unset");
+        assert_eq!(sites[1].mmr_portal_url, None, "blank custom field reads as unset");
     }
 
     #[test]

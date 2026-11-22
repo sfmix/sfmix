@@ -22,7 +22,6 @@ def site(slug, site_id, status="active", **overrides):
             "site_id": site_id,
             "peeringdb_facility": 64512,
             "facility_operator": "Example Co",
-            "mmr_operator": "Example Co",
             "mmr_portal_url": "https://example.net/",
         },
     }

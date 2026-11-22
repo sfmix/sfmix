@@ -119,17 +119,12 @@
         label: "Facility Operator"
         type: text
         object_types: ["dcim.site"]
-        description: "Company operating the facility, as shown publicly (e.g. Digital Realty)"
-      - name: mmr_operator
-        label: "MMR Operator"
-        type: text
-        object_types: ["dcim.site"]
-        description: "Who participants order cross-connects from (meet-me room operator)"
+        description: "Company operating the facility, as shown publicly (e.g. Digital Realty); participants order cross-connects from them"
       - name: mmr_portal_url
         label: "MMR Portal URL"
         type: url
         object_types: ["dcim.site"]
-        description: "Where participants place cross-connect orders"
+        description: "Where participants place cross-connect orders with the facility operator"
 
       # dcim.cable
       - name: serial

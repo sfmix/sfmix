@@ -98,7 +98,7 @@ What's missing, and goes in NetBox:
 | Metro grouping for the map/weathermap ("Santa Clara/Sunnyvale") | **Site Group** (currently unused) | One group per metro: San Francisco, Oakland, Fremont, San Jose, Santa Clara/Sunnyvale. |
 | Short display name ("365 Main", "H5 Silicon Valley") | **description** | Already half-used this way. Normalise all 12. |
 | Facility operator ("Digital Realty", "H5 Data Centers") | new custom field `facility_operator` (text) | lg-server already has a PeeringDB cache, but a NetBox field lets us write "Equinix" rather than the PeeringDB org name. |
-| MMR operator + portal | new custom fields `mmr_operator` (text), `mmr_portal_url` (URL) | Usually equals the facility operator, but not always. |
+| Cross-connect portal | new custom field `mmr_portal_url` (URL) | Participants order from the facility operator. A separate `mmr_operator` field was dropped 2026-11-21 (step 14). |
 
 sfo02's "Suite 303" moves into the first segment of its NetBox
 `physical_address`. scl02 currently links to PeeringDB *campus* 10. Drop
@@ -117,7 +117,7 @@ proposed).
   is filtered in Rust because of the NetBox 4.5 enum-filter change.
 - `NetboxIxpData.sites: Vec<IxpSite>`, sorted by `site_id`. Fields NetBox
   doesn't have yet (`metro` = site group, `facility_operator`,
-  `mmr_operator`, `mmr_portal_url`) are `null` until filled in. `street` is
+  `mmr_portal_url`) are `null` until filled in. `street` is
   the first line of `physical_address` (NetBox separates lines with `\r\n`).
 - The port-map query now selects only `site { slug }` for peering switches
   and peering-port devices. `IxpSwitch` and `EnrichedPort` carry the site code,
@@ -182,7 +182,7 @@ portal `/weathermap/` already groups by map metro).
 
 Add a check to `scripts/netbox_ix_lint.py`. Every site with a `site_id` (or
 status `active`) must have a region, site group, description,
-`facility_operator`, `mmr_operator`, `mmr_portal_url`, `peeringdb_facility`
+`facility_operator`, `mmr_portal_url`, `peeringdb_facility`
 and lat/lon. `site_id` must be unique. A half-filled new site then fails lint
 before it renders as a blank row or a stray metro. lg-server should also log
 a warning for a `site_id` site with missing fields rather than skipping it.
@@ -330,6 +330,14 @@ PUT 204; stale lg-web files removed).
     prototype that nothing deploys, still has its own `METROS` list.
 13. ~~Runbooks that say "run `--tags participants_json`" drop that step.~~
     None in the repo; NetBox edits show up within 300 s.
+14. Drop `mmr_operator` (2026-11-21). The MMR operator is always the
+    facility owner now; a separate column was left over from the Telx era
+    at 200 Paul. Removed from the schema playbook, lg-server's `IxpSite`,
+    the lint and the locations table, where the facility operator now links
+    to `mmr_portal_url`. Delete the NetBox custom field once lg-server
+    is redeployed. Buildings and suites reachable beyond the listed sites
+    (Astound suite at 200 Paul, Equinix and CoreSite campuses, Lumen next to
+    H5) are prose on the locations page, not NetBox data.
 
 ## Aside found while surveying
 
