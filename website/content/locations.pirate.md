@@ -13,9 +13,9 @@ All ports o' call offer **10, 100, or 400Gbps** fiber connectivity.
 
 *Single-mode fiber only (10km 1310nm optics). No multi-mode fiber nor copper. BiDi available for 10G an' 100G.*
 
-Ye can also reach SFMIX from beyond th' berths listed below:
+Ye needn't be moored in one o' th' buildings below. SFMIX be reachable from:
 
-- **200 Paul (sfo02):** th' Astound suite, over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
-- **Equinix (sjc01):** any o' th' Equinix campuses.
-- **CoreSite (scl02, sjc02):** any CoreSite campus buildin'.
-- **H5 Silicon Valley (nuq01):** Lumen, across th' parkin' lot.
+- **Any CoreSite buildin':** CoreSite hauls cross-connects to SFMIX from any o' its buildings, even ones SFMIX ain't anchored in.
+- **Any Equinix campus:** Equinix hauls cross-connects to SFMIX from any o' its campuses.
+- **Th' Astound suite at 200 Paul:** over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
+- **Lumen, next to H5 Silicon Valley:** across th' parkin' lot.

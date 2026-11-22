@@ -13,9 +13,9 @@ all locations offer **10, 100, or 400Gbps** fiber connectivity. hella fast fr �
 
 *single-mode fiber only (10km 1310nm optics). no multi-mode fiber or copper. BiDi available for 10G and 100G.*
 
-not in one of the suites below? you can still link up from:
+not in one of the buildings below? no stress, you can still link up from:
 
-- **200 Paul (sfo02):** the Astound suite, over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
-- **Equinix (sjc01):** any of the Equinix campuses.
-- **CoreSite (scl02, sjc02):** any CoreSite campus building.
-- **H5 Silicon Valley (nuq01):** Lumen, literally just across the parking lot 🚶.
+- **any CoreSite building:** CoreSite hauls cross-connects to SFMIX from any of its buildings, even ones SFMIX isn't in.
+- **any Equinix campus:** Equinix hauls cross-connects to SFMIX from any of its campuses.
+- **the Astound suite at 200 Paul:** over a passive DWDM mux to SFMIX (tunable or colored DWDM optics required).
+- **Lumen, next to H5 Silicon Valley:** literally just across the parking lot 🚶.
