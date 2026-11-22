@@ -116,19 +116,29 @@ fn build_connection_list(
             ]
         })];
     }
+    // One connection per route server: PeeringDB maps each connection's
+    // switches to a facility and rejects a connection spanning two.
     if p.asn == 63055 {
-        return vec![serde_json::json!({
-            "ixp_id": 155,
-            "state": "active",
-            "if_list": [
-                { "switch_id": 59, "if_speed": 1000 },
-                { "switch_id": 63, "if_speed": 1000 },
-            ],
-            "vlan_list": [
-                { "vlan_id": 1, "ipv4": { "address": "206.197.187.253" }, "ipv6": { "address": "2001:504:30::ba06:3055:1" } },
-                { "vlan_id": 1, "ipv4": { "address": "206.197.187.254" }, "ipv6": { "address": "2001:504:30::ba06:3055:2" } },
-            ]
-        })];
+        return vec![
+            // rs-linux: switch01.sfo02 Ethernet43
+            serde_json::json!({
+                "ixp_id": 155,
+                "state": "active",
+                "if_list": [{ "switch_id": 59, "if_speed": 1000 }],
+                "vlan_list": [
+                    { "vlan_id": 1, "ipv4": { "address": "206.197.187.253" }, "ipv6": { "address": "2001:504:30::ba06:3055:1" } },
+                ]
+            }),
+            // rs-openbsd: switch01.scl04 Port-Channel201 (pve01.scl04)
+            serde_json::json!({
+                "ixp_id": 155,
+                "state": "active",
+                "if_list": [{ "switch_id": 145, "if_speed": 200000 }],
+                "vlan_list": [
+                    { "vlan_id": 1, "ipv4": { "address": "206.197.187.254" }, "ipv6": { "address": "2001:504:30::ba06:3055:2" } },
+                ]
+            }),
+        ];
     }
 
     // Normal participants: one connection per peering port
@@ -242,6 +252,12 @@ mod tests {
             .map(|m| m["asnum"].as_u64().unwrap())
             .collect();
         assert_eq!(asns, vec![63055, 64512]);
+        // PeeringDB rejects a connection whose interfaces span facilities.
+        for m in v["member_list"].as_array().unwrap() {
+            for c in m["connection_list"].as_array().unwrap() {
+                assert_eq!(c["if_list"].as_array().unwrap().len(), 1, "{m}");
+            }
+        }
         let ts = v["timestamp"].as_str().unwrap();
         assert!(ts.ends_with('Z') && ts.len() == 20, "RFC 3339 UTC timestamp, got {ts}");
     }
