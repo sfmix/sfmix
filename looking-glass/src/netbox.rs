@@ -175,6 +175,10 @@ pub struct IxpSite {
     pub facility_operator: Option<String>,
     /// Where participants place cross-connect orders with the facility operator.
     pub mmr_portal_url: Option<String>,
+    /// The facility operator's other buildings that reach this site with a
+    /// standard in-building cross-connect (NetBox `cross_connect_from`,
+    /// comma-separated), e.g. ["SV3", "SV7"]. Empty when there are none.
+    pub cross_connect_from: Vec<String>,
     pub peeringdb_facility: Option<u64>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
@@ -290,6 +294,15 @@ fn sites_from_entries(entries: Vec<SiteEntry>) -> Vec<IxpSite> {
                 metro: s.group.map(|g| g.name),
                 facility_operator: non_empty(s.custom_fields.facility_operator),
                 mmr_portal_url: non_empty(s.custom_fields.mmr_portal_url),
+                cross_connect_from: s
+                    .custom_fields
+                    .cross_connect_from
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|b| !b.is_empty())
+                    .map(String::from)
+                    .collect(),
                 peeringdb_facility: s.custom_fields.peeringdb_facility,
                 latitude: s.latitude.as_deref().and_then(|v| v.parse().ok()),
                 longitude: s.longitude.as_deref().and_then(|v| v.parse().ok()),
@@ -841,6 +854,8 @@ struct SiteCustomFields {
     facility_operator: Option<String>,
     #[serde(default)]
     mmr_portal_url: Option<String>,
+    #[serde(default)]
+    cross_connect_from: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1009,7 +1024,8 @@ mod tests {
             {"slug": "tst01", "status": "active", "description": "1 Example Way",
              "facility": "Example DC One", "physical_address": "1 Example Way\r\nExampleville, CA 90000",
              "latitude": null, "longitude": null,
-             "custom_fields": {"site_id": 1, "facility_operator": "Example Co"},
+             "custom_fields": {"site_id": 1, "facility_operator": "Example Co",
+                               "cross_connect_from": "EX2, EX3 ,"},
              "region": null, "group": null},
             {"slug": "unassigned", "status": "planned", "description": "", "facility": null,
              "physical_address": "", "latitude": null, "longitude": null,
@@ -1027,6 +1043,8 @@ mod tests {
         assert_eq!(sites[1].latitude, Some(37.5));
         assert_eq!(sites[1].peeringdb_facility, Some(64512));
         assert_eq!(sites[1].mmr_portal_url, None, "blank custom field reads as unset");
+        assert_eq!(sites[0].cross_connect_from, vec!["EX2", "EX3"]);
+        assert!(sites[1].cross_connect_from.is_empty());
     }
 
     #[test]

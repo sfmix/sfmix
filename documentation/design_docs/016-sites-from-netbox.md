@@ -99,6 +99,7 @@ What's missing, and goes in NetBox:
 | Short display name ("365 Main", "H5 Silicon Valley") | **description** | Already half-used this way. Normalise all 12. |
 | Facility operator ("Digital Realty", "H5 Data Centers") | new custom field `facility_operator` (text) | lg-server already has a PeeringDB cache, but a NetBox field lets us write "Equinix" rather than the PeeringDB org name. |
 | Cross-connect portal | new custom field `mmr_portal_url` (URL) | Participants order from the facility operator. A separate `mmr_operator` field was dropped 2026-11-21 (step 14). |
+| Neighbouring buildings that reach the site with a standard cross-connect | custom field `cross_connect_from` (text, comma-separated) | Added 2026-11-21 (step 15). |
 
 sfo02's "Suite 303" moves into the first segment of its NetBox
 `physical_address`. scl02 currently links to PeeringDB *campus* 10. Drop
@@ -335,9 +336,19 @@ PUT 204; stale lg-web files removed).
     at 200 Paul. Removed from the schema playbook, lg-server's `IxpSite`,
     the lint and the locations table, where the facility operator now links
     to `mmr_portal_url`. Delete the NetBox custom field once lg-server
-    is redeployed. Buildings and suites reachable beyond the listed sites
-    (Astound suite at 200 Paul, Equinix and CoreSite campuses, Lumen next to
-    H5) are prose on the locations page, not NetBox data.
+    is redeployed.
+15. Campus reach in NetBox (2026-11-21). Some operators take a standard
+    in-building cross-connect from their neighbouring buildings, priced as
+    a normal cross-connect and distinct from their lit transport product:
+    CoreSite SV3/7/8/9 → SV4 (scl02), Equinix SV5/10/11/12x → SV1 (sjc01),
+    HE FMT1 → FMT2 (fmt01). That is per-site data, so it lives in a new
+    `cross_connect_from` text custom field on dcim.site (comma-separated
+    building names, without the operator). lg-server exports it as a list
+    (`[]` when unset) and `/locations/` renders it as a full-width row under
+    the parent site; the sentence around it goes through `T`. Not a lint
+    requirement: most sites have none. The Astound suite at 200 Paul
+    (passive DWDM mux) and Lumen next to H5 aren't operator campus
+    cross-connects and stay as prose on the page.
 
 ## Aside found while surveying
 

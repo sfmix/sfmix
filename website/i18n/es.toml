@@ -147,3 +147,4 @@
 ", and " = " y "
 " and " = " y "
 "San Jose" = "San José"
+"Also reachable from <strong>%s %s</strong>: order a standard in-building cross-connect from %s, not their lit transport service." = "También accesible desde <strong>%s %s</strong>: pide a %s una interconexión estándar dentro del edificio, no su servicio de transporte iluminado."

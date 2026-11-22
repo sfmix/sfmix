@@ -129,3 +129,4 @@
 # Locations page + site summary (design doc 016)
 ", and " = ", an' "
 " and " = " an' "
+"Also reachable from <strong>%s %s</strong>: order a standard in-building cross-connect from %s, not their lit transport service." = "Also reachable from <strong>%s %s</strong>: order a plain in-buildin' cross-connect from %s, not their lit transport service."

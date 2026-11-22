@@ -518,6 +518,15 @@ img { max-width: 100%; height: auto; }
   border-bottom: 1px solid var(--color-border);
 }
 .content tr:hover td { background: var(--color-bg-alt); }
+/* /locations/: a site's reach row spans the table under its parent row. */
+.content tr:has(+ .site-reach) td { border-bottom: none; }
+.content .site-reach td {
+  padding-top: 0;
+  padding-left: 1.6rem;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+}
+.content .site-reach td::before { content: '\21B3\00A0'; margin-left: -1.1rem; }
 
 /* ===== Cards ===== */
 .card-grid {

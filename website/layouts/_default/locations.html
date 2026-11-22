@@ -29,6 +29,13 @@
           <td>{{ with $s.peeringdb_facility }}<a href="https://www.peeringdb.com/fac/{{ . }}">{{ $address }}</a>{{ else }}{{ $address }}{{ end }}</td>
           <td>{{ with $s.mmr_portal_url }}<a href="{{ . }}">{{ $s.facility_operator }}</a>{{ else }}{{ $s.facility_operator }}{{ end }}</td>
         </tr>
+        {{/* The operator's neighbouring buildings (NetBox `cross_connect_from`). */}}
+        {{ with $s.cross_connect_from }}
+        {{ $op := htmlEscape $s.facility_operator }}
+        <tr class="site-reach">
+          <td colspan="3">{{ printf (partial "T.html" "Also reachable from <strong>%s %s</strong>: order a standard in-building cross-connect from %s, not their lit transport service.") $op (htmlEscape (delimit . ", ")) $op | safeHTML }}</td>
+        </tr>
+        {{ end }}
         {{ end }}
       </tbody>
     </table>

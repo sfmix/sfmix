@@ -125,6 +125,11 @@
         type: url
         object_types: ["dcim.site"]
         description: "Where participants place cross-connect orders with the facility operator"
+      - name: cross_connect_from
+        label: "Cross-Connect From"
+        type: text
+        object_types: ["dcim.site"]
+        description: "Comma-separated other buildings of the facility operator that reach this site with a standard in-building cross-connect (e.g. SV3, SV7)"
 
       # dcim.cable
       - name: serial

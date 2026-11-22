@@ -149,6 +149,7 @@ mod tests {
             metro: None,
             facility_operator: None,
             mmr_portal_url: None,
+            cross_connect_from: Vec::new(),
             peeringdb_facility: None,
             latitude: None,
             longitude: None,
