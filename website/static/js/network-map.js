@@ -287,6 +287,20 @@
       net_count: s.net_count || 0, ix_count: s.ix_count || 0 };
   }
 
+  // Sites with no switches and no cable ending there (e.g. campus buildings that
+  // only reach a site by cross-connect). They get no geographic footprint: the
+  // title bubble itself is drawn as the building, so it stays just bigger than
+  // its label at every zoom. Passive sites with cables keep their box, since the
+  // cables land on its edge.
+  function emptySites(structure) {
+    var cabled = {}, empty = {};
+    (structure.cables || []).forEach(function (c) { cabled[c.a_site] = cabled[c.z_site] = true; });
+    Object.keys(structure.sites).forEach(function (code) {
+      if (!(structure.sites[code].devices || []).length && !cabled[code]) empty[code] = true;
+    });
+    return empty;
+  }
+
   function weightForCapacity(bps) {
     var g = bps / 1e9;
     if (g >= 800) return 5.0;
@@ -396,6 +410,7 @@
     });
 
     var stationFeatures = [], deviceFeatures = [], buildingFeatures = [];
+    var empty = emptySites(structure);
     Object.keys(sites).forEach(function (code) {
       var s = sites[code];
       stationFeatures.push({
@@ -403,7 +418,7 @@
         properties: siteProps(code, s),
         geometry: { type: "Point", coordinates: [s.lon, s.lat] }
       });
-      if (s.building) {
+      if (s.building && !empty[code]) {
         // the building box carries the same site props so clicking the footprint
         // (added to PICK_LAYERS) opens the same detail as the roundel/label.
         buildingFeatures.push({
@@ -1042,6 +1057,7 @@
       mk.getElement().style.display = "none";
       metroMarkers.push(mk);
     });
+    var empty = emptySites(structure);
     Object.keys(structure.sites).forEach(function (code) {
       var s = structure.sites[code];
       var d = document.createElement("div");
@@ -1051,12 +1067,16 @@
       var m = new maplibregl.Marker({ element: d, anchor: "left", offset: [12, 0] })
         .setLngLat([s.lon, s.lat]).addTo(map);
       siteMarkers.push(m);
-      // device-tier label: same site name sitting ABOVE the building box, clear
-      // of the switches (below their dots) and their captions
+      // device-tier label: description over site code, sitting ABOVE the building
+      // box clear of the switches (below their dots) and their captions. An empty
+      // site has no box, so its bubble is centred on the site and styled as the
+      // building itself.
       var b = document.createElement("div");
-      b.className = "nm-label nm-label-site nm-label-box";
-      b.innerHTML = '<span class="nm-code">' + code + '</span> ' +
-        '<span class="nm-name">' + (s.name || "") + "</span>";
+      b.className = "nm-label nm-label-site nm-label-box" + (empty[code] ? " nm-label-empty" : "");
+      var bn = document.createElement("span"), bc = document.createElement("span");
+      bn.className = "nm-name"; bn.textContent = s.name || code;
+      bc.className = "nm-code"; bc.textContent = code;
+      b.appendChild(bn); b.appendChild(bc);
       // the title bubble is clickable (CSS re-enables pointer events on it) —
       // opens the same site detail as the building footprint / roundel.
       (function (code, s) {
@@ -1067,7 +1087,8 @@
           if (d) infoPane.showDetail(d.title, d.body);
         });
       })(code, s);
-      var bm = new maplibregl.Marker({ element: b, anchor: "bottom", offset: [0, -26] })
+      var bm = new maplibregl.Marker(empty[code] ? { element: b, anchor: "center" }
+          : { element: b, anchor: "bottom", offset: [0, -26] })
         .setLngLat([s.lon, s.lat]).addTo(map);
       bm.getElement().style.display = "none";
       siteBoxMarkers.push(bm);

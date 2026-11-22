@@ -44,6 +44,20 @@
   cursor: pointer;
 }
 .nm-label-box:hover { background: rgba(30, 46, 60, .95); }
+/* two lines: description over site code */
+.nm-label-box { text-align: center; line-height: 1.2; padding: 2px 7px; }
+.nm-label-box .nm-name, .nm-label-box .nm-code { display: block; }
+/* a site with no switches or cables: the bubble IS the building — same fill and
+   outline as the site-building layer, just bigger than its label at any zoom */
+.nm-label-empty {
+  background: rgba(42, 58, 71, .85);
+  border: 1.2px solid rgba(77, 99, 117, .9);
+  border-radius: 2px;
+  padding: 3px 8px;
+  box-shadow: none;
+  transform: none;
+}
+.nm-label-empty:hover { background: rgba(52, 72, 88, .95); }
 .nm-label-icao {
   font-size: 9px;
   font-weight: 600;
