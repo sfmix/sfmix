@@ -12,24 +12,30 @@ best-effort — any network/parse failure degrades to no enrichment so the build
 never breaks on a PeeringDB hiccup. The ``fac``/``org`` endpoints read without
 auth (rate-limited); an optional operator API key raises the limit.
 """
+import json
 import logging
+import os
 import time
 
 log = logging.getLogger(__name__)
 
 PDB_BASE = "https://www.peeringdb.com/api"
-# Anonymous reads are limited per minute; a build touches ~20 facilities plus
-# their orgs, so wait out a 429 rather than publish half-enriched sites.
+# Anonymous reads are rate-limited. Wait out a 429 briefly, but cap the total
+# wait per build: under a longer throttle the build falls back to the last good
+# answers in the on-disk cache instead of stalling or dropping enrichment.
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_WAIT_DEFAULT = 60
 RATE_LIMIT_WAIT_MAX = 90
+RATE_LIMIT_WAIT_BUDGET = 120
 
 
 class PeeringDBClient:
     """Tiny cached PeeringDB reader. One instance per build; results are memoised
-    so shared operators (many SFMIX sites share an org) cost one request each."""
+    so shared operators (many SFMIX sites share an org) cost one request each.
+    With ``cache_path`` the last good fac/org records persist across builds and
+    stand in for any lookup that fails; call ``save()`` after the build."""
 
-    def __init__(self, api_key=None, timeout=10, session=None, sleep=time.sleep):
+    def __init__(self, api_key=None, timeout=10, session=None, sleep=time.sleep, cache_path=None):
         if session is None:
             import requests
             session = requests.Session()
@@ -39,8 +45,18 @@ class PeeringDBClient:
             self._s.headers["Authorization"] = "Api-Key %s" % api_key
         self.timeout = timeout
         self._sleep = sleep
+        self._waited = 0
         self._fac = {}
         self._org = {}
+        self._cache_path = cache_path
+        self._cache = {"fac": {}, "org": {}}
+        if cache_path and os.path.exists(cache_path):
+            try:
+                with open(cache_path) as f:
+                    loaded = json.load(f)
+                self._cache = {k: dict(loaded.get(k) or {}) for k in ("fac", "org")}
+            except Exception as e:
+                log.warning("PeeringDB cache %s unreadable: %s", cache_path, e)
 
     def _get(self, path):
         for attempt in range(RATE_LIMIT_RETRIES + 1):
@@ -52,23 +68,50 @@ class PeeringDBClient:
             except ValueError:
                 wait = RATE_LIMIT_WAIT_DEFAULT
             wait = min(max(wait, 1), RATE_LIMIT_WAIT_MAX)
+            if self._waited + wait > RATE_LIMIT_WAIT_BUDGET:
+                break  # out of patience this build: raise below, caller uses the cache
             log.info("PeeringDB %s rate-limited; retrying in %ds", path, wait)
+            self._waited += wait
             self._sleep(wait)
         r.raise_for_status()
         data = (r.json() or {}).get("data") or []
         return data[0] if data else None
 
+    def _lookup(self, kind, memo, oid):
+        if oid in memo:
+            return memo[oid]
+        try:
+            rec = self._get("%s/%d" % (kind, oid))
+        except Exception:
+            cached = self._cache[kind].get(str(oid))
+            if cached is None:
+                raise
+            log.warning("PeeringDB %s/%d unavailable; using cached record", kind, oid)
+            rec = cached
+        else:
+            if rec is not None:
+                self._cache[kind][str(oid)] = rec
+        memo[oid] = rec
+        return rec
+
     def facility(self, fac_id):
-        fid = int(fac_id)
-        if fid not in self._fac:
-            self._fac[fid] = self._get("fac/%d" % fid)
-        return self._fac[fid]
+        return self._lookup("fac", self._fac, int(fac_id))
 
     def org(self, org_id):
-        oid = int(org_id)
-        if oid not in self._org:
-            self._org[oid] = self._get("org/%d" % oid)
-        return self._org[oid]
+        return self._lookup("org", self._org, int(org_id))
+
+    def save(self):
+        """Write the fac/org cache (atomically) if this client has a cache path."""
+        if not self._cache_path:
+            return
+        try:
+            os.makedirs(os.path.dirname(self._cache_path) or ".", exist_ok=True)
+            tmp = self._cache_path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(self._cache, f)
+            os.replace(tmp, self._cache_path)
+        except Exception as e:
+            log.warning("PeeringDB cache %s not saved: %s", self._cache_path, e)
 
     def facility_meta(self, fac_id):
         """Public display fields for a facility, or ``{}`` on any failure."""

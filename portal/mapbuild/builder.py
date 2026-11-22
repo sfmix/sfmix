@@ -186,7 +186,7 @@ def enrich_peeringdb(sites):
         return
     try:
         from .peeringdb import PeeringDBClient
-        client = PeeringDBClient(api_key=_peeringdb_api_key())
+        client = PeeringDBClient(api_key=_peeringdb_api_key(), cache_path=_peeringdb_cache_path())
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("PeeringDB enrichment skipped: %s", e)
@@ -195,6 +195,17 @@ def enrich_peeringdb(sites):
         meta = client.facility_meta(fac_id)
         if meta:
             sites[code].update(meta)
+    client.save()
+
+
+def _peeringdb_cache_path():
+    """Last good PeeringDB fac/org records, kept beside the private map-links.json
+    (persistent volume); None outside Django (offline scripts) = no cache."""
+    try:
+        from django.conf import settings
+        return os.path.join(os.path.dirname(settings.MAP_LINKS_OUTPUT), "peeringdb-cache.json")
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------

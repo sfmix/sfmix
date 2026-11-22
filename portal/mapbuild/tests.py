@@ -56,6 +56,35 @@ class PeeringDBClientTests(SimpleTestCase):
         client.facility(1)
         self.assertEqual(self.sleeps, [90, 1])
 
+    def test_wait_budget_stops_retrying(self):
+        # 60 + 60 spent on the first lookup; the second gets no more waiting
+        client, session = self.make([FakeResponse(429), FakeResponse(429), FakeResponse(200, [{"id": 1}]),
+                                     FakeResponse(429)])
+        client.facility(1)
+        self.assertEqual(client.facility_meta(2), {})
+        self.assertEqual(self.sleeps, [60, 60])
+        self.assertEqual(session.paths, ["fac/1", "fac/1", "fac/1", "fac/2"])
+
+    def test_failed_lookup_falls_back_to_saved_cache(self):
+        import json
+        import os
+        import tempfile
+        path = os.path.join(tempfile.mkdtemp(), "pdb.json")
+        fac = {"id": 64512, "name": "Example DC", "net_count": 3, "org_id": 7}
+        org = {"id": 7, "logo": "https://example.net/logo.png"}
+        first, _ = self.make([FakeResponse(200, [fac]), FakeResponse(200, [org])])
+        first._cache_path = path
+        self.assertEqual(first.facility_meta(64512)["logo"], org["logo"])
+        first.save()
+        self.assertEqual(set(json.load(open(path))), {"fac", "org"})
+
+        self.sleeps = []
+        second = PeeringDBClient(session=FakeSession([FakeResponse(500), FakeResponse(500)]),
+                                 sleep=self.sleeps.append, cache_path=path)
+        meta = second.facility_meta(64512)
+        self.assertEqual(meta["net_count"], 3)
+        self.assertEqual(meta["logo"], org["logo"])
+
     def test_lookups_are_memoised(self):
         client, session = self.make([FakeResponse(200, [{"id": 1}])])
         client.facility(1)
