@@ -371,12 +371,13 @@ PUT 204; stale lg-web files removed).
       `cross_connect` has no `site_id`, needs the same fields minus
       `peeringdb_facility`/`mmr_portal_url`, and must be linked from some
       peering site.
-    - Data gaps: PeeringDB has no record for Equinix SV11 or SV12x, so
-      those two have no address or coordinates yet (lint flags them; the
-      map skips them). SV5 and SV10 carry PeeringDB fac 6 ("Equinix
-      SV1/SV5/SV10", 11 Great Oaks Blvd) and so sit on SV1's coordinates.
-      PeeringDB gives Lumen's ZIP as 95051; NetBox uses 94086 like H5
-      next door.
+    - Data sources: PeeringDB has no record for Equinix SV11 (5 Great
+      Oaks Blvd), SV12x (123) or SV18 (127, added as a further sjc01 reach
+      site); their addresses came from the operator and their coordinates
+      from the US Census geocoder (street-interpolated, approximate). SV5
+      and SV10 carry PeeringDB fac 6 ("Equinix SV1/SV5/SV10", 11 Great Oaks
+      Blvd) and so sit on SV1's coordinates. PeeringDB gives Lumen's ZIP as
+      95051; NetBox uses 94086 like H5 next door.
     - The Astound suite at 200 Paul (passive DWDM mux inside sfo02's
       building) is a different mechanism and stays prose on the page.
 
