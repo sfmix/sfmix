@@ -222,6 +222,20 @@ fetch-to-file, then PUT only on success, so it never PUTs an empty body), the
 LG index page links, and `scripts/participant_speeds.py`. The IX-F schema
 moved to `looking-glass/doc/ixp-member-list.schema.json`.
 
+**Connections follow IPs (2026-11-22).** PeeringDB's IX-F import failed
+with "Multiple facility IDs found in connection interfaces: {2, 547}": the
+hardcoded AS63055 entry was one connection spanning switch01.sfo02 and
+switch01.fmt01 (and rs-openbsd is really on switch01.scl04 Po201). SFMIX's
+own and the route servers' IPs sit on shared hypervisor trunks, which no
+single tenant owns, so connections are no longer built from owned ports.
+Each member gets one IX-F connection (and participants-table row) per
+`peering_port` its IPs' `participant_lag` points at, owned or not; the
+AS12276/AS63055 special cases are gone. Route-server IPs carry
+`ixp_infrastructure` (lg-server reads IPs tagged `ixp_participant` or
+`ixp_infrastructure`). A member with a port but no linked IP is left out of
+IX-F; in the table an owned port without an IP is "Pending", except for
+infrastructure members (spare hypervisor trunks).
+
 **Parity check, 2026-11-21.** `cargo run --example netbox_exports` (live
 NetBox) was diffed against the static files fetched minutes earlier:
 

@@ -8,7 +8,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::Serialize;
 
-use crate::netbox::{EnrichedPort, NetboxIxpData, NetboxParticipant};
+use crate::netbox::{EnrichedPort, IxpMembership, NetboxIxpData, NetboxParticipant};
 
 #[derive(Debug, Serialize)]
 pub struct ParticipantsTable {
@@ -42,9 +42,6 @@ pub struct TablePort {
 
 const PENDING: &str = "Pending";
 
-/// The switch AS12276's hardcoded ports sit on (shared with the route servers).
-const AS12276_SWITCH_ID: u64 = 59;
-
 pub fn build_participants_table(
     ixp_data: &NetboxIxpData,
     participants: &[NetboxParticipant],
@@ -60,11 +57,10 @@ pub fn build_participants_table(
             as_number: p.asn,
             member_type: p.participant_type.clone(),
             name: p.name.clone(),
-            peering_ports: if p.asn == 12276 {
-                as12276_ports(ixp_data)
-            } else {
-                p.enriched_ports.iter().map(|port| table_port(ixp_data, p, port)).collect()
-            },
+            peering_ports: member_ports(ixp_data, p)
+                .into_iter()
+                .map(|port| table_port(ixp_data, p, port))
+                .collect(),
         })
         .collect();
     ParticipantsTable { participants }
@@ -115,21 +111,26 @@ fn port_row(
     }
 }
 
-/// AS12276 shares a fabric port with the route servers, so it has no peering
-/// port of its own in NetBox (same special case as the IX-F export).
-fn as12276_ports(ixp_data: &NetboxIxpData) -> Vec<TablePort> {
-    let location = ixp_data
-        .switches
+/// A member's own ports in NetBox order, then any other port its IPs are
+/// linked to (shared hypervisor trunks). An owned port with none of the
+/// member's IPs is shown as "Pending" for a joiner; an infrastructure trunk
+/// without one (e.g. a spare hypervisor) is skipped.
+fn member_ports<'a>(ixp_data: &'a NetboxIxpData, p: &'a NetboxParticipant) -> Vec<&'a EnrichedPort> {
+    let ip_ports = p.ip_ports(ixp_data);
+    let has_ip = |id: u64| ip_ports.iter().any(|q| q.interface_id == id);
+    let infrastructure = p.ixp_membership == Some(IxpMembership::Infrastructure)
+        || p.participant_type.as_deref() == Some("Infrastructure");
+    let mut ports: Vec<&EnrichedPort> = p
+        .enriched_ports
         .iter()
-        .find(|s| s.id == AS12276_SWITCH_ID)
-        .map(|s| s.colo.clone())
-        .unwrap_or_default();
-    [("206.197.187.1", "2001:504:30::ba01:2276:1"), ("206.197.187.2", "2001:504:30::ba01:2276:2")]
-        .into_iter()
-        .map(|(v4, v6)| {
-            port_row(Some("1 Gbit/s".into()), 1_000_000_000, location.clone(), Some(v4), Some(v6))
-        })
-        .collect()
+        .filter(|owned| !infrastructure || has_ip(owned.interface_id))
+        .collect();
+    for port in &ip_ports {
+        if !p.enriched_ports.iter().any(|owned| owned.interface_id == port.interface_id) {
+            ports.push(port);
+        }
+    }
+    ports
 }
 
 #[cfg(test)]

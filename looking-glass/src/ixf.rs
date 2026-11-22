@@ -5,7 +5,7 @@
 //! `https://lg.sfmix.org/api/v1/participants.json`.
 //! Used by both the monolith REST frontend and the lg-server RPC endpoint.
 
-use crate::netbox::{IxpVlan, NetboxIxpData, NetboxParticipant};
+use crate::netbox::{NetboxIxpData, NetboxParticipant, ParticipantIp};
 
 /// Build the full IX-F Member Export JSON document.
 pub fn build_ixf_export(
@@ -51,9 +51,8 @@ pub fn build_ixf_export(
 
     // Build member list
     // IXP members only (tenants tagged ixp_participant / ixp_infrastructure),
-    // and only once they have a connection: a newly-approved joiner whose port
-    // isn't turned up yet is left out. AS12276 / AS63055 always have their
-    // hardcoded connection below.
+    // and only once one of their IPs is linked to a peering port: a
+    // newly-approved joiner whose port isn't turned up yet is left out.
     let mut members: Vec<serde_json::Value> = Vec::new();
     for p in participants.iter().filter(|p| p.ixp_membership.is_some()) {
         let member_type = match p.participant_type.as_deref() {
@@ -61,7 +60,7 @@ pub fn build_ixf_export(
             _ => "peering",
         };
 
-        let connections = build_connection_list(p, &ixp_data.vlans);
+        let connections = build_connection_list(p, ixp_data);
         if connections.is_empty() {
             continue;
         }
@@ -99,111 +98,57 @@ pub fn build_ixf_export(
     })
 }
 
-/// Build the connection_list for a participant in IX-F format.
-fn build_connection_list(
-    p: &NetboxParticipant,
-    vlans: &[IxpVlan],
-) -> Vec<serde_json::Value> {
-    // Special cases from the Jinja2 template
-    if p.asn == 12276 {
-        return vec![serde_json::json!({
-            "ixp_id": 155,
-            "state": "active",
-            "if_list": [{ "switch_id": 59, "if_speed": 1000 }],
-            "vlan_list": [
-                { "vlan_id": 1, "ipv4": { "address": "206.197.187.1" }, "ipv6": { "address": "2001:504:30::ba01:2276:1" } },
-                { "vlan_id": 1, "ipv4": { "address": "206.197.187.2" }, "ipv6": { "address": "2001:504:30::ba01:2276:2" } },
-            ]
-        })];
-    }
-    // One connection per route server: PeeringDB maps each connection's
-    // switches to a facility and rejects a connection spanning two.
-    if p.asn == 63055 {
-        return vec![
-            // rs-linux: switch01.sfo02 Ethernet43
-            serde_json::json!({
-                "ixp_id": 155,
-                "state": "active",
-                "if_list": [{ "switch_id": 59, "if_speed": 1000 }],
-                "vlan_list": [
-                    { "vlan_id": 1, "ipv4": { "address": "206.197.187.253" }, "ipv6": { "address": "2001:504:30::ba06:3055:1" } },
-                ]
-            }),
-            // rs-openbsd: switch01.scl04 Port-Channel201 (pve01.scl04)
-            serde_json::json!({
-                "ixp_id": 155,
-                "state": "active",
-                "if_list": [{ "switch_id": 145, "if_speed": 200000 }],
-                "vlan_list": [
-                    { "vlan_id": 1, "ipv4": { "address": "206.197.187.254" }, "ipv6": { "address": "2001:504:30::ba06:3055:2" } },
-                ]
-            }),
-        ];
-    }
+/// Build the connection_list for a participant in IX-F format: one connection
+/// per peering port its IPs are linked to. PeeringDB maps each connection's
+/// switch to a facility, so a connection never spans two ports.
+fn build_connection_list(p: &NetboxParticipant, ixp_data: &NetboxIxpData) -> Vec<serde_json::Value> {
+    let vlan_id = ixp_data.vlans.first().map(|v| v.id).unwrap_or(1);
+    let ip_obj = |ip: &ParticipantIp| {
+        let mut obj = serde_json::json!({ "address": ip.address });
+        if let Some(ref mac) = ip.mac_address {
+            obj["mac_addresses"] = serde_json::json!([mac]);
+        }
+        obj
+    };
 
-    // Normal participants: one connection per peering port
     let mut connections = Vec::new();
-    for port in &p.enriched_ports {
-        // Compute if_speed: rate_limit_bps/1e6 or speed (already Mbps)
-        let if_speed = if let Some(rl) = port.rate_limit_bps {
-            Some(rl / 1_000_000)
-        } else {
-            port.speed
-        };
-
+    for port in p.ip_ports(ixp_data) {
+        // if_speed: rate_limit_bps/1e6 or speed (already Mbps)
+        let if_speed = port.rate_limit_bps.map(|rl| rl / 1_000_000).or(port.speed);
         let mut if_entry = serde_json::json!({ "switch_id": port.device_id });
         if let Some(speed) = if_speed {
             if_entry["if_speed"] = serde_json::json!(speed);
         }
 
-        // Match IPs to this port via participant_lag_id
-        let port_ips: Vec<&crate::netbox::ParticipantIp> = p
-            .ip_addresses
-            .iter()
-            .filter(|ip| ip.participant_lag_id == Some(port.interface_id))
+        // Pair this port's addresses up by family: one vlan_list entry per
+        // (IPv4, IPv6) pair, so a second address on the same port isn't lost.
+        let on_port = |family: &str| -> Vec<&ParticipantIp> {
+            p.ip_addresses
+                .iter()
+                .filter(|ip| ip.participant_lag_id == Some(port.interface_id) && ip.family == family)
+                .collect()
+        };
+        let (v4, v6) = (on_port("IPv4"), on_port("IPv6"));
+        let vlan_list: Vec<serde_json::Value> = (0..v4.len().max(v6.len()))
+            .map(|i| {
+                let mut entry = serde_json::json!({ "vlan_id": vlan_id });
+                if let Some(ip) = v4.get(i) {
+                    entry["ipv4"] = ip_obj(ip);
+                }
+                if let Some(ip) = v6.get(i) {
+                    entry["ipv6"] = ip_obj(ip);
+                }
+                entry
+            })
             .collect();
 
-        // Build vlan_list: group IPs by VLAN
-        let vlan_list: Vec<serde_json::Value> = if !port_ips.is_empty() {
-            let vlan_id = vlans.first().map(|v| v.id).unwrap_or(1);
-            let mut ipv4_entries: Vec<serde_json::Value> = Vec::new();
-            let mut ipv6_entries: Vec<serde_json::Value> = Vec::new();
-
-            for ip in &port_ips {
-                let mut ip_obj = serde_json::json!({ "address": ip.address });
-                if let Some(ref mac) = ip.mac_address {
-                    ip_obj["mac_addresses"] = serde_json::json!([mac]);
-                }
-                match ip.family.as_str() {
-                    "IPv4" => ipv4_entries.push(ip_obj),
-                    "IPv6" => ipv6_entries.push(ip_obj),
-                    _ => {}
-                }
-            }
-
-            let mut vlan_entry = serde_json::json!({ "vlan_id": vlan_id });
-            if let Some(v4) = ipv4_entries.first() {
-                vlan_entry["ipv4"] = v4.clone();
-            }
-            if let Some(v6) = ipv6_entries.first() {
-                vlan_entry["ipv6"] = v6.clone();
-            }
-            vec![vlan_entry]
-        } else {
-            Vec::new()
-        };
-
-        let mut connection = serde_json::json!({
+        connections.push(serde_json::json!({
             "ixp_id": 155,
             "state": "active",
             "if_list": [if_entry],
-        });
-        if !vlan_list.is_empty() {
-            connection["vlan_list"] = serde_json::json!(vlan_list);
-        }
-        connections.push(connection);
+            "vlan_list": vlan_list,
+        }));
     }
-
     connections
 }
 
@@ -212,48 +157,90 @@ mod tests {
     use super::*;
     use crate::netbox::{EnrichedPort, IxpMembership};
 
-    fn participant(asn: u32, membership: Option<IxpMembership>, ports: u64) -> NetboxParticipant {
+    fn port(interface_id: u64, device_id: u64, speed: u64) -> EnrichedPort {
+        EnrichedPort {
+            device: format!("switch{device_id:02}.tst01"),
+            interface: format!("Ethernet{interface_id}"),
+            device_id,
+            site: "tst01".into(),
+            interface_id,
+            speed: Some(speed),
+            rate_limit_bps: None,
+            enabled: true,
+            member_interfaces: Vec::new(),
+        }
+    }
+
+    fn ip(address: &str, port: u64) -> ParticipantIp {
+        ParticipantIp {
+            address: address.into(),
+            family: if address.contains(':') { "IPv6" } else { "IPv4" }.into(),
+            mac_address: None,
+            status: "active".into(),
+            participant_lag_id: Some(port),
+        }
+    }
+
+    fn participant(
+        asn: u32,
+        membership: Option<IxpMembership>,
+        owned: Vec<EnrichedPort>,
+        ip_addresses: Vec<ParticipantIp>,
+    ) -> NetboxParticipant {
         NetboxParticipant {
             asn,
             name: format!("Example {asn}"),
             participant_type: None,
             ixp_membership: membership,
             ports: Vec::new(),
-            enriched_ports: (0..ports)
-                .map(|i| EnrichedPort {
-                    device: "switch01.tst01".into(),
-                    interface: format!("Ethernet{i}"),
-                    device_id: 1,
-                    site: "tst01".into(),
-                    interface_id: i,
-                    speed: Some(10_000),
-                    rate_limit_bps: None,
-                    enabled: true,
-                    member_interfaces: Vec::new(),
-                })
-                .collect(),
-            ip_addresses: Vec::new(),
+            enriched_ports: owned,
+            ip_addresses,
         }
     }
 
     #[test]
-    fn members_are_ixp_tagged_with_a_connection() {
+    fn connections_follow_ips_onto_shared_trunks() {
+        // Port 10 is a member's own port; 20 and 30 are unowned hypervisor
+        // trunks on different switches, shared by two infrastructure ASNs.
+        let ixp = NetboxIxpData {
+            peering_ports: [port(10, 1, 10_000), port(20, 2, 1_000), port(30, 3, 200_000)]
+                .into_iter()
+                .map(|p| (p.interface_id, p))
+                .collect(),
+            ..Default::default()
+        };
         let ps = vec![
-            participant(64512, Some(IxpMembership::Participant), 1),
-            participant(64513, Some(IxpMembership::Participant), 0), // port not turned up yet
-            participant(64514, None, 1),                              // not an IXP member
-            participant(63055, Some(IxpMembership::Infrastructure), 0), // hardcoded connection
+            participant(64512, Some(IxpMembership::Participant), vec![port(10, 1, 10_000)],
+                vec![ip("192.0.2.10", 10), ip("2001:db8::10", 10)]),
+            // Port turned up, no IP yet: not exported.
+            participant(64513, Some(IxpMembership::Participant), vec![port(11, 1, 10_000)], vec![]),
+            // Not an IXP member.
+            participant(64514, None, vec![], vec![ip("192.0.2.14", 10)]),
+            // Two route servers on two trunks: one connection each.
+            participant(64515, Some(IxpMembership::Infrastructure), vec![],
+                vec![ip("192.0.2.253", 20), ip("2001:db8::253", 20), ip("192.0.2.254", 30), ip("2001:db8::254", 30)]),
+            // Two addresses on one trunk: one connection, two vlan_list entries.
+            participant(64516, Some(IxpMembership::Infrastructure), vec![],
+                vec![ip("192.0.2.1", 20), ip("192.0.2.2", 20), ip("2001:db8::1", 20)]),
         ];
-        let v = build_ixf_export(&NetboxIxpData::default(), &ps);
-        let asns: Vec<u64> = v["member_list"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| m["asnum"].as_u64().unwrap())
-            .collect();
-        assert_eq!(asns, vec![63055, 64512]);
+        let v = build_ixf_export(&ixp, &ps);
+        let members = v["member_list"].as_array().unwrap();
+        let asns: Vec<u64> = members.iter().map(|m| m["asnum"].as_u64().unwrap()).collect();
+        assert_eq!(asns, vec![64512, 64515, 64516]);
+
+        let conns = |asn: u64| members.iter().find(|m| m["asnum"] == asn).unwrap()["connection_list"].clone();
+        let rs = conns(64515);
+        assert_eq!(rs[0]["if_list"], serde_json::json!([{ "switch_id": 2, "if_speed": 1_000 }]));
+        assert_eq!(rs[0]["vlan_list"][0]["ipv4"]["address"], "192.0.2.253");
+        assert_eq!(rs[1]["if_list"], serde_json::json!([{ "switch_id": 3, "if_speed": 200_000 }]));
+        assert_eq!(rs[1]["vlan_list"][0]["ipv6"]["address"], "2001:db8::254");
+        let shared = conns(64516);
+        assert_eq!(shared.as_array().unwrap().len(), 1);
+        assert_eq!(shared[0]["vlan_list"][1]["ipv4"]["address"], "192.0.2.2");
+        assert!(shared[0]["vlan_list"][1].get("ipv6").is_none());
+
         // PeeringDB rejects a connection whose interfaces span facilities.
-        for m in v["member_list"].as_array().unwrap() {
+        for m in members {
             for c in m["connection_list"].as_array().unwrap() {
                 assert_eq!(c["if_list"].as_array().unwrap().len(), 1, "{m}");
             }

@@ -70,6 +70,23 @@ pub struct NetboxParticipant {
     pub ip_addresses: Vec<ParticipantIp>,
 }
 
+impl NetboxParticipant {
+    /// The peering ports this member's IPs are linked to (`participant_lag`),
+    /// in first-seen order. Ownership doesn't matter: a hypervisor trunk
+    /// carries SFMIX's and the route servers' IPs at once.
+    pub fn ip_ports<'a>(&self, ixp: &'a NetboxIxpData) -> Vec<&'a EnrichedPort> {
+        let mut ports: Vec<&EnrichedPort> = Vec::new();
+        for id in self.ip_addresses.iter().filter_map(|ip| ip.participant_lag_id) {
+            if let Some(port) = ixp.peering_ports.get(&id) {
+                if !ports.iter().any(|p| p.interface_id == id) {
+                    ports.push(port);
+                }
+            }
+        }
+        ports
+    }
+}
+
 /// How a tenant belongs to the IXP, from its NetBox tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -209,6 +226,9 @@ pub struct NetboxIxpData {
     pub vlans: Vec<IxpVlan>,
     /// Sites with a `site_id`, sorted by `site_id`.
     pub sites: Vec<IxpSite>,
+    /// Every `peering_port` interface by NetBox interface id, owned or not.
+    #[serde(skip)]
+    pub peering_ports: HashMap<u64, EnrichedPort>,
 }
 
 impl NetboxIxpData {
@@ -380,7 +400,7 @@ const PORT_MAP_QUERY: &str = r#"{
         device { id name }
         custom_fields
     }
-    ip_addresses: ip_address_list(filters: { tags: { slug: { exact: "ixp_participant" } } }) {
+    ip_addresses: ip_address_list(filters: { tags: { slug: { in_list: ["ixp_participant", "ixp_infrastructure"] } } }) {
         address
         family { value label }
         status
@@ -463,65 +483,62 @@ pub async fn fetch_port_map(
         }
     }
 
+    // Every peering port by NetBox interface id, owned or not. Hypervisor
+    // trunks carry several members' IPs (SFMIX, the route servers) and have no
+    // single owner; members reach them through their IPs' participant_lag.
+    let mut peering_ports: HashMap<u64, EnrichedPort> = HashMap::new();
     for iface in &data.peering_ports {
-        if let Some(tenant_id) = iface.custom_fields.participant {
-            let tid = tenant_id.to_string();
-            if let Some((asn, _, _, _)) = tenants_by_id.get(&tid) {
-                let device_name = normalize_device_name(&iface.device.name, domain_suffix);
-                ports_by_asn
-                    .entry(*asn)
-                    .or_default()
-                    .push((device_name.clone(), iface.name.clone()));
+        let device_name = normalize_device_name(&iface.device.name, domain_suffix);
 
-                // Resolve physical LAG members.
-                // (1) own member_interfaces — for Port-Channels tagged directly as peering_port
-                // (2) parent.member_interfaces — for subinterfaces (e.g. Port-Channel114.998)
-                //     once discovery.py --sync-subinterface-parents has set the parent field
-                // An encapsulated subif rides another network's port (e.g. CCSF on
-                // MonkeyBrains' Po111.1426): the parent and its members are not the
-                // participant's, so it owns the subif alone.
-                let encapsulated = iface.has_tag("encapsulated_peering_port");
-                if encapsulated {
-                    encapsulated_ports.push((device_name.clone(), iface.name.clone()));
-                }
-                let members: Vec<(String, String)> = if encapsulated {
-                    Vec::new()
-                } else if !iface.member_interfaces.is_empty() {
-                    iface.member_interfaces.iter()
-                        .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
-                        .collect()
-                } else if let Some(ref parent) = iface.parent {
-                    parent.member_interfaces.iter()
-                        .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
-                        .collect()
-                } else {
-                    Vec::new()
-                };
+        // Resolve physical LAG members.
+        // (1) own member_interfaces — for Port-Channels tagged directly as peering_port
+        // (2) parent.member_interfaces — for subinterfaces (e.g. Port-Channel114.998)
+        //     once discovery.py --sync-subinterface-parents has set the parent field
+        // An encapsulated subif rides another network's port (e.g. CCSF on
+        // MonkeyBrains' Po111.1426): the parent and its members are not the
+        // participant's, so it owns the subif alone.
+        let encapsulated = iface.has_tag("encapsulated_peering_port");
+        let members: Vec<(String, String)> = if encapsulated {
+            Vec::new()
+        } else if !iface.member_interfaces.is_empty() {
+            iface.member_interfaces.iter()
+                .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
+                .collect()
+        } else if let Some(ref parent) = iface.parent {
+            parent.member_interfaces.iter()
+                .map(|m| (normalize_device_name(&m.device.name, domain_suffix), m.name.clone()))
+                .collect()
+        } else {
+            Vec::new()
+        };
 
-                // Add each physical member to the port map so it is queryable
-                for (mdev, miface) in &members {
-                    ports_by_asn
-                        .entry(*asn)
-                        .or_default()
-                        .push((mdev.clone(), miface.clone()));
-                }
+        let port = EnrichedPort {
+            device: device_name.clone(),
+            interface: iface.name.clone(),
+            device_id: iface.device.id,
+            site: iface.device.site.as_ref().map(|s| s.slug.clone()).unwrap_or_default(),
+            interface_id: iface.id,
+            speed: iface.speed.map(|s| s / 1000),
+            rate_limit_bps: iface.custom_fields.rate_limit_bps,
+            enabled: iface.enabled,
+            member_interfaces: members,
+        };
 
-                enriched_by_asn
-                    .entry(*asn)
-                    .or_default()
-                    .push(EnrichedPort {
-                        device: device_name,
-                        interface: iface.name.clone(),
-                        device_id: iface.device.id,
-                        site: iface.device.site.as_ref().map(|s| s.slug.clone()).unwrap_or_default(),
-                        interface_id: iface.id,
-                        speed: iface.speed.map(|s| s / 1000),
-                        rate_limit_bps: iface.custom_fields.rate_limit_bps,
-                        enabled: iface.enabled,
-                        member_interfaces: members,
-                    });
+        let owner = iface
+            .custom_fields
+            .participant
+            .and_then(|tid| tenants_by_id.get(&tid.to_string()));
+        if let Some((asn, _, _, _)) = owner {
+            if encapsulated {
+                encapsulated_ports.push((device_name.clone(), iface.name.clone()));
             }
+            let owned = ports_by_asn.entry(*asn).or_default();
+            owned.push((device_name, iface.name.clone()));
+            // Add each physical member to the port map so it is queryable
+            owned.extend(port.member_interfaces.iter().cloned());
+            enriched_by_asn.entry(*asn).or_default().push(port.clone());
         }
+        peering_ports.insert(iface.id, port);
     }
 
     // Group IP addresses by tenant → ASN
@@ -633,7 +650,7 @@ pub async fn fetch_port_map(
         })
         .collect();
 
-    let ixp_data = NetboxIxpData { switches, vlans, sites };
+    let ixp_data = NetboxIxpData { switches, vlans, sites, peering_ports };
 
     info!(
         "NetBox: {} participants ({} peering ports), {} core ports, {} admin ports, {} sites, {} switches, {} vlans, {} IPs",

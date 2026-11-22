@@ -113,7 +113,7 @@ lg-server builds these from its NetBox cache (refreshed every `refresh_interval_
 
 | Endpoint | What | Consumers |
 |---|---|---|
-| `/api/v1/participants.json` | IX-F Member Export (`doc/ixp-member-list.schema.json`): IXP-tagged tenants with at least one connection | PeeringDB, sflow-rt member/MAC import, portal, MCP `show_participants` |
+| `/api/v1/participants.json` | IX-F Member Export (`doc/ixp-member-list.schema.json`): IXP-tagged tenants, one connection per peering port their IPs link to (`participant_lag`) | PeeringDB, sflow-rt member/MAC import, portal, MCP `show_participants` |
 | `/api/v1/participants-table` | Per-port participant rows (speed, facility, IPs + integer sort keys) | sfmix.org/participants/ (website CI) |
 | `/api/v1/sites` | NetBox Sites with a `site_id`: code, site_id, status, facility, street, city, metro, operators, PeeringDB facility, lat/lon | sfmix.org/locations/ (doc 016) |
 
