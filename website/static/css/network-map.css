@@ -56,7 +56,9 @@
   padding: 3px 8px;
   box-shadow: none;
   transform: none;
+  z-index: 0;   /* under every other label (switch captions, site titles) */
 }
+.nm-label:not(.nm-label-empty) { z-index: 1; }
 .nm-label-empty:hover { background: rgba(52, 72, 88, .95); }
 .nm-label-icao {
   font-size: 9px;
