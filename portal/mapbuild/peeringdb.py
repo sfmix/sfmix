@@ -13,29 +13,47 @@ never breaks on a PeeringDB hiccup. The ``fac``/``org`` endpoints read without
 auth (rate-limited); an optional operator API key raises the limit.
 """
 import logging
+import time
 
 log = logging.getLogger(__name__)
 
 PDB_BASE = "https://www.peeringdb.com/api"
+# Anonymous reads are limited per minute; a build touches ~20 facilities plus
+# their orgs, so wait out a 429 rather than publish half-enriched sites.
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_WAIT_DEFAULT = 60
+RATE_LIMIT_WAIT_MAX = 90
 
 
 class PeeringDBClient:
     """Tiny cached PeeringDB reader. One instance per build; results are memoised
     so shared operators (many SFMIX sites share an org) cost one request each."""
 
-    def __init__(self, api_key=None, timeout=10):
-        import requests
-
-        self._s = requests.Session()
+    def __init__(self, api_key=None, timeout=10, session=None, sleep=time.sleep):
+        if session is None:
+            import requests
+            session = requests.Session()
+        self._s = session
         self._s.headers.update({"Accept": "application/json"})
         if api_key:
             self._s.headers["Authorization"] = "Api-Key %s" % api_key
         self.timeout = timeout
+        self._sleep = sleep
         self._fac = {}
         self._org = {}
 
     def _get(self, path):
-        r = self._s.get("%s/%s" % (PDB_BASE, path), timeout=self.timeout)
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
+            r = self._s.get("%s/%s" % (PDB_BASE, path), timeout=self.timeout)
+            if r.status_code != 429 or attempt == RATE_LIMIT_RETRIES:
+                break
+            try:
+                wait = int(r.headers.get("Retry-After", RATE_LIMIT_WAIT_DEFAULT))
+            except ValueError:
+                wait = RATE_LIMIT_WAIT_DEFAULT
+            wait = min(max(wait, 1), RATE_LIMIT_WAIT_MAX)
+            log.info("PeeringDB %s rate-limited; retrying in %ds", path, wait)
+            self._sleep(wait)
         r.raise_for_status()
         data = (r.json() or {}).get("data") or []
         return data[0] if data else None
