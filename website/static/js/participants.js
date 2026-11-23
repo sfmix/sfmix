@@ -20,68 +20,32 @@
   if (!table) return;
 
   const thead = table.querySelector('thead');
-  const tbody = table.querySelector('tbody');
   const headers = thead.querySelectorAll('th');
 
-  // Map column index to sort key
   // Columns: 0=Org, 1=ASN, 2=Type, 3=Location, 4=Speed, 5=IPv4, 6=IPv6
   const COL_IPV4 = 5;
 
-  // Group rows by rowspan (multi-port participants share cells via rowspan)
+  // Each participant is its own <tbody> row group; sort by its first row.
   function getRowGroups() {
-    const groups = [];
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    let i = 0;
-    while (i < rows.length) {
-      const firstCell = rows[i].querySelector('td');
-      const span = firstCell ? parseInt(firstCell.getAttribute('rowspan') || '1', 10) : 1;
-      groups.push(rows.slice(i, i + span));
-      i += span;
-    }
-    return groups;
+    return Array.from(table.tBodies);
   }
 
-  // Extract sort value from a row group for a given column
+  function ipv4Value(text) {
+    const parts = text.split('.').map(Number);
+    if (parts.length === 4) {
+      return ((parts[0] << 24) + (parts[1] << 16) + (parts[2] << 8) + parts[3]) >>> 0;
+    }
+    return 0;
+  }
+
   function sortValue(group, col) {
-    // For rowspanned columns (0-2), always use first row
-    // For per-port columns (3-6), use first row
-    const row = group[0];
-    const cells = row.querySelectorAll('td');
-    // Adjust cell index: rows after the first in a group lack the rowspanned cells
-    const cell = cells[col];
-    if (!cell) return '';
-    const text = cell.textContent.trim();
-
-    // Numeric sort for ASN
-    if (col === 1) return parseInt(text, 10) || 0;
-
-    // Speed: parse to Mbps for numeric sort
-    if (col === 4) {
-      const m = text.match(/([\d.]+)\s*(G|M|T)/i);
-      if (m) {
-        const val = parseFloat(m[1]);
-        const unit = m[2].toUpperCase();
-        if (unit === 'T') return val * 1000000;
-        if (unit === 'G') return val * 1000;
-        return val;
-      }
-      return 0;
-    }
-
-    // IPv4: sort numerically by octets
-    if (col === 5) {
-      const parts = text.split('.').map(Number);
-      if (parts.length === 4) {
-        return ((parts[0] << 24) + (parts[1] << 16) + (parts[2] << 8) + parts[3]) >>> 0;
-      }
-      return 0;
-    }
-
-    // IPv6: normalize for lexicographic sort
-    if (col === 6) return text.toLowerCase();
-
-    // Default: case-insensitive string
-    return text.toLowerCase();
+    const row = group.rows[0];
+    if (!row) return '';
+    if (col === 1) return parseInt(row.dataset.asn, 10) || 0;
+    if (col === 4) return parseInt(row.dataset.speedBps, 10) || 0;
+    if (col === 5) return ipv4Value(row.dataset.ipv4 || '');
+    const cell = row.cells[col];
+    return cell ? cell.textContent.trim().toLowerCase() : '';
   }
 
   let currentCol = -1;
@@ -114,11 +78,9 @@
       return ascending ? cmp : -cmp;
     });
 
-    // Re-append rows in sorted order
+    // Re-append row groups in sorted order
     groups.forEach(function (group) {
-      group.forEach(function (row) {
-        tbody.appendChild(row);
-      });
+      table.appendChild(group);
     });
   }
 

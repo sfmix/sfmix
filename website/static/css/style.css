@@ -833,6 +833,14 @@ img { max-width: 100%; height: auto; }
 .row-exempt td:first-child { border-left: 3px solid var(--color-accent); }
 .row-infra td:first-child { border-left: 3px solid var(--color-primary); }
 .nowrap { white-space: nowrap; }
+/* Participants: one <tbody> per participant. Continuation rows repeat
+   org/ASN/type for machine readers; hide them visually (still in the a11y
+   tree) and drop the rules inside the group so it reads as one block. */
+.participants-desktop tbody.participant tr:not(:last-child) td { border-bottom: none; }
+.participants-desktop tbody.participant tr.port-cont td { padding-top: 0; }
+.participants-desktop tr.port-cont td:nth-child(-n+3),
+.participants-desktop tr.port-cont td:nth-child(-n+3) a { color: transparent; text-decoration: none; }
+.participants-desktop tbody.participant:hover td { background: var(--color-bg-alt); }
 .table-footer { font-size: 0.85rem; color: var(--color-text-light); margin-top: 1rem; }
 
 /* Sortable table headers */

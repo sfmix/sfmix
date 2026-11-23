@@ -28,27 +28,27 @@
           <th scope="col">{{ partial "T.html" "IPv6" }}</th>
         </tr>
       </thead>
-      <tbody>
-        {{ range . }}
-          {{ $name := .name }}
-          {{ $asn := .as_number }}
-          {{ $type := .member_type }}
-          {{ $ports := .peering_ports }}
-          {{ range $i, $port := $ports }}
-          <tr{{ if eq $type "Exempt" }} class="row-exempt"{{ else if eq $type "Infrastructure" }} class="row-infra"{{ end }}>
-            {{ if eq $i 0 }}
-            <td{{ if gt (len $ports) 1 }} rowspan="{{ len $ports }}"{{ end }}>{{ $name }}</td>
-            <td{{ if gt (len $ports) 1 }} rowspan="{{ len $ports }}"{{ end }}><a href="https://www.peeringdb.com/asn/{{ $asn }}">{{ $asn }}</a></td>
-            <td{{ if gt (len $ports) 1 }} rowspan="{{ len $ports }}"{{ end }}>{{ $type }}</td>
-            {{ end }}
-            <td>{{ $port.location }}</td>
-            <td class="nowrap">{{ $port.speed }}</td>
-            <td><code>{{ $port.ipv4 }}</code></td>
-            <td><code>{{ $port.ipv6 }}</code></td>
-          </tr>
-          {{ end }}
+      {{/* One <tbody> row group per participant. Every <tr> is a complete
+           record (org, ASN, type repeated) so naive scrapers reading "cell 2 =
+           ASN" stay correct; CSS hides the repeats on continuation rows. */}}
+      {{ range . }}
+      {{ $name := .name }}
+      {{ $asn := .as_number }}
+      {{ $type := .member_type }}
+      <tbody class="participant{{ if eq $type "Exempt" }} row-exempt{{ else if eq $type "Infrastructure" }} row-infra{{ end }}" data-asn="{{ $asn }}" data-name="{{ $name }}" data-member-type="{{ $type }}" data-ports="{{ len .peering_ports }}">
+        {{ range $i, $port := .peering_ports }}
+        <tr{{ if gt $i 0 }} class="port-cont"{{ end }} data-asn="{{ $asn }}" data-name="{{ $name }}" data-member-type="{{ $type }}" data-location="{{ $port.location }}" data-speed-bps="{{ with $port.speed_bps }}{{ int . }}{{ else }}0{{ end }}" data-ipv4="{{ $port.ipv4 }}" data-ipv6="{{ $port.ipv6 }}">
+          <td>{{ $name }}</td>
+          <td><a href="https://www.peeringdb.com/asn/{{ $asn }}">{{ $asn }}</a></td>
+          <td>{{ $type }}</td>
+          <td>{{ $port.location }}</td>
+          <td class="nowrap">{{ $port.speed }}</td>
+          <td><code>{{ $port.ipv4 }}</code></td>
+          <td><code>{{ $port.ipv6 }}</code></td>
+        </tr>
         {{ end }}
       </tbody>
+      {{ end }}
     </table>
     </div>
 
@@ -57,7 +57,7 @@
       {{ range . }}
       {{ $asn := .as_number }}
       {{ $type := .member_type }}
-      <details class="participant-card{{ if eq $type "Exempt" }} row-exempt{{ else if eq $type "Infrastructure" }} row-infra{{ end }}" data-ipv4="{{ with index .peering_ports 0 }}{{ .ipv4 }}{{ end }}">
+      <details class="participant-card{{ if eq $type "Exempt" }} row-exempt{{ else if eq $type "Infrastructure" }} row-infra{{ end }}" data-asn="{{ $asn }}" data-name="{{ .name }}" data-member-type="{{ $type }}" data-ipv4="{{ with index .peering_ports 0 }}{{ .ipv4 }}{{ end }}">
         <summary>
           <strong>{{ .name }}</strong>
           <span class="participant-meta">AS{{ $asn }} · {{ $type }}{{ with index .peering_ports 0 }} · {{ .speed }}{{ end }}</span>
