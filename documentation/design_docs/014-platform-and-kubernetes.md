@@ -295,8 +295,9 @@ Each node VM has two NICs:
 - **fabric leg** on the host's fabric bridge: pve01.sfo02 and pve02.scl04
   `vmbr2` (bond2, FlexLOM 10G to the fabric switches, today
   `allowed vlan none`); pve01-fmt `vmbr2` (eno4 trunk, already carries fabric
-  VLANs 100/101/997/998). pve02.scl04 has no in-band 10G for now and reaches
-  the fabric over a 2x1G LAG through mgmt-switch.scl04 — see below.
+  VLANs 100/101/997/998). pve02.scl04 has no in-band 10G for now: its fabric
+  leg is `vmbr1` (bond1, 2x1G to mgmt-switch.scl04) rather than `vmbr2`
+  (bond2, FlexLOM, uncabled) — see below.
 - **mgmt leg** on the site's new `K8S-NODES` VLAN.
 
 Sizing notes:
@@ -436,6 +437,16 @@ trunks the fabric VLAN up to the site fabric. Functionally this is identical —
 same stretched L2, same `host-gw` routes, same edge sessions — with three
 consequences:
 
+Observed 2026-11-23: the path already exists end to end. mgmt-switch.scl04 is
+an **EX3400-48P** (Junos 23.4R2-S5.8). pve02.scl04's four 1G NICs are already
+bonded into two LAGs — `ae0` (gige0/1) access on `SCL04-MGMT` as the mgmt leg,
+and `ae1` (gige2/3) described as *"Trunk: pve02.scl04 bond1 frontend/WAN"*,
+LACP-up with `periodic fast` and parked on VLAN `PARKING` (3999). On the host
+these are `vmbr0` and `vmbr1`, the latter VLAN-aware with `bridge-vids 2-4094`.
+The switch's uplink `xe-0/2/0` is already a 10G LR trunk to switch01.scl04,
+carrying VLANs 200 and 106. So enabling the interim path is purely a matter of
+adding VLAN 203 to `ae1` and `xe-0/2/0`.
+
 - **2 Gbit aggregate, 1 Gbit per flow.** LACP hashes per flow, so any single
   image pull, etcd stream or participant-facing transfer tops out at 1 Gbit.
 - **etcd shares the link with bulk egress.** This is the combination most
@@ -453,6 +464,14 @@ Note that public traffic now crosses a management switch, which the "never
 across a mgmt-gw" principle does not forbid (that is about the small CPU
 routers) but is against its spirit. Cabling the FlexLOM removes all of this
 and is the first follow-up once parts and hands are available.
+
+**A cheaper shortcut exists.** The EX3400's PIC 2 has four SFP+ ports with only
+two populated (`xe-0/2/0` the 10G uplink, `ge-0/2/2` a 1G LX to mgmt-gw.scl04),
+leaving `xe-0/2/1` and `xe-0/2/3` free, plus both 40G QSFP ports. pve02.scl04's
+FlexLOM could therefore go straight into a spare SFP+ on this same switch — one
+optic or DAC and an in-rack patch — instead of waiting for a cross-connect to
+switch01.scl04. The uplink is already 10G, so this removes the per-flow cap and
+the etcd contention without any new fibre run.
 
 #### East-west: flannel host-gw
 
@@ -615,6 +634,11 @@ this design is the scl04 2x1G LAG, so that is where the work is:
   the `ae` interface **and** an explicit scheduler-map giving the control class
   a real share. Optionally also set `egress-qos-map` on the nodes' VLAN
   interfaces so PCP mirrors DSCP.
+  **Confirmed on the box 2026-11-23:** `show class-of-service interface ae1`
+  reports `Scheduler map: <default>` and classifier `ieee8021p-default` on
+  `ae1.0`, with 12 usable queues and 8 in use (best-effort, expedited-
+  forwarding, assured-forwarding, network-control plus multicast variants).
+  DSCP is ignored on this path today exactly as described.
 - The default Junos scheduler is best-effort heavy: expedited- and
   assured-forwarding classes typically get no guaranteed share, so marking into
   them *without* a scheduler-map can be worse than leaving traffic
@@ -790,8 +814,6 @@ OpenBao is a producer change, not an architecture change.
 - Edge forwarding headroom for k8s egress (the edges are software routers
   too, but they already carry all transit).
 - RAM upgrade for both DL360s; Optane for pve01-fmt.
-- Confirm the default classifier and scheduler on mgmt-switch.scl04's `ae`
-  interface before relying on DSCP marking.
 - Whether WireGuard copies inner DSCP to the outer header on the mgmt-gw mesh.
 - Whether to pin etcd to the mgmt leg at scl04 while the interim path is in
   use, at the cost of node homogeneity.
