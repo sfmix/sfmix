@@ -1069,7 +1069,60 @@ the node-to-node fabric RTT — confirming the traffic goes switch to switch ove
 VLAN 203 rather than through a router. Pods carry public GUA IPv6 from
 `2620:11a:b000:a0X::/64`.
 
-### 6. Teardown
+### 6. FRR on the nodes — done 2026-11-23
+
+FRR 10.3 (Debian 13 package) on all three nodes, `bgpd` and `bfdd` enabled,
+config in `/etc/frr/frr.conf`. **No router has been touched**, so every session
+is deliberately `Idle`; the node side is staged and waiting.
+
+Per node: ASN `65200+N` (sfo02 65201, fmt01 65202, scl04 65206), router-id =
+the node's fabric IPv4 address, `bgp graceful-restart`,
+`bgp long-lived-graceful-restart stale-time 21600`, `no bgp default
+ipv4-unicast` with explicit per-address-family activation, and BFD on every
+peer-group.
+
+Peer-groups staged: `EDGES` / `EDGES6` to `192.33.255.145-.146` and
+`2620:11a:b000:203::1-::2` (AS 12276), and `MGMT` to the site mgmt-gw with
+AS `65100+N`.
+
+`vip0` is a dummy interface on each node, created live and persisted with a
+systemd-networkd `.netdev` + `.network` pair. It was created with `ip link add`
+rather than by restarting networkd, to avoid blipping a live node. It carries
+no addresses yet — the API VIP health-check timer and service VIPs come later.
+
+**Verified originate policy.** With the route-maps in place, k8s01.sfo02
+originates exactly:
+
+    *>  10.42.0.0/24              0.0.0.0(k8s01-sfo02)
+    *>  2620:11a:b000:a00::/64    ::(k8s01-sfo02)
+
+and nothing else. The node's own mgmt subnet (`10.1.1.0/24`) and the fabric
+`/28` (`192.33.255.144/28`) are both correctly excluded by `ANNOUNCE-V4` /
+`ANNOUNCE-V6`. Confirming this *before* any router peers is the point: the node
+is an originator, never a transit router, and the filters are what enforce it.
+
+**Pod-CIDR announcements are self-gating.** `cni0` only comes up once a pod is
+scheduled on the node. With no pods, it is `DOWN`, contributes no connected
+route, and the node announces nothing — which is why scl04 and fmt01 originate
+zero prefixes today while sfo02 (running the kube-system pods) originates two.
+This is desirable, not a fault: a node advertises its pod range only when it
+can actually carry pod traffic. The tainted fmt01 witness will never announce a
+pod CIDR, which is correct.
+
+### Known gap: no IPv6 on the mgmt leg
+
+The nodes sit on each site's existing management LAN rather than the designed
+`K8S-NODES` VLAN, and those legs have **IPv4 only** — link-local IPv6 only. So
+the `MGMT` peer-group is staged with a v4 neighbor and no v6 neighbor, and
+internal IPv6 VIPs and pod-v6 reachability over the mgmt leg cannot work yet.
+
+Resolving this means either giving the nodes IPv6 on the site mgmt LAN
+(`2620:11a:b00f:N01::/64`) or building the `K8S-NODES` VLAN as designed
+(`10.N.10.0/24` + `2620:11a:b00f:N10::/64`). That decision is still open and
+should be settled before the mgmt-gw sessions are brought up, because it
+changes what the mgmt-gw side needs to be configured for.
+
+### 7. Teardown
 
     /usr/local/bin/k3s-uninstall.sh        # on a server
     /usr/local/bin/k3s-agent-uninstall.sh  # on an agent
