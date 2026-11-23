@@ -1240,16 +1240,52 @@ This is cheaper than it looks: `mgmt-gw.sfo02`'s source NAT is a single
 Once the mgmt-gw has a route to the pod `/24`s, pod IPv4 internet egress is
 covered with **no NAT rule change on the router**.
 
-**Resulting routing shape: per-family defaults.**
+**Resulting routing shape: both families egress via the mgmt domain.**
 
-| family | default route | why |
-|---|---|---|
-| IPv4 | mgmt leg -> site mgmt-gw | pods are RFC1918 and need the NAT box |
-| IPv6 | fabric -> edges | pods are public GUA; no translation, high bandwidth |
+Egress path follows the **workload's domain, not its address family**. A
+mgmt-domain pod reaches the internet through its site's mgmt-gw for IPv4 *and*
+IPv6; it does not peel off onto the fabric merely because a flow is v6. One
+path per workload means one set of firewall and policy decisions, and traffic
+that is reasoned about once rather than twice.
 
-Because defaults are per-family this needs no policy routing. It does revise
-the earlier statement that the nodes take **both** defaults from the edges —
-only the IPv6 default comes from there.
+| leg | carries |
+|---|---|
+| mgmt leg -> site mgmt-gw | node management, internal VIPs, **pod internet egress, both families** |
+| fabric leg -> edges | east-west pod/etcd/kubelet, **public service VIP ingress** |
+
+IPv4 is SNATed by the mgmt-gw; IPv6 is routed unchanged, since pods already
+hold public GUA and need no translation anywhere.
+
+**Consequence: pod `/64`s should stop being announced to the edges.** If pod
+egress leaves via the mgmt domain, announcing the pod `/64`s to the edges would
+pull *return* traffic back in over the fabric — egress one way, ingress the
+other. That asymmetry is tolerable for stateless forwarding but defeats any
+stateful policy on the egress path, and it is simply harder to reason about.
+
+Dropping pod `/64`s from the edge export makes the picture symmetric and has a
+second benefit: pods stop being directly reachable from the internet at all.
+Public consumers reach services through the public VIPs
+(`192.33.255.128/28`, `2620:11a:b000:120::/64`), never through pod addresses,
+so nothing is lost — and the "pods have public IPv6, so default-deny hard"
+exposure concern elsewhere in this document largely evaporates, because the
+exposure stops being routed rather than merely filtered.
+
+This requires editing `EDGES-OUT-V6` on each node, which currently permits the
+pod `/56` alongside the public VIP range.
+
+**The real cost, stated plainly.** This makes a mgmt-gw the egress path for
+*all* pod internet traffic, including IPv6, which was meant to be the
+high-volume family on the 10G fabric. That is in direct tension with this
+document's own principle that bulk and public traffic never cross a mgmt-gw,
+and the mgmt-gws are small CPU routers. The trade is deliberate — coherent
+policy and one reasoning path, bought with egress throughput — but it means
+egress bandwidth is now a mgmt-gw property, and a traffic-heavy workload is the
+signal to revisit rather than something to discover from a saturated APU.
+
+Also worth confirming before relying on it: the management domain's own IPv6
+internet path has known weak points from the doc 011 work (notably the fmt01
+`::/0`-into-OSPF blackhole), so mgmt-domain v6 egress should be verified at
+each site rather than assumed.
 
 **Ordering matters, and getting it backwards breaks the cluster.** Flannel's
 IPv4 masquerade must be disabled **only after** the mgmt-gws have BGP sessions
