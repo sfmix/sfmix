@@ -1140,6 +1140,55 @@ management LAN, **not** the `K8S-NODES` VLAN the addressing table describes
 keep the nodes on the site mgmt LAN is still open, and it determines which
 subnet the mgmt-gw `bgp listen range` must cover.
 
+### Serving cluster names to the rest of SFMIX
+
+The design calls for the internal recursors to **forward** `k8s.sfmix.org` to
+CoreDNS rather than NS-delegating it, so that CoreDNS being unreachable costs
+you cluster-internal names rather than the zone. Findings from 2026-11-23:
+
+**TTL needs no work.** Measured against CoreDNS directly, cluster records are
+already served with **TTL 5**, and the negative-cache SOA minimum is also 5:
+
+    kubernetes.default.svc.k8s.sfmix.org. 5 IN A 10.43.0.1
+    k8s.sfmix.org. 5 IN SOA ns.dns.k8s.sfmix.org. ... 5
+
+BIND honours the TTL it is given, so a forwarded answer inherits that 5 s and
+service changes propagate almost immediately. No CoreDNS tuning is required.
+
+**The blocker is reachability, not configuration.** `kube-dns` is a plain
+**ClusterIP** (`10.43.0.10`, `2620:11a:b000:43::a`), which is not routed outside
+the cluster — ns1 cannot reach it today. CoreDNS must first be exposed on an
+internal service VIP, reserved for this purpose:
+
+| | |
+|---|---|
+| CoreDNS VIP | `10.255.20.2`, `2620:11a:b00f:ff20::2` |
+| API VIP | `10.255.20.1`, `2620:11a:b00f:ff20::1` |
+
+So the dependency order is: service-VIP mechanism -> mgmt-gw BGP sessions up ->
+expose CoreDNS as a `LoadBalancer` on that VIP with
+`externalTrafficPolicy: Local` (so only nodes with a ready CoreDNS endpoint
+announce it) -> then, and only then, point ns1 at it.
+
+**On ns1** (BIND, `192.33.255.3` / `2620:11a:b000::3`, recursion already enabled
+for the `sfmix` ACL) the stanza is a forward-only zone:
+
+    zone "k8s.sfmix.org" {
+        type forward;
+        forward only;
+        forwarders { 10.255.20.2; 2620:11a:b00f:ff20::2; };
+    };
+
+Note `roles/sfmix_dns/templates/sfmix_zones.conf.j2` currently emits only
+`type master` zones, from the `sfmix_forward_zones` / `sfmix_reverse_zones`
+lists. Adding a forward zone means a new variable and template block, not just
+another list entry.
+
+**CoreDNS customisation goes through the ConfigMap, not the Corefile.** The
+Corefile is written by k3s and marked `DO NOT EDIT`, but it ends with
+`import /etc/coredns/custom/*.override` and `*.server`, so changes belong in
+the `coredns-custom` ConfigMap and survive k3s upgrades.
+
 ### 7. Teardown
 
     /usr/local/bin/k3s-uninstall.sh        # on a server
