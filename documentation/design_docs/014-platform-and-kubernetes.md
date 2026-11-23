@@ -1225,22 +1225,51 @@ return via the same node — and that case disappears for real consumers once
 services are exposed on LoadBalancer VIPs with `externalTrafficPolicy: Local`,
 which preserves the client address.
 
-**Options, to decide before workloads land:**
+**Decision (user, 2026-11-23): no NAT in Kubernetes at all.** Pods egress the
+cluster as their pod addresses, and the site's mgmt-gw performs SNAT for IPv4
+internet egress — the box that already does exactly this for the rest of the
+management domain (doc 011). IPv6 needs no translation anywhere, as it already
+does not get any.
 
-1. *Masquerade only for internet-bound IPv4.* Exempt internal destinations
-   (`10.0.0.0/8`, `192.33.255.0/24`, the transit ranges) and masquerade the
-   rest. Restores pod identity internally while keeping pod IPv4 internet
-   egress. Minimal change, matches what this document already claims.
-2. *Fully NAT-free.* Disable IPv4 masquerade entirely; pods then have no IPv4
-   internet egress, but already have un-NATed public IPv6. Note image pulls
-   happen on the **node** (containerd), not in pods, so the registry path is
-   unaffected. Workloads genuinely needing IPv4 egress become a deliberate
-   exception rather than the default.
-3. Status quo. Not recommended: it quietly contradicts the design.
+This is cheaper than it looks: `mgmt-gw.sfo02`'s source NAT is a single
+**source-agnostic** rule —
 
-Either change needs flannel's `ipMasq` disabled (via a custom flannel conf) and
-the replacement rules managed by Ansible, because flannel owns and rewrites
-`FLANNEL-POSTRTG`. Inserting exemptions into that chain would be clobbered.
+    nat source rule 1  outbound-interface eth2.31  translation address masquerade
+
+— so it masquerades anything leaving the WAN interface regardless of source.
+Once the mgmt-gw has a route to the pod `/24`s, pod IPv4 internet egress is
+covered with **no NAT rule change on the router**.
+
+**Resulting routing shape: per-family defaults.**
+
+| family | default route | why |
+|---|---|---|
+| IPv4 | mgmt leg -> site mgmt-gw | pods are RFC1918 and need the NAT box |
+| IPv6 | fabric -> edges | pods are public GUA; no translation, high bandwidth |
+
+Because defaults are per-family this needs no policy routing. It does revise
+the earlier statement that the nodes take **both** defaults from the edges —
+only the IPv6 default comes from there.
+
+**Ordering matters, and getting it backwards breaks the cluster.** Flannel's
+IPv4 masquerade must be disabled **only after** the mgmt-gws have BGP sessions
+up and have learned the pod `/24`s. Disable it first and pod IPv4 egress stops
+working immediately — including CoreDNS's upstream forwarding to `ns1`
+(`192.33.255.3`), because ns1 would have no route back to `10.42.0.0/16`. The
+correct sequence is:
+
+1. mgmt-gw BGP sessions up; mgmt-gws learn each node's pod `/24`.
+2. Confirm internal reachability to a pod address from off-cluster.
+3. Disable flannel IPv4 masquerade on the nodes (custom flannel conf —
+   flannel owns and rewrites `FLANNEL-POSTRTG`, so editing that chain is not
+   durable).
+4. Re-verify pod egress and CoreDNS upstream resolution.
+
+**One tension to keep an eye on.** This routes pod IPv4 internet traffic across
+a mgmt-gw, which the "bulk and public traffic never crosses a mgmt-gw"
+principle warns against. It is acceptable because the high-volume path is meant
+to be IPv6 via the edges, and IPv4 egress should be modest — but a v4-heavy
+workload would violate the principle, and that is the signal to revisit.
 
 ### 7. Teardown
 
