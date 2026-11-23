@@ -125,16 +125,32 @@ Two corollaries:
 
 ### Never on Kubernetes
 
-These stay on dedicated VMs permanently. The moment the exchange's control
-plane depends on a cluster whose control plane depends on the exchange
-network, a routine partition becomes an unrecoverable one.
+**Never — circular dependency.** The moment the exchange's control plane
+depends on a cluster whose control plane depends on the exchange network, a
+routine partition becomes an unrecoverable one.
 
 - Route servers (`rs-linux`, `rs-openbsd`)
 - `ns1` authoritative DNS
 - RPKI validators
 - SPIRE server, OpenBao, the container registry
 - `backup01.scl04` and the Garage nodes
-- Teleport
+
+**Never — observability rule.** *Whatever tells you the cluster is broken must
+not run on the cluster.* That covers Prometheus and Alertmanager (the alerting
+path) and Loki (where you look to diagnose a break). The Thanos query and store
+layer is the historical read path and could move, for little gain. Independent
+of the rule, metrics.sfo02 is a memory-hungry, carefully tuned workload with a
+30d local TSDB, which would become a node-pinned local-path volume on a single
+consumer SSD.
+
+**Not yet, but no structural objection.** Teleport. It is stateful, and losing
+it during a cluster incident costs a convenience rather than a recovery path,
+because Ansible reaches hosts over direct SSH and ProxyJump rather than through
+it. Sequence it late.
+
+Note that migrating a VM into the cluster *on the same hypervisor* does not
+free memory there — it reclaims a kernel and some slack and improves
+bin-packing. The consolidation win is operational, not capacity.
 
 Kubernetes gets *workloads*: portal, lg-http, obscreen, exporters, bots,
 sensor and DAS processing.
@@ -286,7 +302,7 @@ internal registry is reproducible from the monorepo.
 
 | node | host | role | vCPU | RAM | disk |
 |---|---|---|---|---|---|
-| k8s01.sfo02 | pve01.sfo02 (DL360) | server + workloads | 32–48 | ~20 GiB | 200 GiB on `tank-vms` |
+| k8s01.sfo02 | pve01.sfo02 (DL360) | server + workloads | 32–48 | balance of the node (16 GiB today) | 200 GiB on `tank-vms` |
 | k8s01.scl04 | pve02.scl04 (DL360) | server + workloads | 32–48 | ~24 GiB | 200 GiB on `tank-vms` |
 | k8s01.fmt01 | pve01-fmt (Atom) | etcd only, no workloads | 2 | 4 GiB | 32 GiB on `local-zfs` |
 
@@ -302,9 +318,12 @@ Each node VM has two NICs:
 
 Sizing notes:
 
-- **RAM is the constraint, not CPU.** Each DL360 has 31–32 GiB. pve01.sfo02
-  already runs metrics01 (4 GiB) and teleport (2 GiB). Leave 4–5 GiB per host
-  for Proxmox and the ZFS ARC. More DDR4 RDIMMs is the cheapest upgrade.
+- **RAM is the constraint, not CPU.** The node VM gets whatever the host has
+  left over; there is no target figure. Measured on pve01.sfo02 2026-11-23:
+  31 GiB total, less 3.1 GiB ARC max, ~2 GiB for Proxmox and 6 GiB of existing
+  guests (metrics01 4 GiB, teleport 2 GiB), leaves ~20 GiB assignable — so
+  16 GiB for the node with slack for spikes. pve02.scl04 is empty and can take
+  24 GiB. More DDR4 RDIMMs is the cheapest upgrade and the only real fix.
 - **`tank-vms` is a single consumer 2 TB SSD** on both DL360s. Losing it
   means rebuilding that node from the cluster: fine for stateless workloads
   and etcd, not for local persistent volumes. Keep state off the cluster at
@@ -462,16 +481,17 @@ adding VLAN 203 to `ae1` and `xe-0/2/0`.
 
 Note that public traffic now crosses a management switch, which the "never
 across a mgmt-gw" principle does not forbid (that is about the small CPU
-routers) but is against its spirit. Cabling the FlexLOM removes all of this
-and is the first follow-up once parts and hands are available.
+routers) but is against its spirit. **Treat 2x1G as the design point, not a stopgap.** scl04 is roughly a two-hour
+drive and the optics are not on hand, so the cluster must work properly over
+this path for the foreseeable future. Size and test accordingly.
 
-**A cheaper shortcut exists.** The EX3400's PIC 2 has four SFP+ ports with only
-two populated (`xe-0/2/0` the 10G uplink, `ge-0/2/2` a 1G LX to mgmt-gw.scl04),
-leaving `xe-0/2/1` and `xe-0/2/3` free, plus both 40G QSFP ports. pve02.scl04's
-FlexLOM could therefore go straight into a spare SFP+ on this same switch — one
-optic or DAC and an in-rack patch — instead of waiting for a cross-connect to
-switch01.scl04. The uplink is already 10G, so this removes the per-flow cap and
-the etcd contention without any new fibre run.
+Recorded for whenever a trip and the hardware coincide: the EX3400's PIC 2 has
+four SFP+ ports with only two populated (`xe-0/2/0` the 10G uplink, `ge-0/2/2`
+a 1G LX to mgmt-gw.scl04), leaving `xe-0/2/1` and `xe-0/2/3` free, plus both
+40G QSFP ports. pve02.scl04's FlexLOM could patch straight into a spare SFP+
+on this same switch rather than waiting for a cross-connect to switch01.scl04,
+which would remove the per-flow cap, the etcd contention and the shared failure
+domain in one step.
 
 #### East-west: flannel host-gw
 
