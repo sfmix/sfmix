@@ -930,6 +930,7 @@ later look like an application bug.
     curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
       --cluster-init \
       --flannel-backend=host-gw \
+      --flannel-iface=eth1 \
       --cluster-cidr=10.42.0.0/16,2620:11a:b000:a00::/56 \
       --service-cidr=10.43.0.0/16,2620:11a:b000:43::/112 \
       --cluster-domain=k8s.sfmix.org \
@@ -954,6 +955,7 @@ On **k8s01.scl04** (server with workloads):
     curl -sfL https://get.k3s.io | K3S_TOKEN=<token> INSTALL_K3S_EXEC="server \
       --server https://192.33.255.150:6443 \
       --flannel-backend=host-gw \
+      --flannel-iface=eth1 \
       --cluster-domain=k8s.sfmix.org \
       --node-ip=192.33.255.151,2620:11a:b000:203::151 \
       --disable=traefik --disable=servicelb \
@@ -965,6 +967,8 @@ On **k8s01.fmt01** (etcd only, no workloads):
       --server https://192.33.255.150:6443 \
       --disable-apiserver --disable-controller-manager --disable-scheduler \
       --flannel-backend=host-gw \
+      --flannel-iface=eth1 \
+      --node-taint node-role.kubernetes.io/etcd=true:NoExecute \
       --cluster-domain=k8s.sfmix.org \
       --node-ip=192.33.255.152,2620:11a:b000:203::152 \
       --disable=traefik --disable=servicelb" sh -
@@ -986,6 +990,48 @@ Remember that pve01-fmt's pool is the slow one (p99 fsync 231 ms). While both
 DL360 members are healthy and one of them leads, this does not matter; it
 becomes visible the moment a DL360 is down or fmt01 wins an election. The
 Optane P1600X for its empty M.2 slot is still unbought.
+
+### 4a. Two k3s settings that are not optional
+
+Both were found the hard way during the 2026-11-23 bring-up.
+
+**`--flannel-iface=eth1`.** `--node-ip` sets the *Kubernetes* node address, but
+flannel selects its own interface independently, defaulting to whichever holds
+the default route. Until the edges exist that is the **mgmt leg**, so flannel
+annotated every node with its mgmt address and a **link-local** IPv6:
+
+    k8s01-sfo02  10.1.1.41  fe80::be24:11ff:fe9e:e57b
+    k8s01-scl04  10.6.1.41  fe80::be24:11ff:fee9:beee
+    k8s01-fmt01  10.2.1.41  fe80::be24:11ff:feb1:1b17
+
+`host-gw` then installed **no** cross-node routes at all, because each node's
+advertised next hop sat in a different per-site subnet and was not on-link, and
+the IPv6 next hops were link-local and useless. Pinning the fabric leg fixes it
+immediately:
+
+    k8s01-sfo02  192.33.255.150  2620:11a:b000:203::150
+    k8s01-scl04  192.33.255.151  2620:11a:b000:203::151
+    k8s01-fmt01  192.33.255.152  2620:11a:b000:203::152
+
+Note this stays necessary even once the edges supply the default route over the
+fabric. Relying on the default-route interface to pick the right leg is exactly
+the kind of implicit coupling that breaks silently later, so pin it explicitly.
+
+**The witness needs a taint.** `--disable-apiserver
+--disable-controller-manager --disable-scheduler` stops the *control plane*
+components but does **not** stop the node accepting pods — kubelet still
+registers it as schedulable, and during bring-up workloads landed on it. It is
+a 4 GiB, 2 vCPU VM on the slow QVO pool, so that must not happen:
+
+    node-taint: node-role.kubernetes.io/etcd=true:NoExecute
+
+Gotcha: `node-taint` in `/etc/rancher/k3s/config.yaml` is applied at node
+**registration** only. Restarting k3s on an already-registered node does not
+apply it; use `kubectl taint` once for the running node and keep it in the
+config file so a rebuild inherits it.
+
+Both settings live in `/etc/rancher/k3s/config.yaml` on each node, with a
+comment explaining why.
 
 ### 5. Verify what a single node could not
 
@@ -1009,6 +1055,19 @@ Then the real test — a pod on each node, talking both families:
 
 This is the open item the single scratch node could not answer: whether
 dual-stack `host-gw` programs cross-node routes correctly.
+
+**Result, 2026-11-23: it does, once `--flannel-iface` is set.** Routes on
+k8s01.sfo02:
+
+    10.42.1.0/24 via 192.33.255.151 dev eth1
+    10.42.2.0/24 via 192.33.255.152 dev eth1
+    2620:11a:b000:a01::/64 via 2620:11a:b000:203::151 dev eth1
+    2620:11a:b000:a02::/64 via 2620:11a:b000:203::152 dev eth1
+
+Pod-to-pod sfo02 -> scl04 measured 1.8 ms on IPv4 and 1.9 ms on IPv6, matching
+the node-to-node fabric RTT — confirming the traffic goes switch to switch over
+VLAN 203 rather than through a router. Pods carry public GUA IPv6 from
+`2620:11a:b000:a0X::/64`.
 
 ### 6. Teardown
 
