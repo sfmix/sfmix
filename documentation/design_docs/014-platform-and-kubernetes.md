@@ -837,7 +837,11 @@ form is three trunk ports.
 | | `eth0` 10.1.1.41/24 (mgmt, vmbr0); `eth1` 192.33.255.150/28 + `2620:11a:b000:203::150/64` (vmbr2 tag 203) |
 | k8s01.scl04 | VM 121 on pve02.scl04 — 24 GiB, 16 vCPU, 200 GiB `tank-vms` |
 | | `eth0` 10.6.1.41/24 (mgmt, vmbr0); `eth1` 192.33.255.151/28 + `2620:11a:b000:203::151/64` (vmbr1 tag 203) |
-| k8s-scratch | VM 130 on pve02.scl04, 10.6.1.40 — throwaway, destroy when done |
+| k8s01.fmt01 | VM 122 on pve01-fmt — 4 GiB, 2 vCPU, 32 GiB `local-zfs`, etcd only |
+| | `eth0` 10.2.1.41/24 (mgmt, vmbr0); `eth1` 192.33.255.152/28 + `2620:11a:b000:203::152/64` (vmbr2 tag 203) |
+
+The k8s-scratch VM (130) was destroyed on 2026-11-23 once k3s v1.37.2+k3s1 had
+been validated on it.
 
 Both hypervisors' fabric bridges are already VLAN-aware (`bridge-vids
 2-4094`), so the tag rides on the VM NIC and no host-side VLAN interface is
@@ -850,9 +854,19 @@ Until the edges exist, each node's default route stays on the mgmt leg. That
 is a deliberate deviation from the steady-state design, where the default
 comes from the edges over the fabric.
 
-### 1. Trunk ports
+### 1. Trunk ports — done 2026-11-23
 
-The VLAN exists fleet-wide but no port carries it yet.
+Applied via EOS `configure session` with `commit timer 00:05:00`, verified,
+then confirmed. Resulting state:
+
+| switch | port | allowed VLANs |
+|---|---|---|
+| switch01.sfo02 | Ethernet33 | `203` |
+| switch02.sfo02 | Ethernet15/4 | `203` |
+| switch01.scl04 | Ethernet9/1 | `106,200,203` |
+| switch01.fmt01 | Ethernet47 | `100-101,203,997-998` |
+
+The commands were:
 
     ! switch01.sfo02
     interface Ethernet33
@@ -872,14 +886,34 @@ allowed vlan 203` without `add` would drop both and break the scl04 mgmt
 peering trunk. The two sfo02 ports are `allowed vlan none` today, so there is
 nothing to preserve.
 
-The mgmt-switch.scl04 side is already done — `K8S-FABRIC` is a member of `ae1`
+switch01.fmt01 Et47 (`pve01.fmt01-Trunk`, the pve01-fmt `eno4` trunk) took
+`switchport trunk allowed vlan add 203` for the same reason.
+
+The mgmt-switch.scl04 side was already done — `K8S-FABRIC` is a member of `ae1`
 and `xe-0/2/0`.
+
+Note that pve01-fmt's `vmbr2` is **not** VLAN-aware (it uses explicit
+`vmbr2.100` / `vmbr2.101` subinterfaces), unlike the two DL360s. Proxmox still
+honours a `tag=` on the VM NIC there by creating the dynamic bridge itself, so
+no host change was needed — but do not assume the bridges are uniform across
+hypervisors.
 
 Both pve01.sfo02 ports carry `switchport port-security mac-address maximum 5`.
 That is ample: the node VM presents one MAC on VLAN 203, and pods never appear
 as MACs because `host-gw` routes rather than bridges them.
 
-### 2. Prove layer 2 before touching Kubernetes
+### 2. Prove layer 2 before touching Kubernetes — verified 2026-11-23
+
+Measured between the node fabric addresses: sfo02 <-> scl04 1.6 ms v4 and
+1.5-3.1 ms v6; fmt01 <-> sfo02 1.5-3.0 ms; fmt01 <-> scl04 2.3-4.6 ms. Full
+1500-byte frames pass with DF set, and 1600-byte frames correctly fail, so the
+path MTU is genuinely 1500 rather than something larger that happens to work.
+
+MAC learning confirms the path: mgmt-switch.scl04 shows the scl04 node on
+`ae1.0` and the sfo02 node on `xe-0/2/0.0` in `K8S-FABRIC`.
+
+ARP and ND take a moment to settle after the trunk ports are committed; a ping
+that fails immediately afterwards is not necessarily a misconfiguration.
 
 From k8s01.sfo02:
 
@@ -909,21 +943,49 @@ later look like an application bug.
 than the mgmt leg. The service and cluster CIDRs cannot be changed after this
 command without rebuilding the cluster.
 
-### 4. Second node as an *agent*, not a server
+### 4. Join the other two as servers
 
-Take the token from `/var/lib/rancher/k3s/server/node-token` on k8s01.sfo02,
-then on k8s01.scl04:
+With the fmt01 witness built, all three nodes are servers and etcd reaches
+three members. Take the token from
+`/var/lib/rancher/k3s/server/node-token` on k8s01.sfo02.
 
-    curl -sfL https://get.k3s.io | K3S_URL=https://192.33.255.150:6443 \
-      K3S_TOKEN=<token> INSTALL_K3S_EXEC="agent \
-      --node-ip=192.33.255.151,2620:11a:b000:203::151" sh -
+On **k8s01.scl04** (server with workloads):
 
-**Deliberately an agent, not a second server.** A two-member etcd has a quorum
-of two, so *either* node failing stops the cluster — strictly worse
-availability than the single member you started with. Two servers is a trap to
-pass through quickly, not a state to sit in. Run the second node as an agent
-until the fmt01 witness exists, then rebuild it as a server so etcd goes
-1 -> 3 members without ever resting at 2.
+    curl -sfL https://get.k3s.io | K3S_TOKEN=<token> INSTALL_K3S_EXEC="server \
+      --server https://192.33.255.150:6443 \
+      --flannel-backend=host-gw \
+      --cluster-domain=k8s.sfmix.org \
+      --node-ip=192.33.255.151,2620:11a:b000:203::151 \
+      --disable=traefik --disable=servicelb \
+      --write-kubeconfig-mode=0644" sh -
+
+On **k8s01.fmt01** (etcd only, no workloads):
+
+    curl -sfL https://get.k3s.io | K3S_TOKEN=<token> INSTALL_K3S_EXEC="server \
+      --server https://192.33.255.150:6443 \
+      --disable-apiserver --disable-controller-manager --disable-scheduler \
+      --flannel-backend=host-gw \
+      --cluster-domain=k8s.sfmix.org \
+      --node-ip=192.33.255.152,2620:11a:b000:203::152 \
+      --disable=traefik --disable=servicelb" sh -
+
+**Do not stop at two servers.** A two-member etcd has a quorum of two, so
+*either* node failing stops the cluster — strictly worse than the single member
+you started with. Joining goes 1 -> 2 -> 3, so pass through two quickly and do
+not leave the cluster sitting there.
+
+**The fmt01 member must stay out of both pvesr and vzdump.** VM 122 has no
+replication job, but the FMT01-01 cluster runs a daily `vzdump` job with
+`all 1` in **snapshot mode**, which would have included it automatically and
+frozen the guest filesystem — stalling etcd — every night. VM 122 was added to
+that job's `exclude` list on 2026-11-23. Any future etcd member on that cluster
+needs the same treatment. Back etcd up with k3s `etcd-snapshot` to
+backup01.scl04 instead, per doc 013.
+
+Remember that pve01-fmt's pool is the slow one (p99 fsync 231 ms). While both
+DL360 members are healthy and one of them leads, this does not matter; it
+becomes visible the moment a DL360 is down or fmt01 wins an election. The
+Optane P1600X for its empty M.2 slot is still unbought.
 
 ### 5. Verify what a single node could not
 
