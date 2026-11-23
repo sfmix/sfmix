@@ -419,7 +419,7 @@ scl02 5, scl04 6.
 | internal service VIPs | `10.255.20.0/24` | `2620:11a:b00f:ff20::/64` | mgmt-gws |
 | API VIP | `10.255.20.1` | `2620:11a:b00f:ff20::1` | mgmt-gws, name `api.k8s.sfmix.org` (internal) |
 | mgmt leg `K8S-NODES` | `10.N.10.0/24` | `2620:11a:b00f:N10::/64` | connected on the site mgmt-gw |
-| ClusterIP services | `10.43.0.0/16` (k3s default) | `fd00:43::/112` | not routed |
+| ClusterIP services | `10.43.0.0/16` (k3s default) | `2620:11a:b000:43::/112` | not routed |
 
 - **Pod IPv6 is public GUA** from the publicly routed `2620:11a:b000::/48`,
   inside the `/44` we already announce. Edges are stateless, so return
@@ -427,6 +427,14 @@ scl02 5, scl04 6.
 - **Pod IPv4 is private** and masqueraded by the node to its own fabric
   address on the way to the internet (flannel's default), so the mgmt-gws
   never translate it.
+- **ClusterIP IPv6 comes from our own GUA, not a ULA.** These addresses never
+  appear on the wire outside a node — kube-proxy rewrites them — so ULA versus
+  GUA makes no reachability difference, and taking a slice of
+  `2620:11a:b000::/48` keeps every SFMIX address identifiable on sight instead
+  of leaving one unexplained `fd00::` range in the logs. Kubernetes caps an
+  IPv6 service CIDR at /108, so /112 is comfortably inside the limit. The edge
+  import filters accept only the fabric, VIP and pod ranges, so a leaked
+  ClusterIP would not be carried anywhere regardless.
 - **Public VIPs and pod `/64`s are tagged `no-export`** on the edges. The
   outside world keeps seeing only the `/24` and `/44`.
 
@@ -812,6 +820,140 @@ on pve02.scl04, mgmt leg only) running **k3s v1.37.2+k3s1**:
 | mgmt-switch.scl04 down (interim path) | 2/3 | scl04 node unreachable on both legs | BFD withdraws in ~1 s; sfo02 node serves |
 | FRR restart on a node | unaffected | GR holds routes | GR holds routes |
 | OpenBao sealed or down | unaffected | unaffected | running workloads keep their delivered secrets |
+
+## Bootstrap runbook
+
+State as of 2026-11-23. VLAN 203 and `vxlan vlan 203 vni 203` are configured
+and verified on 14 of 15 peering switches; `switch01.sjc01` does not resolve in
+DNS and appears decommissioned after the sjc01 cabinet migration to
+switch03/04. Both node VMs exist and boot. What remains before the cluster can
+form is three trunk ports.
+
+### 0. What exists
+
+| | |
+|---|---|
+| k8s01.sfo02 | VM 120 on pve01.sfo02 — 16 GiB, 16 vCPU, 200 GiB `tank-vms` |
+| | `eth0` 10.1.1.41/24 (mgmt, vmbr0); `eth1` 192.33.255.150/28 + `2620:11a:b000:203::150/64` (vmbr2 tag 203) |
+| k8s01.scl04 | VM 121 on pve02.scl04 — 24 GiB, 16 vCPU, 200 GiB `tank-vms` |
+| | `eth0` 10.6.1.41/24 (mgmt, vmbr0); `eth1` 192.33.255.151/28 + `2620:11a:b000:203::151/64` (vmbr1 tag 203) |
+| k8s-scratch | VM 130 on pve02.scl04, 10.6.1.40 — throwaway, destroy when done |
+
+Both hypervisors' fabric bridges are already VLAN-aware (`bridge-vids
+2-4094`), so the tag rides on the VM NIC and no host-side VLAN interface is
+needed. pve01.sfo02 reaches the fabric over bond2 (FlexLOM, two 10G legs,
+active-backup: `sfpp0` to switch02.sfo02 Et15/4 and `sfpp1` to switch01.sfo02
+Et33). pve02.scl04 reaches it over bond1/ae1, the 2x1G LAG to
+mgmt-switch.scl04.
+
+Until the edges exist, each node's default route stays on the mgmt leg. That
+is a deliberate deviation from the steady-state design, where the default
+comes from the edges over the fabric.
+
+### 1. Trunk ports
+
+The VLAN exists fleet-wide but no port carries it yet.
+
+    ! switch01.sfo02
+    interface Ethernet33
+       switchport trunk allowed vlan 203
+
+    ! switch02.sfo02
+    interface Ethernet15/4
+       switchport trunk allowed vlan 203
+
+    ! switch01.scl04 -- note "add": this port already carries 106,200
+    interface Ethernet9/1
+       switchport trunk allowed vlan add 203
+
+**The `add` on switch01.scl04 Et9/1 is not optional.** That port is the trunk
+to mgmt-switch.scl04 and currently allows `106,200`; writing `switchport trunk
+allowed vlan 203` without `add` would drop both and break the scl04 mgmt
+peering trunk. The two sfo02 ports are `allowed vlan none` today, so there is
+nothing to preserve.
+
+The mgmt-switch.scl04 side is already done — `K8S-FABRIC` is a member of `ae1`
+and `xe-0/2/0`.
+
+Both pve01.sfo02 ports carry `switchport port-security mac-address maximum 5`.
+That is ample: the node VM presents one MAC on VLAN 203, and pods never appear
+as MACs because `host-gw` routes rather than bridges them.
+
+### 2. Prove layer 2 before touching Kubernetes
+
+From k8s01.sfo02:
+
+    ping -c3 192.33.255.151
+    ping -c3 2620:11a:b000:203::151
+    ping -c3 -M do -s 1472 192.33.255.151   # full 1500-byte path, no fragmentation
+
+If the 1472-byte ping fails while small ones succeed, the VXLAN underlay is
+not carrying the full frame — fix that before going further, because it will
+later look like an application bug.
+
+### 3. First server, on k8s01.sfo02
+
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
+      --cluster-init \
+      --flannel-backend=host-gw \
+      --cluster-cidr=10.42.0.0/16,2620:11a:b000:a00::/56 \
+      --service-cidr=10.43.0.0/16,2620:11a:b000:43::/112 \
+      --cluster-domain=k8s.sfmix.org \
+      --node-ip=192.33.255.150,2620:11a:b000:203::150 \
+      --kube-controller-manager-arg=node-cidr-mask-size-ipv6=64 \
+      --disable=traefik --disable=servicelb \
+      --tls-san=api.k8s.sfmix.org --tls-san=10.255.20.1 \
+      --write-kubeconfig-mode=0644" sh -
+
+`--node-ip` is the fabric address, so etcd and kubelet use the fabric rather
+than the mgmt leg. The service and cluster CIDRs cannot be changed after this
+command without rebuilding the cluster.
+
+### 4. Second node as an *agent*, not a server
+
+Take the token from `/var/lib/rancher/k3s/server/node-token` on k8s01.sfo02,
+then on k8s01.scl04:
+
+    curl -sfL https://get.k3s.io | K3S_URL=https://192.33.255.150:6443 \
+      K3S_TOKEN=<token> INSTALL_K3S_EXEC="agent \
+      --node-ip=192.33.255.151,2620:11a:b000:203::151" sh -
+
+**Deliberately an agent, not a second server.** A two-member etcd has a quorum
+of two, so *either* node failing stops the cluster — strictly worse
+availability than the single member you started with. Two servers is a trap to
+pass through quickly, not a state to sit in. Run the second node as an agent
+until the fmt01 witness exists, then rebuild it as a server so etcd goes
+1 -> 3 members without ever resting at 2.
+
+### 5. Verify what a single node could not
+
+    k3s kubectl get nodes -o wide
+    k3s kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.podCIDRs}{"\n"}{end}'
+
+Expect non-overlapping `/24` and `/64` per node. Then on each node confirm
+`host-gw` installed a route to the *other* node's pod ranges with the other
+node's fabric address as next hop:
+
+    ip route | grep 10.42
+    ip -6 route | grep 2620:11a:b000:a00
+
+Then the real test — a pod on each node, talking both families:
+
+    k3s kubectl create deployment netcheck --image=busybox:1.36 --replicas=2 \
+      -- sh -c 'sleep 86400'
+    k3s kubectl get pods -o wide            # confirm one pod per node
+    k3s kubectl exec <pod-on-sfo02> -- ping -c3 <pod-ip-v4-on-scl04>
+    k3s kubectl exec <pod-on-sfo02> -- ping -c3 <pod-ip-v6-on-scl04>
+
+This is the open item the single scratch node could not answer: whether
+dual-stack `host-gw` programs cross-node routes correctly.
+
+### 6. Teardown
+
+    /usr/local/bin/k3s-uninstall.sh        # on a server
+    /usr/local/bin/k3s-agent-uninstall.sh  # on an agent
+
+and `qm destroy 130` for the scratch VM once it has served its purpose.
 
 ## Rollout
 
