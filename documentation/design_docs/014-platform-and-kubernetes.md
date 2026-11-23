@@ -1189,6 +1189,59 @@ Corefile is written by k3s and marked `DO NOT EDIT`, but it ends with
 `import /etc/coredns/custom/*.override` and `*.server`, so changes belong in
 the `coredns-custom` ConfigMap and survive k3s upgrades.
 
+### NAT: where it still happens, and why that is wrong
+
+Measured on the live cluster 2026-11-23.
+
+**IPv6 is already completely NAT-free.** There is no `FLANNEL-POSTRTG` chain in
+`ip6tables` at all. Pods hold public GUA addresses and reach everything, inside
+and outside, with their own source address. This is the design working as
+intended.
+
+**IPv4 pod-to-pod is NAT-free**, via explicit `RETURN` rules for traffic
+between pod CIDRs.
+
+**IPv4 pod-to-anything-else is masqueraded**, which is broader than this
+document intends. The operative rule is:
+
+    -A FLANNEL-POSTRTG -s 10.42.0.0/16 ! -d 224.0.0.0/4 -j MASQUERADE --random-fully
+
+"Not another pod and not multicast" includes **every internal destination** —
+NetBox, Loki, Prometheus, the mgmt-gws, every other SFMIX VM. Confirmed by
+counter: a pod on k8s01.sfo02 pinging `10.1.1.1` incremented that rule.
+
+This defeats the premise. The point of announcing each node's pod `/24` to the
+mgmt-gws is that internal clients and pods reach each other **directly, both
+directions**. Today inbound is direct but outbound is translated, so internal
+services see node addresses instead of pod addresses: no per-workload ACLs, no
+meaningful source identity in audit logs, and the pod `/24` advertisement only
+does half its job. The text elsewhere in this document says masquerade happens
+"on the way to the internet" — flannel's default is simply broader than that.
+
+kube-proxy is *not* a contributor: `--masquerade-all` is off and
+`KUBE-SERVICES` carries no masquerade marks. The remaining structural case is
+an off-cluster client reaching a **ClusterIP**, which needs SNAT so replies
+return via the same node — and that case disappears for real consumers once
+services are exposed on LoadBalancer VIPs with `externalTrafficPolicy: Local`,
+which preserves the client address.
+
+**Options, to decide before workloads land:**
+
+1. *Masquerade only for internet-bound IPv4.* Exempt internal destinations
+   (`10.0.0.0/8`, `192.33.255.0/24`, the transit ranges) and masquerade the
+   rest. Restores pod identity internally while keeping pod IPv4 internet
+   egress. Minimal change, matches what this document already claims.
+2. *Fully NAT-free.* Disable IPv4 masquerade entirely; pods then have no IPv4
+   internet egress, but already have un-NATed public IPv6. Note image pulls
+   happen on the **node** (containerd), not in pods, so the registry path is
+   unaffected. Workloads genuinely needing IPv4 egress become a deliberate
+   exception rather than the default.
+3. Status quo. Not recommended: it quietly contradicts the design.
+
+Either change needs flannel's `ipMasq` disabled (via a custom flannel conf) and
+the replacement rules managed by Ansible, because flannel owns and rewrites
+`FLANNEL-POSTRTG`. Inserting exemptions into that chain would be clobbered.
+
 ### 7. Teardown
 
     /usr/local/bin/k3s-uninstall.sh        # on a server
