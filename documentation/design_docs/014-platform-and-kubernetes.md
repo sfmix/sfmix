@@ -35,7 +35,8 @@ addresses ordinary routed prefixes.
   tooling.
 - **Bulk and public traffic never crosses a mgmt-gw.** The mgmt-gws are small
   CPU routers. Public services, pod internet egress and node-to-node traffic
-  ride a fabric VLAN on the DL360s' 10G links.
+  ride a fabric VLAN on the node hosts' fabric links — 10G where available,
+  2x1G at scl04 until its FlexLOM is cabled.
 - **The mgmt side carries only internal, low-volume traffic:** admin access,
   the API, scraping, logs.
 - **Same pattern everywhere:** the two core sites (sfo02, fmt01) are hubs that
@@ -294,7 +295,8 @@ Each node VM has two NICs:
 - **fabric leg** on the host's fabric bridge: pve01.sfo02 and pve02.scl04
   `vmbr2` (bond2, FlexLOM 10G to the fabric switches, today
   `allowed vlan none`); pve01-fmt `vmbr2` (eno4 trunk, already carries fabric
-  VLANs 100/101/997/998). pve02.scl04's FlexLOM is not cabled yet.
+  VLANs 100/101/997/998). pve02.scl04 has no in-band 10G for now and reaches
+  the fabric over a 2x1G LAG through mgmt-switch.scl04 — see below.
 - **mgmt leg** on the site's new `K8S-NODES` VLAN.
 
 Sizing notes:
@@ -425,6 +427,32 @@ scl02 5, scl04 6.
 VLAN 203 is a new Exchange Fabric VLAN, stretched to every site with a node,
 like VLANs 200 and 201. Both edges get `eth4.203`, as they have `eth4.10x`
 for hosted networks today.
+
+#### scl04's interim fabric path
+
+pve02.scl04's FlexLOM is not cabled, and will not be for a while. Until it is,
+scl04 reaches VLAN 203 through **mgmt-switch.scl04 over a 2x1G LAG**, which
+trunks the fabric VLAN up to the site fabric. Functionally this is identical —
+same stretched L2, same `host-gw` routes, same edge sessions — with three
+consequences:
+
+- **2 Gbit aggregate, 1 Gbit per flow.** LACP hashes per flow, so any single
+  image pull, etcd stream or participant-facing transfer tops out at 1 Gbit.
+- **etcd shares the link with bulk egress.** This is the combination most
+  likely to make the cluster flaky: a saturated LAG adds latency to etcd
+  heartbeats (100 ms heartbeat, 1 s election), and scl04 is the compute-heavy
+  site. Prioritise etcd and API traffic on the LAG, and watch
+  `etcd_network_peer_round_trip_time_seconds` against link utilisation.
+- **mgmt-switch.scl04 becomes a single point of failure for that node**, which
+  now has both legs behind it. The failure is at least clean — both sessions
+  drop, BFD withdraws in about a second, etcd falls to 2/3 — but the two legs
+  are no longer independent, and the mgmt switches have no remote syslog
+  today.
+
+Note that public traffic now crosses a management switch, which the "never
+across a mgmt-gw" principle does not forbid (that is about the small CPU
+routers) but is against its spirit. Cabling the FlexLOM removes all of this
+and is the first follow-up once parts and hands are available.
 
 #### East-west: flannel host-gw
 
@@ -639,6 +667,7 @@ router bgp 65201
 | one edge-gw down | unaffected | unaffected | the other edge |
 | one mgmt-gw hub down | unaffected | the other hub carries routes | unaffected |
 | a spoke mgmt-gw down | unaffected (etcd rides the fabric) | that site's node unreachable internally | unaffected |
+| mgmt-switch.scl04 down (interim path) | 2/3 | scl04 node unreachable on both legs | BFD withdraws in ~1 s; sfo02 node serves |
 | FRR restart on a node | unaffected | GR holds routes | GR holds routes |
 | OpenBao sealed or down | unaffected | unaffected | running workloads keep their delivered secrets |
 
@@ -653,8 +682,10 @@ OpenBao is a producer change, not an architecture change.
    65201/65202/65206 (65200 + N).
 2. **Registry**: Garage-backed Distribution, one frontend per core site,
    promotion job from ghcr.io, mirrors of third-party images.
-3. Fabric: VLAN 203 to both edge ports and the node hosts' fabric ports;
-   cable pve02.scl04's FlexLOM.
+3. Fabric: VLAN 203 to both edge ports and the node hosts' fabric ports. At
+   scl04, trunk VLAN 203 to mgmt-switch.scl04 and build the 2x1G LAG to
+   pve02.scl04; confirm MTU end to end. Cabling the FlexLOM is a follow-up,
+   not a blocker.
 4. Witness: k8s01.fmt01 on pve01-fmt, out of pvesr. Optane when bought.
 5. VMs on pve01.sfo02 and pve02.scl04; FRR; k3s with flannel `host-gw`.
    Verify pod-to-pod across sites over VLAN 203.
@@ -684,6 +715,12 @@ OpenBao is a producer change, not an architecture change.
 - Edge forwarding headroom for k8s egress (the edges are software routers
   too, but they already carry all transit).
 - RAM upgrade for both DL360s; Optane for pve01-fmt.
+- MTU on the mgmt-switch.scl04 fabric path: if the fabric carries jumbo
+  frames, the Junos trunk and the LAG must match, or VLAN 203 blackholes
+  large packets silently.
+- Priority or shaping for etcd and API traffic on the scl04 LAG, and whether
+  to pin etcd to the mgmt leg there instead while the interim path is in use.
+- Cabling pve02.scl04's FlexLOM, which retires the interim path.
 - Whether the deployed OpenBao has a native static seal, and its exact OIDC
   redirect-URI paths.
 - Which charts in the first workload set hardcode `cluster.local`.
