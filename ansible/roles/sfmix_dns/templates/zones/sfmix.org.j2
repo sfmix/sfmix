@@ -187,6 +187,16 @@ backup01.scl04		IN	AAAA	2620:11A:B000:110::73
 ;host			IN	A	192.33.255.94
 bcast-br110.edge-gw	IN	A	192.33.255.95
 ;
+; Kubernetes fabric/VLAN 203/K8S-FABRIC (design doc 014)
+; Exchange Fabric, stretched to every site with a cluster node
+; 192.33.255.144/28 / 2620:11A:B000:203::/64
+k8s01.sfo02		IN	A	192.33.255.150
+k8s01.sfo02		IN	AAAA	2620:11A:B000:203::150
+k8s01.scl04		IN	A	192.33.255.151
+k8s01.scl04		IN	AAAA	2620:11A:B000:203::151
+k8s01.fmt01		IN	A	192.33.255.152
+k8s01.fmt01		IN	AAAA	2620:11A:B000:203::152
+;
 ; edge-gw.sfo02<>edge-gw.fmt01/VLAN 201/EDGE-PEERING
 ; Exchange Fabric Edge Router Peering
 ; 192.33.255.240/29 / 2620:11A:B000:201::/64
@@ -605,6 +615,8 @@ pve01.sfo02			IN	A	10.1.1.12	; DL360 Gen9, standalone PVE node
 ; Second Garage node of the Thanos bucket, VM 100 on pve01.sfo02 (doc 012).
 metrics01.sfo02		IN	A	10.1.1.25
 tailscale-sfo02			IN	A	10.1.1.24
+; k8s node, VM 120 on pve01.sfo02 (doc 014); fabric leg is k8s01.sfo02.
+k8s01.oob.sfo02			IN	A	10.1.1.41
 
 gw-telx.sfo02		IN	A	198.35.53.241
 eth5.31.edge-gw.sfo02	IN	A	198.35.53.242
@@ -682,6 +694,8 @@ mgmt.quarantine-lg			IN	A		10.2.1.25
 mgmt.alice				IN	A		10.2.1.26
 ar1.fmt01.transit			IN	CNAME		fxp0.ar1.fmt01.transit
 fxp0.ar1.fmt01.transit			IN	A		10.2.1.30
+; k8s etcd witness, VM 122 on pve01-fmt (doc 014); fabric leg is k8s01.fmt01.
+k8s01.oob.fmt01				IN	A		10.2.1.41
 
 ; fmt01 Transit: Arelion via Cofractal
 eth5.edge-gw.fmt01	IN	A	62.115.146.167
@@ -829,6 +843,8 @@ k3s-node-01.scl04	IN	A	10.6.1.32
 mgmt.rs-openbsd		IN	A	10.6.1.33
 ; Cold telemetry tier (Thanos bucket + Loki archive), VM 110 on pve01.scl04.
 metrics01.scl04		IN	A	10.6.1.34
+; k8s node, VM 121 on pve02.scl04 (doc 014); fabric leg is k8s01.scl04.
+k8s01.oob.scl04		IN	A	10.6.1.41
 
 
 ; SCL05 (Digital Realty SJC31) / Site ID 8
