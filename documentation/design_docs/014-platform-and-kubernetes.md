@@ -555,6 +555,81 @@ the classic shape of an accidental bridge. Two independent defences:
 `rp_filter` strict will misfire given ECMP across two edges and anycast VIPs;
 use loose or off and let the forward policy do the work.
 
+### QoS and MTU
+
+#### MTU: provision for jumbo, run 1500
+
+The two legs have different MTU characteristics, which resolves most of the
+tension:
+
+- **Fabric leg (VLAN 203)** carries pod east-west, etcd and kubelet, and rides
+  the exchange fabric only. A stretched L2 VLAN has no WireGuard fallback: if
+  the fabric partitions, VLAN 203 partitions. Its MTU is therefore stable, and
+  it is the path that would benefit from jumbo frames.
+- **Mgmt leg** carries internal VIPs, pod IPv4 to internal destinations,
+  scraping and admin, and is the only path that can fail over to the mgmt-gw
+  WireGuard mesh. Low volume, mostly short-lived HTTP.
+
+So the traffic that wants jumbo never touches the tunnel, and the traffic that
+touches the tunnel does not want jumbo.
+
+**Decision: provision the underlay for jumbo** (switch ports at 9216 on
+VLAN 203 and the scl04 LAG) **but run node interfaces and pod MTU at 1500.**
+Raising it later is then a host config change rather than a re-cabling
+conversation. Revisit once pve02.scl04's FlexLOM is cabled.
+
+**ICMP PTB must be permitted** in the node nftables rules and the mgmt-gw
+firewall zones. This is a hard requirement, not a nicety:
+
+- TCP MSS is fixed in the SYN/SYN-ACK and never renegotiated, so MSS clamping
+  on the tunnel only helps flows whose SYN crossed the tunnel. A flow
+  established over the fabric and then failed over mid-stream was never
+  clamped, and clamping cannot fix it retroactively.
+- Such flows depend entirely on PMTUD: ICMP "fragmentation needed" or
+  ICMPv6 Packet Too Big shrinking the sender's cached path MTU for that
+  destination.
+- WireGuard's MTU is ~1420, so this applies at 1500 just as at 9000. Running
+  1500 makes the mid-flow step smaller, not absent.
+
+#### DSCP marking
+
+| traffic | mark | why |
+|---|---|---|
+| etcd peer and client (2380/2379) | CS6 | infrastructure control, same tier as routing |
+| BGP and BFD from FRR | CS6/CS7 | already marked by FRR |
+| API server (6443) | AF31 | latency-sensitive, not control |
+| image pulls, pod egress, bulk | CS0 | should yield |
+
+etcd cannot set socket DSCP itself, so mark it with an nftables output rule
+(`ip dscp set cs6` on tcp dport 2379/2380) rather than looking for a k3s flag.
+
+**Marking without a scheduler is decoration.** The only congestion point in
+this design is the scl04 2x1G LAG, so that is where the work is:
+
+- **mgmt-switch.scl04 (Junos):** an L2 trunk takes the `ieee-802.1` classifier
+  by default, which reads PCP, not DSCP. A Linux host sending on a VLAN
+  subinterface emits **PCP 0 regardless of DSCP** — 802.1p comes from
+  `skb->priority` via the VLAN interface's `egress-qos-map`, which is not
+  populated from DSCP. The default path therefore puts CS6 etcd traffic in the
+  same best-effort class as bulk image pulls. Configure a DSCP classifier on
+  the `ae` interface **and** an explicit scheduler-map giving the control class
+  a real share. Optionally also set `egress-qos-map` on the nodes' VLAN
+  interfaces so PCP mirrors DSCP.
+- The default Junos scheduler is best-effort heavy: expedited- and
+  assured-forwarding classes typically get no guaranteed share, so marking into
+  them *without* a scheduler-map can be worse than leaving traffic
+  best-effort.
+- **Arista fabric:** interfaces default to trusted, and that path is 10G and
+  uncongested, so no scheduling work is needed. The concern there is
+  preservation, not trust — the 7280CR3 VXLAN decap bug zeroed DSCP and ECN
+  until the fleet-wide fix in `e460473`. Any newly added CR3 needs the same
+  config or marking disappears at that site.
+
+Verify on the device rather than trusting platform defaults:
+`show class-of-service interface ae0`, `show class-of-service classifier`, and
+`show interfaces queue ae0` under load, to see which queue etcd lands in and
+whether anything is tail-dropping.
+
 ### Failure detection
 
 The aim behind "long hold times" is that routes should survive a BGP speaker
@@ -715,11 +790,11 @@ OpenBao is a producer change, not an architecture change.
 - Edge forwarding headroom for k8s egress (the edges are software routers
   too, but they already carry all transit).
 - RAM upgrade for both DL360s; Optane for pve01-fmt.
-- MTU on the mgmt-switch.scl04 fabric path: if the fabric carries jumbo
-  frames, the Junos trunk and the LAG must match, or VLAN 203 blackholes
-  large packets silently.
-- Priority or shaping for etcd and API traffic on the scl04 LAG, and whether
-  to pin etcd to the mgmt leg there instead while the interim path is in use.
+- Confirm the default classifier and scheduler on mgmt-switch.scl04's `ae`
+  interface before relying on DSCP marking.
+- Whether WireGuard copies inner DSCP to the outer header on the mgmt-gw mesh.
+- Whether to pin etcd to the mgmt leg at scl04 while the interim path is in
+  use, at the cost of node homogeneity.
 - Cabling pve02.scl04's FlexLOM, which retires the interim path.
 - Whether the deployed OpenBao has a native static seal, and its exact OIDC
   redirect-URI paths.
