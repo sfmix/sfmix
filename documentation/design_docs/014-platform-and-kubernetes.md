@@ -702,7 +702,8 @@ withdrawal.
   `--service-cidr` from the table, `--cluster-domain=k8s.sfmix.org`,
   `--flannel-ipv6-masq` off (pods are public), servicelb and traefik
   disabled, k3s's built-in network policy controller kept. `--tls-san` for the
-  API VIP and `api.k8s.sfmix.org`.
+  API VIP and `api.k8s.sfmix.org`. Per-node IPv6 sizing goes through
+  `--kube-controller-manager-arg=node-cidr-mask-size-ipv6=64`.
 - **FRR** from Debian packages, managed by Ansible (`sfmix_server` plus a k8s
   role), `frr defaults datacenter`. Sketch for k8s01.sfo02 (not tested):
 
@@ -732,6 +733,28 @@ router bgp 65201
  address-family ipv6 unicast
   (same shape; pod /64 to both EDGES and MGMT)
 ```
+
+**Validated 2026-11-23** on a throwaway single-node VM (`k8s-scratch`, VM 130
+on pve02.scl04, mgmt leg only) running **k3s v1.37.2+k3s1**:
+
+- **Dual-stack `host-gw` works.** The node was allocated
+  `["10.42.0.0/24","2620:11a:b000:a00::/64"]` and `cni0` came up with both
+  `10.42.0.1/24` and `2620:11a:b000:a00::1/64`. The log shows
+  `Starting flannel with backend host-gw` and that it selected the node's IPv6
+  address. Cross-node route programming still needs a second node to prove.
+- **`--cluster-domain=k8s.sfmix.org` works end to end.** A pod's `resolv.conf`
+  search list is `default.svc.k8s.sfmix.org svc.k8s.sfmix.org k8s.sfmix.org
+  sfmix.org`, and `kubernetes.default.svc.k8s.sfmix.org` resolves to the
+  ClusterIP.
+- **IPv6 pod egress is not masqueraded** — no flannel v6 POSTROUTING
+  masquerade, only kube-proxy's service rules — matching the public-pod
+  design. IPv4 is masqueraded as intended. `FLANNEL_MTU=1500`.
+- traefik and servicelb are absent as requested. `local-path-provisioner` and
+  `metrics-server` remain as k3s defaults and should be reviewed before
+  production.
+- **Gotcha: `--node-cidr-mask-size-ipv6` is not a k3s server flag.** Passing it
+  directly makes k3s exit with `flag provided but not defined`; it must go
+  through `--kube-controller-manager-arg`.
 
 - **Why not Calico or Cilium:** both can route natively without an overlay
   (Calico is BIRD underneath), but each brings its own control plane, CRDs
@@ -810,7 +833,6 @@ OpenBao is a producer change, not an architecture change.
   controller).
 - VyOS 1.4: LLGR configuration, BFD control-plane-failure handling,
   overlapping listen ranges.
-- Dual-stack flannel `host-gw` on the chosen k3s version.
 - Edge forwarding headroom for k8s egress (the edges are software routers
   too, but they already carry all transit).
 - RAM upgrade for both DL360s; Optane for pve01-fmt.
