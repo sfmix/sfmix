@@ -209,6 +209,10 @@
       - {name: Encapsulating Peering Port, slug: encapsulating_peering_port, color: "8bc34a"}
       - {name: IXP Infrastructure, slug: ixp_infrastructure, color: "ff5722"}
       - {name: IXP Participant, slug: ixp_participant, color: "9c27b0"}
+      - name: "Management VLAN"
+        slug: management_vlan
+        color: "607d8b"
+        description: "Management or site-local VLAN: allocated for fleet-wide uniqueness, not stretched across the exchange fabric"
       - name: "Map: Exclude"
         slug: map_exclude
         color: "9e9e9e"
