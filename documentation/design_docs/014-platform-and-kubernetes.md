@@ -1109,18 +1109,36 @@ This is desirable, not a fault: a node advertises its pod range only when it
 can actually carry pod traffic. The tainted fmt01 witness will never announce a
 pod CIDR, which is correct.
 
-### Known gap: no IPv6 on the mgmt leg
+### Mgmt-leg IPv6 — added 2026-11-23
 
-The nodes sit on each site's existing management LAN rather than the designed
-`K8S-NODES` VLAN, and those legs have **IPv4 only** — link-local IPv6 only. So
-the `MGMT` peer-group is staged with a v4 neighbor and no v6 neighbor, and
-internal IPv6 VIPs and pod-v6 reachability over the mgmt leg cannot work yet.
+The nodes initially had **IPv4 only** on the mgmt leg. That was not a network
+gap: every site's management LAN already carries IPv6 exactly as doc 001
+specifies (`2620:11a:b00f:N01::1/64` on the mgmt-gw — verified at sfo02, fmt01
+and scl04). The cause was that cloud-init was given only `ip=` for net0, and
+SLAAC could not fill the gap because **SFMIX servers run `accept_ra=0`
+fleet-wide** — `pve01.sfo02` on the same LAN is likewise link-local only.
 
-Resolving this means either giving the nodes IPv6 on the site mgmt LAN
-(`2620:11a:b00f:N01::/64`) or building the `K8S-NODES` VLAN as designed
-(`10.N.10.0/24` + `2620:11a:b00f:N10::/64`). That decision is still open and
-should be settled before the mgmt-gw sessions are brought up, because it
-changes what the mgmt-gw side needs to be configured for.
+Addresses assigned to match each node's v4 `.41`, reserved in NetBox:
+
+| node | mgmt IPv6 | gateway |
+|---|---|---|
+| k8s01.sfo02 | `2620:11a:b00f:101::41/64` | `…:101::1` |
+| k8s01.fmt01 | `2620:11a:b00f:201::41/64` | `…:201::1` |
+| k8s01.scl04 | `2620:11a:b00f:601::41/64` | `…:601::1` |
+
+Applied live and persisted in each VM's `ipconfig0` so they survive a rebuild.
+No IPv6 default route was added — the v6 default is to come from the edges over
+the fabric, per the design; the mgmt leg carries internal traffic only.
+
+Each node now also stages a `MGMT6` peer-group to its local mgmt-gw v6 address,
+with `MGMT-OUT-V6` (pod `/64` plus internal v6 VIPs) outbound and `DENY-ALL`
+inbound — six staged neighbors per node in total.
+
+Note for whoever builds the mgmt-gw side: the nodes sit on each site's existing
+management LAN, **not** the `K8S-NODES` VLAN the addressing table describes
+(`10.N.10.0/24` + `2620:11a:b00f:N10::/64`). Whether to build that VLAN later or
+keep the nodes on the site mgmt LAN is still open, and it determines which
+subnet the mgmt-gw `bgp listen range` must cover.
 
 ### 7. Teardown
 
