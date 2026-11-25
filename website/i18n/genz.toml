@@ -139,4 +139,4 @@
 "Santa Clara" = "santa clara"
 "Sunnyvale" = "sunnyvale"
 "Oakland" = "oakland"
-"Also reachable from %s: order a standard cross-connect from %s, not a lit transport service." = "also reachable from %s: just order a regular cross-connect from %s, not a lit transport thing."
+"Also available from adjacent buildings: %s." = "also available from buildings next door: %s."

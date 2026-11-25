@@ -146,4 +146,4 @@
 "Facility" = "Einrichtung"
 ", and " = " und "
 " and " = " und "
-"Also reachable from %s: order a standard cross-connect from %s, not a lit transport service." = "Auch erreichbar aus %s: Bestellen Sie bei %s einen normalen Cross-Connect, keinen Lit-Transportdienst."
+"Also available from adjacent buildings: %s." = "Auch verfügbar aus angrenzenden Gebäuden: %s."

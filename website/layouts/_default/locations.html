@@ -37,10 +37,8 @@
           {{ with .peeringdb_facility }}{{ $name = printf `<a href="https://www.peeringdb.com/fac/%d">%s</a>` (int .) $name }}{{ end }}
           {{ $from = $from | append (printf "<strong>%s</strong>" $name) }}
         {{ end }}
-        {{ $op := htmlEscape $s.facility_operator }}
-        {{ with $s.mmr_portal_url }}{{ $op = printf `<a href="%s">%s</a>` (htmlEscape .) $op }}{{ end }}
         <tr class="site-reach">
-          <td colspan="3">{{ printf (partial "T.html" "Also reachable from %s: order a standard cross-connect from %s, not a lit transport service.") (delimit $from ", ") $op | safeHTML }}</td>
+          <td colspan="3">{{ printf (partial "T.html" "Also available from adjacent buildings: %s.") (delimit $from ", ") | safeHTML }}</td>
         </tr>
         {{ end }}
         {{ end }}

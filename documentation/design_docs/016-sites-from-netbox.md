@@ -361,6 +361,11 @@ PUT 204; stale lg-web files removed).
     SV5/10/11/12x → SV1 (sjc01), HE FMT1 → FMT2 (fmt01), and Lumen's 1380
     Kifer building → H5 (nuq01, a panel SFMIX brokered between the two
     building operators, ordered as a plain H5 cross-connect).
+    - Public copy (2026-11-25) only says SFMIX is available from these
+      adjacent buildings. It doesn't say what to order or from whom: the
+      commercial path between a building and the site is not ours to
+      describe (e.g. the 200 Paul DWDM mux, where SFMIX only assigns a
+      channel).
     - Each such building is its own NetBox Site with a descriptive slug
       (`coresite-sv3`, `equinix-sv12x`, `he-fmt1`, `lumen-sunnyvale`), so
       it carries its own address, PeeringDB id, operator, region and metro.

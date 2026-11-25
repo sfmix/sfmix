@@ -129,4 +129,4 @@
 # Locations page + site summary (design doc 016)
 ", and " = ", an' "
 " and " = " an' "
-"Also reachable from %s: order a standard cross-connect from %s, not a lit transport service." = "Also reachable from %s: order a plain cross-connect from %s, not a lit transport service."
+"Also available from adjacent buildings: %s." = "Also available from neighborin' buildings: %s."

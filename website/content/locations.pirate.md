@@ -13,4 +13,4 @@ All ports o' call offer **10, 100, or 400Gbps** fiber connectivity.
 
 *Single-mode fiber only (10km 1310nm optics). No multi-mode fiber nor copper. BiDi available for 10G an' 100G.*
 
-Ye needn't be moored in one o' th' buildings below. Some ports also take plain cross-connects from nearby buildings, listed under each port. Th' Astound suite at 200 Paul reaches SFMIX over a passive DWDM mux (tunable or colored DWDM optics required).
+Ye needn't be moored in one o' th' buildings below. SFMIX be also available from neighborin' buildings, listed under each port. At 200 Paul, SFMIX be also reachable over a passive DWDM mux in a nearby suite (tunable or colored DWDM optics required).
