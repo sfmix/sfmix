@@ -33,18 +33,58 @@ addresses ordinary routed prefixes.
   should be able to read the repo and the routing table and understand what
   is happening. This rules out designs whose debugging requires specialist
   tooling.
-- **Bulk and public traffic never crosses a mgmt-gw.** The mgmt-gws are small
-  CPU routers. Public services, pod internet egress and node-to-node traffic
-  ride a fabric VLAN on the node hosts' fabric links — 10G where available,
-  2x1G at scl04 until its FlexLOM is cabled.
-- **The mgmt side carries only internal, low-volume traffic:** admin access,
-  the API, scraping, logs.
+- **The management domain is the primary path for everything internal.**
+  etcd, kubelet, pod-to-pod, internal VIPs and pod internet egress all route
+  via the site mgmt-gw. This trades throughput for reliability deliberately —
+  see "Why the management domain is the primary path".
+- **The fabric carries public service traffic only.** VLAN 203 gives nodes at
+  sites without an edge router an address-efficient path into AS 12276 space.
+  Nothing internal depends on it.
 - **Same pattern everywhere:** the two core sites (sfo02, fmt01) are hubs that
   accept BGP clients from a `bgp listen range`; every client lists just the
   two hubs. Adding a node or a site never touches existing config.
 - **One private ASN per site.** No iBGP anywhere.
-- **Plain Linux routing on the nodes:** FRR plus k3s's built-in flannel in
-  `host-gw` mode. No overlay, no CNI-specific BGP layer.
+- **Plain Linux routing on the nodes:** FRR does all routing; the CNI does
+  only local bridging and IPAM. No overlay, no stretched-L2 dependency, no
+  CNI-specific BGP layer.
+
+## Why the management domain is the primary path
+
+Decided 2026-11-26. Reliability is the paramount property, and the mgmt-gw is
+the only device at each site with **two independent underlays**: the inband
+path (OSPF over VLAN 200, across the exchange fabric) and the OOB WireGuard
+mesh over commodity transit. Those fail independently — an SFMIX fabric fault
+and an internet fault are not the same event — so routing internal traffic
+through the management domain means a partition needs both down at once.
+
+That matters more than it first appears, because **etcd cannot split-brain**:
+Raft makes the minority side unavailable, never divergent. The residual
+hazards are a partitioned node's pods being rescheduled while the originals
+keep running, and anycast VIP divergence. Both get rarer in direct proportion
+to how rare partitions are — so a dual-underlay path beats a fast single one.
+
+A stretched L2 has exactly one path. If the stretch breaks the segment is
+simply gone, and `host-gw`'s kernel routes do not withdraw when the L2
+disappears; they blackhole rather than reroute. Relying on L2 stretching also
+does not scale. The exchange is built on L3 routing and the cluster's
+internals should be too.
+
+**The accepted cost: the mgmt-gws are all-CPU and top out around 200 Mbit.**
+Every internal flow, including cross-site pod-to-pod, passes through one. That
+is acceptable for this workload set — stateless web services, exporters and
+bots — and the ceiling is a known, documented limit rather than a surprise.
+
+**The future fast path.** When it earns its complexity, nodes can route L3 over
+the fabric directly and prefer that path, falling back to the management
+domain when it is unavailable. That is additive — a second BGP relationship
+and a route preference — not a rebuild, and deliberately not day-one work.
+
+**A degraded path is not a partition, and can be worse.** When the inband path
+drops and traffic shifts to a tunnel, etcd keeps exchanging heartbeats over a
+far slower link. If that tunnel congests, latency can cross the election
+timeout and the cluster flaps leaders instead of failing cleanly. Mark etcd and
+API traffic and schedule it ahead of bulk at every congestion point — the scl04
+LAG and the tunnel path both qualify. See "QoS and MTU".
 
 ## Infrastructure strata
 
@@ -501,14 +541,18 @@ on this same switch rather than waiting for a cross-connect to switch01.scl04,
 which would remove the per-flow cap, the etcd contention and the shared failure
 domain in one step.
 
-#### East-west: flannel host-gw
+#### East-west does not ride the fabric
 
-All nodes share one L2 segment, so k3s's built-in flannel in `host-gw` mode
-installs a plain kernel route per remote node (`10.42.X.0/24 via <node>`,
-same for IPv6). Node-to-node traffic goes switch to switch over the fabric,
-never through a router. k3s node IP = the fabric address, so etcd and kubelet
-traffic use the 10G path too. (Verify dual-stack `host-gw` on the k3s
-version we pick.)
+**Superseded 2026-11-26.** East-west — etcd, kubelet and pod-to-pod — routes
+through the management domain, not this VLAN. The fabric leg exists so that a
+node at a site without an edge router can reach AS 12276 space efficiently; it
+carries public service traffic and nothing internal.
+
+This removes the stretched-L2 dependency entirely. `host-gw` required all nodes
+to share one segment, and was validated working on 2026-11-23 (see the bootstrap
+runbook) before the architecture changed — those findings are kept because the
+`--flannel-iface` lesson still applies to any flannel deployment, but `host-gw`
+is no longer the chosen path.
 
 #### North-south: edges as hubs
 
@@ -532,15 +576,17 @@ peer-group the edges could also hand pod routes between nodes (next hop
 unchanged on the shared VLAN), replacing flannel's routes. We don't, to keep
 east-west independent of the edges.
 
-### Mgmt leg: internal only
+### Mgmt leg: internal everything
 
 #### Node ↔ its site's mgmt-gw
 
 - mgmt-gw: `bgp listen range` for the site's `K8S-NODES` subnet into
   peer-group `K8S`, `remote-as external`, BFD.
-- **Node announces:** internal VIPs, its pod IPv4 `/24`, its pod IPv6 `/64`
-  (so internal clients reach pods directly and replies come back the same
-  way).
+- **Node announces:** internal VIPs, its pod IPv4 `/24`, its pod IPv6 `/64`.
+  Since 2026-11-26 these are also how **east-west** works: a node reaches
+  another node's pods by the route its mgmt-gw learned, not over a shared
+  segment. Internal clients reach pods directly and replies return the same
+  way.
 - **Node receives nothing.** Internal destinations (`10.0.0.0/8`,
   `2620:11a:b00f::/48`) are static routes on the node via the mgmt-gw; the
   default stays on the fabric.
@@ -726,7 +772,9 @@ withdrawal.
 
 - **k3s with embedded etcd**, three servers. Witness:
   `--disable-apiserver --disable-controller-manager --disable-scheduler`.
-  `--flannel-backend=host-gw`, dual-stack `--cluster-cidr` and
+  `--flannel-backend=none` with the stock `bridge` + `host-local` CNI plugins
+  doing only local bridging and IPAM (FRR advertises the resulting `cni0`
+  connected route), dual-stack `--cluster-cidr` and
   `--service-cidr` from the table, `--cluster-domain=k8s.sfmix.org`,
   `--flannel-ipv6-masq` off (pods are public), servicelb and traefik
   disabled, k3s's built-in network policy controller kept. `--tls-san` for the
@@ -786,10 +834,12 @@ on pve02.scl04, mgmt leg only) running **k3s v1.37.2+k3s1**:
 
 - **Why not Calico or Cilium:** both can route natively without an overlay
   (Calico is BIRD underneath), but each brings its own control plane, CRDs
-  and BGP configuration model on top. With the stretched VLAN, flannel
-  `host-gw` already gives overlay-free pod routing, and FRR is the same
-  routing stack the mgmt-gws and edges run — which matters when the operators
-  are volunteer network engineers.
+  and BGP configuration model on top. Here FRR already does all the routing
+  and the CNI does nothing clever — `bridge` + `host-local` allocate from the
+  node's podCIDR onto `cni0` and stop there. FRR is the same routing stack the
+  mgmt-gws and edges run, which matters when the operators are volunteer
+  network engineers. That is *more* in the plain-Linux spirit than flannel
+  was, not less.
 
 ### Security
 
@@ -816,12 +866,21 @@ on pve02.scl04, mgmt leg only) running **k3s v1.37.2+k3s1**:
 | two members down | no quorum; no changes possible | down | running pods keep serving |
 | one edge-gw down | unaffected | unaffected | the other edge |
 | one mgmt-gw hub down | unaffected | the other hub carries routes | unaffected |
-| a spoke mgmt-gw down | unaffected (etcd rides the fabric) | that site's node unreachable internally | unaffected |
+| a spoke mgmt-gw down | that site's member unreachable; 2/3 remains | that site's node unreachable | unaffected (fabric is independent) |
+| fabric (VLAN 200/203) down, tunnels up | degraded: control plane rides tunnels, needs DSCP priority | works, slowly | public VIP path down |
 | mgmt-switch.scl04 down (interim path) | 2/3 | scl04 node unreachable on both legs | BFD withdraws in ~1 s; sfo02 node serves |
 | FRR restart on a node | unaffected | GR holds routes | GR holds routes |
 | OpenBao sealed or down | unaffected | unaffected | running workloads keep their delivered secrets |
 
 ## Bootstrap runbook
+
+> **Historical record, partly superseded.** This section documents the
+> 2026-11-23 bring-up as it actually happened, including the `host-gw`
+> validation. The architecture changed on 2026-11-26: east-west now routes
+> through the management domain, so a rebuild uses `--flannel-backend=none`
+> with `bridge` + `host-local`, and `--node-ip` on the **mgmt** leg rather
+> than the fabric. The `--flannel-iface` and witness-taint lessons below still
+> apply. Steps 1 and 2 (trunk ports, layer-2 proof) are unaffected.
 
 State as of 2026-11-23. VLAN 203 and `vxlan vlan 203 vni 203` are configured
 and verified on 14 of 15 peering switches; `switch01.sjc01` does not resolve in
